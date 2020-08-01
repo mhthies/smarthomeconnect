@@ -1,7 +1,5 @@
 from typing import TypeVar, Dict, Tuple, Type, Callable
 
-from . import datatypes
-
 S = TypeVar('S')
 T = TypeVar('T')
 
@@ -29,14 +27,3 @@ register_converter(str, int, lambda v: int(v))
 register_converter(int, bool, lambda v: bool(v))
 register_converter(float, bool, lambda v: bool(v))
 register_converter(str, bool, lambda v: bool(v))
-register_converter(datatypes.RangeFloat1, datatypes.RangeInt0To100, lambda v: datatypes.RangeInt0To100(round(v * 100)))
-register_converter(datatypes.RangeUInt8, datatypes.RangeInt0To100,
-                   lambda v: datatypes.RangeInt0To100(round(v * 100 / 255)))
-register_converter(datatypes.RangeUInt8, datatypes.RangeFloat1, lambda v: datatypes.RangeFloat1(v / 255))
-register_converter(datatypes.RangeInt0To100, datatypes.RangeFloat1, lambda v: datatypes.RangeFloat1(v / 100))
-register_converter(datatypes.RangeUInt8, bool, lambda v: bool(v))
-register_converter(datatypes.RangeFloat1, bool, lambda v: bool(v))
-register_converter(datatypes.RangeInt0To100, bool, lambda v: bool(v))
-register_converter(bool, datatypes.RangeUInt8, lambda v: datatypes.RangeUInt8(255 if v else 0))
-register_converter(bool, datatypes.RangeFloat1, lambda v: datatypes.RangeFloat1(1.0 if v else 0.0))
-register_converter(bool, datatypes.RangeInt0To100, lambda v: datatypes.RangeInt0To100(100 if v else 0))

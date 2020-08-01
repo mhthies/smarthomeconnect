@@ -1,20 +1,50 @@
 import asyncio
 import datetime
+import enum
 import logging
 from typing import List, Any, Dict, Tuple, Optional, Set
 
 import knxdclient
+from . import datatypes
 from .base import Writable, Subscribable, Reading, T
+from .conversion import register_converter
 from .supervisor import register_interface
 
 KNXGAD = knxdclient.GroupAddress
 
 logger = logging.getLogger(__name__)
 
+
+class KNXHVACMode(enum.Enum):
+    AUTO = 0
+    COMFORT = 1
+    STANDBY = 2
+    ECONOMY = 3
+    BUILDING_PROTECTION = 4
+
+
+class KNXUpDown(enum.Enum):
+    UP = False
+    DOWN = True
+
+    def __bool__(self):
+        return self.value
+
+
+register_converter(KNXHVACMode, int, lambda v: v.value)
+register_converter(int, KNXHVACMode, lambda v: KNXHVACMode(v))
+register_converter(KNXUpDown, bool, lambda v: v.value)
+register_converter(bool, KNXUpDown, lambda v: KNXUpDown(v))
+
+
 KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
     '1': (bool, knxdclient.KNXDPT.BOOLEAN),
+    '1.008': (KNXUpDown, knxdclient.KNXDPT.BOOLEAN),
     '4': (str, knxdclient.KNXDPT.CHAR),
     '5': (int, knxdclient.KNXDPT.UINT8),
+    '5.001': (datatypes.RangeUInt8, knxdclient.KNXDPT.UINT8),
+    '5.003': (datatypes.AngleUInt8, knxdclient.KNXDPT.UINT8),
+    '5.004': (datatypes.RangeInt0To100, knxdclient.KNXDPT.UINT8),
     '6': (int, knxdclient.KNXDPT.INT8),
     '7': (int, knxdclient.KNXDPT.UINT16),
     '8': (int, knxdclient.KNXDPT.INT16),
@@ -26,6 +56,7 @@ KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
     '14': (float, knxdclient.KNXDPT.FLOAT32),
     '16': (str, knxdclient.KNXDPT.STRING),
     '17': (int, knxdclient.KNXDPT.SCENE_NUMBER),
+    '20.102': (KNXHVACMode, knxdclient.KNXDPT.ENUM8),
 }
 
 
@@ -97,7 +128,7 @@ class KNXGroupVar(Subscribable, Writable, Reading):
         self.addr = addr
 
     async def update_from_bus(self, data: knxdclient.EncodedData, source: List[Any]) -> None:
-        value = knxdclient.decode_value(data, self.knx_major_dpt)
+        value = self.type(knxdclient.decode_value(data, self.knx_major_dpt))
         logger.debug("Got new value %s for KNX Group variable %s from bus", value, self.addr)
         await self._publish(value, source)
 

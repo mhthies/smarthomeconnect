@@ -7,6 +7,8 @@ logger = logging.getLogger(__name__)
 
 _REGISTERED_INTERFACES = set()
 
+event_loop = asyncio.get_event_loop()
+
 
 def register_interface(interface):
     _REGISTERED_INTERFACES.add(interface)
@@ -28,7 +30,6 @@ def handle_signal(sig: int, loop: asyncio.AbstractEventLoop):
 
 
 def main():
-    loop = asyncio.get_event_loop()
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-        loop.add_signal_handler(sig, functools.partial(handle_signal, sig, loop))
-    loop.run_until_complete(run())
+        event_loop.add_signal_handler(sig, functools.partial(handle_signal, sig, event_loop))
+    event_loop.run_until_complete(run())
