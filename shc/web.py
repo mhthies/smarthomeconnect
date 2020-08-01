@@ -2,6 +2,7 @@ import abc
 import asyncio
 import json
 import logging
+import os
 from typing import List, Dict, Any, Type
 
 import aiohttp.web
@@ -22,8 +23,9 @@ class WebServer:
         self._app = aiohttp.web.Application()
         self._app.add_routes([
             aiohttp.web.get("/", self._index_handler),
-            aiohttp.web.get("/{name}/", self._page_handler),
+            aiohttp.web.get("/page/{name}/", self._page_handler),
             aiohttp.web.get("/ws", self._websocket_handler),
+            aiohttp.web.static('/static', os.path.join(os.path.dirname(__file__), 'web_static')),
         ])
         register_interface(self)
 
@@ -47,7 +49,7 @@ class WebServer:
             return page
 
     async def _index_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
-        raise aiohttp.web.HTTPFound("/{}/".format(self.index_name))
+        raise aiohttp.web.HTTPFound("/page/{}/".format(self.index_name))
 
     async def _page_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
@@ -92,7 +94,7 @@ class WebPage:
 
     async def generate(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         # TODO use Jinja2 template
-        body = "<!DOCTYPE html><html><head></head><body>\n"\
+        body = "<!DOCTYPE html><html><head><script src=\"/static/main.js\"></script></head><body>\n"\
                + "\n".join(item.render() for item in self.items)\
                + "\n</body></html>"
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
