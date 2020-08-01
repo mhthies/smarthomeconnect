@@ -47,6 +47,21 @@ select_item.set_provider(michael_heating_mode)
 michael_heating_mode.subscribe(select_item)
 index_page.add_item(select_item)
 
+michael_blind_start = knx_connection.group(shc.knx.KNXGAD(2, 2, 9), "1.008")
+button_item = shc.web.StatelessButton(shc.knx.KNXUpDown.UP, "↑")
+button_item.subscribe(michael_blind_start)
+index_page.add_item(button_item)
+button_item2 = shc.web.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓")
+button_item2.subscribe(michael_blind_start)
+index_page.add_item(button_item2)
+
+michael_temp = shc.base.Variable(float)\
+    .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 2), "9", init=True))
+display_item = shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur")
+display_item.set_provider(michael_temp)
+michael_temp.subscribe(display_item)
+index_page.add_item(display_item)
+
 
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
 @shc.base.handler()

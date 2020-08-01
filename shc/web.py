@@ -181,3 +181,38 @@ class EnumSelect(WebDisplayWidget[enum.Enum], WebActionWidget[enum.Enum], WebIte
             .format(id=id(self),
                     options="".join("<option value=\"{value}\">{label}</option>"
                                     .format(value=json.dumps(e.value), label=e.name) for e in self.type))
+
+
+class StatelessButton(WebActionWidget[T], WebItem):
+    def __init__(self, value: T, label: str):
+        self.type = type(value)
+        super().__init__()
+        self.value = value
+        self.label = label
+        self.widgets = [self]
+
+    def convert_from_ws_value(self, value: Any) -> T:
+        return self.value
+
+    def render(self) -> str:
+        # TODO use Jinja2 templates
+        return "<div><button data-widget=\"stateless-button\" data-id=\"{id}\">{label}</button></div>"\
+            .format(id=id(self), label=self.label)
+
+
+class TextDisplay(WebDisplayWidget[T], WebItem):
+    def __init__(self, type_: Type[T], format_string: str, label: str):
+        self.type = type_
+        super().__init__()
+        self.format_string = format_string
+        self.label = label
+        self.widgets = [self]
+
+    def convert_to_ws_value(self, value: T) -> Any:
+        return self.format_string.format(value)
+
+    def render(self) -> str:
+        # TODO use Jinja2 templates
+        return "<div><strong>{label}</strong> <span data-id=\"{id}\" data-widget=\"text-display\"></span></div>"\
+            .format(id=id(self), label=self.label)
+

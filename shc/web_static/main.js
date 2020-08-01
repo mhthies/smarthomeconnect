@@ -38,9 +38,31 @@ function EnumSelectWidget(domElement, writeValue) {
     });
 }
 
+function StatelessButtonWidget(domElement, writeValue) {
+    const widget = this;
+    this.id = parseInt(domElement.getAttribute('data-id'));
+    this.subscribe = false;
+
+    domElement.addEventListener('click', function (event) {
+        writeValue(widget.id, null);
+    });
+}
+
+function TextDisplayWidget(domElement, writeValue) {
+    const widget = this;
+    this.id = parseInt(domElement.getAttribute('data-id'));
+    this.subscribe = true;
+
+    this.update = function(value) {
+        domElement.textContent = value;
+    };
+}
+
 const WIDGET_TYPES = new Map([
    ['switch', SwitchWidget],
-   ['enum-select', EnumSelectWidget]
+   ['enum-select', EnumSelectWidget],
+   ['stateless-button', StatelessButtonWidget],
+   ['text-display', TextDisplayWidget]
 ]);
 
 (function () {
