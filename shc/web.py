@@ -63,6 +63,7 @@ class WebServer:
         await ws.prepare(request)
 
         async for msg in ws:
+            msg: aiohttp.WSMessage
             if msg.type == aiohttp.WSMsgType.TEXT:
                 await self._websocket_dispatch(ws, msg)
             elif msg.type == aiohttp.WSMsgType.ERROR:
@@ -72,14 +73,14 @@ class WebServer:
             widget.ws_unsubscribe(ws)
         return ws
 
-    async def _websocket_dispatch(self, ws, msg) -> None:
-        data = json.loads(msg)
+    async def _websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
+        data = msg.json()
         # TODO error handling
         action = data["action"]
         if action == 'subscribe':
-            await self.widgets[data["widget"]].ws_subscribe(ws)
+            await self.widgets[data["id"]].ws_subscribe(ws)
         elif action == 'write':
-            await self.widgets[data["widget"]].write(data["value"], [ws])
+            await self.widgets[data["id"]].write(data["value"], [ws])
 
 
 class WebPage:
@@ -115,18 +116,22 @@ class WebWidget(Reading[T], Writable[T], Subscribable[T], metaclass=abc.ABCMeta)
         self.subscribed_websockets = set()
 
     async def write(self, value: T, source: List[Any]):
-        data = json.dumps({'widget': id(self),
+        data = json.dumps({'id': id(self),
                            'value': value})
-        await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
+        logger.debug("New value %s for widget id %s from %s. Publishing to %s subscribed websockets ...",
+                     value, id(self), source, len(self.subscribed_websockets))
         await self._publish(value, source)
+        await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
 
     async def ws_subscribe(self, ws):
+        logger.debug("New websocket subscription for widget id %s.", id(self))
         self.subscribed_websockets.add(ws)
-        data = json.dumps({'widget': id(self),
+        data = json.dumps({'id': id(self),
                            'value': await self._from_provider()})
         await ws.send_str(data)
 
     def ws_unsubscribe(self, ws):
+        logger.debug("Unsubscribing websocket from widget id %s.", id(self))
         self.subscribed_websockets.discard(ws)
 
     # TODO add connect() method
