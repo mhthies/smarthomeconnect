@@ -13,6 +13,7 @@ function ws_path(path) {
 function SwitchWidget(domElement, writeValue) {
     const widget = this;
     this.id = parseInt(domElement.getAttribute('data-id'));
+    this.subscribe = true;
 
     this.update = function(value) {
         domElement.checked = value;
@@ -63,6 +64,9 @@ const WIDGET_TYPES = new Map([
     function subscribe() {
         console.info("Websocket opened. Subscribing widget values ...");
         widgetMap.forEach(function(widget, id){
+            if (!widget.subscribe) {
+                return;
+            }
             ws.send(JSON.stringify({
                 'action': 'subscribe',
                 'id': id

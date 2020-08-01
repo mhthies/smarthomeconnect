@@ -1,9 +1,10 @@
 import abc
 import asyncio
+import enum
 import json
 import logging
 import os
-from typing import List, Dict, Any, Type, Set
+from typing import List, Dict, Any, Type, Set, Union
 
 import aiohttp.web
 
@@ -19,7 +20,7 @@ class WebServer:
         self.port = port
         self.index_name = index_name
         self._pages: Dict[str, WebPage] = {}
-        self.widgets: Dict[int, WebWidget] = {}
+        self.widgets: Dict[int, Union[WebDisplayWidget, WebActionWidget]] = {}
         self._app = aiohttp.web.Application()
         self._app.add_routes([
             aiohttp.web.get("/", self._index_handler),
@@ -80,7 +81,7 @@ class WebServer:
         if action == 'subscribe':
             await self.widgets[data["id"]].ws_subscribe(ws)
         elif action == 'write':
-            await self.widgets[data["id"]].write(data["value"], [ws])
+            await self.widgets[data["id"]].update_from_ws(data["value"], ws)
 
 
 class WebPage:
@@ -102,44 +103,57 @@ class WebPage:
 
 
 class WebItem(metaclass=abc.ABCMeta):
-    widgets: List["WebWidget"] = []
+    widgets: List[Union["WebDisplayWidget", "WebActionWidget"]] = []
 
     @abc.abstractmethod
     def render(self) -> str:
         pass
 
 
-class WebWidget(Reading[T], Writable[T], Subscribable[T], metaclass=abc.ABCMeta):
-    def __init__(self, type_: Type[T]):
-        self.type = type_
+class WebDisplayWidget(Reading[T], Writable[T], metaclass=abc.ABCMeta):
+    def __init__(self):
         super().__init__()
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
 
     async def write(self, value: T, source: List[Any]):
-        data = json.dumps({'id': id(self),
-                           'value': value})
         logger.debug("New value %s for widget id %s from %s. Publishing to %s subscribed websockets ...",
                      value, id(self), source, len(self.subscribed_websockets))
-        await self._publish(value, source)
+        await self._publish_to_ws(self.convert_to_ws_value(value))
+
+    async def _publish_to_ws(self, value):
+        data = json.dumps({'id': id(self),
+                           'value': value})
         await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
+
+    def convert_to_ws_value(self, value: T) -> Any:
+        return value
 
     async def ws_subscribe(self, ws):
         logger.debug("New websocket subscription for widget id %s.", id(self))
         self.subscribed_websockets.add(ws)
         data = json.dumps({'id': id(self),
-                           'value': await self._from_provider()})
+                           'value': self.convert_to_ws_value(await self._from_provider())})
         await ws.send_str(data)
 
     def ws_unsubscribe(self, ws):
         logger.debug("Unsubscribing websocket from widget id %s.", id(self))
         self.subscribed_websockets.discard(ws)
 
-    # TODO add connect() method
+
+class WebActionWidget(Subscribable[T], metaclass=abc.ABCMeta):
+    def convert_from_ws_value(self, value: Any) -> T:
+        return value
+
+    async def update_from_ws(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
+        await self._publish(self.convert_from_ws_value(value), [ws])
+        if isinstance(self, WebDisplayWidget):
+            await self._publish_to_ws(value)
 
 
-class Switch(WebWidget, WebItem):
+class Switch(WebDisplayWidget[bool], WebActionWidget[bool], WebItem):
     def __init__(self, label: str):
-        super().__init__(bool)
+        self.type = bool
+        super().__init__()
         self.label = label
         self.widgets = [self]
 
