@@ -6,6 +6,8 @@ import shc.base
 import shc.knx
 import shc.web
 import shc.datatypes
+import shc.timer
+import shc.supervisor
 
 
 knx_connection = shc.knx.KNXConnector()
@@ -27,7 +29,7 @@ async def update_lastchange(new_value, source) -> None:
     await michael_li_lastchange.write(datetime.datetime.now())
 
 
-web_interface = shc.web.WebServer("index")
+web_interface = shc.web.WebServer("localhost", 8080, "index")
 index_page = web_interface.page("index")
 
 sw_item = shc.web.Switch("Licht Michael")
@@ -37,19 +39,13 @@ michael_li.subscribe(sw_item)
 index_page.add_item(sw_item)
 
 
-async def main():
-    knx_task = asyncio.create_task(knx_connection.run())
-    web_task = asyncio.create_task(web_interface.run())
-    await asyncio.sleep(5)
-    #await michael_li.write(True, ["main"])
-    await asyncio.sleep(5)
-    #await michael_li.write(False, ["main"])
-    await asyncio.sleep(5)
-    await knx_connection.stop()
-    await web_interface.stop()
-    await knx_task
-    await web_task
+@shc.timer.every(datetime.timedelta(seconds=10), align=False)
+@shc.base.handler
+async def toggle_light(value, source):
+    #await michael_li.write(not await michael_li.read())
+    pass
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(main(), debug=True)
+    shc.supervisor.main()

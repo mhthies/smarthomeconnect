@@ -5,6 +5,7 @@ from typing import List, Any, Dict, Tuple, Optional, Set
 
 import knxdclient
 from .base import Writable, Subscribable, Reading, T
+from .supervisor import register_interface
 
 KNXGAD = knxdclient.GroupAddress
 
@@ -29,14 +30,18 @@ KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
 
 
 class KNXConnector:
-    def __init__(self):
+    def __init__(self, host: str = 'localhost', port: int = 6720, sock: Optional[str] = None):
+        self.host = host
+        self.port = port
+        self.sock = sock
         self.groups: Dict[KNXGAD, KNXGroupVar] = {}
         self.knx = knxdclient.KNXDConnection()
         self.knx.register_telegram_handler(self._dispatch_telegram)
         self.init_request_groups: Set[KNXGAD] = set()
+        register_interface(self)
 
     async def run(self):
-        await self.knx.connect(host="localhost", port=6720)
+        await self.knx.connect(self.host, self.port, self.sock)
         knx_run_task = asyncio.create_task(self.knx.run())
         await self.knx.open_group_socket()
         await self._send_init_requests()

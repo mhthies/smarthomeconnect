@@ -7,30 +7,35 @@ from typing import List, Dict, Any, Type
 import aiohttp.web
 
 from .base import Subscribable, Writable, Reading, T
+from .supervisor import register_interface
 
 logger = logging.getLogger(__name__)
 
 
 class WebServer:
-    def __init__(self, index_name: str):
+    def __init__(self, host: str, port: int, index_name: str):
+        self.host = host
+        self.port = port
         self.index_name = index_name
         self._pages: Dict[str, WebPage] = {}
         self.widgets: Dict[int, WebWidget] = {}
         self._app = aiohttp.web.Application()
         self._app.add_routes([
-            aiohttp.web.get("/", self._page_handler),
+            aiohttp.web.get("/", self._index_handler),
             aiohttp.web.get("/{name}/", self._page_handler),
             aiohttp.web.get("/ws", self._websocket_handler),
         ])
+        register_interface(self)
 
     async def run(self) -> None:
+        logger.info("Starting up web server on %s:%s ...", self.host, self.port)
         self._runner = aiohttp.web.AppRunner(self._app)
         await self._runner.setup()
-        site = aiohttp.web.TCPSite(self._runner, 'localhost', 8080)
+        site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
         await site.start()
-        # wait for finish signal
 
     async def stop(self) -> None:
+        logger.info("Cleaning up AppRunner ...")
         await self._runner.cleanup()
 
     def page(self, name: str) -> "WebPage":
