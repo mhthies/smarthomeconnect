@@ -24,7 +24,7 @@ michael_li_value = shc.base.Variable(shc.datatypes.RangeUInt8)\
 
 
 @michael_li.trigger
-@shc.base.handler
+@shc.base.handler()
 async def update_lastchange(new_value, source) -> None:
     await michael_li_lastchange.write(datetime.datetime.now())
 
@@ -40,7 +40,7 @@ index_page.add_item(sw_item)
 
 
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
-@shc.base.handler
+@shc.base.handler()
 async def toggle_light(value, source):
     #await michael_li.write(not await michael_li.read())
     pass

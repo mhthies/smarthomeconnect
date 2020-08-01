@@ -108,12 +108,6 @@ class KNXGroupVar(Subscribable, Writable, Reading):
 
     async def write(self, value: T, source: List[Any]) -> None:
         logger.debug("New internal value %s for KNX Group variable %s from %s", value, self.addr, source)
-        if self in source:
-            # TODO does this make sense?
-            logger.warning("Skipping sending of KNX Group Variable %s to %s due to recursive event propagation: %s",
-                           self, value, source)
-            return
-
         encoded_data = knxdclient.encode_value(value, self.knx_major_dpt)
         await self.connector.send(self.addr, encoded_data)
         await self._publish(value, source)

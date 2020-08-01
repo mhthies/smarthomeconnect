@@ -44,7 +44,7 @@ class Subscribable(Generic[T]):
         await asyncio.gather(
             *(subscriber.write(convert(value) if convert else value, source + [self])
               for subscriber, force, convert in self._subscribers
-              if force or changed),
+              if (force or changed) and subscriber not in source),
             *(target(value, source + [self])
               for target, force in self._triggers
               if force or changed)
@@ -104,10 +104,6 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T], metaclass=
             except LookupError as e:
                 raise ValueError("No source attribute provided or set via execution context") from e
         logger.debug("New Variable value %s from %s", value, source)
-        if self in source:
-            logger.warning("Skipping update_from_bus of Variable %s to %s due to recursive event propagation: %s",
-                           self, value, source)
-            return
         changed = value != self._value
         self._value = value
         await self._publish(value, source, changed)
@@ -127,14 +123,19 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T], metaclass=
         return self
 
 
-def handler(f: LogicHandler) -> LogicHandler:
-    @functools.wraps(f)
-    async def wrapper(value, source) -> None:
-        logger.debug("Triggering logic handler %s() from %s", f.__name__, source)
-        try:
-            token = magicSourceVar.set(source + [f])
-            await f(value, source)
-            magicSourceVar.reset(token)
-        except Exception as e:
-            logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
-    return wrapper
+def handler(allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:
+    def decorator(f: LogicHandler) -> LogicHandler:
+        @functools.wraps(f)
+        async def wrapper(value, source) -> None:
+            if f in source and not allow_recursion:
+                logger.warning("Skipping recursive execution of logic handler %s() via %s", f.__name__, source)
+                return
+            logger.info("Triggering logic handler %s() from %s", f.__name__, source)
+            try:
+                token = magicSourceVar.set(source + [f])
+                await f(value, source)
+                magicSourceVar.reset(token)
+            except Exception as e:
+                logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
+        return wrapper
+    return decorator
