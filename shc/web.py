@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import List, Dict, Any, Type
+from typing import List, Dict, Any, Type, Set
 
 import aiohttp.web
 
@@ -62,8 +62,8 @@ class WebServer:
         ws = aiohttp.web.WebSocketResponse()
         await ws.prepare(request)
 
+        msg: aiohttp.WSMessage
         async for msg in ws:
-            msg: aiohttp.WSMessage
             if msg.type == aiohttp.WSMsgType.TEXT:
                 await self._websocket_dispatch(ws, msg)
             elif msg.type == aiohttp.WSMsgType.ERROR:
@@ -113,7 +113,7 @@ class WebWidget(Reading[T], Writable[T], Subscribable[T], metaclass=abc.ABCMeta)
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
-        self.subscribed_websockets = set()
+        self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
 
     async def write(self, value: T, source: List[Any]):
         data = json.dumps({'id': id(self),

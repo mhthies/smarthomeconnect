@@ -71,7 +71,7 @@ class Every(AbstractTimer, Subscribable[None]):
         while True:
             next_execution = self._next_execution()
             await self._logarithmic_sleep(next_execution)
-            self.last_execution = datetime.datetime.now().astimezone()
+            self.last_execution = next_execution
             asyncio.create_task(self._publish(None, [], changed=True))
 
     def _next_execution(self) -> datetime.datetime:
@@ -94,7 +94,7 @@ class Every(AbstractTimer, Subscribable[None]):
         if self.random_function == 'uniform':
             random_value = random.uniform(-1, 1)
         elif self.random_function == 'gauss':
-            random_value = random.gauss()
+            random_value = random.gauss(0, 0.5)
         else:
             raise ValueError("Unsupported random function '{}'".format(self.random_function))
         return self.random * random_value

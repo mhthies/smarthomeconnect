@@ -17,7 +17,7 @@ magicSourceVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_
 
 
 class Writable(Generic[T], metaclass=abc.ABCMeta):
-    type: Type[T] = None
+    type: Type[T] = type(None)
 
     @abc.abstractmethod
     async def write(self, value: T, source: List[Any]):
@@ -25,7 +25,7 @@ class Writable(Generic[T], metaclass=abc.ABCMeta):
 
 
 class Readable(Generic[T], metaclass=abc.ABCMeta):
-    type: Type[T] = None
+    type: Type[T] = type(None)
 
     @abc.abstractmethod
     async def read(self) -> T:
@@ -33,7 +33,7 @@ class Readable(Generic[T], metaclass=abc.ABCMeta):
 
 
 class Subscribable(Generic[T]):
-    type: Type[T] = None
+    type: Type[T] = type(None)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,8 +42,8 @@ class Subscribable(Generic[T]):
 
     async def _publish(self, value: T, source: List[Any], changed: bool = True):
         await asyncio.gather(
-            *(subscriber.write(convert(value) if convert else value, source + [self])
-              for subscriber, force, convert in self._subscribers
+            *(subscriber.write(converter(value) if converter else value, source + [self])
+              for subscriber, force, converter in self._subscribers
               if (force or changed) and subscriber not in source),
             *(target(value, source + [self])
               for target, force in self._triggers
@@ -52,14 +52,18 @@ class Subscribable(Generic[T]):
 
     def subscribe(self, subscriber: Writable[S], force_publish: bool = False,
                   convert: Union[Callable[[T], S], bool] = False):
+        converter: Optional[Callable[[T], S]]
         if convert is True:
-            convert = conversion.get_converter(self.type, subscriber.type)
+            converter = conversion.get_converter(self.type, subscriber.type)
         elif convert is False:
-            convert = None
+            converter = None
             if subscriber.type is not self.type:
                 raise TypeError("Type mismatch of subscriber {}: {} vs {}. You may want to use the `convert` parameter."
                                 .format(subscriber, self.type.__name__, subscriber.type.__name__))
-        self._subscribers.append((subscriber, force_publish, convert))
+        else:
+            assert(callable(convert))
+            converter = convert
+        self._subscribers.append((subscriber, force_publish, converter))
 
     def trigger(self, target: LogicHandler, force_trigger: bool = False) -> LogicHandler:
         self._triggers.append((target, force_trigger))
@@ -67,21 +71,25 @@ class Subscribable(Generic[T]):
 
 
 class Reading(Generic[T]):
-    type: Type[T] = None
+    type: Type[T] = type(None)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._default_provider = Optional[Tuple[Readable[S], Optional[Callable[[S], T]]]]
 
     def set_provider(self, provider: Readable[S], convert: Union[Callable[[S], T], bool] = False):
+        converter: Optional[Callable[[S], T]]
         if convert is True:
-            convert = conversion.get_converter(self.type, provider.type)
+            converter = conversion.get_converter(provider.type, self.type)
         elif convert is False:
-            convert = None
+            converter = None
             if provider.type is not self.type:
                 raise TypeError("Type mismatch of Readable {}: {} vs {}. You may want to use the `convert` parameter."
                                 .format(provider, self.type.__name__, provider.type.__name__))
-        self._default_provider = (provider, convert)
+        else:
+            assert(callable(convert))
+            converter = convert
+        self._default_provider = (provider, converter)
 
     async def _from_provider(self) -> Optional[T]:
         if self._default_provider is not None:
