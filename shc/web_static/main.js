@@ -24,8 +24,23 @@ function SwitchWidget(domElement, writeValue) {
     });
 }
 
+function EnumSelectWidget(domElement, writeValue) {
+    const widget = this;
+    this.id = parseInt(domElement.getAttribute('data-id'));
+    this.subscribe = true;
+
+    this.update = function(value) {
+        domElement.value = JSON.stringify(value);
+    };
+
+    domElement.addEventListener('change', function (event) {
+        writeValue(widget.id, JSON.parse(event.target.value));
+    });
+}
+
 const WIDGET_TYPES = new Map([
-   ['switch', SwitchWidget]
+   ['switch', SwitchWidget],
+   ['enum-select', EnumSelectWidget]
 ]);
 
 (function () {

@@ -161,3 +161,23 @@ class Switch(WebDisplayWidget[bool], WebActionWidget[bool], WebItem):
         # TODO use Jinja2 templates
         return "<div><input type=\"checkbox\" data-widget=\"switch\" data-id=\"{id}\" /> {label}</div>"\
             .format(label=self.label, id=id(self))
+
+
+class EnumSelect(WebDisplayWidget[enum.Enum], WebActionWidget[enum.Enum], WebItem):
+    def __init__(self, type_: Type[enum.Enum]):
+        self.type = type_
+        super().__init__()
+        self.widgets = [self]
+
+    def convert_to_ws_value(self, value: T) -> Any:
+        return value.value
+
+    def convert_from_ws_value(self, value: Any) -> T:
+        return self.type(value)
+
+    def render(self) -> str:
+        # TODO use Jinja2 templates
+        return "<div><select data-widget=\"enum-select\" data-id=\"{id}\">{options}</select></div>"\
+            .format(id=id(self),
+                    options="".join("<option value=\"{value}\">{label}</option>"
+                                    .format(value=json.dumps(e.value), label=e.name) for e in self.type))

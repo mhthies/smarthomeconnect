@@ -39,6 +39,15 @@ michael_li.subscribe(sw_item)
 index_page.add_item(sw_item)
 
 
+michael_heating_mode = shc.base.Variable(shc.knx.KNXHVACMode, shc.knx.KNXHVACMode.AUTO)\
+    .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 0), "20.102", init=True))
+select_item = shc.web.EnumSelect(shc.knx.KNXHVACMode)
+select_item.subscribe(michael_heating_mode)
+select_item.set_provider(michael_heating_mode)
+michael_heating_mode.subscribe(select_item)
+index_page.add_item(select_item)
+
+
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
 @shc.base.handler()
 async def toggle_light(value, source):
