@@ -52,8 +52,19 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
 
 
 class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
+    async def write(self, value: T, source: Optional[List[Any]] = None):
+        if source is None:
+            try:
+                source = magicSourceVar.get()
+            except LookupError as e:
+                raise ValueError("No source attribute provided or set via execution context") from e
+        if not isinstance(value, self.type):
+            raise TypeError("Invalid type for {}: {} is not a {}".format(self, value, self.type.__name__))
+        logger.debug("New value %s for %s from %s", value, self, source)
+        await self._write(value, source)
+
     @abc.abstractmethod
-    async def write(self, value: T, source: List[Any]):
+    async def _write(self, value: T, source: List[Any]):
         pass
 
 
@@ -143,13 +154,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                 self._variable_fields.append(variable_field)
                 setattr(self, name, variable_field)
 
-    async def write(self, value: T, source: Optional[List[Any]] = None) -> None:
-        if source is None:
-            try:
-                source = magicSourceVar.get()
-            except LookupError as e:
-                raise ValueError("No source attribute provided or set via execution context") from e
-        logger.debug("New Variable value %s from %s", value, source)
+    async def _write(self, value: T, source: List[Any]) -> None:
         changed = value != self._value
         self._value = value
         await self._publish(value, source, changed)
@@ -169,8 +174,8 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self.field = field
         # TODO make recursive by having fields itself
 
-    async def write(self, value: T, source: Optional[List[Any]] = None) -> None:
-        await self.parent.write(self.parent._value._replace(**{self.field: value}))
+    async def _write(self, value: T, source: List[Any]) -> None:
+        await self.parent._write(self.parent._value._replace(**{self.field: value}), source + [self])
 
     async def read(self) -> T:
         return getattr(self.parent._value, self.field)

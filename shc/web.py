@@ -117,14 +117,13 @@ class WebDisplayWidget(Reading[T], Writable[T], metaclass=abc.ABCMeta):
         super().__init__()
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
 
-    async def write(self, value: T, source: List[Any]):
-        logger.debug("New value %s for widget id %s from %s. Publishing to %s subscribed websockets ...",
-                     value, id(self), source, len(self.subscribed_websockets))
+    async def _write(self, value: T, source: List[Any]):
         await self._publish_to_ws(self.convert_to_ws_value(value))
 
     async def _publish_to_ws(self, value):
-        data = json.dumps({'id': id(self),
-                           'value': value})
+        logger.debug("Publishing value %s for %s for %s subscribed websockets ...",
+                     value, id(self), len(self.subscribed_websockets))
+        data = json.dumps({'id': id(self), 'value': value})
         await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
 
     def convert_to_ws_value(self, value: T) -> Any:
@@ -141,8 +140,11 @@ class WebDisplayWidget(Reading[T], Writable[T], metaclass=abc.ABCMeta):
         await ws.send_str(data)
 
     def ws_unsubscribe(self, ws):
-        logger.debug("Unsubscribing websocket from widget id %s.", id(self))
+        logger.debug("Unsubscribing websocket from %s.", self)
         self.subscribed_websockets.discard(ws)
+
+    def __repr__(self):
+        return "{}<id={}>".format(self.__class__.__name__, id(self))
 
 
 class WebActionWidget(Subscribable[T], metaclass=abc.ABCMeta):

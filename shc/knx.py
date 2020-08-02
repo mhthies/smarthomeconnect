@@ -137,8 +137,10 @@ class KNXGroupVar(Subscribable, Writable, Reading):
             return None
         return knxdclient.encode_value(self._default_provider.read(), self.knx_major_dpt)
 
-    async def write(self, value: T, source: List[Any]) -> None:
-        logger.debug("New internal value %s for KNX Group variable %s from %s", value, self.addr, source)
+    async def _write(self, value: T, source: List[Any]) -> None:
         encoded_data = knxdclient.encode_value(value, self.knx_major_dpt)
         await self.connector.send(self.addr, encoded_data)
         await self._publish(value, source)
+
+    def __repr__(self) -> str:
+        return "{}(GAD={})".format(self.__class__.__name__, self.addr)
