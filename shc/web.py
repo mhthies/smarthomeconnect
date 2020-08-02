@@ -1,10 +1,11 @@
 import abc
 import asyncio
 import enum
+import itertools
 import json
 import logging
 import os
-from typing import List, Dict, Any, Type, Set, Union
+from typing import List, Dict, Any, Type, Set, Union, Iterable
 
 import aiohttp.web
 
@@ -20,7 +21,7 @@ class WebServer:
         self.port = port
         self.index_name = index_name
         self._pages: Dict[str, WebPage] = {}
-        self.widgets: Dict[int, Union[WebDisplayWidget, WebActionWidget]] = {}
+        self.datapoints: Dict[int, Union[WebDisplayDatapoint, WebActionDatapoint]] = {}
         self._app = aiohttp.web.Application()
         self._app.add_routes([
             aiohttp.web.get("/", self._index_handler),
@@ -32,6 +33,9 @@ class WebServer:
 
     async def run(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
+        self.datapoints = {id(datapoint): datapoint
+                           for datapoint in itertools.chain.from_iterable(page.get_datapoints()
+                                                                          for page in self._pages.values())}
         self._runner = aiohttp.web.AppRunner(self._app)
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
@@ -70,8 +74,10 @@ class WebServer:
             elif msg.type == aiohttp.WSMsgType.ERROR:
                 logger.info('ws connection closed with exception %s', ws.exception())
         logger.debug('websocket connection closed')
-        for widget in self.widgets.values():
-            widget.ws_unsubscribe(ws)
+        # Make sure the websocket is removed as a subscriber from all WebDisplayDatapoints
+        for datapoint in self.datapoints.values():
+            if isinstance(datapoint, WebDisplayDatapoint):
+                datapoint.ws_unsubscribe(ws)
         return ws
 
     async def _websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
@@ -79,20 +85,28 @@ class WebServer:
         # TODO error handling
         action = data["action"]
         if action == 'subscribe':
-            await self.widgets[data["id"]].ws_subscribe(ws)
+            await self.datapoints[data["id"]].ws_subscribe(ws)
         elif action == 'write':
-            await self.widgets[data["id"]].update_from_ws(data["value"], ws)
+            await self.datapoints[data["id"]].update_from_ws(data["value"], ws)
 
 
-class WebPage:
+class WebDatapointContainer(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        pass
+
+
+class WebPage(WebDatapointContainer):
     def __init__(self, server: WebServer, name: str):
         self.server = server
         self.name = name
-        self.items: List[WebItem] = []
+        self.items: List[WebPageItem] = []
 
-    def add_item(self, item: "WebItem"):
+    def add_item(self, item: "WebPageItem"):
         self.items.append(item)
-        self.server.widgets.update({id(widget): widget for widget in item.widgets})
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return itertools.chain.from_iterable(item.get_datapoints() for item in self.items)
 
     async def generate(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         # TODO use Jinja2 template
@@ -102,15 +116,13 @@ class WebPage:
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
 
-class WebItem(metaclass=abc.ABCMeta):
-    widgets: List[Union["WebDisplayWidget", "WebActionWidget"]] = []
-
+class WebPageItem(WebDatapointContainer, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def render(self) -> str:
         pass
 
 
-class WebDisplayWidget(Reading[T], Writable[T], metaclass=abc.ABCMeta):
+class WebDisplayDatapoint(Reading[T], Writable[T], metaclass=abc.ABCMeta):
     is_reading_optional = False
 
     def __init__(self):
@@ -147,22 +159,25 @@ class WebDisplayWidget(Reading[T], Writable[T], metaclass=abc.ABCMeta):
         return "{}<id={}>".format(self.__class__.__name__, id(self))
 
 
-class WebActionWidget(Subscribable[T], metaclass=abc.ABCMeta):
+class WebActionDatapoint(Subscribable[T], metaclass=abc.ABCMeta):
     def convert_from_ws_value(self, value: Any) -> T:
         return value
 
     async def update_from_ws(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         await self._publish(self.convert_from_ws_value(value), [ws])
-        if isinstance(self, WebDisplayWidget):
+        if isinstance(self, WebDisplayDatapoint):
             await self._publish_to_ws(value)
 
 
-class Switch(WebDisplayWidget[bool], WebActionWidget[bool], WebItem):
+class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
     def __init__(self, label: str):
         self.type = bool
         super().__init__()
         self.label = label
         self.widgets = [self]
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return (self,)
 
     def render(self) -> str:
         # TODO use Jinja2 templates
@@ -170,11 +185,14 @@ class Switch(WebDisplayWidget[bool], WebActionWidget[bool], WebItem):
             .format(label=self.label, id=id(self))
 
 
-class EnumSelect(WebDisplayWidget[enum.Enum], WebActionWidget[enum.Enum], WebItem):
+class EnumSelect(WebDisplayDatapoint[enum.Enum], WebActionDatapoint[enum.Enum], WebPageItem):
     def __init__(self, type_: Type[enum.Enum]):
         self.type = type_
         super().__init__()
         self.widgets = [self]
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return (self,)
 
     def convert_to_ws_value(self, value: T) -> Any:
         return value.value
@@ -190,13 +208,16 @@ class EnumSelect(WebDisplayWidget[enum.Enum], WebActionWidget[enum.Enum], WebIte
                                     .format(value=json.dumps(e.value), label=e.name) for e in self.type))
 
 
-class StatelessButton(WebActionWidget[T], WebItem):
+class StatelessButton(WebActionDatapoint[T], WebPageItem):
     def __init__(self, value: T, label: str):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
         self.widgets = [self]
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return (self,)
 
     def convert_from_ws_value(self, value: Any) -> T:
         return self.value
@@ -207,13 +228,16 @@ class StatelessButton(WebActionWidget[T], WebItem):
             .format(id=id(self), label=self.label)
 
 
-class TextDisplay(WebDisplayWidget[T], WebItem):
+class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
     def __init__(self, type_: Type[T], format_string: str, label: str):
         self.type = type_
         super().__init__()
         self.format_string = format_string
         self.label = label
         self.widgets = [self]
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return (self,)
 
     def convert_to_ws_value(self, value: T) -> Any:
         return self.format_string.format(value)
