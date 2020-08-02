@@ -110,8 +110,8 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         elif convert is False:
             converter = None
             if subscriber.type is not self.type:
-                raise TypeError("Type mismatch of subscriber {}: {} vs {}. You may want to use the `convert` parameter."
-                                .format(subscriber, self.type.__name__, subscriber.type.__name__))
+                raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
+                                .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
         else:
             assert(callable(convert))
             converter = convert
@@ -136,8 +136,8 @@ class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         elif convert is False:
             converter = None
             if provider.type is not self.type:
-                raise TypeError("Type mismatch of Readable {}: {} vs {}. You may want to use the `convert` parameter."
-                                .format(provider, self.type.__name__, provider.type.__name__))
+                raise TypeError("Type mismatch of Readable {} ({}) as provider for {} ({})"
+                                .format(repr(provider), provider.type.__name__, repr(self), self.type.__name__))
         else:
             assert(callable(convert))
             converter = convert
