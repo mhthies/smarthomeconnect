@@ -2,9 +2,10 @@ import asyncio
 from typing import Generic, Type, Optional, get_type_hints, List, Any
 
 from shc.base import Writable, T, Readable, Subscribable
+from shc.expressions import ExpressionBuilder
 
 
-class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
+class Variable(Writable[T], Readable[T], Subscribable[T], ExpressionBuilder, Generic[T]):
     def __init__(self, type_: Type[T], initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
