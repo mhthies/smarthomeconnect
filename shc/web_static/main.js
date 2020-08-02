@@ -12,48 +12,45 @@ function ws_path(path) {
 
 function SwitchWidget(domElement, writeValue) {
     const widget = this;
-    this.id = parseInt(domElement.getAttribute('data-id'));
-    this.subscribe = true;
+    this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
 
-    this.update = function(value) {
+    this.update = function(value, for_id) {
         domElement.checked = value;
     };
 
     domElement.addEventListener('change', function (event) {
-        writeValue(widget.id, event.target.checked);
+        writeValue(widget.subscribeIds[0], event.target.checked);
     });
 }
 
 function EnumSelectWidget(domElement, writeValue) {
     const widget = this;
-    this.id = parseInt(domElement.getAttribute('data-id'));
-    this.subscribe = true;
+    this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
 
-    this.update = function(value) {
+    this.update = function(value, for_id) {
         domElement.value = JSON.stringify(value);
     };
 
     domElement.addEventListener('change', function (event) {
-        writeValue(widget.id, JSON.parse(event.target.value));
+        writeValue(widget.subscribeIds[0], JSON.parse(event.target.value));
     });
 }
 
 function StatelessButtonWidget(domElement, writeValue) {
     const widget = this;
-    this.id = parseInt(domElement.getAttribute('data-id'));
-    this.subscribe = false;
+    const id = parseInt(domElement.getAttribute('data-id'));
+    this.subscribeIds = [];
 
     domElement.addEventListener('click', function (event) {
-        writeValue(widget.id, null);
+        writeValue(id, null);
     });
 }
 
 function TextDisplayWidget(domElement, writeValue) {
     const widget = this;
-    this.id = parseInt(domElement.getAttribute('data-id'));
-    this.subscribe = true;
+    this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
 
-    this.update = function(value) {
+    this.update = function(value, for_id) {
         domElement.textContent = value;
     };
 }
@@ -72,11 +69,13 @@ const WIDGET_TYPES = new Map([
     function init() {
         console.info("Intializing Smart Home Connect web UI.");
         const widgetElements = document.querySelectorAll('[data-widget]');
-        widgetElements.forEach(function (widgetElement) {
+        for (const widgetElement of widgetElements) {
             let type = widgetElement.getAttribute('data-widget');
             let obj = new (WIDGET_TYPES.get(type))(widgetElement, writeValue);
-            widgetMap.set(obj.id, obj);
-        });
+            for (const the_id of obj.subscribeIds) {
+                widgetMap.set(the_id, obj);
+            }
+        }
 
         openWebsocket();
     }
@@ -100,15 +99,12 @@ const WIDGET_TYPES = new Map([
 
     function subscribe() {
         console.info("Websocket opened. Subscribing widget values ...");
-        widgetMap.forEach(function(widget, id){
-            if (!widget.subscribe) {
-                return;
-            }
+        for (const id of widgetMap.keys()) {
             ws.send(JSON.stringify({
                 'action': 'subscribe',
                 'id': id
             }));
-        });
+        }
     }
 
     function dispatch_message(messageEvent) {
