@@ -96,7 +96,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         await asyncio.gather(
             *(self.__publish_write(subscriber, converter, value, source)
               for subscriber, force, converter in self._subscribers
-              if (force or changed) and subscriber not in source),
+              if (force or changed) and not any(subscriber is s for s in source)),
             *(self.__publish_trigger(target, value, source)
               for target, force in self._triggers
               if force or changed)
@@ -155,7 +155,7 @@ def handler(allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:
     def decorator(f: LogicHandler) -> LogicHandler:
         @functools.wraps(f)
         async def wrapper(value, source) -> None:
-            if f in source and not allow_recursion:
+            if any(f is s for s in source) and not allow_recursion:
                 logger.warning("Skipping recursive execution of logic handler %s() via %s", f.__name__, source)
                 return
             logger.info("Triggering logic handler %s() from %s", f.__name__, source)
