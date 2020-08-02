@@ -111,6 +111,8 @@ class WebItem(metaclass=abc.ABCMeta):
 
 
 class WebDisplayWidget(Reading[T], Writable[T], metaclass=abc.ABCMeta):
+    is_reading_optional = False
+
     def __init__(self):
         super().__init__()
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
@@ -129,6 +131,9 @@ class WebDisplayWidget(Reading[T], Writable[T], metaclass=abc.ABCMeta):
         return value
 
     async def ws_subscribe(self, ws):
+        if self._default_provider is None:
+            logger.error("Cannot handle websocket subscription for %s, since not read provider is registered.", self)
+            return
         logger.debug("New websocket subscription for widget id %s.", id(self))
         self.subscribed_websockets.add(ws)
         data = json.dumps({'id': id(self),

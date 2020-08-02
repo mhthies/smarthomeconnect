@@ -16,25 +16,54 @@ logger = logging.getLogger(__name__)
 magicSourceVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_source')
 
 
-class Writable(Generic[T], metaclass=abc.ABCMeta):
-    type: Type[T] = type(None)
+class Connectable(Generic[T], metaclass=abc.ABCMeta):
+    type: Type[T] = None
 
+    def connect(self, other: "Connectable",
+                send: Optional[bool] = None,
+                force_send: bool = False,
+                receive: Optional[bool] = None,
+                force_receive: bool = False,
+                read: Optional[bool] = None,
+                provide: Optional[bool] = None,
+                convert: bool = False) -> "Connectable":
+        self._connect_with(self, other, send, force_send, provide, convert)
+        self._connect_with(other, self, receive, force_receive, read, convert)
+        return self
+
+    @staticmethod
+    def _connect_with(source: "Connectable", target: "Connectable", send: Optional[bool], force_send: bool,
+                      provide: Optional[bool], convert: bool):
+        if isinstance(source, Subscribable) and isinstance(target, Writable) and (send or send is None):
+            source.subscribe(target, force_send, convert=convert)
+        elif send and not isinstance(source, Subscribable):
+            raise TypeError("Cannot subscribe {} to {}, since the latter is not Subscribable".format(target, source))
+        elif send and not isinstance(target, Writable):
+            raise TypeError("Cannot subscribe {} to {}, since the former is not Writable".format(target, source))
+        if isinstance(source, Readable) and isinstance(target, Reading) \
+                and (provide or (provide is None and not target.is_reading_optional)):
+            target.set_provider(source, convert=convert)
+        elif provide and not isinstance(source, Readable):
+            raise TypeError("Cannot use {} as read provider for {}, since the former is not Readable"
+                            .format(source, target))
+        elif provide and not isinstance(target, Reading):
+            raise TypeError("Cannot use {} as read provider for {}, since the latter is not Reading"
+                            .format(source, target))
+
+
+class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def write(self, value: T, source: List[Any]):
         pass
 
 
-class Readable(Generic[T], metaclass=abc.ABCMeta):
-    type: Type[T] = type(None)
-
+class Readable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def read(self) -> T:
         pass
 
 
-class Subscribable(Generic[T]):
-    type: Type[T] = type(None)
-
+class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._subscribers: List[Tuple[Writable[S], bool, Optional[Callable[[T], S]]]] = []
@@ -70,12 +99,12 @@ class Subscribable(Generic[T]):
         return target
 
 
-class Reading(Generic[T]):
-    type: Type[T] = type(None)
+class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
+    is_reading_optional: bool = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._default_provider = Optional[Tuple[Readable[S], Optional[Callable[[S], T]]]]
+        self._default_provider: Optional[Tuple[Readable[S], Optional[Callable[[S], T]]]] = None
 
     def set_provider(self, provider: Readable[S], convert: Union[Callable[[S], T], bool] = False):
         converter: Optional[Callable[[S], T]]
@@ -131,17 +160,6 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     async def read(self) -> T:
         return self._value
 
-    def connect(self, other, send: bool = True, force_send: bool = False, receive: bool = True,
-                force_receive: bool = False, init: bool = False, provide: bool = False,
-                convert: bool = False) -> "Variable":
-        if isinstance(other, Writable) and send:
-            self.subscribe(other, force_send, convert=convert)
-        if isinstance(other, Subscribable) and receive:
-            other.subscribe(self, force_receive, convert=convert)
-        if isinstance(other, Reading) and provide:
-            other.set_provider(self, convert=convert)
-        return self
-
 
 class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     def __init__(self, parent: Variable, field: str, type_: Type[T]):
@@ -156,18 +174,6 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
     async def read(self) -> T:
         return getattr(self.parent._value, self.field)
-
-    def connect(self, other, send: bool = True, force_send: bool = False, receive: bool = True,
-                force_receive: bool = False, init: bool = False, provide: bool = False,
-                convert: bool = False) -> "VariableField":
-        # TODO remove code duplication (e.g. global parent class Connectable?)
-        if isinstance(other, Writable) and send:
-            self.subscribe(other, force_send, convert=convert)
-        if isinstance(other, Subscribable) and receive:
-            other.subscribe(self, force_receive, convert=convert)
-        if isinstance(other, Reading) and provide:
-            other.set_provider(self, convert=convert)
-        return self
 
 
 def handler(allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:

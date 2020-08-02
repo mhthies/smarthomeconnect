@@ -72,7 +72,7 @@ class Every(AbstractTimer, Subscribable[None]):
             next_execution = self._next_execution()
             await self._logarithmic_sleep(next_execution)
             self.last_execution = next_execution
-            asyncio.create_task(self._publish(None, [], changed=True))
+            asyncio.create_task(self._publish(None, []))
 
     def _next_execution(self) -> datetime.datetime:
         if self.align:
