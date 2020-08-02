@@ -80,12 +80,24 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         self._subscribers: List[Tuple[Writable[S], bool, Optional[Callable[[T], S]]]] = []
         self._triggers: List[Tuple[LogicHandler, bool]] = []
 
+    async def __publish_write(self, subscriber: Writable[S], converter: Callable[[T], S], value: T, source: List[Any]):
+        try:
+            await subscriber.write(converter(value) if converter else value, source + [self])
+        except Exception as e:
+            logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
+
+    async def __publish_trigger(self, target: LogicHandler, value: T, source: List[Any]):
+        try:
+            await target(value, source + [self])
+        except Exception as e:
+            logger.error("Error writing triggering %s from %s:", target, self, exc_info=e)
+
     async def _publish(self, value: T, source: List[Any], changed: bool = True):
         await asyncio.gather(
-            *(subscriber.write(converter(value) if converter else value, source + [self])
+            *(self.__publish_write(subscriber, converter, value, source)
               for subscriber, force, converter in self._subscribers
               if (force or changed) and subscriber not in source),
-            *(target(value, source + [self])
+            *(self.__publish_trigger(target, value, source)
               for target, force in self._triggers
               if force or changed)
         )
