@@ -4,6 +4,7 @@ import datetime
 
 import shc.base
 import shc.knx
+import shc.variables
 import shc.web
 import shc.datatypes
 import shc.timer
@@ -12,14 +13,14 @@ import shc.supervisor
 
 knx_connection = shc.knx.KNXConnector()
 
-michael_li = shc.base.Variable(bool)\
+michael_li = shc.variables.Variable(bool)\
     .connect(knx_connection.group(shc.knx.KNXGAD(1, 0, 2), "1", init=True))\
     .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 1), "1"), send=False)\
     .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 4), "1"), send=False)
 
-michael_li_lastchange = shc.base.Variable(datetime.datetime, datetime.datetime.fromtimestamp(0))
+michael_li_lastchange = shc.variables.Variable(datetime.datetime, datetime.datetime.fromtimestamp(0))
 
-michael_li_value = shc.base.Variable(shc.datatypes.RangeUInt8)\
+michael_li_value = shc.variables.Variable(shc.datatypes.RangeUInt8)\
     .connect(michael_li, convert=True)
 
 
@@ -36,7 +37,7 @@ index_page.add_item(shc.web.Switch("Licht Michael")
                     .connect(michael_li))
 
 
-michael_heating_mode = shc.base.Variable(shc.knx.KNXHVACMode, shc.knx.KNXHVACMode.AUTO)\
+michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, shc.knx.KNXHVACMode.AUTO)\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 0), "20.102", init=True))
 index_page.add_item(shc.web.EnumSelect(shc.knx.KNXHVACMode)
                     .connect(michael_heating_mode))
@@ -47,7 +48,7 @@ index_page.add_item(shc.web.StatelessButton(shc.knx.KNXUpDown.UP, "↑")
 index_page.add_item(shc.web.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓")
                     .connect(michael_blind_start))
 
-michael_temp = shc.base.Variable(float)\
+michael_temp = shc.variables.Variable(float)\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 2), "9", init=True))
 index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur")
                     .connect(michael_temp))
