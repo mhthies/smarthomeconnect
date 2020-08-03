@@ -1,9 +1,9 @@
 import abc
 import math
 import operator
-from typing import Type, Generic, Any, Iterable, Callable
+from typing import Type, Generic, Any, Iterable, Callable, Union
 
-from .base import Readable, Subscribable, T, Connectable
+from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler
 
 
 class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
@@ -153,6 +153,23 @@ def not_(a):
     if isinstance(a, Readable) and isinstance(a, Subscribable):
         return UnaryExpressionHandler(bool, a, operator.not_)
     return not a
+
+
+class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic[T]):
+    def __init__(self, wrapped: Subscribable[T]):
+        super().__init__()
+        self.wrapped = wrapped
+        self.type = wrapped.type
+
+    async def read(self) -> T:
+        return await self.wrapped.read()
+
+    def subscribe(self, subscriber: Writable[S], force_publish: bool = False,
+                  convert: Union[Callable[[T], S], bool] = False):
+        return self.wrapped.subscribe(subscriber, force_publish, convert)
+
+    def trigger(self, target: LogicHandler, force_trigger: bool = False) -> LogicHandler:
+        return self.wrapped.trigger(target, force_trigger)
 
 
 class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic[T], metaclass=abc.ABCMeta):

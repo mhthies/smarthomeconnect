@@ -2,10 +2,10 @@ import asyncio
 from typing import Generic, Type, Optional, get_type_hints, List, Any
 
 from shc.base import Writable, T, Readable, Subscribable
-from shc.expressions import ExpressionBuilder
+from shc.expressions import ExpressionWrapper
 
 
-class Variable(Writable[T], Readable[T], Subscribable[T], ExpressionBuilder, Generic[T]):
+class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     def __init__(self, type_: Type[T], initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
@@ -31,6 +31,10 @@ class Variable(Writable[T], Readable[T], Subscribable[T], ExpressionBuilder, Gen
     async def read(self) -> T:
         return self._value
 
+    @property
+    def EX(self) -> ExpressionWrapper:
+        return ExpressionWrapper(self)
+
 
 class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     def __init__(self, parent: Variable, field: str, type_: Type[T]):
@@ -45,3 +49,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
     async def read(self) -> T:
         return getattr(self.parent._value, self.field)
+
+    @property
+    def EX(self) -> ExpressionWrapper:
+        return ExpressionWrapper(self)

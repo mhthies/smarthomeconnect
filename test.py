@@ -54,13 +54,13 @@ index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur")
                     .connect(michael_temp))
 
 index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur +5")
-                    .connect(michael_temp + 5))
+                    .connect(michael_temp.EX + 5))
 
-temp_thresh = shc.variables.Variable(bool).connect((michael_temp + 5) > 35)
+temp_thresh = shc.variables.Variable(bool).connect((michael_temp.EX + 5) > 35)
 index_page.add_item(shc.web.TextDisplay(bool, "{}", "Temperatur > 25°C?")
                     .connect(temp_thresh))
 
-index_page.add_item(shc.web.Switch("Temp > 25").connect(michael_temp > 25))
+index_page.add_item(shc.web.Switch("Temp > 25").connect(michael_temp.EX > 25))
 
 
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
