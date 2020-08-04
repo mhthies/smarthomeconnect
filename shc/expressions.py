@@ -1,4 +1,5 @@
 import abc
+import datetime
 import math
 import operator
 from typing import Type, Generic, Any, Iterable, Callable, Union
@@ -16,15 +17,29 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
 
     def __add__(self, other) -> "BinaryExpressionHandler":
         other_type = self.__get_other_type(other)
-        if (self.type, other_type) in TYPES_ADD_SUB:
-            return BinaryExpressionHandler(TYPES_ADD_SUB[(self.type, other_type)], self, other, operator.add)
+        if (self.type, other_type) in TYPES_ADD:
+            return BinaryExpressionHandler(TYPES_ADD[(self.type, other_type)], self, other, operator.add)
         else:
             return NotImplemented
 
     def __radd__(self, other) -> "BinaryExpressionHandler":
         other_type = self.__get_other_type(other)
-        if (other_type, self.type) in TYPES_ADD_SUB:
-            return BinaryExpressionHandler(TYPES_ADD_SUB[(other_type, self.type)], other, self, operator.add)
+        if (other_type, self.type) in TYPES_ADD:
+            return BinaryExpressionHandler(TYPES_ADD[(other_type, self.type)], other, self, operator.add)
+        else:
+            return NotImplemented
+
+    def __sub__(self, other) -> "BinaryExpressionHandler":
+        other_type = self.__get_other_type(other)
+        if (self.type, other_type) in TYPES_SUB:
+            return BinaryExpressionHandler(TYPES_SUB[(self.type, other_type)], self, other, operator.sub)
+        else:
+            return NotImplemented
+
+    def __rsub__(self, other) -> "BinaryExpressionHandler":
+        other_type = self.__get_other_type(other)
+        if (other_type, self.type) in TYPES_SUB:
+            return BinaryExpressionHandler(TYPES_SUB[(other_type, self.type)], other, self, operator.sub)
         else:
             return NotImplemented
 
@@ -221,7 +236,7 @@ class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
         return "{}[{}({})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a))
 
 
-TYPES_ADD_SUB = {
+TYPES_ADD = {
     (int, int): int,
     (int, float): float,
     (float, int): float,
@@ -230,6 +245,24 @@ TYPES_ADD_SUB = {
     (int, bool): int,
     (bool, float): float,
     (float, bool): float,
+    (datetime.date, datetime.timedelta): datetime.date,
+    (datetime.datetime, datetime.timedelta): datetime.datetime,
+    (datetime.timedelta, datetime.date): datetime.date,
+    (datetime.timedelta, datetime.datetime): datetime.datetime,
+}
+TYPES_SUB = {
+    (int, int): int,
+    (int, float): float,
+    (float, int): float,
+    (float, float): float,
+    (bool, int): int,
+    (int, bool): int,
+    (bool, float): float,
+    (float, bool): float,
+    (datetime.date, datetime.date): datetime.timedelta,
+    (datetime.datetime, datetime.datetime): datetime.timedelta,
+    (datetime.date, datetime.timedelta): datetime.date,
+    (datetime.datetime, datetime.timedelta): datetime.datetime,
 }
 TYPES_MUL = {
     (int, int): int,
@@ -240,6 +273,10 @@ TYPES_MUL = {
     (int, bool): int,
     (bool, float): float,
     (float, bool): float,
+    (datetime.timedelta, float): datetime.timedelta,
+    (float, datetime.timedelta): datetime.timedelta,
+    (datetime.timedelta, int): datetime.timedelta,
+    (int, datetime.timedelta): datetime.timedelta,
 }
 TYPES_FLOORDIV = {
     (int, int): int,
@@ -250,6 +287,7 @@ TYPES_FLOORDIV = {
     (int, bool): int,
     (bool, float): float,
     (float, bool): float,
+    (datetime.timedelta, datetime.timedelta): int,
 }
 TYPES_TRUEDIV = {
     (int, int): float,
@@ -260,16 +298,21 @@ TYPES_TRUEDIV = {
     (int, bool): int,
     (bool, float): float,
     (float, bool): float,
+    (datetime.timedelta, datetime.timedelta): float,
+    (datetime.timedelta, int): datetime.timedelta,
+    (datetime.timedelta, float): datetime.timedelta,
 }
 TYPES_MOD = {
     (int, int): int,
     (float, int): float,
     (int, float): float,
     (float, float): float,
+    (datetime.timedelta, datetime.timedelta): datetime.timedelta,
 }
 TYPES_ABS = {
     int: int,
     float: float,
+    datetime.timedelta: datetime.timedelta,
 }
 TYPES_CEIL_FLOOR_ROUND = {
     int: int,
@@ -280,4 +323,7 @@ TYPES_LT_LE_GT_GE = {
     (int, float): bool,
     (float, int): bool,
     (float, float): bool,
+    (datetime.datetime, datetime.datetime): bool,
+    (datetime.date, datetime.date): bool,
+    (datetime.time, datetime.time): bool,
 }
