@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import datetime
+import random
 
 import shc.base
 import shc.knx
@@ -68,6 +69,15 @@ index_page.add_item(shc.web.Switch("Temp > 25").connect(michael_temp.EX > 25))
 async def toggle_light(value, source):
     #await michael_li.write(not await michael_li.read())
     pass
+
+some_color = shc.variables.Variable(shc.datatypes.RGBUInt8, shc.datatypes.RGBUInt8(0, 0, 0))
+index_page.add_item(shc.web.TextDisplay(shc.datatypes.RGBUInt8, "{}", "Farbe: ").connect(some_color))
+
+
+@shc.timer.every(datetime.timedelta(seconds=10), align=False)
+@shc.base.handler()
+async def change_color(_value, _source):
+    await some_color.red.write(shc.datatypes.RangeUInt8(random.randrange(0, 256)))
 
 
 if __name__ == "__main__":

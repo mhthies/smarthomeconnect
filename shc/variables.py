@@ -28,7 +28,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         logger.info("New value %s for Variable %s", value, self)
         self._value = value
         await self._publish(value, source, changed)
-        await asyncio.gather(*(field._publish(getattr(value, field.field))
+        await asyncio.gather(*(field._publish(getattr(value, field.field), source)
                                for field in self._variable_fields))
         # TODO make recursive
 
@@ -51,9 +51,14 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         # TODO make recursive by having fields itself
 
     async def _write(self, value: T, source: List[Any]) -> None:
+        if self.parent._value is None:
+            logger.warning("Cannot set field %s of Variable %s, since it is uninitialized", self.field, self.parent)
+            return
         await self.parent._write(self.parent._value._replace(**{self.field: value}), source + [self])
 
     async def read(self) -> T:
+        if self.parent._value is None:
+            raise UninitializedError("Variable {} is not initialized yet.", repr(self.parent))
         return getattr(self.parent._value, self.field)
 
     @property
