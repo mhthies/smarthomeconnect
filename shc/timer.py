@@ -35,13 +35,25 @@ _timer_supervisor = _TimerSupervisor()
 register_interface(_timer_supervisor)
 
 
-class AbstractTimer(metaclass=abc.ABCMeta):
+class AbstractTimer(Subscribable[None], metaclass=abc.ABCMeta):
     def __init__(self):
         super().__init__()
         _timer_supervisor.register_timer(self)
+        self.last_execution: Optional[datetime.datetime] = None
+
+    async def run(self):
+        while True:
+            next_execution = self._next_execution()
+            if next_execution is None:
+                logger.info("Timer %s has fulfilled its job and is quitting now.", self)
+                return
+            logger.info("Scheduling next execution of timer %s for %s", self, next_execution)
+            await self._logarithmic_sleep(next_execution)
+            self.last_execution = next_execution
+            asyncio.create_task(self._publish(None, []))
 
     @abc.abstractmethod
-    async def run(self):
+    def _next_execution(self) -> datetime.datetime:
         pass
 
     @staticmethod
@@ -49,13 +61,27 @@ class AbstractTimer(metaclass=abc.ABCMeta):
         while True:
             diff = (target - datetime.datetime.now().astimezone()).total_seconds()
             if diff < 0.2:
-                await asyncio.sleep(diff)
+                if diff > 0:
+                    await asyncio.sleep(diff)
                 return
             else:
                 await asyncio.sleep(diff / 2)
 
+    @staticmethod
+    def _random_time(random_range: Optional[datetime.timedelta], random_function: str = 'uniform'
+                     ) -> datetime.timedelta:
+        if not random_range:
+            return datetime.timedelta()
+        if random_function == 'uniform':
+            random_value = random.uniform(-1, 1)
+        elif random_function == 'gauss':
+            random_value = random.gauss(0, 0.5)
+        else:
+            raise ValueError("Unsupported random function '{}'".format(random_function))
+        return random_range * random_value
 
-class Every(AbstractTimer, Subscribable[None]):
+
+class Every(AbstractTimer):
     def __init__(self, delta: datetime.timedelta, align: bool = True,
                  offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
                  random_function: str = 'uniform'):
@@ -65,16 +91,8 @@ class Every(AbstractTimer, Subscribable[None]):
         self.offset = offset
         self.random = random
         self.random_function = random_function
-        self.last_execution: Optional[datetime.datetime] = None
 
-    async def run(self):
-        while True:
-            next_execution = self._next_execution()
-            await self._logarithmic_sleep(next_execution)
-            self.last_execution = next_execution
-            asyncio.create_task(self._publish(None, []))
-
-    def _next_execution(self) -> datetime.datetime:
+    def _next_execution(self) -> Optional[datetime.datetime]:
         if self.align:
             delta_seconds = self.delta.total_seconds()
             now_timestamp = datetime.datetime.now().timestamp()
@@ -86,18 +104,7 @@ class Every(AbstractTimer, Subscribable[None]):
                 next_execution = datetime.datetime.now().astimezone()
             else:
                 next_execution = self.last_execution + self.delta
-        return next_execution + self.offset + self._random_time()
-
-    def _random_time(self) -> datetime.timedelta:
-        if not self.random:
-            return datetime.timedelta()
-        if self.random_function == 'uniform':
-            random_value = random.uniform(-1, 1)
-        elif self.random_function == 'gauss':
-            random_value = random.gauss(0, 0.5)
-        else:
-            raise ValueError("Unsupported random function '{}'".format(self.random_function))
-        return self.random * random_value
+        return next_execution + self.offset + self._random_time(self.random, self.random_function)
 
 
 def every(*args, **kwargs) -> Callable[[Callable], Callable]:
