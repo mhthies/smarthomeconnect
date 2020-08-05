@@ -147,7 +147,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], metaclass=abc.ABCMeta):
             return
         logger.debug("New websocket subscription for widget id %s.", id(self))
         self.subscribed_websockets.add(ws)
-        current_value = self._from_provider()
+        current_value = await self._from_provider()
         if current_value is not None:
             data = json.dumps({'id': id(self),
                                'value': self.convert_to_ws_value(current_value)})
