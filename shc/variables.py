@@ -33,7 +33,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         # TODO make recursive
 
     async def read(self) -> T:
-        if not self._value:
+        if self._value is None:
             raise UninitializedError("Variable {} is not initialized yet.", repr(self))
         return self._value
 
