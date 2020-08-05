@@ -109,16 +109,15 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     def subscribe(self, subscriber: Writable[S], force_publish: bool = False,
                   convert: Union[Callable[[T], S], bool] = False):
         converter: Optional[Callable[[T], S]]
-        if convert is True:
-            converter = conversion.get_converter(self.type, subscriber.type)
-        elif convert is False:
-            converter = None
-            if subscriber.type is not self.type:
-                raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
-                                .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
-        else:
-            assert(callable(convert))
+        if callable(convert):
             converter = convert
+        elif issubclass(self.type, subscriber.type):
+            converter = None
+        elif convert:
+            converter = conversion.get_converter(self.type, subscriber.type)
+        else:
+            raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
+                            .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
         self._subscribers.append((subscriber, force_publish, converter))
 
     def trigger(self, target: LogicHandler, force_trigger: bool = False) -> LogicHandler:
@@ -135,16 +134,15 @@ class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
     def set_provider(self, provider: Readable[S], convert: Union[Callable[[S], T], bool] = False):
         converter: Optional[Callable[[S], T]]
-        if convert is True:
-            converter = conversion.get_converter(provider.type, self.type)
-        elif convert is False:
-            converter = None
-            if provider.type is not self.type:
-                raise TypeError("Type mismatch of Readable {} ({}) as provider for {} ({})"
-                                .format(repr(provider), provider.type.__name__, repr(self), self.type.__name__))
-        else:
-            assert(callable(convert))
+        if callable(convert):
             converter = convert
+        elif issubclass(provider.type, self.type):
+            converter = None
+        elif convert:
+            converter = conversion.get_converter(provider.type, self.type)
+        else:
+            raise TypeError("Type mismatch of Readable {} ({}) as provider for {} ({})"
+                            .format(repr(provider), provider.type.__name__, repr(self), self.type.__name__))
         self._default_provider = (provider, converter)
 
     async def _from_provider(self) -> Optional[T]:
