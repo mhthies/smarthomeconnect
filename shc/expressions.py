@@ -151,22 +151,25 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
         else:
             return NotImplemented
 
-    def __and__(self, other) -> "BinaryExpressionHandler":
-        return BinaryExpressionHandler(bool, self, other, operator.and_)
+    def __and__(self, other) -> "BinaryCastExpressionHandler":
+        return BinaryCastExpressionHandler(bool, self, other, operator.and_)
 
-    def __rand__(self, other) -> "BinaryExpressionHandler":
-        return BinaryExpressionHandler(bool, other, self, operator.and_)
+    def __rand__(self, other) -> "BinaryCastExpressionHandler":
+        return BinaryCastExpressionHandler(bool, other, self, operator.and_)
 
-    def __or__(self, other) -> "BinaryExpressionHandler":
-        return BinaryExpressionHandler(bool, self, other, operator.or_)
+    def __or__(self, other) -> "BinaryCastExpressionHandler":
+        return BinaryCastExpressionHandler(bool, self, other, operator.or_)
 
-    def __ror__(self, other) -> "BinaryExpressionHandler":
-        return BinaryExpressionHandler(bool, other, self, operator.or_)
+    def __ror__(self, other) -> "BinaryCastExpressionHandler":
+        return BinaryCastExpressionHandler(bool, other, self, operator.or_)
+
+    def not_(self) -> "UnaryExpressionHandler":
+        return UnaryCastExpressionHandler(bool, self, operator.not_)
 
 
 def not_(a):
     if isinstance(a, Readable) and isinstance(a, Subscribable):
-        return UnaryExpressionHandler(bool, a, operator.not_)
+        return UnaryCastExpressionHandler(bool, a, operator.not_)
     return not a
 
 
@@ -222,6 +225,11 @@ class BinaryExpressionHandler(ExpressionHandler[T], Generic[T]):
         return "{}[{}({}, {})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a), repr(self.b))
 
 
+class BinaryCastExpressionHandler(BinaryExpressionHandler[T]):
+    async def evaluate(self) -> T:
+        return self.type(await super().evaluate())
+
+
 class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
     def __init__(self, type_: Type[T], a, operator_: Callable[[Any], T]):
         self.a = a
@@ -234,6 +242,11 @@ class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
 
     def __repr__(self) -> str:
         return "{}[{}({})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a))
+
+
+class UnaryCastExpressionHandler(UnaryExpressionHandler[T]):
+    async def evaluate(self) -> T:
+        return self.type(await super().evaluate())
 
 
 TYPES_ADD = {
