@@ -74,6 +74,10 @@ class Readable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         pass
 
 
+class UninitializedError(RuntimeError):
+    pass
+
+
 class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -144,11 +148,14 @@ class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         self._default_provider = (provider, converter)
 
     async def _from_provider(self) -> Optional[T]:
-        if self._default_provider is not None:
-            provider, convert = self._default_provider
+        if self._default_provider is None:
+            return None
+        provider, convert = self._default_provider
+        try:
             val = await provider.read()
-            return convert(val) if convert else val
-        return None
+        except UninitializedError:
+            return None
+        return convert(val) if convert else val
 
 
 def handler(allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:

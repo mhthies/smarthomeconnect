@@ -1,7 +1,7 @@
 import asyncio
 from typing import Generic, Type, Optional, get_type_hints, List, Any
 
-from shc.base import Writable, T, Readable, Subscribable
+from shc.base import Writable, T, Readable, Subscribable, UninitializedError
 from shc.expressions import ExpressionWrapper
 
 
@@ -9,7 +9,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     def __init__(self, type_: Type[T], initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
-        self._value = initial_value if initial_value is not None else self.type()
+        self._value: Optional[T] = initial_value
         self._variable_fields = []
 
         # Create VariableFields for each typeannotated field of the type if it is typing.NamedTuple-based.
@@ -29,6 +29,8 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         # TODO make recursive
 
     async def read(self) -> T:
+        if not self._value:
+            raise UninitializedError("Variable {} is not initialized yet.", repr(self))
         return self._value
 
     @property
