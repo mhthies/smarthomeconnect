@@ -1,8 +1,11 @@
 import asyncio
+import logging
 from typing import Generic, Type, Optional, get_type_hints, List, Any
 
 from shc.base import Writable, T, Readable, Subscribable, UninitializedError
 from shc.expressions import ExpressionWrapper
+
+logger = logging.getLogger(__name__)
 
 
 class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
@@ -22,6 +25,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
     async def _write(self, value: T, source: List[Any]) -> None:
         changed = value != self._value
+        logger.info("New value %s for Variable %s", value, self)
         self._value = value
         await self._publish(value, source, changed)
         await asyncio.gather(*(field._publish(getattr(value, field.field))
