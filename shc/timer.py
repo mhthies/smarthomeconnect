@@ -108,3 +108,114 @@ class Every(_AbstractTimer):
 
 def every(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
     return Every(*args, **kwargs).trigger
+
+
+class Once(_AbstractTimer):
+    def __init__(self, offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
+                 random_function: str = 'uniform'):
+        super().__init__()
+        self.offset = offset
+        self.random = random
+        self.random_function = random_function
+        self.is_executed = False
+
+    def _next_execution(self) -> Optional[datetime.datetime]:
+        if self.is_executed:
+            return None
+        self.is_executed = True
+        return datetime.datetime.now().astimezone() + self.offset + _random_time(self.random, self.random_function)
+
+
+def once(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
+    return Once(*args, **kwargs).trigger
+
+
+# TODO At()
+
+
+class _DelayedBool(Subscribable[bool], Readable[bool], Writable[bool], metaclass=abc.ABCMeta):
+    def __init__(self, delay: datetime.timedelta):
+        self.type = bool
+        super().__init__()
+        self.delay = delay
+        self._value = False
+        self._change_task = Optional[asyncio.Task]
+
+    async def read(self) -> bool:
+        return self._value
+
+    async def __set_delayed(self, value: bool, source: List[Any]):
+        try:
+            await _logarithmic_sleep(datetime.datetime.now() + self.delay)
+        except asyncio.CancelledError:
+            return
+        self._value = value
+        await self._publish(value, source)
+        self._change_task = None
+
+
+class TOn(_DelayedBool):
+    async def _write(self, value: bool, source: List[Any]):
+        if value and self._change_task is None:
+            self._change_task = asyncio.create_task(self.__set_delayed(True, source))
+        elif not value:
+            if self._change_task is not None:
+                self._change_task.cancel()
+                self._change_task = None
+            self._value = False
+            await self._publish(False, source)
+
+
+class TOff(_DelayedBool):
+    async def _write(self, value: bool, source: List[Any]):
+        if not value and self._change_task is None:
+            self._change_task = asyncio.create_task(self.__set_delayed(True, source))
+        elif value:
+            if self._change_task is not None:
+                self._change_task.cancel()
+                self._change_task = None
+            self._value = False
+            await self._publish(False, source)
+
+
+class TOnOff(_DelayedBool):
+    async def _write(self, value: bool, source: List[Any]):
+        if value == self._value and self._change_task is None:
+            return
+        if self._change_task is not None:
+            self._change_task.cancel()
+        self._change_task = asyncio.create_task(self.__set_delayed(value, source))
+
+
+class TPulse(_DelayedBool):
+    async def _write(self, value: bool, source: List[Any]):
+        if value and not self._value:
+            self._change_task = asyncio.create_task(self.__set_delayed(False, source))
+            self._value = True
+            await self._publish(True, source)
+
+
+class Delay(Subscribable[bool], Readable[bool], Writable[bool], metaclass=abc.ABCMeta):
+    def __init__(self, type_: Type[T], delay: datetime.timedelta, initial_value: Optional[T] = None):
+        self.type = type_
+        super().__init__()
+        self.delay = delay
+        self._value: Optional[T] = initial_value
+
+    async def _write(self, value: T, source: List[Any]) -> None:
+        asyncio.create_task(self.__set_delayed(value, source))
+
+    async def __set_delayed(self, value: T, source: List[Any]):
+        try:
+            await _logarithmic_sleep(datetime.datetime.now() + self.delay)
+        except asyncio.CancelledError:
+            return
+        changed = value != self._value
+        logger.debug("Value %s for Delay %s is now active and published", value, self)
+        self._value = value
+        await self._publish(value, source, changed)
+
+    async def read(self) -> T:
+        if self._value is None:
+            raise UninitializedError("Variable {} is not initialized yet.", repr(self))
+        return self._value
