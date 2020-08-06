@@ -1,2 +1,3 @@
 aiohttp
 aiomysql
+jinja2

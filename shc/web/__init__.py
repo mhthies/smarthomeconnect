@@ -7,12 +7,21 @@ import os
 from typing import Dict, Iterable, Union, List, Set, Any
 
 import aiohttp.web
+import jinja2
 
 from ..base import Reading, T, Writable, Subscribable
 from ..conversion import SHCJsonEncoder, from_json
 from ..supervisor import register_interface
 
 logger = logging.getLogger(__name__)
+
+jinja_env = jinja2.Environment(
+    loader=jinja2.PackageLoader('shc.web', 'templates'),
+    autoescape=jinja2.select_autoescape(['html', 'xml']),
+    enable_async=True,
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
 
 
 class WebServer:
@@ -121,16 +130,14 @@ class WebPage(WebDatapointContainer):
         return itertools.chain.from_iterable(item.get_datapoints() for item in self.items)
 
     async def generate(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
-        # TODO use Jinja2 template
-        body = "<!DOCTYPE html><html><head><script src=\"/static/main.js\"></script></head><body>\n"\
-               + "\n".join(item.render() for item in self.items)\
-               + "\n</body></html>"
+        template = jinja_env.get_template('page.htm')
+        body = await template.render_async(title=self.name, items=self.items)
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
 
 class WebPageItem(WebDatapointContainer, metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def render(self) -> str:
+    async def render(self) -> str:
         pass
 
 

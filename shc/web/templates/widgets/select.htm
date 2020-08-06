@@ -1,0 +1,5 @@
+<select data-widget="enum-select" data-id="{{ id }}" class="ui dropdown">
+    {% for val, label in options %}
+        <option value="{{ val }}">{{ label }}</option>
+    {% endfor %}
+</select>
