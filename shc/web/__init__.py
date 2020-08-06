@@ -22,6 +22,7 @@ jinja_env = jinja2.Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+jinja_env.filters['id'] = id
 
 
 class WebServer:

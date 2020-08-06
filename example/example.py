@@ -51,10 +51,10 @@ index_page.add_item(shc.web.widgets.EnumSelect(shc.knx.KNXHVACMode)
                     .connect(michael_heating_mode))
 
 michael_blind_start = knx_connection.group(shc.knx.KNXGAD(2, 2, 9), "1.008")
-index_page.add_item(shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.UP, "↑")
-                    .connect(michael_blind_start))
-index_page.add_item(shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓")
-                    .connect(michael_blind_start))
+index_page.add_item(shc.web.widgets.ButtonGroup("Blinds", [
+    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.UP, "↑").connect(michael_blind_start),
+    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓").connect(michael_blind_start),
+]))
 
 michael_temp = shc.variables.Variable(float, "Temperature Michael")\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 2), "9", init=True))\

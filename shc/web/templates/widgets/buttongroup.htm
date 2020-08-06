@@ -1,0 +1,8 @@
+{{ label }}
+<div class="ui right floated">
+    {% for button in buttons %}
+        <button class="ui {{ color }} {% if not button.enabled %}disabled{% endif %} button"
+                data-widget="stateless-button" data-stateful="{{ button.stateful }}" data-id="{{ button|id }}">
+            {{ button.label }}</button>
+    {% endfor %}
+</div>
