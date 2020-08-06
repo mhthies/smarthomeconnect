@@ -38,7 +38,7 @@ index_page.add_item(shc.web.Switch("Licht Michael")
                     .connect(michael_li))
 
 
-michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, shc.knx.KNXHVACMode.AUTO)\
+michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, "Heating mode Michael", shc.knx.KNXHVACMode.AUTO)\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 0), "20.102", init=True))
 index_page.add_item(shc.web.EnumSelect(shc.knx.KNXHVACMode)
                     .connect(michael_heating_mode))
@@ -49,7 +49,7 @@ index_page.add_item(shc.web.StatelessButton(shc.knx.KNXUpDown.UP, "↑")
 index_page.add_item(shc.web.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓")
                     .connect(michael_blind_start))
 
-michael_temp = shc.variables.Variable(float)\
+michael_temp = shc.variables.Variable(float, "Temperature Michael")\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 2), "9", init=True))
 index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur")
                     .connect(michael_temp))
@@ -57,7 +57,7 @@ index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur")
 index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur +5")
                     .connect(michael_temp.EX + 5))
 
-temp_thresh = shc.variables.Variable(bool).connect((michael_temp.EX + 5) > 35)
+temp_thresh = shc.variables.Variable(bool, "Temperature Threshold").connect((michael_temp.EX + 10) > 35)
 index_page.add_item(shc.web.TextDisplay(bool, "{}", "Temperatur > 25°C?")
                     .connect(temp_thresh))
 
@@ -70,7 +70,7 @@ async def toggle_light(value, source):
     #await michael_li.write(not await michael_li.read())
     pass
 
-some_color = shc.variables.Variable(shc.datatypes.RGBUInt8, shc.datatypes.RGBUInt8(0, 0, 0))
+some_color = shc.variables.Variable(shc.datatypes.RGBUInt8, "An RGB Color", shc.datatypes.RGBUInt8(0, 0, 0))
 index_page.add_item(shc.web.TextDisplay(shc.datatypes.RGBUInt8, "{}", "Farbe: ").connect(some_color))
 
 
@@ -82,4 +82,5 @@ async def change_color(_value, _source):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
+    shc.supervisor.event_loop.set_debug(True)
     shc.supervisor.main()

@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
-    def __init__(self, type_: Type[T], initial_value: Optional[T] = None):
+    def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
+        self.name = name
         self._value: Optional[T] = initial_value
         self._variable_fields: List["VariableField"] = []
 
@@ -41,6 +42,12 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     @property
     def EX(self) -> ExpressionWrapper:
         return ExpressionWrapper(self)
+
+    def __repr__(self) -> str:
+        if self.name:
+            return "<Variable \"{}\">".format(self.name)
+        else:
+            return super().__repr__()
 
 
 class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
