@@ -1,4 +1,5 @@
 import logging
+from typing import NamedTuple
 
 from shc.conversion import register_converter
 
@@ -7,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 class RangeFloat1(float):
     def __new__(cls, *args, **kwargs):
+        # noinspection PyArgumentList
         res = int.__new__(cls, *args, **kwargs)
         if not 0.0 <= res <= 1.0:
             raise ValueError("{} is out of the allowed range for type {}".format(res, cls.__name__))
@@ -40,3 +42,8 @@ register_converter(bool, RangeInt0To100, lambda v: RangeInt0To100(100 if v else 
 class AngleUInt8(int):
     pass
 
+
+class RGBUInt8(NamedTuple):
+    red: RangeUInt8
+    green: RangeUInt8
+    blue: RangeUInt8
