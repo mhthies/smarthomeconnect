@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Type, Set, Union, Iterable
 import aiohttp.web
 
 from .base import Subscribable, Writable, Reading, T
+from .conversion import SHCJsonEncoder, from_json
 from .supervisor import register_interface
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], metaclass=abc.ABCMeta):
     async def _publish_to_ws(self, value):
         logger.debug("Publishing value %s for %s for %s subscribed websockets ...",
                      value, id(self), len(self.subscribed_websockets))
-        data = json.dumps({'id': id(self), 'value': value})
+        data = json.dumps({'id': id(self), 'value': value}, cls=SHCJsonEncoder)
         await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
 
     def convert_to_ws_value(self, value: T) -> Any:
@@ -153,7 +154,8 @@ class WebDisplayDatapoint(Reading[T], Writable[T], metaclass=abc.ABCMeta):
         current_value = await self._from_provider()
         if current_value is not None:
             data = json.dumps({'id': id(self),
-                               'value': self.convert_to_ws_value(current_value)})
+                               'value': self.convert_to_ws_value(current_value)},
+                              cls=SHCJsonEncoder)
             await ws.send_str(data)
 
     def ws_unsubscribe(self, ws):
@@ -166,7 +168,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], metaclass=abc.ABCMeta):
 
 class WebActionDatapoint(Subscribable[T], metaclass=abc.ABCMeta):
     def convert_from_ws_value(self, value: Any) -> T:
-        return value
+        return from_json(self.type, value)
 
     async def update_from_ws(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         await self._publish(self.convert_from_ws_value(value), [ws])
