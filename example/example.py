@@ -13,11 +13,11 @@ import shc.timer
 import shc.supervisor
 import shc.persistence
 
-import test_config
+import example_config
 
 knx_connection = shc.knx.KNXConnector()
 log_interface = shc.persistence.MySQLPersistence(host="localhost", db="shc", user="shc",
-                                                 password=test_config.MYSQL_PASSWORD)
+                                                 password=example_config.MYSQL_PASSWORD)
 
 michael_li = shc.variables.Variable(bool)\
     .connect(knx_connection.group(shc.knx.KNXGAD(1, 0, 2), "1", init=True))\
