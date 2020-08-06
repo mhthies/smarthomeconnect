@@ -10,14 +10,19 @@ import shc.web
 import shc.datatypes
 import shc.timer
 import shc.supervisor
+import shc.persistence
 
+import test_config
 
 knx_connection = shc.knx.KNXConnector()
+log_interface = shc.persistence.MySQLPersistence(host="localhost", db="shc", user="shc",
+                                                 password=test_config.MYSQL_PASSWORD)
 
 michael_li = shc.variables.Variable(bool)\
     .connect(knx_connection.group(shc.knx.KNXGAD(1, 0, 2), "1", init=True))\
     .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 1), "1"), send=False)\
-    .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 4), "1"), send=False)
+    .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 4), "1"), send=False)\
+    .connect(log_interface.variable(bool, "og_michael_light"), read=True)
 
 michael_li_lastchange = shc.variables.Variable(datetime.datetime, datetime.datetime.fromtimestamp(0))
 
@@ -39,7 +44,8 @@ index_page.add_item(shc.web.Switch("Licht Michael")
 
 
 michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, "Heating mode Michael", shc.knx.KNXHVACMode.AUTO)\
-    .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 0), "20.102", init=True))
+    .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 0), "20.102", init=True))\
+    .connect(log_interface.variable(shc.knx.KNXHVACMode, "og_michael_heating_mode"), read=True)
 index_page.add_item(shc.web.EnumSelect(shc.knx.KNXHVACMode)
                     .connect(michael_heating_mode))
 
@@ -50,7 +56,8 @@ index_page.add_item(shc.web.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓")
                     .connect(michael_blind_start))
 
 michael_temp = shc.variables.Variable(float, "Temperature Michael")\
-    .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 2), "9", init=True))
+    .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 2), "9", init=True))\
+    .connect(log_interface.variable(float, "og_michael_temperature"))
 index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur")
                     .connect(michael_temp))
 
