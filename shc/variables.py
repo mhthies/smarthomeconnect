@@ -2,13 +2,19 @@ import asyncio
 import logging
 from typing import Generic, Type, Optional, get_type_hints, List, Any, Union
 
-from shc.base import Writable, T, Readable, Subscribable, UninitializedError
-from shc.expressions import ExpressionWrapper
+from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
+from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
 
+_ALL_VARIABLES: List["Variable"] = []
 
-class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
+
+async def read_initialize_variables() -> None:
+    await asyncio.gather(*(variable._init_from_provider() for variable in _ALL_VARIABLES))
+
+
+class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]):
     def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
@@ -24,6 +30,8 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                 self._variable_fields.append(variable_field)
                 setattr(self, name, variable_field)
 
+        _ALL_VARIABLES.append(self)
+
     async def _write(self, value: T, source: List[Any]) -> None:
         old_value = self._value
         logger.info("New value %s for Variable %s", value, self)
@@ -38,6 +46,11 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         if self._value is None:
             raise UninitializedError("Variable {} is not initialized yet.", repr(self))
         return self._value
+
+    async def _init_from_provider(self) -> None:
+        value = await self._from_provider()
+        if value is not None:
+            await self._write(value, [self._default_provider[0]])
 
     @property
     def EX(self) -> ExpressionWrapper:

@@ -7,7 +7,6 @@ import random
 from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic
 
 from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError
-from .supervisor import register_interface
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +18,11 @@ class _TimerSupervisor:
         self.supervised_timers: List[_AbstractTimer] = []
         self.timer_tasks: List[asyncio.Task] = []
 
-    async def run(self) -> None:
+    async def start(self) -> None:
         logger.info("Starting TimerSupervisor with %s timers ...", len(self.supervised_timers))
         self.timer_tasks = list(map(lambda timer: asyncio.create_task(timer.run()), self.supervised_timers))
+
+    async def wait(self) -> None:
         await asyncio.gather(*self.timer_tasks, return_exceptions=True)
 
     async def stop(self) -> None:
@@ -33,8 +34,7 @@ class _TimerSupervisor:
         self.supervised_timers.append(timer)
 
 
-_timer_supervisor = _TimerSupervisor()
-register_interface(_timer_supervisor)
+timer_supervisor = _TimerSupervisor()
 
 
 async def _logarithmic_sleep(target: datetime.datetime):
@@ -65,7 +65,7 @@ class _AbstractTimer(Subscribable[None], metaclass=abc.ABCMeta):
 
     def __init__(self):
         super().__init__()
-        _timer_supervisor.register_timer(self)
+        timer_supervisor.register_timer(self)
         self.last_execution: Optional[datetime.datetime] = None
 
     async def run(self):

@@ -31,9 +31,10 @@ class WebServer:
             aiohttp.web.get("/ws", self._websocket_handler),
             aiohttp.web.static('/static', os.path.join(os.path.dirname(__file__), 'web_static')),
         ])
+        self.run_task: asyncio.Task
         register_interface(self)
 
-    async def run(self) -> None:
+    async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
         for datapoint in itertools.chain.from_iterable(page.get_datapoints() for page in self._pages.values()):
             if isinstance(datapoint, WebDisplayDatapoint):
@@ -43,7 +44,10 @@ class WebServer:
         self._runner = aiohttp.web.AppRunner(self._app)
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
-        await site.start()
+        self.run_task = asyncio.create_task(site.start())
+
+    async def wait(self) -> None:
+        await self.run_task
 
     async def stop(self) -> None:
         logger.info("Cleaning up AppRunner ...")

@@ -3,6 +3,9 @@ import functools
 import logging
 import signal
 
+from .timer import timer_supervisor
+from .variables import read_initialize_variables
+
 logger = logging.getLogger(__name__)
 
 _REGISTERED_INTERFACES = set()
@@ -15,13 +18,19 @@ def register_interface(interface):
 
 
 async def run():
-    logger.info("Starting up shc system ...")
-    await asyncio.gather(*(interface.run() for interface in _REGISTERED_INTERFACES))
+    logger.info("Starting up interfaces ...")
+    await asyncio.gather(*(interface.start() for interface in _REGISTERED_INTERFACES))
+    logger.info("All interfaces started successfully. Initializing variables ...")
+    await read_initialize_variables()
+    logger.info("Variables initialized successfully. Starting timers ...")
+    await timer_supervisor.start()
+    logger.info("Timers initialized successfully. SHC startup finished.")
+    await asyncio.gather(*(interface.wait() for interface in _REGISTERED_INTERFACES), timer_supervisor.wait())
 
 
 async def stop():
     logger.info("Shutting down interfaces ...")
-    await asyncio.gather(*(interface.stop() for interface in _REGISTERED_INTERFACES))
+    await asyncio.gather(*(interface.stop() for interface in _REGISTERED_INTERFACES), timer_supervisor.stop())
 
 
 def handle_signal(sig: int, loop: asyncio.AbstractEventLoop):

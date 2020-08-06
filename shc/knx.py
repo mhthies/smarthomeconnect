@@ -68,15 +68,18 @@ class KNXConnector:
         self.groups: Dict[KNXGAD, KNXGroupVar] = {}
         self.knx = knxdclient.KNXDConnection()
         self.knx.register_telegram_handler(self._dispatch_telegram)
+        self.knx_run_task: asyncio.Task
         self.init_request_groups: Set[KNXGAD] = set()
         register_interface(self)
 
-    async def run(self):
+    async def start(self):
         await self.knx.connect(self.host, self.port, self.sock)
-        knx_run_task = asyncio.create_task(self.knx.run())
+        self.knx_run_task = asyncio.create_task(self.knx.run())
         await self.knx.open_group_socket()
         await self._send_init_requests()
-        await knx_run_task
+
+    async def wait(self):
+        await self.knx_run_task
 
     async def stop(self):
         await self.knx.stop()
