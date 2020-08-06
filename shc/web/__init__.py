@@ -1,17 +1,16 @@
 import abc
 import asyncio
-import enum
 import itertools
 import json
 import logging
 import os
-from typing import List, Dict, Any, Type, Set, Union, Iterable
+from typing import Dict, Iterable, Union, List, Set, Any
 
 import aiohttp.web
 
-from .base import Subscribable, Writable, Reading, T
-from .conversion import SHCJsonEncoder, from_json
-from .supervisor import register_interface
+from ..base import Reading, T, Writable, Subscribable
+from ..conversion import SHCJsonEncoder, from_json
+from ..supervisor import register_interface
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +28,15 @@ class WebServer:
             aiohttp.web.get("/", self._index_handler),
             aiohttp.web.get("/page/{name}/", self._page_handler),
             aiohttp.web.get("/ws", self._websocket_handler),
-            aiohttp.web.static('/static', os.path.join(os.path.dirname(__file__), 'web_static')),
+            aiohttp.web.static('/static', os.path.join(os.path.dirname(__file__), 'static')),
         ])
         self.run_task: asyncio.Task
         register_interface(self)
+        # TODO add datapoint API
+
+        # TODO allow registering HTTP APIs
+        # TODO allow registering websocket APIs
+        # TODO allow collecting page elements of certain type
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
@@ -178,83 +182,3 @@ class WebActionDatapoint(Subscribable[T], metaclass=abc.ABCMeta):
         await self._publish(self.convert_from_ws_value(value), [ws])
         if isinstance(self, WebDisplayDatapoint):
             await self._publish_to_ws(value)
-
-
-class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
-    def __init__(self, label: str):
-        self.type = bool
-        super().__init__()
-        self.label = label
-        self.widgets = [self]
-
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
-
-    def render(self) -> str:
-        # TODO use Jinja2 templates
-        return "<div><input type=\"checkbox\" data-widget=\"switch\" data-id=\"{id}\" /> {label}</div>"\
-            .format(label=self.label, id=id(self))
-
-
-class EnumSelect(WebDisplayDatapoint[enum.Enum], WebActionDatapoint[enum.Enum], WebPageItem):
-    def __init__(self, type_: Type[enum.Enum]):
-        self.type = type_
-        super().__init__()
-        self.widgets = [self]
-
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
-
-    def convert_to_ws_value(self, value: enum.Enum) -> Any:
-        return value.value
-
-    def convert_from_ws_value(self, value: Any) -> enum.Enum:
-        return self.type(value)
-
-    def render(self) -> str:
-        # TODO use Jinja2 templates
-        return "<div><select data-widget=\"enum-select\" data-id=\"{id}\">{options}</select></div>"\
-            .format(id=id(self),
-                    options="".join("<option value=\"{value}\">{label}</option>"
-                                    .format(value=json.dumps(e.value), label=e.name) for e in self.type))
-
-
-class StatelessButton(WebActionDatapoint[T], WebPageItem):
-    def __init__(self, value: T, label: str):
-        self.type = type(value)
-        super().__init__()
-        self.value = value
-        self.label = label
-        self.widgets = [self]
-
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
-
-    def convert_from_ws_value(self, value: Any) -> T:
-        return self.value
-
-    def render(self) -> str:
-        # TODO use Jinja2 templates
-        return "<div><button data-widget=\"stateless-button\" data-id=\"{id}\">{label}</button></div>"\
-            .format(id=id(self), label=self.label)
-
-
-class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
-    def __init__(self, type_: Type[T], format_string: str, label: str):
-        self.type = type_
-        super().__init__()
-        self.format_string = format_string
-        self.label = label
-        self.widgets = [self]
-
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
-
-    def convert_to_ws_value(self, value: T) -> Any:
-        return self.format_string.format(value)
-
-    def render(self) -> str:
-        # TODO use Jinja2 templates
-        return "<div><strong>{label}</strong> <span data-id=\"{id}\" data-widget=\"text-display\"></span></div>"\
-            .format(id=id(self), label=self.label)
-

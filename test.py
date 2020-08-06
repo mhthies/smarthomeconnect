@@ -7,6 +7,7 @@ import shc.base
 import shc.knx
 import shc.variables
 import shc.web
+import shc.web.widgets
 import shc.datatypes
 import shc.timer
 import shc.supervisor
@@ -39,36 +40,36 @@ async def update_lastchange(new_value, source) -> None:
 web_interface = shc.web.WebServer("localhost", 8080, "index")
 index_page = web_interface.page("index")
 
-index_page.add_item(shc.web.Switch("Licht Michael")
+index_page.add_item(shc.web.widgets.Switch("Licht Michael")
                     .connect(michael_li))
 
 
 michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, "Heating mode Michael", shc.knx.KNXHVACMode.AUTO)\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 0), "20.102", init=True))\
     .connect(log_interface.variable(shc.knx.KNXHVACMode, "og_michael_heating_mode"), read=True)
-index_page.add_item(shc.web.EnumSelect(shc.knx.KNXHVACMode)
+index_page.add_item(shc.web.widgets.EnumSelect(shc.knx.KNXHVACMode)
                     .connect(michael_heating_mode))
 
 michael_blind_start = knx_connection.group(shc.knx.KNXGAD(2, 2, 9), "1.008")
-index_page.add_item(shc.web.StatelessButton(shc.knx.KNXUpDown.UP, "↑")
+index_page.add_item(shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.UP, "↑")
                     .connect(michael_blind_start))
-index_page.add_item(shc.web.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓")
+index_page.add_item(shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓")
                     .connect(michael_blind_start))
 
 michael_temp = shc.variables.Variable(float, "Temperature Michael")\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 2), "9", init=True))\
     .connect(log_interface.variable(float, "og_michael_temperature"))
-index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur")
+index_page.add_item(shc.web.widgets.TextDisplay(float, "{:.1f}°C", "Temperatur")
                     .connect(michael_temp))
 
-index_page.add_item(shc.web.TextDisplay(float, "{:.1f}°C", "Temperatur +5")
+index_page.add_item(shc.web.widgets.TextDisplay(float, "{:.1f}°C", "Temperatur +5")
                     .connect(michael_temp.EX + 5))
 
 temp_thresh = shc.variables.Variable(bool, "Temperature Threshold").connect((michael_temp.EX + 10) > 35)
-index_page.add_item(shc.web.TextDisplay(bool, "{}", "Temperatur > 25°C?")
+index_page.add_item(shc.web.widgets.TextDisplay(bool, "{}", "Temperatur > 25°C?")
                     .connect(temp_thresh))
 
-index_page.add_item(shc.web.Switch("Temp > 25").connect(michael_temp.EX > 25))
+index_page.add_item(shc.web.widgets.Switch("Temp > 25").connect(michael_temp.EX > 25))
 
 
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
@@ -78,7 +79,7 @@ async def toggle_light(value, source):
     pass
 
 some_color = shc.variables.Variable(shc.datatypes.RGBUInt8, "An RGB Color", shc.datatypes.RGBUInt8(0, 0, 0))
-index_page.add_item(shc.web.TextDisplay(shc.datatypes.RGBUInt8, "{}", "Farbe: ").connect(some_color))
+index_page.add_item(shc.web.widgets.TextDisplay(shc.datatypes.RGBUInt8, "{}", "Farbe: ").connect(some_color))
 
 
 @shc.timer.at(hour=None, minute=shc.timer.EveryNth(2))
