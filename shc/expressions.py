@@ -260,6 +260,17 @@ class UnaryCastExpressionHandler(UnaryExpressionHandler[T]):
         return self.type(await super().evaluate())  # type: ignore
 
 
+class IfThenElse(ExpressionHandler, Generic[T]):
+    def __init__(self, condition: Union[Readable[bool]], then: Union[T, Readable[T]], otherwise: Union[T, Readable[T]]):
+        super().__init__(then.type, (condition, then, otherwise))
+        self.condition = self._wrap_static_value(condition)
+        self.then = self._wrap_static_value(then)
+        self.otherwise = self._wrap_static_value(otherwise)
+
+    async def evaluate(self) -> T:
+        return (await self.then.read()) if (await self.condition.read()) else (await self.otherwise.read())
+
+
 TYPES_ADD = {
     (int, int): int,
     (int, float): float,
