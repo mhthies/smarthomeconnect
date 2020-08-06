@@ -74,7 +74,7 @@ some_color = shc.variables.Variable(shc.datatypes.RGBUInt8, shc.datatypes.RGBUIn
 index_page.add_item(shc.web.TextDisplay(shc.datatypes.RGBUInt8, "{}", "Farbe: ").connect(some_color))
 
 
-@shc.timer.every(datetime.timedelta(seconds=10), align=False)
+@shc.timer.at(hour=None, minute=shc.timer.EveryNth(2))
 @shc.base.handler()
 async def change_color(_value, _source):
     await some_color.red.write(shc.datatypes.RangeUInt8(random.randrange(0, 256)))

@@ -17,7 +17,7 @@ magicSourceVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_
 
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
-    type: Type[T] = None
+    type: Type[T]
 
     def connect(self, other: "Connectable",
                 send: Optional[bool] = None,
@@ -84,9 +84,10 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         self._subscribers: List[Tuple[Writable[S], bool, Optional[Callable[[T], S]]]] = []
         self._triggers: List[Tuple[LogicHandler, bool]] = []
 
-    async def __publish_write(self, subscriber: Writable[S], converter: Callable[[T], S], value: T, source: List[Any]):
+    async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T], S]], value: T,
+                              source: List[Any]):
         try:
-            await subscriber.write(converter(value) if converter else value, source + [self])
+            await subscriber.write(converter(value) if converter else value, source + [self])  # type: ignore
         except Exception as e:
             logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
 

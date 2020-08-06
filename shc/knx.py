@@ -136,6 +136,7 @@ class KNXGroupVar(Subscribable, Writable, Reading):
         value = await self._from_provider()
         if value is not None:
             return knxdclient.encode_value(value, self.knx_major_dpt)
+        return None
 
     async def _write(self, value: T, source: List[Any]) -> None:
         encoded_data = knxdclient.encode_value(value, self.knx_major_dpt)

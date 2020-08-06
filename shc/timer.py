@@ -4,7 +4,7 @@ import datetime
 import logging
 import math
 import random
-from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable
+from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic
 
 from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError
 from .supervisor import register_interface
@@ -61,6 +61,8 @@ def _random_time(random_range: Optional[datetime.timedelta], random_function: st
 
 
 class _AbstractTimer(Subscribable[None], metaclass=abc.ABCMeta):
+    type = type(None)
+
     def __init__(self):
         super().__init__()
         _timer_supervisor.register_timer(self)
@@ -78,7 +80,7 @@ class _AbstractTimer(Subscribable[None], metaclass=abc.ABCMeta):
             asyncio.create_task(self._publish(None, []))
 
     @abc.abstractmethod
-    def _next_execution(self) -> datetime.datetime:
+    def _next_execution(self) -> Optional[datetime.datetime]:
         pass
 
 
@@ -357,7 +359,7 @@ class TPulse(_DelayedBool):
             await self._publish(True, source)
 
 
-class Delay(Subscribable[bool], Readable[bool], Writable[bool], metaclass=abc.ABCMeta):
+class Delay(Subscribable[T], Readable[T], Writable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self, type_: Type[T], delay: datetime.timedelta, initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()

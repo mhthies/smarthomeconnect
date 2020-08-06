@@ -21,7 +21,8 @@ class WebServer:
         self.port = port
         self.index_name = index_name
         self._pages: Dict[str, WebPage] = {}
-        self.datapoints: Dict[int, Union[WebDisplayDatapoint, WebActionDatapoint]] = {}
+        self.display_datapoints: Dict[int, WebDisplayDatapoint] = {}
+        self.action_datapoints: Dict[int, WebActionDatapoint] = {}
         self._app = aiohttp.web.Application()
         self._app.add_routes([
             aiohttp.web.get("/", self._index_handler),
@@ -33,9 +34,11 @@ class WebServer:
 
     async def run(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
-        self.datapoints = {id(datapoint): datapoint
-                           for datapoint in itertools.chain.from_iterable(page.get_datapoints()
-                                                                          for page in self._pages.values())}
+        for datapoint in itertools.chain.from_iterable(page.get_datapoints() for page in self._pages.values()):
+            if isinstance(datapoint, WebDisplayDatapoint):
+                self.display_datapoints[id(datapoint)] = datapoint
+            if isinstance(datapoint, WebActionDatapoint):
+                self.action_datapoints[id(datapoint)] = datapoint
         self._runner = aiohttp.web.AppRunner(self._app)
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
@@ -75,7 +78,7 @@ class WebServer:
                 logger.info('ws connection closed with exception %s', ws.exception())
         logger.debug('websocket connection closed')
         # Make sure the websocket is removed as a subscriber from all WebDisplayDatapoints
-        for datapoint in self.datapoints.values():
+        for datapoint in self.display_datapoints.values():
             if isinstance(datapoint, WebDisplayDatapoint):
                 datapoint.ws_unsubscribe(ws)
         return ws
@@ -85,9 +88,9 @@ class WebServer:
         # TODO error handling
         action = data["action"]
         if action == 'subscribe':
-            await self.datapoints[data["id"]].ws_subscribe(ws)
+            await self.display_datapoints[data["id"]].ws_subscribe(ws)
         elif action == 'write':
-            await self.datapoints[data["id"]].update_from_ws(data["value"], ws)
+            await self.action_datapoints[data["id"]].update_from_ws(data["value"], ws)
 
 
 class WebDatapointContainer(metaclass=abc.ABCMeta):
@@ -196,10 +199,10 @@ class EnumSelect(WebDisplayDatapoint[enum.Enum], WebActionDatapoint[enum.Enum], 
     def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
         return (self,)
 
-    def convert_to_ws_value(self, value: T) -> Any:
+    def convert_to_ws_value(self, value: enum.Enum) -> Any:
         return value.value
 
-    def convert_from_ws_value(self, value: Any) -> T:
+    def convert_from_ws_value(self, value: Any) -> enum.Enum:
         return self.type(value)
 
     def render(self) -> str:

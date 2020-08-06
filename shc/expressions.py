@@ -117,10 +117,10 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
         else:
             return NotImplemented
 
-    def __eq__(self, other) -> "BinaryExpressionHandler":
+    def __eq__(self, other) -> "BinaryExpressionHandler":  # type: ignore
         return BinaryExpressionHandler(bool, self, other, operator.eq)
 
-    def __ne__(self, other) -> "BinaryExpressionHandler":
+    def __ne__(self, other) -> "BinaryExpressionHandler":  # type: ignore
         return BinaryExpressionHandler(bool, self, other, operator.eq)
 
     def __lt__(self, other) -> "BinaryExpressionHandler":
@@ -180,7 +180,7 @@ class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic
         self.type = wrapped.type
 
     async def read(self) -> T:
-        return await self.wrapped.read()
+        return await self.wrapped.read()  # type: ignore
 
     def subscribe(self, subscriber: Writable[S], force_publish: bool = False,
                   convert: Union[Callable[[T], S], bool] = False):
@@ -227,7 +227,7 @@ class BinaryExpressionHandler(ExpressionHandler[T], Generic[T]):
 
 class BinaryCastExpressionHandler(BinaryExpressionHandler[T]):
     async def evaluate(self) -> T:
-        return self.type(await super().evaluate())
+        return self.type(await super().evaluate())  # type: ignore
 
 
 class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
@@ -246,7 +246,7 @@ class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
 
 class UnaryCastExpressionHandler(UnaryExpressionHandler[T]):
     async def evaluate(self) -> T:
-        return self.type(await super().evaluate())
+        return self.type(await super().evaluate())  # type: ignore
 
 
 TYPES_ADD = {

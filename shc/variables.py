@@ -48,8 +48,8 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self.type = type_
         super().__init__()
         self.parent = parent
-        self.variable = parent.variable if hasattr(parent, 'variable') else parent
-        self.field = field
+        self.variable: Variable = parent.variable if hasattr(parent, 'variable') else parent  # type: ignore
+        self.field: str = field
         self._variable_fields: List["VariableField"] = []
 
         # Create VariableFields for each typeannotated field of the type if it is typing.NamedTuple-based.
