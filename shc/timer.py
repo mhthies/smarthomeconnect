@@ -249,9 +249,9 @@ class At(_AbstractTimer):
         if self.week_mode:
             val_date = datetime.date.fromisocalendar(val[0], val[1], val[2])
             result = datetime.datetime(val_date.year, val_date.month, val_date.day, val[3], val[4], val[5],
-                                       val[6] * 1000)
+                                       val[6] * 1000).astimezone()
         else:
-            result = datetime.datetime(val[0], val[1], val[2], val[3], val[4], val[5], val[6] * 1000)
+            result = datetime.datetime(val[0], val[1], val[2], val[3], val[4], val[5], val[6] * 1000).astimezone()
         return result + _random_time(self.random, self.random_function)
 
     @staticmethod
@@ -294,7 +294,7 @@ class At(_AbstractTimer):
 
 
 def at(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
-    return Once(*args, **kwargs).trigger
+    return At(*args, **kwargs).trigger
 
 
 class _DelayedBool(Subscribable[bool], Readable[bool], Writable[bool], metaclass=abc.ABCMeta):
@@ -303,7 +303,7 @@ class _DelayedBool(Subscribable[bool], Readable[bool], Writable[bool], metaclass
         super().__init__()
         self.delay = delay
         self._value = False
-        self._change_task = Optional[asyncio.Task]
+        self._change_task: Optional[asyncio.Task] = None
 
     async def read(self) -> bool:
         return self._value
