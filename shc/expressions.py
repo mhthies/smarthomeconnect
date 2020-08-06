@@ -2,7 +2,7 @@ import abc
 import datetime
 import math
 import operator
-from typing import Type, Generic, Any, Iterable, Callable, Union
+from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple
 
 from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler
 
@@ -96,6 +96,18 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
         other_type = self.__get_other_type(other)
         if (other_type, self.type) in TYPES_MOD:
             return BinaryExpressionHandler(TYPES_MOD[(other_type, self.type)], other, self, operator.mod)
+        else:
+            return NotImplemented
+
+    def __abs__(self) -> "UnaryExpressionHandler":
+        if self.type in TYPES_ABS_NEG:
+            return UnaryExpressionHandler(TYPES_ABS_NEG[self.type], self, operator.abs)
+        else:
+            return NotImplemented
+
+    def __neg__(self) -> "UnaryExpressionHandler":
+        if self.type in TYPES_ABS_NEG:
+            return UnaryExpressionHandler(TYPES_ABS_NEG[self.type], self, operator.neg)
         else:
             return NotImplemented
 
@@ -212,7 +224,7 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     def _wrap_static_value(val: Union[S, Readable[S]]) -> Readable[S]:
         class Wrapper(Readable[S], Generic[S]):
             def __init__(self, v: S):
-                self.val = v
+                self.v = v
 
             async def read(self) -> S:
                 return self.v
@@ -271,7 +283,7 @@ class IfThenElse(ExpressionHandler, Generic[T]):
         return (await self.then.read()) if (await self.condition.read()) else (await self.otherwise.read())
 
 
-TYPES_ADD = {
+TYPES_ADD: Dict[Tuple[Type, Type], Type] = {
     (int, int): int,
     (int, float): float,
     (float, int): float,
@@ -284,8 +296,9 @@ TYPES_ADD = {
     (datetime.datetime, datetime.timedelta): datetime.datetime,
     (datetime.timedelta, datetime.date): datetime.date,
     (datetime.timedelta, datetime.datetime): datetime.datetime,
+    (datetime.timedelta, datetime.timedelta): datetime.timedelta,
 }
-TYPES_SUB = {
+TYPES_SUB: Dict[Tuple[Type, Type], Type] = {
     (int, int): int,
     (int, float): float,
     (float, int): float,
@@ -298,8 +311,9 @@ TYPES_SUB = {
     (datetime.datetime, datetime.datetime): datetime.timedelta,
     (datetime.date, datetime.timedelta): datetime.date,
     (datetime.datetime, datetime.timedelta): datetime.datetime,
+    (datetime.timedelta, datetime.timedelta): datetime.timedelta,
 }
-TYPES_MUL = {
+TYPES_MUL: Dict[Tuple[Type, Type], Type] = {
     (int, int): int,
     (int, float): float,
     (float, int): float,
@@ -313,7 +327,7 @@ TYPES_MUL = {
     (datetime.timedelta, int): datetime.timedelta,
     (int, datetime.timedelta): datetime.timedelta,
 }
-TYPES_FLOORDIV = {
+TYPES_FLOORDIV: Dict[Tuple[Type, Type], Type] = {
     (int, int): int,
     (float, int): float,
     (int, float): float,
@@ -323,8 +337,9 @@ TYPES_FLOORDIV = {
     (bool, float): float,
     (float, bool): float,
     (datetime.timedelta, datetime.timedelta): int,
+    (datetime.timedelta, int): int,
 }
-TYPES_TRUEDIV = {
+TYPES_TRUEDIV: Dict[Tuple[Type, Type], Type] = {
     (int, int): float,
     (float, int): float,
     (int, float): float,
@@ -344,16 +359,16 @@ TYPES_MOD = {
     (float, float): float,
     (datetime.timedelta, datetime.timedelta): datetime.timedelta,
 }
-TYPES_ABS = {
+TYPES_ABS_NEG: Dict[Type, Type] = {
     int: int,
     float: float,
     datetime.timedelta: datetime.timedelta,
 }
-TYPES_CEIL_FLOOR_ROUND = {
+TYPES_CEIL_FLOOR_ROUND: Dict[Type, Type] = {
     int: int,
     float: int,
 }
-TYPES_LT_LE_GT_GE = {
+TYPES_LT_LE_GT_GE: Dict[Tuple[Type, Type], Type] = {
     (int, int): bool,
     (int, float): bool,
     (float, int): bool,
