@@ -208,18 +208,30 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     async def read(self) -> T:
         return await self.evaluate()
 
+    @staticmethod
+    def _wrap_static_value(val: Union[S, Readable[S]]) -> Readable[S]:
+        class Wrapper(Readable[S], Generic[S]):
+            def __init__(self, v: S):
+                self.val = v
+
+            async def read(self) -> S:
+                return self.v
+
+        if isinstance(val, Readable):
+            return val
+        else:
+            return Wrapper(val)
+
 
 class BinaryExpressionHandler(ExpressionHandler[T], Generic[T]):
     def __init__(self, type_: Type[T], a, b, operator_: Callable[[Any, Any], T]):
-        self.a = a
-        self.b = b
+        self.a = self._wrap_static_value(a)
+        self.b = self._wrap_static_value(b)
         self.operator = operator_
         super().__init__(type_, (a, b))
 
     async def evaluate(self) -> T:
-        a = (await self.a.read()) if isinstance(self.a, Readable) else self.a
-        b = (await self.b.read()) if isinstance(self.b, Readable) else self.b
-        return self.operator(a, b)
+        return self.operator(await self.a.read(), await self.b.read())
 
     def __repr__(self) -> str:
         return "{}[{}({}, {})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a), repr(self.b))
@@ -232,13 +244,12 @@ class BinaryCastExpressionHandler(BinaryExpressionHandler[T]):
 
 class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
     def __init__(self, type_: Type[T], a, operator_: Callable[[Any], T]):
-        self.a = a
+        self.a = self._wrap_static_value(a)
         self.operator = operator_
         super().__init__(type_, (a,))
 
     async def evaluate(self) -> T:
-        a = (await self.a.read()) if isinstance(self.a, Readable) else self.a
-        return self.operator(a)
+        return self.operator(await self.a.read())
 
     def __repr__(self) -> str:
         return "{}[{}({})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a))
