@@ -55,12 +55,10 @@ michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, "Heating mode
     .connect(log_interface.variable(shc.knx.KNXHVACMode, "og_michael_heating_mode"), read=True)
 index_page.add_item(shc.web.widgets.EnumSelect(shc.knx.KNXHVACMode)
                     .connect(michael_heating_mode))
-index_page.add_item(shc.web.widgets.EnumButtonGroup(shc.knx.KNXHVACMode, "Heating mode", 'red')
-                    .connect(michael_heating_mode))
-index_page.add_item(shc.web.widgets.ValueListButtonGroup([(shc.knx.KNXHVACMode.COMFORT, "C"),
-                                                          (shc.knx.KNXHVACMode.STANDBY, "S"),
-                                                          (shc.knx.KNXHVACMode.ECONOMY, "N"),
-                                                          (shc.knx.KNXHVACMode.BUILDING_PROTECTION, "F"),],
+index_page.add_item(shc.web.widgets.ValueListButtonGroup([(shc.knx.KNXHVACMode.COMFORT, shc.web.widgets.icon('home')),
+                                                          (shc.knx.KNXHVACMode.STANDBY, shc.web.widgets.icon('power off')),
+                                                          (shc.knx.KNXHVACMode.ECONOMY, shc.web.widgets.icon('moon')),
+                                                          (shc.knx.KNXHVACMode.BUILDING_PROTECTION, shc.web.widgets.icon('snowflake')),],
                                                          "Heating mode", 'red')
                     .connect(michael_heating_mode))
 
