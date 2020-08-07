@@ -11,6 +11,7 @@ function ws_path(path) {
 }
 
 function SwitchWidget(domElement, writeValue) {
+    $(domElement).closest('.checkbox').checkbox();
     const widget = this;
     this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
 
@@ -23,17 +24,25 @@ function SwitchWidget(domElement, writeValue) {
     });
 }
 
-function EnumSelectWidget(domElement, writeValue) {
+function SelectWidget(domElement, writeValue) {
     const widget = this;
+    const $semanticUIDropdown = $(domElement).closest('.dropdown');
+    let changeFromServer = false;
+    $semanticUIDropdown.dropdown({
+        'onChange': onDropdownChange
+    });
     this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
 
     this.update = function(value, for_id) {
-        domElement.value = JSON.stringify(value);
+        changeFromServer = true;
+        $semanticUIDropdown.dropdown('set selected', JSON.stringify(value));
+        changeFromServer = false;
     };
 
-    domElement.addEventListener('change', function (event) {
-        writeValue(widget.subscribeIds[0], JSON.parse(event.target.value));
-    });
+    function onDropdownChange(value, text, $selectedItem) {
+        if (!changeFromServer)
+            writeValue(widget.subscribeIds[0], JSON.parse(value));
+    }
 }
 
 function ButtonWidget(domElement, writeValue) {
@@ -69,7 +78,7 @@ function TextDisplayWidget(domElement, writeValue) {
 
 const WIDGET_TYPES = new Map([
    ['switch', SwitchWidget],
-   ['enum-select', EnumSelectWidget],
+   ['select', SelectWidget],
    ['button', ButtonWidget],
    ['text-display', TextDisplayWidget]
 ]);

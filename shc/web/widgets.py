@@ -1,11 +1,13 @@
 import abc
 import enum
+import json
 from typing import Any, Type, Union, Iterable, List, Generic, Tuple
 
 import markupsafe
 
 from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env
 from ..base import T
+from ..conversion import SHCJsonEncoder
 
 
 def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
@@ -25,23 +27,26 @@ class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
         return await jinja_env.get_template('widgets/switch.htm').render_async(id=id(self), label=self.label)
 
 
-class EnumSelect(WebDisplayDatapoint[enum.Enum], WebActionDatapoint[enum.Enum], WebPageItem):
-    def __init__(self, type_: Type[enum.Enum]):
-        self.type = type_
+class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic[T]):
+    def __init__(self, values: List[Tuple[T, Union[str, markupsafe.Markup]]], label: str = ''):
+        self.type = type(values[0][0])
         super().__init__()
+        self.values = values
+        self.label = label
 
     def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
         return (self,)
 
-    def convert_to_ws_value(self, value: enum.Enum) -> Any:
-        return value.value
-
-    def convert_from_ws_value(self, value: Any) -> enum.Enum:
-        return self.type(value)
-
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/select.htm').render_async(
-            id=id(self), label="TODO", options=[(e.value, e.name) for e in self.type])
+            id=id(self), label=self.label, options=[(json.dumps(value, cls=SHCJsonEncoder), label)
+                                                for value, label in self.values])
+
+
+class EnumSelect(Select):
+    def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup] = ''):
+        values = [(entry, entry.name) for entry in type_]
+        super().__init__(values, label)
 
 
 class ButtonGroup(WebPageItem):
@@ -133,7 +138,8 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
 
 
 class ValueListButtonGroup(ButtonGroup, Generic[T]):
-    def __init__(self, values: List[Tuple[T, str]], label: Union[str, markupsafe.Markup], color: str = 'blue'):
+    def __init__(self, values: List[Tuple[T, Union[str, markupsafe.Markup]]], label: Union[str, markupsafe.Markup],
+                 color: str = 'blue'):
         buttons = [ValueButton(value=v[0], label=v[1], color=color) for v in values]
         super().__init__(label, buttons)
 
