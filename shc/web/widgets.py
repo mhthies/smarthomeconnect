@@ -2,12 +2,18 @@ import abc
 import enum
 from typing import Any, Type, Union, Iterable, List, Generic, Tuple
 
+import markupsafe
+
 from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env
 from ..base import T
 
 
+def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
+    return markupsafe.Markup('<i class="ui {}{} icon"></i>'.format("" if label else "fitted ", icon_name)) + label
+
+
 class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
-    def __init__(self, label: str):
+    def __init__(self, label: Union[str, markupsafe.Markup]):
         self.type = bool
         super().__init__()
         self.label = label
@@ -39,7 +45,7 @@ class EnumSelect(WebDisplayDatapoint[enum.Enum], WebActionDatapoint[enum.Enum], 
 
 
 class ButtonGroup(WebPageItem):
-    def __init__(self, label: str, buttons: List["AbstractButton"]):
+    def __init__(self, label: Union[str, markupsafe.Markup], buttons: List["AbstractButton"]):
         super().__init__()
         self.label = label
         self.buttons = buttons
@@ -53,8 +59,7 @@ class ButtonGroup(WebPageItem):
 
 
 class AbstractButton(metaclass=abc.ABCMeta):
-    label: str = ''
-    icon: str = ''
+    label: Union[str, markupsafe.Markup] = ''
     color: str = ''
     stateful: bool = True
     enabled: bool = True
@@ -63,24 +68,22 @@ class AbstractButton(metaclass=abc.ABCMeta):
 class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
     stateful = False
 
-    def __init__(self, value: T, label: str = '', icon: str = ''):
+    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = ''):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
-        self.icon = icon
 
     def convert_from_ws_value(self, value: Any) -> T:
         return self.value
 
 
 class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton, Generic[T]):
-    def __init__(self, value: T, label: str = '', icon: str = '', color: str = 'blue'):
+    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = 'blue'):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
-        self.icon = icon
         self.color = color
 
     def convert_from_ws_value(self, value: Any) -> T:
@@ -91,23 +94,21 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
 
 
 class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint[bool]):
-    def __init__(self, label: str = '', icon: str = '', color: str = 'blue'):
+    def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = 'blue'):
         self.type = bool
         super().__init__()
         self.label = label
-        self.icon = icon
         self.color = color
 
 
 class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
     enabled = False
 
-    def __init__(self, value: T = True,  label: str = '', icon: str = '', color: str = 'blue'):
+    def __init__(self, value: T = True,  label: Union[str, markupsafe.Markup] = '', color: str = 'blue'):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
-        self.icon = icon
         self.color = color
 
     def convert_to_ws_value(self, value: T) -> Any:
@@ -115,7 +116,7 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
 
 
 class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
-    def __init__(self, type_: Type[T], format_string: str, label: str):
+    def __init__(self, type_: Type[T], format_string: str, label: Union[str, markupsafe.Markup]):
         self.type = type_
         super().__init__()
         self.format_string = format_string
@@ -132,7 +133,7 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
 
 
 class ValueListButtonGroup(ButtonGroup, Generic[T]):
-    def __init__(self, values: List[Tuple[T, str]], label: str, color: str = 'blue'):
+    def __init__(self, values: List[Tuple[T, str]], label: Union[str, markupsafe.Markup], color: str = 'blue'):
         buttons = [ValueButton(value=v[0], label=v[1], color=color) for v in values]
         super().__init__(label, buttons)
 
@@ -143,6 +144,6 @@ class ValueListButtonGroup(ButtonGroup, Generic[T]):
 
 
 class EnumButtonGroup(ValueListButtonGroup):
-    def __init__(self, type_: Type[enum.Enum], label: str, color: str = 'blue'):
+    def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup], color: str = 'blue'):
         values = [(entry, entry.name) for entry in type_]
         super().__init__(values, label, color)

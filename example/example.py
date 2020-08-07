@@ -40,12 +40,12 @@ async def update_lastchange(new_value, source) -> None:
 web_interface = shc.web.WebServer("localhost", 8080, "index")
 index_page = web_interface.page("index")
 
-index_page.add_item(shc.web.widgets.Switch("Licht Michael")
+index_page.add_item(shc.web.widgets.Switch(shc.web.widgets.icon("lightbulb outline", "Licht Michael"))
                     .connect(michael_li))
-index_page.add_item(shc.web.widgets.ButtonGroup("Licht Michael", [
+index_page.add_item(shc.web.widgets.ButtonGroup(shc.web.widgets.icon("lightbulb outline", "Licht Michael"), [
     shc.web.widgets.ToggleButton("I", color="yellow").connect(michael_li)]))
-index_page.add_item(shc.web.widgets.ButtonGroup("Licht Michael", [
-    shc.web.widgets.DisplayButton(icon="power off").connect(michael_li)]))
+index_page.add_item(shc.web.widgets.ButtonGroup(shc.web.widgets.icon("lightbulb outline", "Licht Michael"), [
+    shc.web.widgets.DisplayButton(label=shc.web.widgets.icon("power off")).connect(michael_li)]))
 
 
 michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, "Heating mode Michael", shc.knx.KNXHVACMode.AUTO)\
@@ -64,8 +64,10 @@ index_page.add_item(shc.web.widgets.ValueListButtonGroup([(shc.knx.KNXHVACMode.C
 
 michael_blind_start = knx_connection.group(shc.knx.KNXGAD(2, 2, 9), "1.008")
 index_page.add_item(shc.web.widgets.ButtonGroup("Blinds", [
-    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.UP, icon="arrow up").connect(michael_blind_start),
-    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN, icon="arrow down").connect(michael_blind_start),
+    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.UP, shc.web.widgets.icon("arrow up"))
+    .connect(michael_blind_start),
+    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN, shc.web.widgets.icon("arrow down"))
+    .connect(michael_blind_start),
 ]))
 
 michael_temp = shc.variables.Variable(float, "Temperature Michael")\
