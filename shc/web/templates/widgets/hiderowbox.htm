@@ -1,11 +1,11 @@
 {% from "buttons.inc.htm" import render_button %}
-<table class="ui celled table">
+<table class="ui basic table">
     {% for row in rows %}
         <tr data-widget="hiderow" data-id="{{ row|id }}" class="transition hidden"><td class="{{ row.color }}">
             {{ row.label }}
             {% if row.button %}
                 <div class="ui right floated">
-                    {{ render_button(row.button) }}
+                    {{ render_button(row.button, 'tiny') }}
                 </div>
             {% endif %}
         </td></tr>
