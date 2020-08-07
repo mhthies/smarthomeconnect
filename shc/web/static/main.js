@@ -129,8 +129,8 @@ function SliderWidget(domElement, writeValue) {
     $semanticUiSlider.slider({
         min: 0,
         max: 100,
-        step: 0,
-        showLabelTicks: false,
+        step: 1,
+        showLabelTicks: true,
         labelDistance: 200,
         interpretLabel: function(v) { return Math.round(v / 1).toString() + " %"; },
         onChange: onSliderChange
