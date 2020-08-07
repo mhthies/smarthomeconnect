@@ -119,6 +119,14 @@ index_page.add_item(shc.web.widgets.HideRowBox([
 ]))
 
 
+web_interface.ui_menu_entries = [
+    (shc.web.widgets.icon('lightbulb', "Home"), 'index'),
+    ("EG", [
+        (shc.web.widgets.icon('tachometer alternate', "Overview"), 'index'),
+        (shc.web.widgets.icon('utensils', "Kitchen"), 'index'),
+    ]),
+]
+
 
 @shc.timer.at(hour=None, minute=shc.timer.EveryNth(2))
 @shc.base.handler()

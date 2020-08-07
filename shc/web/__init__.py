@@ -4,10 +4,11 @@ import itertools
 import json
 import logging
 import os
-from typing import Dict, Iterable, Union, List, Set, Any
+from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple
 
 import aiohttp.web
 import jinja2
+import markupsafe
 
 from ..base import Reading, T, Writable, Subscribable
 from ..conversion import SHCJsonEncoder, from_json
@@ -33,10 +34,11 @@ class WebServer:
         self._pages: Dict[str, WebPage] = {}
         self.display_datapoints: Dict[int, WebDisplayDatapoint] = {}
         self.action_datapoints: Dict[int, WebActionDatapoint] = {}
+        self.ui_menu_entries: List[Tuple[Union[str, markupsafe.Markup], Union[str, Tuple]]] = []
         self._app = aiohttp.web.Application()
         self._app.add_routes([
             aiohttp.web.get("/", self._index_handler),
-            aiohttp.web.get("/page/{name}/", self._page_handler),
+            aiohttp.web.get("/page/{name}/", self._page_handler, name='show_page'),
             aiohttp.web.get("/ws", self._websocket_handler),
             aiohttp.web.static('/static', os.path.join(os.path.dirname(__file__), 'static')),
         ])
@@ -76,14 +78,14 @@ class WebServer:
             return page
 
     async def _index_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
-        raise aiohttp.web.HTTPFound("/page/{}/".format(self.index_name))
+        raise aiohttp.web.HTTPFound(self._app.router['show_page'].url_for(page=self.index_name))
 
     async def _page_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
             page = self._pages[request.match_info['name']]
         except KeyError:
             raise aiohttp.web.HTTPNotFound()
-        return await page.generate(request)
+        return await page.generate(request, self.ui_menu_entries)
 
     async def _websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
         ws = aiohttp.web.WebSocketResponse()

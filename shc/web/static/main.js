@@ -246,4 +246,7 @@ const WIDGET_TYPES = new Map([
     window.onload = init;
 })();
 
-
+$(function() {
+    $('.main-menu .ui.dropdown').dropdown();
+    $('.ui.sidebar').sidebar({transition: 'overlay'}).sidebar('attach events', '#mobile_item');;
+});
