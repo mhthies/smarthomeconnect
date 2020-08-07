@@ -1,0 +1,13 @@
+<label for="input-{{ id }}">{{ label }}</label>
+<div class="right floated">
+    <div class="ui {% if input_suffix %}right labeled {% endif %} input">
+        <input id="input-{{ id }}" type="{{ type }}" data-id="{{ id }}" data-widget="text-input"
+               {% if min is not none %}min="{{ min }}" {% endif %} {% if max is not none %}max="{{ max }}" {% endif %}
+               {% if step is not none %}step="{{ step }}" {% endif %} />
+        {% if input_suffix %}
+            <div class="ui basic label">
+                {{ input_suffix }}
+            </div>
+        {% endif %}
+    </div>
+</div>

@@ -27,26 +27,25 @@ function SwitchWidget(domElement, writeValue) {
 function SelectWidget(domElement, writeValue) {
     const widget = this;
     const $semanticUIDropdown = $(domElement).closest('.dropdown');
-    let changeFromServer = false;
+    let sendingDisabled = false;
     $semanticUIDropdown.dropdown({
         'onChange': onDropdownChange
     });
     this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
 
     this.update = function(value, for_id) {
-        changeFromServer = true;
+        sendingDisabled = true;
         $semanticUIDropdown.dropdown('set selected', JSON.stringify(value));
-        changeFromServer = false;
+        sendingDisabled = false;
     };
 
     function onDropdownChange(value, text, $selectedItem) {
-        if (!changeFromServer)
+        if (!sendingDisabled)
             writeValue(widget.subscribeIds[0], JSON.parse(value));
     }
 }
 
 function ButtonWidget(domElement, writeValue) {
-    const widget = this;
     const id = parseInt(domElement.getAttribute('data-id'));
     const stateful = domElement.getAttribute('data-stateful') === 'True';
     let on = false;
@@ -76,11 +75,59 @@ function TextDisplayWidget(domElement, writeValue) {
     };
 }
 
+function TextInputWidget(domElement, writeValue) {
+    const BLUR_TIMEOUT = 8000; // ms
+    const id = parseInt(domElement.getAttribute('data-id'));
+    const parseAs = domElement.getAttribute("data-parse-as");
+    this.subscribeIds = [id];
+    let valueFromServer = null;
+    let timeout = null;
+    let sendingDisabled = false;
+
+    this.update = function(value, for_id) {
+        valueFromServer = value;
+        if (document.activeElement !== domElement)
+            domElement.value = value;
+    };
+
+    function sendValue() {
+        writeValue(id, domElement.value);
+    }
+    function clearValue() {
+        sendingDisabled = true;
+        domElement.blur();
+        sendingDisabled = false;
+        domElement.value = valueFromServer;
+    }
+
+    domElement.addEventListener('blur', function (event) {
+        if (!sendingDisabled)
+            sendValue();
+    });
+    domElement.addEventListener('keydown', function (event) {
+        clearTimeout(timeout);
+        if (event.keyCode === 13) { /* ENTER */
+            domElement.blur();
+            event.preventDefault();
+            return;
+        } else if (event.keyCode === 27) { /* ESC */
+            clearValue();
+            return;
+        }
+        timeout = setTimeout(clearValue, BLUR_TIMEOUT);
+    });
+    domElement.addEventListener('mousedown', function (event) {
+        clearTimeout(timeout);
+        timeout = setTimeout(clearValue, BLUR_TIMEOUT);
+    })
+}
+
 const WIDGET_TYPES = new Map([
    ['switch', SwitchWidget],
    ['select', SelectWidget],
    ['button', ButtonWidget],
-   ['text-display', TextDisplayWidget]
+   ['text-display', TextDisplayWidget],
+   ['text-input', TextInputWidget]
 ]);
 
 (function () {

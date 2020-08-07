@@ -1,7 +1,7 @@
 import abc
 import enum
 import json
-from typing import Any, Type, Union, Iterable, List, Generic, Tuple
+from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Optional
 
 import markupsafe
 
@@ -41,6 +41,35 @@ class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic
         return await jinja_env.get_template('widgets/select.htm').render_async(
             id=id(self), label=self.label, options=[(json.dumps(value, cls=SHCJsonEncoder), label)
                                                 for value, label in self.values])
+
+
+Ti = TypeVar('Ti', int, float, str)
+
+
+class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Generic[Ti]):
+    def __init__(self, type_: Type[Ti], label: Union[str, markupsafe.Markup] = '', min: Optional[Ti] = None,
+                 max: Optional[Ti] = None, step: Optional[Ti] = None, input_suffix: Union[str, markupsafe.Markup] = ''):
+        self.type = type_
+        super().__init__()
+        self.label = label
+        self.min = min
+        self.max = max
+        self.step = step
+        if self.step is None and issubclass(self.type, int):
+            self.step = 1
+        self.input_type = "number" if issubclass(self.type, (int, float)) else "text"
+        self.input_suffix = input_suffix
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return (self,)
+
+    def convert_from_ws_value(self, value: Any) -> T:
+        return self.type(value)
+
+    async def render(self) -> str:
+        return await jinja_env.get_template('widgets/textinput.htm').render_async(
+            id=id(self), label=self.label, type=self.input_type, min=self.min, max=self.max, step=self.step,
+            input_suffix=self.input_suffix)
 
 
 class EnumSelect(Select):

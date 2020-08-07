@@ -86,6 +86,11 @@ index_page.add_item(shc.web.widgets.TextDisplay(bool, "{}", "Temperatur > 25°C?
 index_page.add_item(shc.web.widgets.ButtonGroup("Temp > 25", [
     shc.web.widgets.DisplayButton(label=">25°").connect(michael_temp.EX > 25)]))
 
+michael_setpoint_offset = shc.variables.Variable(float, "Setpoint offset Michael")\
+    .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 4), "9", init=True))
+index_page.add_item(shc.web.widgets.TextInput(float, "Setpoint offset", min=-5.0, max=5.0, step=0.5, input_suffix="°C")
+                    .connect(michael_setpoint_offset))
+
 
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
 @shc.base.handler()
