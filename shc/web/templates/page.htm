@@ -16,13 +16,24 @@
     <script src="/static/main.js"></script>
 </head>
 <body>
-    <div class="ui container">
-        <div class="ui segment">
-            <div class="ui very relaxed divided list">
-                {% for item in items %}
-                    <div class="item">{{ item.render()|safe }}</div>
-                {% endfor %}
             </div>
+    <div class="ui container">
+        <h1 class="ui inverted header">{{ title }}</h1>
+        <div class="ui stackable grid">
+            {% for segment in segments %}
+                {% if not segment.same_column or loop.first or segment.full_width %}
+                    {% if not loop.first %}</div>{% endif %}
+                    <div class="{% if segment.full_width %}sixteen{% else %}eight{% endif %} wide column">
+                {% endif %}
+                    <div class="ui segment">
+                        <div class="ui very relaxed divided list">
+                            {% for item in segment.items %}
+                                <div class="item">{{ item.render()|safe }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% if loop.last %}</div>{% endif %}
+            {% endfor %}
         </div>
     </div>
 </body>

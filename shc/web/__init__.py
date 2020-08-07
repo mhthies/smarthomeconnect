@@ -122,18 +122,34 @@ class WebPage(WebDatapointContainer):
     def __init__(self, server: WebServer, name: str):
         self.server = server
         self.name = name
-        self.items: List[WebPageItem] = []
+        self.segments: List["_WebPageSegment"] = []
 
     def add_item(self, item: "WebPageItem"):
-        self.items.append(item)
+        if not self.segments:
+            self.new_segment()
+        self.segments[-1].items.append(item)
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return itertools.chain.from_iterable(item.get_datapoints() for item in self.segments)
+
+    def new_segment(self, title: Optional[str] = None, same_column: bool = False, full_width: bool = False):
+        self.segments.append(_WebPageSegment(title, same_column, full_width))
+
+    async def generate(self, request: aiohttp.web.Request, menu_data) -> aiohttp.web.Response:
+        template = jinja_env.get_template('page.htm')
+        body = await template.render_async(title=self.name, segments=self.segments, menu=menu_data)
+        return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
+
+
+class _WebPageSegment(WebDatapointContainer):
+    def __init__(self, title: Optional[str], same_column: bool, full_width: bool):
+        self.title = title
+        self.same_column = same_column
+        self.full_width = full_width
+        self.items: List[WebPageItem] = []
 
     def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
         return itertools.chain.from_iterable(item.get_datapoints() for item in self.items)
-
-    async def generate(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
-        template = jinja_env.get_template('page.htm')
-        body = await template.render_async(title=self.name, items=self.items)
-        return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
 
 class WebPageItem(WebDatapointContainer, metaclass=abc.ABCMeta):

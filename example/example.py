@@ -48,6 +48,8 @@ index_page.add_item(shc.web.widgets.ButtonGroup(shc.web.widgets.icon("lightbulb 
     shc.web.widgets.DisplayButton(label=shc.web.widgets.icon("power off")).connect(michael_li)]))
 
 
+index_page.new_segment("Heating", same_column=True)
+
 michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, "Heating mode Michael", shc.knx.KNXHVACMode.AUTO)\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 0), "20.102", init=True))\
     .connect(log_interface.variable(shc.knx.KNXHVACMode, "og_michael_heating_mode"), read=True)
@@ -91,6 +93,8 @@ michael_setpoint_offset = shc.variables.Variable(float, "Setpoint offset Michael
 index_page.add_item(shc.web.widgets.TextInput(float, "Setpoint offset", min=-5.0, max=5.0, step=0.5, input_suffix="°C")
                     .connect(michael_setpoint_offset))
 
+
+index_page.new_segment("Misc")
 
 michael_rl = shc.variables.Variable(shc.datatypes.RangeUInt8, "Blinds Michael")\
     .connect(knx_connection.group(shc.knx.KNXGAD(2, 2, 20), "5.001"))\
