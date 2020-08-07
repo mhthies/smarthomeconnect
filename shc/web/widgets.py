@@ -1,7 +1,6 @@
 import abc
 import enum
-import json
-from typing import Any, Type, Union, Iterable, List, Generic
+from typing import Any, Type, Union, Iterable, List, Generic, Tuple
 
 from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env
 from ..base import T
@@ -54,8 +53,9 @@ class ButtonGroup(WebPageItem):
 
 
 class AbstractButton(metaclass=abc.ABCMeta):
-    color: str = ''
     label: str = ''
+    icon: str = ''
+    color: str = ''
     stateful: bool = True
     enabled: bool = True
 
@@ -63,23 +63,24 @@ class AbstractButton(metaclass=abc.ABCMeta):
 class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
     stateful = False
 
-    def __init__(self, value: T, label: str, color: str = ''):
+    def __init__(self, value: T, label: str = '', icon: str = ''):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
-        self.color = color
+        self.icon = icon
 
     def convert_from_ws_value(self, value: Any) -> T:
         return self.value
 
 
 class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton, Generic[T]):
-    def __init__(self, value: T, label: str, color: str = ''):
-        self.type = bool
+    def __init__(self, value: T, label: str = '', icon: str = '', color: str = 'blue'):
+        self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
+        self.icon = icon
         self.color = color
 
     def convert_from_ws_value(self, value: Any) -> T:
@@ -90,11 +91,27 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
 
 
 class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint[bool]):
-    def __init__(self, label: str, color: str = ''):
+    def __init__(self, label: str = '', icon: str = '', color: str = 'blue'):
         self.type = bool
         super().__init__()
         self.label = label
+        self.icon = icon
         self.color = color
+
+
+class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
+    enabled = False
+
+    def __init__(self, value: T = True,  label: str = '', icon: str = '', color: str = 'blue'):
+        self.type = type(value)
+        super().__init__()
+        self.value = value
+        self.label = label
+        self.icon = icon
+        self.color = color
+
+    def convert_to_ws_value(self, value: T) -> Any:
+        return value == self.value
 
 
 class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
@@ -113,3 +130,19 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/textdisplay.htm').render_async(id=id(self), label=self.label)
 
+
+class ValueListButtonGroup(ButtonGroup, Generic[T]):
+    def __init__(self, values: List[Tuple[T, str]], label: str, color: str = 'blue'):
+        buttons = [ValueButton(value=v[0], label=v[1], color=color) for v in values]
+        super().__init__(label, buttons)
+
+    def connect(self, *args, **kwargs):
+        for button in self.buttons:
+            button.connect(*args, **kwargs)
+        return self
+
+
+class EnumButtonGroup(ValueListButtonGroup):
+    def __init__(self, type_: Type[enum.Enum], label: str, color: str = 'blue'):
+        values = [(entry, entry.name) for entry in type_]
+        super().__init__(values, label, color)

@@ -36,18 +36,30 @@ function EnumSelectWidget(domElement, writeValue) {
     });
 }
 
-function StatelessButtonWidget(domElement, writeValue) {
+function ButtonWidget(domElement, writeValue) {
     const widget = this;
     const id = parseInt(domElement.getAttribute('data-id'));
+    const stateful = domElement.getAttribute('data-stateful') === 'True';
+    let on = false;
     this.subscribeIds = [];
 
+    if (stateful)
+        this.subscribeIds.push(id);
+
+    this.update = function(value, for_id) {
+        on = value;
+        domElement.classList.toggle(domElement.getAttribute('data-on-class'), value);
+        domElement.classList.remove('loading', 'active');
+    };
+
     domElement.addEventListener('click', function (event) {
-        writeValue(id, null);
+        writeValue(id, !on);
+        if (stateful)
+            domElement.classList.add('active');
     });
 }
 
 function TextDisplayWidget(domElement, writeValue) {
-    const widget = this;
     this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
 
     this.update = function(value, for_id) {
@@ -58,7 +70,7 @@ function TextDisplayWidget(domElement, writeValue) {
 const WIDGET_TYPES = new Map([
    ['switch', SwitchWidget],
    ['enum-select', EnumSelectWidget],
-   ['stateless-button', StatelessButtonWidget],
+   ['button', ButtonWidget],
    ['text-display', TextDisplayWidget]
 ]);
 

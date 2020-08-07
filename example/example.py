@@ -19,7 +19,7 @@ knx_connection = shc.knx.KNXConnector()
 log_interface = shc.persistence.MySQLPersistence(host="localhost", db="shc", user="shc",
                                                  password=example_config.MYSQL_PASSWORD)
 
-michael_li = shc.variables.Variable(bool)\
+michael_li = shc.variables.Variable(bool, "Licht Michael")\
     .connect(knx_connection.group(shc.knx.KNXGAD(1, 0, 2), "1", init=True))\
     .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 1), "1"), send=False)\
     .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 4), "1"), send=False)\
@@ -42,6 +42,10 @@ index_page = web_interface.page("index")
 
 index_page.add_item(shc.web.widgets.Switch("Licht Michael")
                     .connect(michael_li))
+index_page.add_item(shc.web.widgets.ButtonGroup("Licht Michael", [
+    shc.web.widgets.ToggleButton("I", color="yellow").connect(michael_li)]))
+index_page.add_item(shc.web.widgets.ButtonGroup("Licht Michael", [
+    shc.web.widgets.DisplayButton(icon="power off").connect(michael_li)]))
 
 
 michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, "Heating mode Michael", shc.knx.KNXHVACMode.AUTO)\
@@ -49,27 +53,36 @@ michael_heating_mode = shc.variables.Variable(shc.knx.KNXHVACMode, "Heating mode
     .connect(log_interface.variable(shc.knx.KNXHVACMode, "og_michael_heating_mode"), read=True)
 index_page.add_item(shc.web.widgets.EnumSelect(shc.knx.KNXHVACMode)
                     .connect(michael_heating_mode))
+index_page.add_item(shc.web.widgets.EnumButtonGroup(shc.knx.KNXHVACMode, "Heating mode", 'red')
+                    .connect(michael_heating_mode))
+index_page.add_item(shc.web.widgets.ValueListButtonGroup([(shc.knx.KNXHVACMode.COMFORT, "C"),
+                                                          (shc.knx.KNXHVACMode.STANDBY, "S"),
+                                                          (shc.knx.KNXHVACMode.ECONOMY, "N"),
+                                                          (shc.knx.KNXHVACMode.BUILDING_PROTECTION, "F"),],
+                                                         "Heating mode", 'red')
+                    .connect(michael_heating_mode))
 
 michael_blind_start = knx_connection.group(shc.knx.KNXGAD(2, 2, 9), "1.008")
 index_page.add_item(shc.web.widgets.ButtonGroup("Blinds", [
-    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.UP, "↑").connect(michael_blind_start),
-    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN, "↓").connect(michael_blind_start),
+    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.UP, icon="arrow up").connect(michael_blind_start),
+    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN, icon="arrow down").connect(michael_blind_start),
 ]))
 
 michael_temp = shc.variables.Variable(float, "Temperature Michael")\
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 3, 2), "9", init=True))\
     .connect(log_interface.variable(float, "og_michael_temperature"))
-index_page.add_item(shc.web.widgets.TextDisplay(float, "{:.1f}°C", "Temperatur")
+index_page.add_item(shc.web.widgets.TextDisplay(float, "{:.1f} °C", "Temperatur")
                     .connect(michael_temp))
 
-index_page.add_item(shc.web.widgets.TextDisplay(float, "{:.1f}°C", "Temperatur +5")
+index_page.add_item(shc.web.widgets.TextDisplay(float, "{:.1f} °C", "Temperatur +5")
                     .connect(michael_temp.EX + 5))
 
 temp_thresh = shc.variables.Variable(bool, "Temperature Threshold").connect((michael_temp.EX + 10) > 35)
 index_page.add_item(shc.web.widgets.TextDisplay(bool, "{}", "Temperatur > 25°C?")
                     .connect(temp_thresh))
 
-index_page.add_item(shc.web.widgets.Switch("Temp > 25").connect(michael_temp.EX > 25))
+index_page.add_item(shc.web.widgets.ButtonGroup("Temp > 25", [
+    shc.web.widgets.DisplayButton(label=">25°").connect(michael_temp.EX > 25)]))
 
 
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
