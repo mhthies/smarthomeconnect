@@ -123,7 +123,7 @@ const WIDGET_TYPES = new Map([
         console.debug("Received message " + messageEvent.data);
         let data = JSON.parse(messageEvent.data);
         console.debug("Updating widget id " + data['id'].toString() + " ...");
-        let widget = widgetMap.get(data['id']).update(data['value']);
+        widgetMap.get(data['id']).update(data['value'], data['id']);
     }
 
     function writeValue(id, value) {
