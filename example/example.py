@@ -109,6 +109,13 @@ some_color = shc.variables.Variable(shc.datatypes.RGBUInt8, "An RGB Color", shc.
 index_page.add_item(shc.web.widgets.TextDisplay(shc.datatypes.RGBUInt8, "{}", "Farbe: ").connect(some_color))
 
 
+index_page.add_item(shc.web.widgets.HideRowBox([
+    shc.web.widgets.HideRow(shc.web.widgets.icon('lightbulb outline', "Michael's lights"), None, 'yellow')
+    .connect(michael_li),
+]))
+
+
+
 @shc.timer.at(hour=None, minute=shc.timer.EveryNth(2))
 @shc.base.handler()
 async def change_color(_value, _source):

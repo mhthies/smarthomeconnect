@@ -156,13 +156,30 @@ function SliderWidget(domElement, writeValue) {
     }
 }
 
+function HideRowWidget(domElement, _writeValue) {
+    const id = parseInt(domElement.getAttribute('data-id'));
+    this.subscribeIds = [id];
+    let displayBox = null;
+    for (const node of domElement.parentNode.childNodes.values()) {
+        if (node.nodeType === 1 && node.classList.contains('value-display')) {
+            displayBox = node;
+            break;
+        }
+    }
+
+    this.update = function(value, for_id) {
+        $(domElement).transition('slide down ' + (value ? 'in' : 'out'))
+    };
+}
+
 const WIDGET_TYPES = new Map([
    ['switch', SwitchWidget],
    ['select', SelectWidget],
    ['button', ButtonWidget],
    ['text-display', TextDisplayWidget],
    ['text-input', TextInputWidget],
-   ['slider', SliderWidget]
+   ['slider', SliderWidget],
+   ['hiderow', HideRowWidget],
 ]);
 
 (function () {

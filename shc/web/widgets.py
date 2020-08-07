@@ -1,11 +1,12 @@
 import abc
 import enum
+import itertools
 import json
 from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Optional
 
 import markupsafe
 
-from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env
+from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebDatapointContainer
 from ..base import T
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1
@@ -201,3 +202,29 @@ class EnumButtonGroup(ValueListButtonGroup):
     def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup], color: str = 'blue'):
         values = [(entry, entry.name) for entry in type_]
         super().__init__(values, label, color)
+
+
+class HideRowBox(WebPageItem):
+    def __init__(self, rows: List["HideRow"]):
+        self.rows = rows
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return itertools.chain.from_iterable(row.get_datapoints() for row in self.rows)
+
+    async def render(self) -> str:
+        return await jinja_env.get_template('widgets/hiderowbox.htm').render_async(rows=self.rows)
+
+
+class HideRow(WebDisplayDatapoint[bool], WebDatapointContainer):
+    def __init__(self, label: Union[str, markupsafe.Markup], button: Optional[AbstractButton] = None,
+                 color: str = 'blue',):
+        self.type = bool
+        super().__init__()
+        self.label = label
+        self.button = button
+        self.color = color
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        if self.button:
+            yield self.button
+        yield self

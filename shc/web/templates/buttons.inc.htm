@@ -1,0 +1,6 @@
+{% macro render_button(button) %}
+    <button class="ui {% if button.stateful %}loading{% endif %} button" {% if not button.enabled %}disabled="disabled"{% endif %}
+            data-widget="button" data-stateful="{{ button.stateful }}" data-on-class="{{ button.color }}" data-id="{{ button|id }}">
+        {{ button.label }}
+    </button>
+{% endmacro %}
