@@ -78,7 +78,6 @@ function TextDisplayWidget(domElement, writeValue) {
 function TextInputWidget(domElement, writeValue) {
     const BLUR_TIMEOUT = 8000; // ms
     const id = parseInt(domElement.getAttribute('data-id'));
-    const parseAs = domElement.getAttribute("data-parse-as");
     this.subscribeIds = [id];
     let valueFromServer = null;
     let timeout = null;
@@ -122,12 +121,48 @@ function TextInputWidget(domElement, writeValue) {
     })
 }
 
+function SliderWidget(domElement, writeValue) {
+    const id = parseInt(domElement.getAttribute('data-id'));
+    this.subscribeIds = [id];
+    $semanticUiSlider = $(domElement);
+    let sendingDisabled = false;
+    $semanticUiSlider.slider({
+        min: 0,
+        max: 100,
+        step: 0,
+        showLabelTicks: false,
+        labelDistance: 200,
+        interpretLabel: function(v) { return Math.round(v / 1).toString() + " %"; },
+        onChange: onSliderChange
+    });
+    let displayBox = null;
+    for (const node of domElement.parentNode.childNodes.values()) {
+        if (node.nodeType === 1 && node.classList.contains('value-display')) {
+            displayBox = node;
+            break;
+        }
+    }
+
+    this.update = function(value, for_id) {
+        sendingDisabled = true;
+        $semanticUiSlider.slider('set value', value * 100);
+        displayBox.textContent = Math.round(value * 100).toString() + " %";
+        sendingDisabled = false;
+    };
+
+    function onSliderChange() {
+        if (!sendingDisabled)
+            writeValue(id, $semanticUiSlider.slider('get value') / 100);
+    }
+}
+
 const WIDGET_TYPES = new Map([
    ['switch', SwitchWidget],
    ['select', SelectWidget],
    ['button', ButtonWidget],
    ['text-display', TextDisplayWidget],
-   ['text-input', TextInputWidget]
+   ['text-input', TextInputWidget],
+   ['slider', SliderWidget]
 ]);
 
 (function () {

@@ -8,6 +8,7 @@ import markupsafe
 from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env
 from ..base import T
 from ..conversion import SHCJsonEncoder
+from ..datatypes import RangeFloat1
 
 
 def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
@@ -70,6 +71,24 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
         return await jinja_env.get_template('widgets/textinput.htm').render_async(
             id=id(self), label=self.label, type=self.input_type, min=self.min, max=self.max, step=self.step,
             input_suffix=self.input_suffix)
+
+
+class Slider(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Generic[Ti]):
+    def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = ''):
+        self.type = RangeFloat1
+        super().__init__()
+        self.label = label
+        self.color = color
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return (self,)
+
+    def convert_from_ws_value(self, value: Any) -> T:
+        return float(value)
+
+    async def render(self) -> str:
+        return await jinja_env.get_template('widgets/slider.htm').render_async(
+            id=id(self), label=self.label, color=self.color)
 
 
 class EnumSelect(Select):

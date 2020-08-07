@@ -92,6 +92,13 @@ index_page.add_item(shc.web.widgets.TextInput(float, "Setpoint offset", min=-5.0
                     .connect(michael_setpoint_offset))
 
 
+michael_rl = shc.variables.Variable(shc.datatypes.RangeUInt8, "Blinds Michael")\
+    .connect(knx_connection.group(shc.knx.KNXGAD(2, 2, 20), "5.001"))\
+    .connect(knx_connection.group(shc.knx.KNXGAD(8, 2, 7), "5.001", init=True), send=False)
+index_page.add_item(shc.web.widgets.Slider("RL", color="blue")
+                    .connect(michael_rl, convert=True))
+
+
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
 @shc.base.handler()
 async def toggle_light(value, source):
