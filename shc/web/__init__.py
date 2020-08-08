@@ -208,3 +208,6 @@ class WebActionDatapoint(Subscribable[T], metaclass=abc.ABCMeta):
         await self._publish(self.convert_from_ws_value(value), [ws])
         if isinstance(self, WebDisplayDatapoint):
             await self._publish_to_ws(value)
+
+
+from . import widgets
