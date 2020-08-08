@@ -67,6 +67,7 @@
                         {% if not loop.first %}</div>{% endif %}
                         <div class="{% if segment.full_width %}sixteen{% else %}eight{% endif %} wide column">
                     {% endif %}
+                        {% if segment.title %}<h3 class="ui inverted header">{{ segment.title }}</h3>{% endif %}
                         <div class="ui segment">
                             <div class="ui very relaxed divided list">
                                 {% for item in segment.items %}

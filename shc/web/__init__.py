@@ -78,7 +78,7 @@ class WebServer:
             return page
 
     async def _index_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
-        raise aiohttp.web.HTTPFound(self._app.router['show_page'].url_for(page=self.index_name))
+        raise aiohttp.web.HTTPFound(self._app.router['show_page'].url_for(name=self.index_name))
 
     async def _page_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
