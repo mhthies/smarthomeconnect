@@ -7,7 +7,7 @@ from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Op
 import markupsafe
 
 from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebDatapointContainer
-from ..base import T
+from ..base import T, ConnectableWrapper
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1
 
@@ -186,7 +186,7 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
         return await jinja_env.get_template('widgets/textdisplay.htm').render_async(id=id(self), label=self.label)
 
 
-class ValueListButtonGroup(ButtonGroup, Generic[T]):
+class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
     def __init__(self, values: List[Tuple[T, Union[str, markupsafe.Markup]]], label: Union[str, markupsafe.Markup],
                  color: str = 'blue'):
         buttons = [ValueButton(value=v[0], label=v[1], color=color) for v in values]

@@ -27,8 +27,14 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
                 convert: bool = False) -> "Connectable":
-        self._connect_with(self, other, send, force_send, provide, convert)
-        self._connect_with(other, self, receive, force_receive, read, convert)
+        if isinstance(other, ConnectableWrapper):
+            # If other object is not connectable itself but wraps one or more connectable objects (like, for example, a
+            # `web.widgets.ValueButtonGroup`), let it use its special implementation of `connect()`.
+            other.connect(self, send=receive, force_send=force_receive, receive=send, force_receive=force_send,
+                          read=provide, provide=read, convert=convert)
+        else:
+            self._connect_with(self, other, send, force_send, provide, convert)
+            self._connect_with(other, self, receive, force_receive, read, convert)
         return self
 
     @staticmethod
@@ -49,6 +55,21 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
         elif provide and not isinstance(target, Reading):
             raise TypeError("Cannot use {} as read provider for {}, since the latter is not Reading"
                             .format(source, target))
+
+
+class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
+    type: Type[T]
+
+    @abc.abstractmethod
+    def connect(self, other: "Connectable",
+                send: Optional[bool] = None,
+                force_send: bool = False,
+                receive: Optional[bool] = None,
+                force_receive: bool = False,
+                read: Optional[bool] = None,
+                provide: Optional[bool] = None,
+                convert: bool = False) -> "Connectable":
+        pass
 
 
 class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
