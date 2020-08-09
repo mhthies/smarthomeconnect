@@ -81,7 +81,7 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
                 raise ValueError("No source attribute provided or set via execution context") from e
         if not isinstance(value, self.type):
             raise TypeError("Invalid type for {}: {} is not a {}".format(self, value, self.type.__name__))
-        logger.debug("New value %s for %s from %s", value, self, source)
+        logger.debug("New value %s for %s via %s", value, self, source)
         await self._write(value, source)
 
     @abc.abstractmethod

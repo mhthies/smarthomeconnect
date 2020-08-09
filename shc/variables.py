@@ -34,7 +34,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     async def _write(self, value: T, source: List[Any]) -> None:
         old_value = self._value
-        logger.info("New value %s for Variable %s", value, self)
+        logger.info("New value %s for Variable %s from %s", value, self, source[:1])
         self._value = value
         await asyncio.gather(self._publish(value, source, old_value != value),
                              *(field._recursive_publish(getattr(value, field.field),
