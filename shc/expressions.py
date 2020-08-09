@@ -4,6 +4,7 @@ import math
 import operator
 from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple
 
+from . import conversion
 from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler
 
 
@@ -177,6 +178,10 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
 
     def not_(self) -> "UnaryExpressionHandler":
         return UnaryCastExpressionHandler(bool, self, operator.not_)
+
+    def convert(self, type_: Type[T]) -> "UnaryExpressionHandler":
+        converter = conversion.get_converter(self.type, type_)
+        return UnaryExpressionHandler(type_, self, converter)
 
 
 def not_(a):
