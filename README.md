@@ -84,3 +84,23 @@ fan = shc.Variable(bool, "fan")\
 # Start up SHC
 shc.main()
 ```
+
+
+## License
+
+Smart Home Connect is published under the terms of the Apache License 2.0.
+
+It's delivered with multiple third party works:
+
+* [jQuery](https://jquery.com/) (MIT License)
+* [Fomantic UI CSS framework](https://fomantic-ui.com/) (MIT License)
+* [“Prism”](https://www.toptal.com/designers/subtlepatterns/prism/) – Subtle Patterns by Toptal Designers (Creative Commons BY-SA 3.0)
+
+See `LICENSE` and `NOTICE` file for further information.
+
+SHC depends on the following Python packages:
+
+* `aiohttp` and its dependencies (Apache License 2.0, MIT License, Python Software Foundation License, LGPL 2.1, 3-Clause BSD License)
+* `aiomysql` and `PyMySQL` (MIT License)
+* `jinja2` and `MarkupSafe` (BSD-3-Clause License)
+* `knxdclient` (Apache License 2.0)

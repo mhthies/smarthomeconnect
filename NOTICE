@@ -1,0 +1,15 @@
+Smart Home Connect (SHC) -- A Python 3 AsyncIO-based home automation and interfacing framework
+Copyright 2020 Michael Thies <mail@mhthies.de>
+
+This product bundles jQuery 3.5.1 in shc/web/static/jquery-3.5.1.min.js,
+which is available under the MIT License
+from https://jquery.com/.
+
+This product bundles Fomantic-UI 2.8.6 in shc/web/static/semantic-ui/,
+which is available under the MIT License
+from https://fomantic-ui.com/.
+
+The “Prism” background pattern in shc/web/static/prism.png
+is part of the “Subtle Patterns” suite by Toptal Designers
+and is available as Creative Commons BY-SA 3.0
+at https://www.toptal.com/designers/subtlepatterns/prism/

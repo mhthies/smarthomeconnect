@@ -1,3 +1,15 @@
+/* Copyright 2020 Michael Thies <mail@mhthies.de>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+
 body.pushable>.pusher, body:not(.pushable) {
     background: url("prism.png");
     padding-top: 60px;
@@ -18,7 +30,11 @@ body.pushable>.pusher, body:not(.pushable) {
 /* ************************** *
  * Semantic UI extensions     *
  * ************************** */
-/* from https://github.com/Semantic-Org/Semantic-UI/issues/1114#issuecomment-201057438 */
+
+/* The following responsive features for Semantic UI are written by GitHub Users @sgeraldes and
+ * @aliok <aliok@redhat.com>.
+ * Source: https://github.com/Semantic-Org/Semantic-UI/issues/1114#issuecomment-201057438 */
+
 /* Semantic UI has these classes, however they're only applicable to
  * grids, containers, rows and columns.
  * plus, there isn't any `mobile hidden`, `X hidden` class.
