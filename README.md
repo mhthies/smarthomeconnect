@@ -74,6 +74,13 @@ web_index_page.add_item(shc.web.widgets.ButtonGroup("Shutters", [
     .connect(knx_connection.group(shc.knx.KNXGAD(3, 2, 1), dpt="1.008"))
 ]))
 
+# use expression syntax to switch on fan when temperature is over 25 degrees 
+temperature = shc.Variable(float, "temperature")\
+    .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 1), dpt="9", init=True))
+fan = shc.Variable(bool, "fan")\
+    .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 2), dpt="1"))\
+    .connect(temperature.EX > 25.0)
+
 # Start up SHC
 shc.main()
 ```
