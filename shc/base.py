@@ -189,16 +189,16 @@ class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         return convert(val) if convert else val
 
 
-def handler(allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:
+def handler(reset_source=False, allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:
     def decorator(f: LogicHandler) -> LogicHandler:
         @functools.wraps(f)
         async def wrapper(value, source) -> None:
-            if any(f is s for s in source) and not allow_recursion:
+            if any(wrapper is s for s in source) and not allow_recursion:
                 logger.warning("Skipping recursive execution of logic handler %s() via %s", f.__name__, source)
                 return
             logger.info("Triggering logic handler %s() from %s", f.__name__, source)
             try:
-                token = magicSourceVar.set(source + [f])
+                token = magicSourceVar.set([wrapper] if reset_source else (source + [wrapper]))
                 await f(value, source)
                 magicSourceVar.reset(token)
             except Exception as e:
