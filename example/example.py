@@ -39,7 +39,7 @@ michael_li_value = shc.Variable(RangeUInt8)\
 
 @michael_li.trigger
 @shc.handler()
-async def update_lastchange(_new_value, _source) -> None:
+async def update_lastchange(_new_value, _origin) -> None:
     await michael_li_lastchange.write(datetime.datetime.now())
 
 
@@ -109,7 +109,7 @@ index_page.add_item(Slider("RL", color="blue")
 
 @shc.timer.every(datetime.timedelta(seconds=10), align=False)
 @shc.base.handler()
-async def toggle_light(value, source):
+async def toggle_light(value, origin):
     #await michael_li.write(not await michael_li.read())
     pass
 
@@ -134,7 +134,7 @@ web_interface.ui_menu_entries = [
 
 @shc.timer.at(hour=None, minute=shc.timer.EveryNth(2))
 @shc.base.handler()
-async def change_color(_value, _source):
+async def change_color(_value, _origin):
     await some_color.red.write(RangeUInt8(random.randrange(0, 256)))
 
 

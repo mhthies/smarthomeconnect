@@ -178,7 +178,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], metaclass=abc.ABCMeta):
         super().__init__()
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
 
-    async def _write(self, value: T, source: List[Any]):
+    async def _write(self, value: T, origin: List[Any]):
         await self._publish_to_ws(self.convert_to_ws_value(value))
 
     async def _publish_to_ws(self, value):

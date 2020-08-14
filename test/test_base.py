@@ -24,8 +24,8 @@ class ExampleSubscribable(base.Subscribable[T], Generic[T]):
         self.type = type_
         super().__init__()
 
-    async def publish(self, val: T, source: List[Any]) -> None:
-        await self._publish(val, source)
+    async def publish(self, val: T, origin: List[Any]) -> None:
+        await self._publish(val, origin)
 
 
 class ExampleWritable(base.Writable[T], Generic[T]):
@@ -34,7 +34,7 @@ class ExampleWritable(base.Writable[T], Generic[T]):
         super().__init__()
         self._write = AsyncMock()
 
-    async def _write(self, value: T, source: List[Any]) -> None: ...
+    async def _write(self, value: T, origin: List[Any]) -> None: ...
 
 
 class ExampleReading(base.Reading[T], Generic[T]):

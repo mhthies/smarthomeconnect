@@ -37,10 +37,10 @@ class PeriodicReader(Readable[T], Subscribable[T], Generic[T]):
         return await self.wrapped.read()
 
     @handler()
-    async def do_read(self, _value, source) -> None:
-        # We add the wrapped Readable object to the `source` list to avoid publishing back its own value, in case it is
+    async def do_read(self, _value, origin) -> None:
+        # We add the wrapped Readable object to the `origin` list to avoid publishing back its own value, in case it is
         # subscribed to one of our subscribers (e.g. a variable).
-        await self._publish(await self.wrapped.read(), source + [self.wrapped])
+        await self._publish(await self.wrapped.read(), origin + [self.wrapped])
 
 
 class TwoWayPipe(ConnectableWrapper[T], Generic[T]):
@@ -89,5 +89,5 @@ class _PipeEnd(Subscribable[T], Writable[T], Generic[T]):
         super().__init__()
         self.other_end: "_PipeEnd" = None  # type: ignore
 
-    async def _write(self, value: T, source: List[Any]):
-        await self.other_end._publish(value, source)
+    async def _write(self, value: T, origin: List[Any]):
+        await self.other_end._publish(value, origin)

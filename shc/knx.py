@@ -141,10 +141,10 @@ class KNXGroupVar(Subscribable, Writable, Reading):
         self.connector = connector
         self.addr = addr
 
-    async def update_from_bus(self, data: knxdclient.EncodedData, source: List[Any]) -> None:
+    async def update_from_bus(self, data: knxdclient.EncodedData, origin: List[Any]) -> None:
         value = self.type(knxdclient.decode_value(data, self.knx_major_dpt))
         logger.debug("Got new value %s for KNX Group variable %s from bus", value, self.addr)
-        await self._publish(value, source)
+        await self._publish(value, origin)
 
     async def read_from_bus(self) -> Optional[knxdclient.EncodedData]:
         value = await self._from_provider()
@@ -152,10 +152,10 @@ class KNXGroupVar(Subscribable, Writable, Reading):
             return knxdclient.encode_value(value, self.knx_major_dpt)
         return None
 
-    async def _write(self, value: T, source: List[Any]) -> None:
+    async def _write(self, value: T, origin: List[Any]) -> None:
         encoded_data = knxdclient.encode_value(value, self.knx_major_dpt)
         await self.connector.send(self.addr, encoded_data)
-        await self._publish(value, source)
+        await self._publish(value, origin)
 
     def __repr__(self) -> str:
         return "{}(GAD={})".format(self.__class__.__name__, self.addr)

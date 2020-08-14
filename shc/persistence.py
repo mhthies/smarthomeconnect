@@ -64,7 +64,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T]):
         logger.debug("Retrieved value %s for %s from %s", value[0], self, self.interface)
         return from_json(self.type, json.loads(value[0]))
 
-    async def _write(self, value: T, source: List[Any]):
+    async def _write(self, value: T, origin: List[Any]):
         data = json.dumps(value, cls=SHCJsonEncoder)
         logger.debug("%s value %s for %s to persistence backend", "logging" if self.log else "updating", data, self)
         await self.interface._write(self.name, data, log=self.log)

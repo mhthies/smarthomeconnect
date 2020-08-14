@@ -24,7 +24,7 @@ LogicHandler = Callable[[T, List[Any]], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
-magicSourceVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_source')
+magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_origin')
 
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
@@ -80,19 +80,19 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
 
 class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
-    async def write(self, value: T, source: Optional[List[Any]] = None):
-        if source is None:
+    async def write(self, value: T, origin: Optional[List[Any]] = None):
+        if origin is None:
             try:
-                source = magicSourceVar.get()
+                origin = magicOriginVar.get()
             except LookupError as e:
-                raise ValueError("No source attribute provided or set via execution context") from e
+                raise ValueError("No origin attribute provided or set via execution context") from e
         if not isinstance(value, self.type):
             raise TypeError("Invalid type for {}: {} is not a {}".format(self, value, self.type.__name__))
-        logger.debug("New value %s for %s via %s", value, self, source)
-        await self._write(value, source)
+        logger.debug("New value %s for %s via %s", value, self, origin)
+        await self._write(value, origin)
 
     @abc.abstractmethod
-    async def _write(self, value: T, source: List[Any]):
+    async def _write(self, value: T, origin: List[Any]):
         pass
 
 
@@ -113,24 +113,24 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         self._triggers: List[LogicHandler] = []
 
     async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T], S]], value: T,
-                              source: List[Any]):
+                              origin: List[Any]):
         try:
-            await subscriber.write(converter(value) if converter else value, source + [self])  # type: ignore
+            await subscriber.write(converter(value) if converter else value, origin + [self])  # type: ignore
         except Exception as e:
             logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
 
-    async def __publish_trigger(self, target: LogicHandler, value: T, source: List[Any]):
+    async def __publish_trigger(self, target: LogicHandler, value: T, origin: List[Any]):
         try:
-            await target(value, source + [self])
+            await target(value, origin + [self])
         except Exception as e:
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
 
-    async def _publish(self, value: T, source: List[Any], changed: bool = True):
+    async def _publish(self, value: T, origin: List[Any], changed: bool = True):
         await asyncio.gather(
-            *(self.__publish_write(subscriber, converter, value, source)
+            *(self.__publish_write(subscriber, converter, value, origin)
               for subscriber, converter in self._subscribers
-              if not any(subscriber is s for s in source)),
-            *(self.__publish_trigger(target, value, source)
+              if not any(subscriber is s for s in origin)),
+            *(self.__publish_trigger(target, value, origin)
               for target in self._triggers)
         )
 
@@ -140,7 +140,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
         The subscriber's :meth:`Writable.write` method will be called for any new value published by this object, as
         long as the subscriber did not lead to the relevant update of this object (i.e. is not included in the
-        `source` list). The source list passed to the subscriber's `write` method will contain this object as the last
+        `origin` list). The origin list passed to the subscriber's `write` method will contain this object as the last
         entry.
 
         :param subscriber: The object to subscribe for updates
@@ -170,17 +170,17 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         with a function object: `some_subscribable.trigger(some_handler_function).
 
         The `target` function must be an async coroutine that takes two arguments: The new value of this object and the
-        source/trace of the event (a list of objects that led to the handler being tiggered). The handler function
+        origin/trace of the event (a list of objects that led to the handler being tiggered). The handler function
         must make sure to prevent infinite recursive feedback loops: In contrast to subscribed objects, logic handler
         functions are also triggered, if they led to the object being updated (i.e. they are already conained in the
-        `source` list). Thus, they should skip execution if called recursively. It should also append itself to the
-        `source` list and pass the extended list to all :meth:`Writable.write` calls it does.
+        `origin` list). Thus, they should skip execution if called recursively. It should also append itself to the
+        `origin` list and pass the extended list to all :meth:`Writable.write` calls it does.
 
         To ensure all this for a custom handler function, use the :func:`handler` decorator::
 
             @some_subscribable.trigger
             @handler()
-            async def some_handler_function(value, source):
+            async def some_handler_function(value, origin):
                 ...
                 some_writable.write(value + 1)
                 ...
@@ -190,8 +190,8 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             @some_subscribable.trigger
             @another_subscribable.trigger
             @handler()
-            async def some_handler_function(value, source):
-                if source[-1] is some_subscribable:
+            async def some_handler_function(value, origin):
+                if origin[-1] is some_subscribable:
                     ...
                 else:
                     ...
@@ -242,41 +242,41 @@ class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         return convert(val) if convert else val
 
 
-def handler(reset_source=False, allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:
+def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:
     """
     Decorator for custom logic handler functions.
 
     Wraps a custom logic handler functions to make sure it is suited to be registered to be triggered by a subscribable
     object with :meth:`Subscribable.trigger`. It makes sure that
     * exceptions, occuring during execution, are logged,
-    * the `source` is extended with the logic handler itself and magically passed to all :meth:`Writable.write` calls
-    * the `source` can magically be passed when called directly by other logic handlers
-    * the execution is skipped when called recursively (i.e. the logic handler is already contained in the `source` list
+    * the `origin` is extended with the logic handler itself and magically passed to all :meth:`Writable.write` calls
+    * the `origin` can magically be passed when called directly by other logic handlers
+    * the execution is skipped when called recursively (i.e. the logic handler is already contained in the `origin` list
 
-    :param reset_source: If True, the source which is magically passed to all `write` calls, only contains the logic
-        handler itself, not the previous `source` list, which led to the handler's execution. This can be used to
+    :param reset_origin: If True, the origin which is magically passed to all `write` calls, only contains the logic
+        handler itself, not the previous `origin` list, which led to the handler's execution. This can be used to
         change an object's value, which triggers this logic handler. This may cause infinite recursive feedback loops,
         so use with care!
     :param allow_recursion: If True, recursive execution of the handler is not skipped. The handler must check the
-        passed values and/or the `source` list itself to prevent infinite feedback loops via `write` calls or calls to
-        other logic handlers – especiaally when used together with `reset_source`.
+        passed values and/or the `origin` list itself to prevent infinite feedback loops via `write` calls or calls to
+        other logic handlers – especiaally when used together with `reset_origin`.
     """
     def decorator(f: LogicHandler) -> LogicHandler:
         @functools.wraps(f)
-        async def wrapper(value, source: Optional[List[Any]] = None) -> None:
-            if source is None:
+        async def wrapper(value, origin: Optional[List[Any]] = None) -> None:
+            if origin is None:
                 try:
-                    source = magicSourceVar.get()
+                    origin = magicOriginVar.get()
                 except LookupError as e:
-                    raise ValueError("No source attribute provided or set via execution context") from e
-            if any(wrapper is s for s in source) and not allow_recursion:
-                logger.warning("Skipping recursive execution of logic handler %s() via %s", f.__name__, source)
+                    raise ValueError("No origin attribute provided or set via execution context") from e
+            if any(wrapper is s for s in origin) and not allow_recursion:
+                logger.warning("Skipping recursive execution of logic handler %s() via %s", f.__name__, origin)
                 return
-            logger.info("Triggering logic handler %s() from %s", f.__name__, source)
+            logger.info("Triggering logic handler %s() from %s", f.__name__, origin)
             try:
-                token = magicSourceVar.set([wrapper] if reset_source else (source + [wrapper]))
-                await f(value, source)
-                magicSourceVar.reset(token)
+                token = magicOriginVar.set([wrapper] if reset_origin else (origin + [wrapper]))
+                await f(value, origin)
+                magicOriginVar.reset(token)
             except Exception as e:
                 logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
         return wrapper

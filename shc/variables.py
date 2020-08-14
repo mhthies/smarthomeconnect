@@ -43,13 +43,13 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
         _ALL_VARIABLES.append(self)
 
-    async def _write(self, value: T, source: List[Any]) -> None:
+    async def _write(self, value: T, origin: List[Any]) -> None:
         old_value = self._value
-        logger.info("New value %s for Variable %s from %s", value, self, source[:1])
+        logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
         self._value = value
-        await asyncio.gather(self._publish(value, source, old_value != value),
+        await asyncio.gather(self._publish(value, origin, old_value != value),
                              *(field._recursive_publish(getattr(value, field.field),
-                                                        getattr(old_value, field.field), source)
+                                                        getattr(old_value, field.field), origin)
                                for field in self._variable_fields))
         # TODO make recursive
 
@@ -91,22 +91,22 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                 self._variable_fields.append(variable_field)
                 setattr(self, name, variable_field)
 
-    async def _recursive_publish(self, new_value: T, old_value: T, source: List[Any]):
-        await asyncio.gather(self._publish(new_value, source, new_value != old_value),
+    async def _recursive_publish(self, new_value: T, old_value: T, origin: List[Any]):
+        await asyncio.gather(self._publish(new_value, origin, new_value != old_value),
                              *(field._recursive_publish(getattr(new_value, field.field),
-                                                        getattr(old_value, field.field), source)
+                                                        getattr(old_value, field.field), origin)
                                for field in self._variable_fields))
 
     @property
     def _value(self):
         return None if self.parent._value is None else getattr(self.parent._value, self.field)
 
-    async def _write(self, value: T, source: List[Any]) -> None:
+    async def _write(self, value: T, origin: List[Any]) -> None:
         if self.parent._value is None:
             logger.warning("Cannot set field %s within Variable %s, since it is uninitialized", self.field,
                            self.variable)
             return
-        await self.parent._write(self.parent._value._replace(**{self.field: value}), source + [self])
+        await self.parent._write(self.parent._value._replace(**{self.field: value}), origin + [self])
 
     async def read(self) -> T:
         if self.parent._value is None:
