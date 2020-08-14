@@ -47,6 +47,13 @@ class ExampleReading(base.Reading[T], Generic[T]):
         return await self._from_provider()
 
 
+class SimpleIntRepublisher(base.Writable, base.Subscribable):
+    type = int
+
+    async def _write(self, value: T, origin: List[Any]):
+        await self._publish(value, origin)
+
+
 class TestSubscribe(unittest.TestCase):
     @async_test
     async def test_simple_subscribe(self):
@@ -87,18 +94,71 @@ class TestSubscribe(unittest.TestCase):
 class TestHandler(unittest.TestCase):
     @async_test
     async def test_basic_trigger(self):
-        # TODO
-        pass
+        a = ExampleSubscribable(int)
+        handler = AsyncMock()
+        handler.__name__ = "handler_mock"
+        wrapped_handler = base.handler()(handler)  # type: ignore
+        a.trigger(wrapped_handler)
+        await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        handler.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
 
     @async_test
-    async def test_magic_source_passing(self):
-        # TODO
-        pass
+    async def test_magic_origin_passing(self):
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(int)
+
+        @a.trigger
+        @base.handler()
+        async def test_handler(value, _origin):
+            await b.write(value)
+
+        await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
+
+    @async_test
+    async def test_reset_origin(self):
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(int)
+
+        @a.trigger
+        @base.handler(reset_origin=True)
+        async def test_handler(value, _origin):
+            await b.write(value)
+
+        await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [test_handler])
+
+    @async_test
+    async def test_no_recursion(self):
+        a = SimpleIntRepublisher()
+        self.call_counter = 0
+
+        @a.trigger
+        @base.handler()
+        async def a_test_handler(value, _origin):
+            self.call_counter += 1
+            if value > TOTALLY_RANDOM_NUMBER:
+                return
+            await a.write(value + 1)
+
+        await a_test_handler(TOTALLY_RANDOM_NUMBER, [])
+        self.assertEqual(1, self.call_counter)
 
     @async_test
     async def test_allow_recursion(self):
-        # TODO
-        pass
+        a = SimpleIntRepublisher()
+        self.call_counter = 0
+
+        @a.trigger
+        @base.handler(allow_recursion=True)
+        async def another_test_handler(value, _origin):
+            self.call_counter += 1
+            if value > TOTALLY_RANDOM_NUMBER:
+                return
+            await a.write(value + 1)
+
+        await another_test_handler(TOTALLY_RANDOM_NUMBER, [])
+        self.assertEqual(2, self.call_counter)
 
 
 class TestReading(unittest.TestCase):
@@ -129,14 +189,78 @@ class TestReading(unittest.TestCase):
 
 class TestConnecting(unittest.TestCase):
     def test_subscribing(self):
-        # TODO
-        pass
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(int)
+        a.connect(b, receive=False)  # `read` should not have an effect here
+        self.assertIn(b, [s[0] for s in a._subscribers])
+
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(int)
+        b.connect(a, send=False)  # `provide` should not have an effect here
+        self.assertIn(b, [s[0] for s in a._subscribers])
+
+        # Explicit override
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(int)
+        a.connect(b, send=False)
+        self.assertNotIn(b, [s[0] for s in a._subscribers])
+
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(int)
+        b.connect(a, receive=False)
+        self.assertNotIn(b, [s[0] for s in a._subscribers])
+
+        # Exceptions
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(int)
+        with self.assertRaises(TypeError):
+            a.connect(b, receive=True)
+        with self.assertRaises(TypeError):
+            b.connect(a, send=True)
 
     def test_mandatory_reading(self):
-        # TODO
-        pass
+        # Since Reading is mandatory, a should be registered with b by default
+        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        b = ExampleReading(int, False)
+        a.connect(b, read=False)  # `read=False` should not have an effect here
+        self.assertIs(b._default_provider[0], a)
+
+        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        b = ExampleReading(int, False)
+        b.connect(a, provide=False)  # `provide=False` should not have an effect here
+        self.assertIs(b._default_provider[0], a)
+
+        # Explicit override
+        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        b = ExampleReading(int, False)
+        a.connect(b, provide=False)
+        self.assertIsNone(b._default_provider)
+
+        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        b = ExampleReading(int, False)
+        b.connect(a, read=False)
+        self.assertIsNone(b._default_provider)
+
+        # Exceptions
+        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        b = ExampleReading(int, False)
+        with self.assertRaises(TypeError):
+            a.connect(b, read=True)
+        with self.assertRaises(TypeError):
+            b.connect(a, provide=True)
 
     def test_optional_reading(self):
+        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        b = ExampleReading(int, True)
+        a.connect(b)
+        self.assertIsNone(b._default_provider)
+
+        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        b = ExampleReading(int, True)
+        b.connect(a, read=True)
+        self.assertIs(b._default_provider[0], a)
+
+    def test_type_conversion(self):
         # TODO
         pass
 
