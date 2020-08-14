@@ -270,7 +270,7 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
                 except LookupError as e:
                     raise ValueError("No origin attribute provided or set via execution context") from e
             if any(wrapper is s for s in origin) and not allow_recursion:
-                logger.warning("Skipping recursive execution of logic handler %s() via %s", f.__name__, origin)
+                logger.info("Skipping recursive execution of logic handler %s() via %s", f.__name__, origin)
                 return
             logger.info("Triggering logic handler %s() from %s", f.__name__, origin)
             try:
