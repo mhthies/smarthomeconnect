@@ -1,5 +1,5 @@
-import asyncio
 import unittest
+import unittest.mock
 from typing import List, Any, Type, TypeVar, Generic
 
 from ._helper import async_test, AsyncMock
@@ -45,6 +45,14 @@ class ExampleReading(base.Reading[T], Generic[T]):
 
     async def do_read(self) -> T:
         return await self._from_provider()
+
+
+class ExampleWrapper(base.ConnectableWrapper, Generic[T]):
+    def __init__(self, type_: Type[T]):
+        self.type = type_
+        self.connect = unittest.mock.Mock()
+
+    def connect(self, *args, **kwargs) -> "Connectable": ...
 
 
 class SimpleIntRepublisher(base.Writable, base.Subscribable):
@@ -191,59 +199,53 @@ class TestConnecting(unittest.TestCase):
     def test_subscribing(self):
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
-        a.connect(b, receive=False)  # `read` should not have an effect here
-        self.assertIn(b, [s[0] for s in a._subscribers])
 
-        a = ExampleSubscribable(int)
-        b = ExampleWritable(int)
-        b.connect(a, send=False)  # `provide` should not have an effect here
-        self.assertIn(b, [s[0] for s in a._subscribers])
+        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe:
+            a.connect(b, receive=False)  # `read` should not have an effect here
+            mock_subscribe.assert_called_once_with(b, convert=False)
 
-        # Explicit override
-        a = ExampleSubscribable(int)
-        b = ExampleWritable(int)
-        a.connect(b, send=False)
-        self.assertNotIn(b, [s[0] for s in a._subscribers])
+            mock_subscribe.reset_mock()
+            b.connect(a, send=False)  # `provide` should not have an effect here
+            mock_subscribe.assert_called_once_with(b, convert=False)
 
-        a = ExampleSubscribable(int)
-        b = ExampleWritable(int)
-        b.connect(a, receive=False)
-        self.assertNotIn(b, [s[0] for s in a._subscribers])
+            # Explicit override
+            mock_subscribe.reset_mock()
+            a.connect(b, send=False)
+            mock_subscribe.assert_not_called()
+
+            b.connect(a, receive=False)
+            mock_subscribe.reset_mock()
+            mock_subscribe.assert_not_called()
 
         # Exceptions
-        a = ExampleSubscribable(int)
-        b = ExampleWritable(int)
         with self.assertRaises(TypeError):
             a.connect(b, receive=True)
         with self.assertRaises(TypeError):
             b.connect(a, send=True)
 
     def test_mandatory_reading(self):
-        # Since Reading is mandatory, a should be registered with b by default
         a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, False)
-        a.connect(b, read=False)  # `read=False` should not have an effect here
-        self.assertIs(b._default_provider[0], a)
 
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
-        b = ExampleReading(int, False)
-        b.connect(a, provide=False)  # `provide=False` should not have an effect here
-        self.assertIs(b._default_provider[0], a)
+        with unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
+            # Since Reading is mandatory, a should be registered with b by default
+            a.connect(b, read=False)  # `read=False` should not have an effect here
+            mock_set_provider.assert_called_once_with(a, convert=False)
 
-        # Explicit override
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
-        b = ExampleReading(int, False)
-        a.connect(b, provide=False)
-        self.assertIsNone(b._default_provider)
+            mock_set_provider.reset_mock()
+            b.connect(a, provide=False)  # `provide=False` should not have an effect here
+            mock_set_provider.assert_called_once_with(a, convert=False)
 
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
-        b = ExampleReading(int, False)
-        b.connect(a, read=False)
-        self.assertIsNone(b._default_provider)
+            # Explicit override
+            mock_set_provider.reset_mock()
+            a.connect(b, provide=False)
+            mock_set_provider.assert_not_called()
+
+            mock_set_provider.reset_mock()
+            b.connect(a, read=False)
+            mock_set_provider.assert_not_called()
 
         # Exceptions
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
-        b = ExampleReading(int, False)
         with self.assertRaises(TypeError):
             a.connect(b, read=True)
         with self.assertRaises(TypeError):
@@ -252,13 +254,14 @@ class TestConnecting(unittest.TestCase):
     def test_optional_reading(self):
         a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, True)
-        a.connect(b)
-        self.assertIsNone(b._default_provider)
 
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
-        b = ExampleReading(int, True)
-        b.connect(a, read=True)
-        self.assertIs(b._default_provider[0], a)
+        with unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
+            a.connect(b)
+            mock_set_provider.assert_not_called()
+
+            mock_set_provider.reset_mock()
+            b.connect(a, read=True)
+            mock_set_provider.assert_called_once_with(a, convert=False)
 
     def test_type_conversion(self):
         # TODO
