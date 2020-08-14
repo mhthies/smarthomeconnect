@@ -32,9 +32,7 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
 
     def connect(self, other: "Connectable",
                 send: Optional[bool] = None,
-                force_send: bool = False,
                 receive: Optional[bool] = None,
-                force_receive: bool = False,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
                 convert: bool = False) -> "Connectable":
@@ -44,15 +42,15 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
             other.connect(self, send=receive, force_send=force_receive, receive=send, force_receive=force_send,
                           read=provide, provide=read, convert=convert)
         else:
-            self._connect_with(self, other, send, force_send, provide, convert)
-            self._connect_with(other, self, receive, force_receive, read, convert)
+            self._connect_with(self, other, send, provide, convert)
+            self._connect_with(other, self, receive, read, convert)
         return self
 
     @staticmethod
-    def _connect_with(source: "Connectable", target: "Connectable", send: Optional[bool], force_send: bool,
-                      provide: Optional[bool], convert: bool):
+    def _connect_with(source: "Connectable", target: "Connectable", send: Optional[bool], provide: Optional[bool],
+                      convert: bool):
         if isinstance(source, Subscribable) and isinstance(target, Writable) and (send or send is None):
-            source.subscribe(target, force_send, convert=convert)
+            source.subscribe(target, convert=convert)
         elif send and not isinstance(source, Subscribable):
             raise TypeError("Cannot subscribe {} to {}, since the latter is not Subscribable".format(target, source))
         elif send and not isinstance(target, Writable):
@@ -74,9 +72,7 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def connect(self, other: "Connectable",
                 send: Optional[bool] = None,
-                force_send: bool = False,
                 receive: Optional[bool] = None,
-                force_receive: bool = False,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
                 convert: bool = False) -> "Connectable":
@@ -113,8 +109,8 @@ class UninitializedError(RuntimeError):
 class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._subscribers: List[Tuple[Writable[S], bool, Optional[Callable[[T], S]]]] = []
-        self._triggers: List[Tuple[LogicHandler, bool]] = []
+        self._subscribers: List[Tuple[Writable[S], Optional[Callable[[T], S]]]] = []
+        self._triggers: List[LogicHandler] = []
 
     async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T], S]], value: T,
                               source: List[Any]):
@@ -132,15 +128,13 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     async def _publish(self, value: T, source: List[Any], changed: bool = True):
         await asyncio.gather(
             *(self.__publish_write(subscriber, converter, value, source)
-              for subscriber, force, converter in self._subscribers
-              if (force or changed) and not any(subscriber is s for s in source)),
+              for subscriber, converter in self._subscribers
+              if not any(subscriber is s for s in source)),
             *(self.__publish_trigger(target, value, source)
-              for target, force in self._triggers
-              if force or changed)
+              for target in self._triggers)
         )
 
-    def subscribe(self, subscriber: Writable[S], force_publish: bool = False,
-                  convert: Union[Callable[[T], S], bool] = False):
+    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False):
         converter: Optional[Callable[[T], S]]
         if callable(convert):
             converter = convert
@@ -151,10 +145,10 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         else:
             raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
                             .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
-        self._subscribers.append((subscriber, force_publish, converter))
+        self._subscribers.append((subscriber, converter))
 
-    def trigger(self, target: LogicHandler, force_trigger: bool = False) -> LogicHandler:
-        self._triggers.append((target, force_trigger))
+    def trigger(self, target: LogicHandler) -> LogicHandler:
+        self._triggers.append(target)
         return target
 
 
