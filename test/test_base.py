@@ -66,6 +66,8 @@ class TestSubscribe(unittest.TestCase):
         await a.publish(TOTALLY_RANDOM_NUMBER, [b, self])
         self.assertEqual(b._write.call_count, 0)
 
+    # TODO test error handling
+
     @async_test
     async def test_type_conversion(self):
         a = ExampleSubscribable(int)
@@ -82,6 +84,8 @@ class TestSubscribe(unittest.TestCase):
         c = ExampleWritable(list)
         with self.assertRaises(TypeError):
             a.subscribe(c)
+
+        # TODO conversion with explicit converter
 
 
 class SimpleIntRepublisher(base.Writable, base.Subscribable):
@@ -160,6 +164,8 @@ class TestHandler(unittest.TestCase):
         await another_test_handler(TOTALLY_RANDOM_NUMBER, [])
         self.assertEqual(2, self.call_counter)
 
+    # TODO test error handling
+
 
 class TestReading(unittest.TestCase):
     @async_test
@@ -185,6 +191,8 @@ class TestReading(unittest.TestCase):
         c = ExampleReading(list, False)
         with self.assertRaises(TypeError):
             c.set_provider(a, convert=True)
+
+        # TODO conversion with explicit converter
 
 
 class DummyIntReadSubscribable(base.Readable[int], base.Subscribable[int]):
@@ -284,6 +292,8 @@ class TestConnecting(unittest.TestCase):
             mock_set_provider.reset_mock()
             b.connect(a, read=True)
             mock_set_provider.assert_called_once_with(a, convert=False)
+
+    # TODO test None return values of _from_provider
 
     def test_type_conversion(self):
         a = DummyIntReadSubscribable()
