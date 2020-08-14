@@ -39,8 +39,7 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
         if isinstance(other, ConnectableWrapper):
             # If other object is not connectable itself but wraps one or more connectable objects (like, for example, a
             # `web.widgets.ValueButtonGroup`), let it use its special implementation of `connect()`.
-            other.connect(self, send=receive, force_send=force_receive, receive=send, force_receive=force_send,
-                          read=provide, provide=read, convert=convert)
+            other.connect(self, send=receive, receive=send, read=provide, provide=read, convert=convert)
         else:
             self._connect_with(self, other, send, provide, convert)
             self._connect_with(other, self, receive, read, convert)
