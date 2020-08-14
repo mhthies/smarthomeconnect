@@ -47,21 +47,6 @@ class ExampleReading(base.Reading[T], Generic[T]):
         return await self._from_provider()
 
 
-class ExampleWrapper(base.ConnectableWrapper, Generic[T]):
-    def __init__(self, type_: Type[T]):
-        self.type = type_
-        self.connect = unittest.mock.Mock()
-
-    def connect(self, *args, **kwargs) -> "Connectable": ...
-
-
-class SimpleIntRepublisher(base.Writable, base.Subscribable):
-    type = int
-
-    async def _write(self, value: T, origin: List[Any]):
-        await self._publish(value, origin)
-
-
 class TestSubscribe(unittest.TestCase):
     @async_test
     async def test_simple_subscribe(self):
@@ -97,6 +82,13 @@ class TestSubscribe(unittest.TestCase):
         c = ExampleWritable(list)
         with self.assertRaises(TypeError):
             a.subscribe(c)
+
+
+class SimpleIntRepublisher(base.Writable, base.Subscribable):
+    type = int
+
+    async def _write(self, value: T, origin: List[Any]):
+        await self._publish(value, origin)
 
 
 class TestHandler(unittest.TestCase):
@@ -195,6 +187,36 @@ class TestReading(unittest.TestCase):
             c.set_provider(a, convert=True)
 
 
+class DummyIntReadSubscribable(base.Readable[int], base.Subscribable[int]):
+    type = int
+
+    def __init__(self):
+        super().__init__()
+
+    async def read(self) -> int:
+        pass
+
+
+class DummyFloatReadingWritable(base.Reading[float], base.Writable[float]):
+    is_reading_optional = False
+    type = float
+
+    def __init__(self):
+        super().__init__()
+
+    async def _write(self, value: float, origin: List[Any]):
+        pass
+
+
+class DummyIntWrapper(base.ConnectableWrapper[int]):
+    type = int
+
+    def __init__(self):
+        self.connect = unittest.mock.Mock()
+
+    def connect(self, *args, **kwargs) -> "Connectable": ...
+
+
 class TestConnecting(unittest.TestCase):
     def test_subscribing(self):
         a = ExampleSubscribable(int)
@@ -264,10 +286,30 @@ class TestConnecting(unittest.TestCase):
             mock_set_provider.assert_called_once_with(a, convert=False)
 
     def test_type_conversion(self):
-        # TODO
-        pass
+        a = DummyIntReadSubscribable()
+        b = DummyFloatReadingWritable()
+
+        with self.assertRaises(TypeError):
+            a.connect(b)
+
+        with self.assertRaises(TypeError):
+            b.connect(a)
+
+        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe,\
+            unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
+            a.connect(b, convert=True)
+            mock_subscribe.assert_called_once_with(b, convert=True)
+            mock_set_provider.assert_called_once_with(a, convert=True)
+
+            mock_subscribe.reset_mock()
+            mock_set_provider.reset_mock()
+            b.connect(a, convert=True)
+            mock_subscribe.assert_called_once_with(b, convert=True)
+            mock_set_provider.assert_called_once_with(a, convert=True)
 
     def test_connectable_wrapper(self):
-        # TODO
-        pass
+        a = DummyIntReadSubscribable()
+        b = DummyIntWrapper()
 
+        a.connect(b, read=False, provide=True, convert=True)
+        b.connect.assert_called_once_with(a, send=None, receive=None, read=True, provide=False, convert=True)
