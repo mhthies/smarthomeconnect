@@ -123,7 +123,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         try:
             await target(value, source + [self])
         except Exception as e:
-            logger.error("Error writing triggering %s from %s:", target, self, exc_info=e)
+            logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
 
     async def _publish(self, value: T, source: List[Any], changed: bool = True):
         await asyncio.gather(
@@ -186,7 +186,12 @@ class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 def handler(reset_source=False, allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:
     def decorator(f: LogicHandler) -> LogicHandler:
         @functools.wraps(f)
-        async def wrapper(value, source) -> None:
+        async def wrapper(value, source: Optional[List[Any]] = None) -> None:
+            if source is None:
+                try:
+                    source = magicSourceVar.get()
+                except LookupError as e:
+                    raise ValueError("No source attribute provided or set via execution context") from e
             if any(wrapper is s for s in source) and not allow_recursion:
                 logger.warning("Skipping recursive execution of logic handler %s() via %s", f.__name__, source)
                 return
