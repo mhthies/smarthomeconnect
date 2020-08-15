@@ -1,8 +1,14 @@
 import asyncio
 import functools
 import unittest.mock
-from typing import Callable, Any, Awaitable
+from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List
 
+from shc import base
+
+
+# #############################################
+# General helper classes for testing async code
+# #############################################
 
 def async_test(f: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
     """
@@ -31,3 +37,55 @@ class AsyncMock(unittest.mock.MagicMock):
 
     async def __aexit__(self, *args, **kwargs):
         return self.__exit__(*args, **kwargs)
+
+
+# ###########################
+# Example Connectable objects
+# ###########################
+
+T = TypeVar('T')
+
+
+class ExampleReadable(base.Readable[T], Generic[T]):
+    def __init__(self, type_: Type[T], value: T, side_effect=None):
+        self.type = type_
+        super().__init__()
+        self.read = AsyncMock(return_value=value, side_effect=side_effect)
+
+    async def read(self) -> T: ...
+
+
+class ExampleSubscribable(base.Subscribable[T], Generic[T]):
+    def __init__(self, type_: Type[T]):
+        self.type = type_
+        super().__init__()
+
+    async def publish(self, val: T, origin: List[Any]) -> None:
+        await self._publish(val, origin)
+
+
+class ExampleWritable(base.Writable[T], Generic[T]):
+    def __init__(self, type_: Type[T]):
+        self.type = type_
+        super().__init__()
+        self._write = AsyncMock()
+
+    async def _write(self, value: T, origin: List[Any]) -> None: ...
+
+
+class ExampleReading(base.Reading[T], Generic[T]):
+    def __init__(self, type_: Type[T], optional: bool):
+        self.is_reading_optional = optional
+        self.type = type_
+        super().__init__()
+
+    async def do_read(self) -> T:
+        return await self._from_provider()
+
+
+class SimpleIntRepublisher(base.Writable, base.Subscribable):
+    type = int
+
+    async def _write(self, value: T, origin: List[Any]):
+        await self._publish(value, origin)
+

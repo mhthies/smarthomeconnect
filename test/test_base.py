@@ -1,50 +1,13 @@
 import unittest
 import unittest.mock
-from typing import List, Any, Type, TypeVar, Generic
+from typing import List, Any
 
-from ._helper import async_test, AsyncMock
+from ._helper import async_test, AsyncMock, ExampleReadable, ExampleSubscribable, ExampleWritable, ExampleReading, \
+    SimpleIntRepublisher
 from shc import base
 
 
 TOTALLY_RANDOM_NUMBER = 42
-T = TypeVar('T')
-
-
-class ExampleReable(base.Readable[T], Generic[T]):
-    def __init__(self, type_: Type[T], value: T, side_effect=None):
-        self.type = type_
-        super().__init__()
-        self.read = AsyncMock(return_value=value, side_effect=side_effect)
-
-    async def read(self) -> T: ...
-
-
-class ExampleSubscribable(base.Subscribable[T], Generic[T]):
-    def __init__(self, type_: Type[T]):
-        self.type = type_
-        super().__init__()
-
-    async def publish(self, val: T, origin: List[Any]) -> None:
-        await self._publish(val, origin)
-
-
-class ExampleWritable(base.Writable[T], Generic[T]):
-    def __init__(self, type_: Type[T]):
-        self.type = type_
-        super().__init__()
-        self._write = AsyncMock()
-
-    async def _write(self, value: T, origin: List[Any]) -> None: ...
-
-
-class ExampleReading(base.Reading[T], Generic[T]):
-    def __init__(self, type_: Type[T], optional: bool):
-        self.is_reading_optional = optional
-        self.type = type_
-        super().__init__()
-
-    async def do_read(self) -> T:
-        return await self._from_provider()
 
 
 class TestSubscribe(unittest.TestCase):
@@ -86,13 +49,6 @@ class TestSubscribe(unittest.TestCase):
             a.subscribe(c)
 
         # TODO conversion with explicit converter
-
-
-class SimpleIntRepublisher(base.Writable, base.Subscribable):
-    type = int
-
-    async def _write(self, value: T, origin: List[Any]):
-        await self._publish(value, origin)
 
 
 class TestHandler(unittest.TestCase):
@@ -170,7 +126,7 @@ class TestHandler(unittest.TestCase):
 class TestReading(unittest.TestCase):
     @async_test
     async def test_simple_reading(self):
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, False)
         b.set_provider(a)
         result = await b.do_read()
@@ -178,7 +134,7 @@ class TestReading(unittest.TestCase):
 
     @async_test
     async def test_type_conversion(self):
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(float, False)
         with self.assertRaises(TypeError):
             b.set_provider(a)
@@ -254,7 +210,7 @@ class TestConnecting(unittest.TestCase):
             b.connect(a, send=True)
 
     def test_mandatory_reading(self):
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, False)
 
         with unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
@@ -282,7 +238,7 @@ class TestConnecting(unittest.TestCase):
             b.connect(a, provide=True)
 
     def test_optional_reading(self):
-        a = ExampleReable(int, TOTALLY_RANDOM_NUMBER)
+        a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, True)
 
         with unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
