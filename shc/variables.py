@@ -108,9 +108,8 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.parent._value is None:
-            logger.warning("Cannot set field %s within Variable %s, since it is uninitialized", self.field,
-                           self.variable)
-            return
+            raise UninitializedError("Cannot set field {} within Variable {}, since it is uninitialized"
+                                     .format(self.field, self.variable))
         await self.parent._write(self.parent._value._replace(**{self.field: value}), origin + [self])
 
     async def read(self) -> T:
