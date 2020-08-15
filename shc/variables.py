@@ -47,11 +47,13 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         old_value = self._value
         logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
         self._value = value
-        await asyncio.gather(self._publish(value, origin, old_value != value),
-                             *(field._recursive_publish(getattr(value, field.field),
-                                                        getattr(old_value, field.field), origin)
-                               for field in self._variable_fields))
-        # TODO make recursive
+        tasks = []
+        if old_value != value:
+            tasks.append(self._publish(value, origin))
+        tasks.extend(field._recursive_publish(getattr(value, field.field),
+                                              getattr(old_value, field.field), origin)
+                     for field in self._variable_fields)
+        await asyncio.gather(*tasks)
 
     async def read(self) -> T:
         if self._value is None:
@@ -92,10 +94,13 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                 setattr(self, name, variable_field)
 
     async def _recursive_publish(self, new_value: T, old_value: T, origin: List[Any]):
-        await asyncio.gather(self._publish(new_value, origin, new_value != old_value),
-                             *(field._recursive_publish(getattr(new_value, field.field),
-                                                        getattr(old_value, field.field), origin)
-                               for field in self._variable_fields))
+        tasks = []
+        if old_value != new_value:
+            tasks.append(self._publish(new_value, origin))
+        tasks.extend(field._recursive_publish(getattr(new_value, field.field),
+                                              getattr(old_value, field.field), origin)
+                     for field in self._variable_fields)
+        await asyncio.gather(*tasks)
 
     @property
     def _value(self):

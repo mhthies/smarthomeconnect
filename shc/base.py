@@ -124,7 +124,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         except Exception as e:
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
 
-    async def _publish(self, value: T, origin: List[Any], changed: bool = True):
+    async def _publish(self, value: T, origin: List[Any]):
         await asyncio.gather(
             *(self.__publish_write(subscriber, converter, value, origin)
               for subscriber, converter in self._subscribers
