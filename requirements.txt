@@ -1,7 +1,7 @@
 aiohttp>=3.6,<4
-aiomysql=0.0.20
+aiomysql==0.0.20
 jinja2>=2.11,<3
 MarkupSafe>=1.1,<2
 knxdclient
-sphinx
-sphinx-rtd-theme
+sphinx>=3.2,<4
+sphinx-rtd-theme==0.5.0
