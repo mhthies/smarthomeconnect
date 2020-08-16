@@ -115,31 +115,31 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
         if self.type in TYPES_ABS_NEG:
             return UnaryExpressionHandler(TYPES_ABS_NEG[self.type], self, operator.abs)
         else:
-            return NotImplemented
+            raise TypeError("{} cannot be used with abs()".format(self))
 
     def __neg__(self) -> "UnaryExpressionHandler":
         if self.type in TYPES_ABS_NEG:
             return UnaryExpressionHandler(TYPES_ABS_NEG[self.type], self, operator.neg)
         else:
-            return NotImplemented
+            raise TypeError("{} cannot be negated".format(self))
 
     def __ceil__(self) -> "UnaryExpressionHandler":
         if self.type in TYPES_CEIL_FLOOR_ROUND:
             return UnaryExpressionHandler(TYPES_CEIL_FLOOR_ROUND[self.type], self, math.ceil)
         else:
-            return NotImplemented
+            raise TypeError("{} cannot be rounded".format(self))
 
     def __floor__(self) -> "UnaryExpressionHandler":
         if self.type in TYPES_CEIL_FLOOR_ROUND:
             return UnaryExpressionHandler(TYPES_CEIL_FLOOR_ROUND[self.type], self, math.floor)
         else:
-            return NotImplemented
+            raise TypeError("{} cannot be rounded".format(self))
 
     def __round__(self) -> "UnaryExpressionHandler":
         if self.type in TYPES_CEIL_FLOOR_ROUND:
             return UnaryExpressionHandler(TYPES_CEIL_FLOOR_ROUND[self.type], self, round)
         else:
-            return NotImplemented
+            raise TypeError("{} cannot be rounded".format(self))
 
     def __eq__(self, other) -> "BinaryExpressionHandler":  # type: ignore
         return BinaryExpressionHandler(bool, self, other, operator.eq)
