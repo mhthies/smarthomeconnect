@@ -308,18 +308,22 @@ def at(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
     return At(*args, **kwargs).trigger
 
 
-class _DelayedBool(Subscribable[bool], Readable[bool], Writable[bool], metaclass=abc.ABCMeta):
-    def __init__(self, delay: datetime.timedelta):
+class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
+    def __init__(self, wrapped: Subscribable[bool], delay: datetime.timedelta):
         self.type = bool
         super().__init__()
         self.delay = delay
         self._value = False
         self._change_task: Optional[asyncio.Task] = None
+        wrapped.trigger(self._write)
+
+    @abc.abstractmethod
+    async def _update(self, value: bool, origin: List[Any]): ...
 
     async def read(self) -> bool:
         return self._value
 
-    async def __set_delayed(self, value: bool, origin: List[Any]):
+    async def _set_delayed(self, value: bool, origin: List[Any]):
         try:
             await _logarithmic_sleep(datetime.datetime.now() + self.delay)
         except asyncio.CancelledError:
@@ -330,9 +334,9 @@ class _DelayedBool(Subscribable[bool], Readable[bool], Writable[bool], metaclass
 
 
 class TOn(_DelayedBool):
-    async def _write(self, value: bool, origin: List[Any]):
+    async def _update(self, value: bool, origin: List[Any]):
         if value and self._change_task is None:
-            self._change_task = asyncio.create_task(self.__set_delayed(True, origin))
+            self._change_task = asyncio.create_task(self._set_delayed(True, origin))
         elif not value:
             if self._change_task is not None:
                 self._change_task.cancel()
@@ -342,9 +346,9 @@ class TOn(_DelayedBool):
 
 
 class TOff(_DelayedBool):
-    async def _write(self, value: bool, origin: List[Any]):
+    async def _update(self, value: bool, origin: List[Any]):
         if not value and self._change_task is None:
-            self._change_task = asyncio.create_task(self.__set_delayed(True, origin))
+            self._change_task = asyncio.create_task(self._set_delayed(True, origin))
         elif value:
             if self._change_task is not None:
                 self._change_task.cancel()
@@ -354,30 +358,31 @@ class TOff(_DelayedBool):
 
 
 class TOnOff(_DelayedBool):
-    async def _write(self, value: bool, origin: List[Any]):
+    async def _update(self, value: bool, origin: List[Any]):
         if value == self._value and self._change_task is None:
             return
         if self._change_task is not None:
             self._change_task.cancel()
-        self._change_task = asyncio.create_task(self.__set_delayed(value, origin))
+        self._change_task = asyncio.create_task(self._set_delayed(value, origin))
 
 
 class TPulse(_DelayedBool):
-    async def _write(self, value: bool, origin: List[Any]):
+    async def _update(self, value: bool, origin: List[Any]):
         if value and not self._value:
-            self._change_task = asyncio.create_task(self.__set_delayed(False, origin))
+            self._change_task = asyncio.create_task(self._set_delayed(False, origin))
             self._value = True
             await self._publish(True, origin)
 
 
-class Delay(Subscribable[T], Readable[T], Writable[T], Generic[T], metaclass=abc.ABCMeta):
-    def __init__(self, type_: Type[T], delay: datetime.timedelta, initial_value: Optional[T] = None):
-        self.type = type_
+class Delay(Subscribable[T], Readable[T], Generic[T]):
+    def __init__(self, wrapped: Subscribable[T], delay: datetime.timedelta, initial_value: Optional[T] = None):
+        self.type = wrapped.type
         super().__init__()
         self.delay = delay
         self._value: Optional[T] = initial_value
+        wrapped.trigger(self._update)
 
-    async def _write(self, value: T, origin: List[Any]) -> None:
+    async def _update(self, value: T, origin: List[Any]) -> None:
         asyncio.create_task(self.__set_delayed(value, origin))
 
     async def __set_delayed(self, value: T, origin: List[Any]):
@@ -392,5 +397,5 @@ class Delay(Subscribable[T], Readable[T], Writable[T], Generic[T], metaclass=abc
 
     async def read(self) -> T:
         if self._value is None:
-            raise UninitializedError("Variable {} is not initialized yet.", repr(self))
+            raise UninitializedError("{} is not initialized yet.", repr(self))
         return self._value
