@@ -6,6 +6,8 @@ Welcome to Smart Home Connect's documentation!
     :maxdepth: 2
     :caption: Contents:
 
+    base
+
 
 
 Indices and tables

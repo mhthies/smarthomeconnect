@@ -143,11 +143,11 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         entry.
 
         :param subscriber: The object to subscribe for updates
-        :param convert: A callable to convert this object's new value to the data `type` of the subscriber or `True` to
-            choose the appropriate conversion function automatically.
-        :raises TypeError: If the `type` of the subscriber does not match this object's type and `convert` is False *or*
-            if `convert` is True but no type conversion is known to convert this object's type into the subscriber's
-            type.
+        :param convert: A callable to convert this object's new value to the data ``type`` of the subscriber or ``True``
+            to choose the appropriate conversion function automatically.
+        :raises TypeError: If the `type` of the subscriber does not match this object's type and ``convert`` is False
+            *or* if ``convert`` is True but no type conversion is known to convert this object's type into the
+            subscriber's type.
         """
         converter: Optional[Callable[[T], S]]
         if callable(convert):
@@ -166,14 +166,14 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         Register a logic handler function to be triggered when this object is updated.
 
         This method can be used as a decorator for custom logic handler functions. Alternatively, it can simply called
-        with a function object: `some_subscribable.trigger(some_handler_function).
+        with a function object: ``some_subscribable.trigger(some_handler_function)``.
 
         The `target` function must be an async coroutine that takes two arguments: The new value of this object and the
         origin/trace of the event (a list of objects that led to the handler being tiggered). The handler function
         must make sure to prevent infinite recursive feedback loops: In contrast to subscribed objects, logic handler
         functions are also triggered, if they led to the object being updated (i.e. they are already conained in the
-        `origin` list). Thus, they should skip execution if called recursively. It should also append itself to the
-        `origin` list and pass the extended list to all :meth:`Writable.write` calls it does.
+        ``origin`` list). Thus, they should skip execution if called recursively. It should also append itself to the
+        ``origin`` list and pass the extended list to all :meth:`Writable.write` calls it does.
 
         To ensure all this for a custom handler function, use the :func:`handler` decorator::
 
@@ -197,7 +197,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
         :param target: The handler function/coroutine to be triggered on updates. Must comply with the requirements
             mentioned above.
-        :return: The `target` function (unchanged)
+        :return: The ``target`` function (unchanged)
         """
         self._triggers.append(target)
         return target
