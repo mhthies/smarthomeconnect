@@ -3,3 +3,5 @@ aiomysql=0.0.20
 jinja2>=2.11,<3
 MarkupSafe>=1.1,<2
 knxdclient
+sphinx
+sphinx-rtd-theme
