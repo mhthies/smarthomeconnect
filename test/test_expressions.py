@@ -1,3 +1,4 @@
+import datetime
 import unittest
 import unittest.mock
 
@@ -52,3 +53,55 @@ class TestExpressions(unittest.TestCase):
         self.assertEqual(210, await expression2.read())
         self.assertEqual(-10.0, await expression3.read())
         self.assertEqual(True, await expression4.read())
+
+    @async_test
+    async def test_expression_4(self):
+        var1 = variables.Variable(datetime.datetime, initial_value=datetime.datetime(1970, 1, 1))
+        var2 = variables.Variable(int, initial_value=-21)
+        expression = abs(var2.EX) % 7
+        expression2 = datetime.datetime(1970, 1, 31) - var1.EX
+        expression3 = 9 // expression
+
+        self.assertEqual(3, await expression.read())
+        self.assertEqual(datetime.timedelta(days=30), await expression2.read())
+        self.assertEqual(3, await expression3.read())
+
+    def test_type_errors(self):
+        var1 = variables.Variable(bool, initial_value=True)
+        var2 = variables.Variable(list, initial_value=[42])
+        with self.assertRaises(TypeError):
+            var1.EX + var2.EX
+        with self.assertRaises(TypeError):
+            5.5 + var2.EX
+        with self.assertRaises(TypeError):
+            var1.EX - var2.EX
+        with self.assertRaises(TypeError):
+            5.5 - var2.EX
+        with self.assertRaises(TypeError):
+            var2.EX * 5.5
+        with self.assertRaises(TypeError):
+            5.5 * var2.EX
+        with self.assertRaises(TypeError):
+            (- var2.EX)
+        with self.assertRaises(TypeError):
+            abs(var2.EX)
+        with self.assertRaises(TypeError):
+            var2.EX % 5
+        with self.assertRaises(TypeError):
+            5 % var2.EX
+        with self.assertRaises(TypeError):
+            var2.EX > var1.EX
+        with self.assertRaises(TypeError):
+            var2.EX < var1.EX
+        with self.assertRaises(TypeError):
+            var2.EX >= 5
+        with self.assertRaises(TypeError):
+            var2.EX <= 5
+        with self.assertRaises(TypeError):
+            var2.EX / var1.EX
+        with self.assertRaises(TypeError):
+            var2.EX // var1.EX
+        with self.assertRaises(TypeError):
+            5 / var2.EX
+        with self.assertRaises(TypeError):
+            5 // var2.EX
