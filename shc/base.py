@@ -245,9 +245,10 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
     """
     Decorator for custom logic handler functions.
 
-    Wraps a custom logic handler functions to make sure it is suited to be registered to be triggered by a subscribable
+    Wraps a custom logic handler functions to make sure it is suited to be registered for triggering by a subscribable
     object with :meth:`Subscribable.trigger`. It makes sure that
-    * exceptions, occuring during execution, are logged,
+
+    * exceptions, occurring execution, are logged,
     * the `origin` is extended with the logic handler itself and magically passed to all :meth:`Writable.write` calls
     * the `origin` can magically be passed when called directly by other logic handlers
     * the execution is skipped when called recursively (i.e. the logic handler is already contained in the `origin` list
