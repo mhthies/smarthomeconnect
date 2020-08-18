@@ -81,8 +81,8 @@ The default behaviour can be customized via the ``send``/``receive`` arguments (
 
 .. _base.event-origin:
 
-The ``origin`` of an Event
---------------------------
+The ``origin`` of a New Value
+-----------------------------
 
 When updating an object's value using the :meth:`Writable.write` method, a second argument must be provided, called ``origin``.
 It is expected to be a list of all objects that led to the update being performed, i.e. the “trace” of the update event, starting with its origin (typically an external event source/interface or a timer) and up to the object or function which now calls the *write* method.
@@ -93,12 +93,50 @@ When calling :meth:`Writable.write` from within a logic handler, decorated with 
 See the following section for more details.
 
 
+Typing of Connectable Objects
+-----------------------------
+
+Connectable objects are statically typed.
+This means, each object is supposed to handle (receive/publish/provide/read) only values of a defined Python type.
+The object's type is indicated by its ``type`` attribute, which may be a class attribute (if the *Connectable* class specifies a fixed value type) or an instance attribute (for generic *Connectable* classes like :class:`shc.Variable`, where each instance may handle values of a different type).
+
+The instance-specific ``type`` of generic *Connectable* classes may either be given to each object explicitly (as an argument to its *__init__* method as for :class:`shc.Variable`) or derived from other properties of the object (like the KNX Datapoint Type of :class:`shc.knxKNXGroupVar` objects).
+
+When connecting two *Connectable* objects using :meth:`Connectable.conect`, :meth:`Subscribable.subscribe` or :meth:`Reading.set_provider`, the consistency of the two objects' ``type`` attributes are checked and a *TypeError* is raised if they don't match.
+In many cases, you'll still want to connect those objects and make sure, the value is adequately converted when being written to/read from the other object.
+For this purpose, the *connect*, *subscribe* and *set_provider* methods provide an optional argument ``convert``.
+
+If ``convert=True`` is specified, the :mod:`shc.conversion` module is searched for a default conversion function for the relevant value types (using :func:`shc.conversion.get_converter`).
+In case there is not default conversion for the relevant types or you want to convert values in a different way, *subscribe* and *set_provider* allow to pass a callable to the ``convert`` argument (e.g. a lambda function or function reference), which is used to convert the values exchanged via this particular subscription/Reading object.
+
+.. admonition:: Example
+
+    This code will raise a *TypeError*::
+
+        var1 = shc.Variable(int)
+        var2 = shc.Variable(float)
+        var1.connect(var2)
+
+    This code will make sure new values from ``var1`` are send to ``var2`` after being converted to its ``.type`` and vice versa, using the trivial int→float resp. float→int conversions::
+
+        var1 = shc.Variable(int)
+        var2 = shc.Variable(float)
+        var1.connect(var2, convert=True)
+
+    This code will work as well, but use the `ceil` function for converting float values to int::
+
+        var1 = shc.Variable(int)
+        var2 = shc.Variable(float)
+        var1.subscribe(var2, convert=True)
+        var2.subscribe(var1, convert=lambda x: ceil(x))
+
+
 Logic Handlers
 --------------
 
 A logic handler is a Python function which is executed (“triggered”) by a *Subscribable* object when it publishes a new value.
 To register a logic handler to be triggered by an object, use the object's :meth:`Subscribable.trigger` method.
-This method can either be used in a functional style (``subscribable_object.trigger(my_logic_handler)``) or as a decorator for the logic handler (shown below).
+This method can either be used in a functional style (``subscribable_object.trigger(my_logic_handler)``) or as a decorator for the logic handler (as shown in the example below).
 For triggering logic handlers at defined times or in a fixed interval, the :mod:`shc.timer` module provides *Subscribable* timer objects which publish a *None* value at defined times.
 
 Since SHC is completely relying on asyncio for (pseudo-)concurrency, all methods dealing with runtime events (including *reading* and *writing* values) are defined as asynchronous coroutines.
@@ -111,10 +149,10 @@ It should also appended itself to a copy of the list and pass it to all calls of
 To help with that, there's the :func:`shc.handler` decorator.
 It automatically skips recursive execution and ensures passing of the correctly modified ``origin`` list to *write* calls via a hidden context variable.
 
-Putting it all together, a logic handler looks as follows::
+Putting it all together, a logic handler may look as follows::
 
     timer = shc.timer.Every(datetime.timedelta(minutes=5))
-    some_variable = shc.Variable()
+    some_variable = shc.Variable(int)
     some_knx_object = knx_interface.group(shc.knx.KNXGAD(1, 2, 3), dpt="5")
 
     @timer.trigger
@@ -131,13 +169,28 @@ Putting it all together, a logic handler looks as follows::
 ``shc.base`` Module Reference
 -----------------------------
 
+.. autoclass:: Connectable
+
+    .. automethod:: connect
+
 .. autoclass:: Writable
-    :members:
+
+    .. automethod:: write
+    .. automethod:: _write
+
 .. autoclass:: Readable
-    :members:
+
+    .. automethod:: read
+
 .. autoclass:: Subscribable
-    :members:
+
+    .. automethod:: subscribe
+    .. automethod:: trigger
+    .. automethod:: _publish
+
 .. autoclass:: Reading
-    :members:
+
+    .. automethod:: set_provider
+    .. automethod:: _from_provider
 
 .. autodecorator:: shc.handler

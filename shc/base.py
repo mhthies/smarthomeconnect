@@ -28,6 +28,9 @@ magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_
 
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
+    """
+    :cvar type: The type of the values, this object is supposed to handle
+    """
     type: Type[T]
 
     def connect(self, other: "Connectable",
@@ -79,7 +82,21 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
 
 class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
-    async def write(self, value: T, origin: Optional[List[Any]] = None):
+    async def write(self, value: T, origin: Optional[List[Any]] = None) -> None:
+        """
+        Asynchronous coroutine to update the object with a new value
+
+        This method calls :meth:`_write` internally for the actual implementation-specific update logic. Inheriting
+        classes should override *_write* instead of this method to keep profiting from the value type checking and
+        magic context-based origin passing features.
+
+        :param value: The new value
+        :param origin: The origin / trace of the value update event, i.e. the list of objects/functions which have been
+            publishing to/calling one another to cause this value update. It is used to avoid recursive feedback loops
+            and may be used for origin-specific handling of the value. The last entry of the list should be the
+            object/function calling this method.
+        :raises TypeError: If the value's type does not match the the object's ``type`` attribute.
+        """
         if origin is None:
             try:
                 origin = magicOriginVar.get()
@@ -91,7 +108,17 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         await self._write(value, origin)
 
     @abc.abstractmethod
-    async def _write(self, value: T, origin: List[Any]):
+    async def _write(self, value: T, origin: List[Any]) -> None:
+        """
+        Abstract internal method containing the actual implementation-specific write-logic.
+
+        It must be overridden by classes inheriting from :class:`Writable` to be updated with new values. The *_write*
+        implementation does not need to check the new value's type
+
+        :param value: The new value to update this object with
+        :param origin: The origin / trace of the value update event. Should be passed to :meth:`Subscribable._publish`
+            if the implementing class is *Subscribable* and re-publishes new values.
+        """
         pass
 
 
@@ -225,11 +252,12 @@ class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
     async def _from_provider(self) -> Optional[T]:
         """
-        :meth:`Readable.read`() the current value from the default provider and convert it to this object's type, if
-        necessary, using the registered converter function.
+        Private method to be used by inheriting classes to read the current value from this object's default provider
+        (via its :meth:`Readable.read` method) and convert it to this object's type, if necessary, using the registered
+        converter function.
 
-        :return: The default provider's current value *or* `None` if no default provider is set or it's `read` method
-            raises an UninitializedError.
+        :return: The default provider's current value *or* ``None`` if no default provider is set or it's *read* method
+            raises an :class:`UninitializedError`.
         """
         if self._default_provider is None:
             return None
