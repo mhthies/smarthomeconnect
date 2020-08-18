@@ -7,6 +7,9 @@ Welcome to Smart Home Connect's documentation!
     :caption: Contents:
 
     base
+    datatypes
+    web
+    interfaces
 
 
 

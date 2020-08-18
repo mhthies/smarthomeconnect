@@ -30,6 +30,14 @@ def register_json_conversion(type_: Type[T], to_json: Callable[[T], Any], from_j
 
 
 def get_converter(from_type: Type[S], to_type: Type[T]) -> Callable[[S], T]:
+    """
+    Get the default conversion function for converting values from ``from_type`` to ``to_type``.
+
+    :param from_type: The source type
+    :param to_type: The target type
+    :return: A function, which converts a value of type ``from_type`` to ``to_type``.
+    :raises TypeError: If no converter is known for this particular type conversion
+    """
     try:
         return _TYPE_CONVERSIONS[(from_type, to_type)]
     except KeyError as e:
