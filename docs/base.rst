@@ -166,6 +166,37 @@ Putting it all together, a logic handler may look as follows::
             await some_knx_object.write(value)
 
 
+.. warning::
+
+    Since logic handlers are executed as asynchronous coroutines in the same AsyncIO event loop (thread) as all the logic of SHC, **they must not block the control flow**.
+    This means, any function call which may block the execution for more than fractions of a millisecond (e.g. file I/O, network I/O, other synchronous system calls or CPU-heavy calculations) must be turned into an asynchronous call, which is *awaited*—allowing the event loop to schedule other coroutines in the meantime.
+    This can be achieved by either replacing the blocking call with a call of an async function (using an AsyncIO-compatible library) or executing the blocking code in a different Python thread and awaiting its result with an AsyncIO Future (e.g. using :meth:`asyncio.loop.run_in_executor`).
+
+    For example, instead of writing::
+
+        @shc.handler()
+        async def my_logic_handler(value, _origin):
+            # DO NOT DO THIS!!! All of the following lines are blocking!
+            with open('/tmp/hello.txt', 'w') as f:
+                f.write("Hello, World!")
+
+            some_result = some_cpu_heavy_calculation(value)
+
+
+    … use::
+
+        import asyncio
+        import aiofile  # https://pypi.org/project/aiofile/
+
+        @shc.handler()
+        async def my_logic_handler(value, _origin):
+            async with aiofile.AIOFile('/tmp/hello.txt', 'w') as f:
+                await f.write("Hello, World!")
+
+            loop = asyncio.get_event_loop()
+            some_result = await loop.run_in_executor(None, some_cpu_heavy_calculation, value)
+
+
 ``shc.base`` Module Reference
 -----------------------------
 
