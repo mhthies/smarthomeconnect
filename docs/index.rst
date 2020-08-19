@@ -7,6 +7,7 @@ Welcome to Smart Home Connect's documentation!
     :caption: Contents:
 
     base
+    variables_expressions
     datatypes
     web
     interfaces
