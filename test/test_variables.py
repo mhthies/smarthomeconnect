@@ -4,12 +4,12 @@ import unittest.mock
 from typing import NamedTuple
 
 from shc import variables, base, expressions
-from ._helper import async_test, ExampleReadable, ExampleWritable
+from ._helper import async_test, ExampleReadable, ExampleWritable, AsyncMock
 
 
 class SimpleVariableTest(unittest.TestCase):
 
-    @unittest.mock.patch('shc.variables.Variable._publish')
+    @unittest.mock.patch('shc.variables.Variable._publish', new_callable=AsyncMock)
     @async_test
     async def test_basic_behaviour(self, publish_patch):
         var = variables.Variable(int)
