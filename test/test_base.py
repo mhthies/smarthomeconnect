@@ -41,8 +41,8 @@ class TestSubscribe(unittest.TestCase):
         a.subscribe(b, convert=True)
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         b._write.assert_called_once()
-        self.assertEqual(float(TOTALLY_RANDOM_NUMBER), b._write.call_args.args[0])
-        self.assertIsInstance(b._write.call_args.args[0], float)
+        self.assertEqual(float(TOTALLY_RANDOM_NUMBER), b._write.call_args[0][0])
+        self.assertIsInstance(b._write.call_args[0][0], float)
 
         c = ExampleWritable(list)
         with self.assertRaises(TypeError):
