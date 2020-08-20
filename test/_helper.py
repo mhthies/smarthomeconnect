@@ -1,6 +1,8 @@
 import asyncio
 import functools
+import time
 import unittest.mock
+import datetime
 from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List
 
 from shc import base
@@ -41,6 +43,75 @@ class AsyncMock(unittest.mock.MagicMock):
     async def __aexit__(self, *args, **kwargs):
         return self.__exit__(*args, **kwargs)
 
+
+class ClockMock:
+    """
+    A mock/patch for the wall clock.
+
+    When used as context managers, objects of this class patch the :meth:`datetime.datetime.now` and
+    :meth:`datetime.date.today` to return the mocked time instead of the real wall clock time, was well as the
+    :func:`time.sleep` and :func:`asyncio.sleep` functions to enhance the mocked time instead of actually sleeping.
+    Optionally, the patched sleep methods can actually sleep for a predefined time to allow concurrent things to happen
+    in the mean time (which would normally happen during the sleep).
+
+    Before using `ClockMock`s, the :meth:`enable` class method must be called once to make the `date` and `datetime`
+    classes patchable.
+    """
+    def __init__(self, start_time: datetime.datetime, overshoot: datetime.timedelta = datetime.timedelta(),
+                 actual_sleep: float = 0.0):
+        self.current_time = start_time
+        self.overshoot = overshoot
+        self.actual_sleep = actual_sleep
+        self.original_sleep = time.sleep
+        self.original_async_sleep = asyncio.sleep
+
+    def sleep(self, seconds: float) -> None:
+        self.original_sleep(self.actual_sleep)
+        self.current_time += datetime.timedelta(seconds=seconds) + self.overshoot
+
+    async def async_sleep(self, seconds: float) -> None:
+        await self.original_async_sleep(self.actual_sleep)
+        self.current_time += datetime.timedelta(seconds=seconds) + self.overshoot
+
+    def now(self) -> datetime.datetime:
+        return self.current_time
+
+    def today(self) -> datetime.date:
+        return self.current_time.date()
+
+    def __enter__(self) -> "ClockMock":
+        self.patches = (
+            unittest.mock.patch('time.sleep', new=self.sleep),
+            unittest.mock.patch('asyncio.sleep', new=self.async_sleep),
+            unittest.mock.patch('datetime.datetime.now', new=self.now),
+            unittest.mock.patch('datetime.date.today', new=self.today),
+        )
+        for p in self.patches:
+            p.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for p in self.patches:
+            p.__exit__(exc_type, exc_val, exc_tb)
+
+    @staticmethod
+    def enable() -> None:
+        """
+        Monkey-patch the datetime module with custom `date` and `datetime` classes to allow patching their methods. The
+        new classes don't change any behaviour by theirselves, but enable `ClockMock` to do so.
+
+        This classmethod must be called once, before using a ClockMock, e.g. in a TestCase's
+        :meth:`unittest.TestCase.setUp` method.
+        """
+        import datetime
+
+        class NewDate(datetime.date):
+            pass
+        datetime.date = NewDate
+
+        class NewDateTime(datetime.datetime):
+            pass
+        datetime.datetime = NewDateTime
 
 # ###########################
 # Example Connectable objects
