@@ -25,6 +25,12 @@ HIGH_YEAR = 2200
 
 
 class _TimerSupervisor:
+    """
+    Interface-like class to supervise all timer instances, i.e. start them on startup of SHC and let them gracefully
+    shutdown.
+
+    Should be used as a singleton instance.
+    """
     def __init__(self):
         self.supervised_timers: List[_AbstractTimer] = []
         self.timer_tasks: List[asyncio.Task] = []
@@ -59,8 +65,18 @@ async def _logarithmic_sleep(target: datetime.datetime):
             await asyncio.sleep(diff / 2)
 
 
-def _random_time(random_range: Optional[datetime.timedelta], random_function: str = 'uniform') -> datetime.timedelta:
-    if not random_range:
+def _random_time(maximum_offset: Optional[datetime.timedelta], random_function: str = 'uniform') -> datetime.timedelta:
+    """
+    Generate a random timedelta within a given range.
+
+    :param maximum_offset: The maximum absolute value of the random timedelta. Depending on the random function, this
+        might not be interpreted strictly (e.g. for the 'gauss' function, the value does only hit the interval by 96%
+        chance). If None, return value is 0 seconds.
+    :param random_function: The random function / random distribution to use. Currently supported are 'uniform' and
+        'gauss'.
+    :return: A timedelta roughly between -maximum_offset and +maximum_offset.
+    """
+    if not maximum_offset:
         return datetime.timedelta()
     if random_function == 'uniform':
         random_value = random.uniform(-1, 1)
@@ -68,7 +84,7 @@ def _random_time(random_range: Optional[datetime.timedelta], random_function: st
         random_value = random.gauss(0, 0.5)
     else:
         raise ValueError("Unsupported random function '{}'".format(random_function))
-    return random_range * random_value
+    return maximum_offset * random_value
 
 
 class _AbstractTimer(Subscribable[None], metaclass=abc.ABCMeta):
@@ -96,6 +112,12 @@ class _AbstractTimer(Subscribable[None], metaclass=abc.ABCMeta):
 
 
 class Every(_AbstractTimer):
+    """
+    A timer that periodically triggers with a given interval, optionally extended/shortened by a ranodom time.
+
+    It may either be triggered once on startup of SHC and then enter its periodical loop or be aligned with the wall
+    clock, i.e. be triggered when the current time in the UNIX era is multiple of the interval.
+    """
     def __init__(self, delta: datetime.timedelta, align: bool = True,
                  offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
                  random_function: str = 'uniform'):
@@ -122,10 +144,18 @@ class Every(_AbstractTimer):
 
 
 def every(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
+    """
+    Decorator for logic handlers to instantiate a :class:`Every` timer and let it trigger the decorated logic handler.
+
+    All positional and keyword arguments are passed to :meth:`Every.__init__`.
+    """
     return Every(*args, **kwargs).trigger
 
 
 class Once(_AbstractTimer):
+    """
+    A Timer which only triggers only once at startup of SHC, optionally be delayed by some offset and a random value.
+    """
     def __init__(self, offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
                  random_function: str = 'uniform'):
         super().__init__()
@@ -142,10 +172,21 @@ class Once(_AbstractTimer):
 
 
 def once(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
+    """
+    Decorator for logic handlers to instantiate a :class:`Once` timer and let it trigger the decorated logic handler.
+
+    All positional and keyword arguments are passed to :meth:`Once.__init__`.
+    """
     return Once(*args, **kwargs).trigger
 
 
 class EveryNth(int):
+    """
+    A special integer class to be used as an argument for :meth:`At.__init__` to specify every nth number as a valid
+    number for triggering the timer.
+
+    E.g. month=EveryNth(2) equals month=[1,3,5,7,9,11], hour=EveryNth(6) equals hour=[0,6,12,18]
+    """
     pass
 
 
@@ -305,10 +346,30 @@ class At(_AbstractTimer):
 
 
 def at(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
+    """
+    Decorator for logic handlers to instantiate a :class:`At` timer and let it trigger the decorated logic handler.
+
+    All positional and keyword arguments are passed to :meth:`At.__init__`.
+    """
     return At(*args, **kwargs).trigger
 
 
 class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
+    """
+    Abstract base class for boolean-based delay timers.
+
+    All derived classes work in a similar way: They wrap a *Subscribable* object of boolean type and re-publish its
+    updates according to different rules:
+
+    * :class:`TOn`: Changes from False → True are delayed, while True → False changes are published directly and cancel
+        any pending False → True change
+    * :class:`TOff`: Changes from True → False are delayed, while False → True changes are published directly and cancel
+        any pending True → False change
+    * :class:`TOnOff`: Same behaviour as combining a TOn with a TOff, i.e. all changes are delayed and may be
+        superseded by a contrary change (in contrast to a simple :class:`Delay` object).
+    * :class:`TPulse`: Each True value triggers a True pulse of exactly ``delay`` length, but only if no pulse is
+        currently active (i.e. the current value is False; a pulse is not re-triggerable).
+    """
     def __init__(self, wrapped: Subscribable[bool], delay: datetime.timedelta):
         self.type = bool
         super().__init__()
@@ -375,6 +436,10 @@ class TPulse(_DelayedBool):
 
 
 class Delay(Subscribable[T], Readable[T], Generic[T]):
+    """
+    A *Readable* and *Subscribable* object which wraps another Subscribable object and re-publishes its updates after
+    the time interval specified by ``delay``. It also *provides* its state/value from ``delay`` time ago.
+    """
     def __init__(self, wrapped: Subscribable[T], delay: datetime.timedelta, initial_value: Optional[T] = None):
         self.type = wrapped.type
         super().__init__()
