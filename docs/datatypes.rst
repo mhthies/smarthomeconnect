@@ -11,6 +11,8 @@ TODO restrictions for types used with SHC:
 * Support for element access in variables
 
 
+.. _datatypes.supported_types:
+
 Supported Value Types
 ---------------------
 

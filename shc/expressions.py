@@ -20,6 +20,42 @@ from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHand
 
 
 class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
+    """
+    An abstract base class for any object that may be used in SHC expressions.
+
+    This class defines all the overloaded operators, to create *Connectable* :class:`ExpressionHandler` objects when
+    being used in a Python expression. For using this class's features with any *Readable* + *Subscribable* object, use
+    the :class:`ExpressionWrapper` subclass. Additionally, each :class:`ExpressionHandler` is also an
+    `ExpressionBuilder`, allowing to combine Expressions to even larger Expressions.
+
+    Currently, the following operators and builtin functions are supported:
+
+    * ``+`` (add)
+    * ``-`` (sub)
+    * ``*`` (mul)
+    * ``/`` (truediv)
+    * ``//`` (floordiv)
+    * ``%`` (mod)
+    * ``abs()``
+    * ``-()`` (neg)
+    * ``ceil()``
+    * ``floor()``
+    * ``round()``
+    * ``==`` (eq)
+    * ``!=`` (ne)
+    * ``<`` (lt)
+    * ``<=`` (le)
+    * ``>`` (gt)
+    * ``>=`` (ge)
+    * ``and``
+    * ``or``
+
+    Additionally, the following methods are provided:
+
+    * :meth:`not`: To be used instead of the ``not`` operator (which cannot be overridden)
+    * :meth:`convert`: Creates a "type cast" expression, which converts this object's value to the specified value type,
+      using the default converter function from :mod:`shc.conversion`.
+    """
     @staticmethod
     def __get_other_type(other: object) -> type:
         if isinstance(other, Readable) and isinstance(other, Subscribable):
@@ -195,13 +231,11 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
         return UnaryExpressionHandler(type_, self, converter)
 
 
-def not_(a):
-    if isinstance(a, Readable) and isinstance(a, Subscribable):
-        return UnaryCastExpressionHandler(bool, a, operator.not_)
-    return not a
-
-
 class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic[T]):
+    """
+    Wrapper for any *Readable* + *Subscribable* object to equip it with expression-building capabilities, inherited from
+    :class:`ExpressionBuilder`
+    """
     def __init__(self, wrapped: Subscribable[T]):
         super().__init__()
         self.wrapped = wrapped
@@ -218,6 +252,15 @@ class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic
 
 
 class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic[T], metaclass=abc.ABCMeta):
+    """
+    Base class for expression objects, i.e. the result object of an expression built with :class:`ExpressionBuilder`'s
+    overloaded operators
+
+    The ExpressionHandler object stores the operator (as a callable) and a reference to each operand. Thereby, it can
+    *read* there current values and evaluate the operation/expression at any time with these values. *ExpressionHandler*
+    objects are *Readable* (to evaluate the expression's current value on demand) and *Subscribable* (to evaluate and
+    publish the expression's new value, when any of the operands is updated).
+    """
     def __init__(self, type_: Type[T], operands: Iterable[object]):
         super().__init__()
         self.type = type_
@@ -249,6 +292,10 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
         else:
             return Wrapper(val)
 
+
+# ################################# #
+# Operator-based ExpressionHandlers #
+# ################################# #
 
 class BinaryExpressionHandler(ExpressionHandler[T], Generic[T]):
     def __init__(self, type_: Type[T], a, b, operator_: Callable[[Any, Any], T]):
@@ -287,7 +334,19 @@ class UnaryCastExpressionHandler(UnaryExpressionHandler[T]):
         return self.type(await super().evaluate())  # type: ignore
 
 
+# ############################# #
+# Functional ExpressionHandlers #
+# ############################# #
+
 class IfThenElse(ExpressionHandler, Generic[T]):
+    """
+    A :class:`ExpressionHandler` version of the ``x if condition else y`` python syntax
+
+    This class takes three connectable objects or static values: `condition`, `then` and `otherwise`. `condition` must
+    be ``bool`` (or a *Connectable* with value type ``bool``), `then` and `otherwise` must be of the same type (reps.
+    have the same value type). If the `condition` evaluates to True, this object evaluates to the value of `then`,
+    otherwise it evaluates to the value of `otherwise`.
+    """
     def __init__(self, condition: Union[Readable[bool]], then: Union[T, Readable[T]], otherwise: Union[T, Readable[T]]):
         super().__init__(then.type, (condition, then, otherwise))
         self.condition = self._wrap_static_value(condition)
@@ -297,6 +356,22 @@ class IfThenElse(ExpressionHandler, Generic[T]):
     async def evaluate(self) -> T:
         return (await self.then.read()) if (await self.condition.read()) else (await self.otherwise.read())
 
+
+def not_(a):
+    """
+    Create a :class:`ExpressionHandler` that wraps a *Connectable* or static value and evaluates to ``not x`` for the
+    value `x`.
+
+    This is the workaround for Python's limitations on overriding the ``not`` operator.
+    """
+    if isinstance(a, Readable) and isinstance(a, Subscribable):
+        return UnaryCastExpressionHandler(bool, a, operator.not_)
+    return not a
+
+
+# #################### #
+# Type Inference Rules #
+# #################### #
 
 TYPES_ADD: Dict[Tuple[Type, Type], Type] = {
     (int, int): int,

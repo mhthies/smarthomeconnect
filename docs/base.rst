@@ -93,6 +93,8 @@ When calling :meth:`Writable.write` from within a logic handler, decorated with 
 See the following section for more details.
 
 
+.. _base.typing:
+
 Typing of Connectable Objects
 -----------------------------
 
