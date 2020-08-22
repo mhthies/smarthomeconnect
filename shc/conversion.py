@@ -59,6 +59,8 @@ def from_json(type_: Type[T], value: Any) -> T:
         return value
     if issubclass(type_, enum.Enum):
         return type_(value)  # type: ignore
+    if issubclass(type_, tuple):
+        return type_(*value)  # type: ignore
     try:
         return _JSON_CONVERSIONS[type_][1](value)
     except KeyError as e:
