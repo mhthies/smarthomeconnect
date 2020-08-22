@@ -135,7 +135,7 @@ function TextInputWidget(domElement, writeValue) {
 function SliderWidget(domElement, writeValue) {
     const id = parseInt(domElement.getAttribute('data-id'));
     this.subscribeIds = [id];
-    $semanticUiSlider = $(domElement);
+    let $semanticUiSlider = $(domElement);
     let sendingDisabled = false;
     $semanticUiSlider.slider({
         min: 0,
