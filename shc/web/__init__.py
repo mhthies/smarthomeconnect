@@ -43,8 +43,7 @@ class WebServer:
         self.port = port
         self.index_name = index_name
         self._pages: Dict[str, WebPage] = {}
-        self.display_datapoints: Dict[int, WebDisplayDatapoint] = {}
-        self.action_datapoints: Dict[int, WebActionDatapoint] = {}
+        self.connectors: Dict[int, WebDisplayDatapoint] = {}
         self.ui_menu_entries: List[Tuple[Union[str, markupsafe.Markup], Union[str, Tuple]]] = []
         self._app = aiohttp.web.Application()
         self._app.add_routes([
@@ -65,11 +64,8 @@ class WebServer:
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
-        for datapoint in itertools.chain.from_iterable(page.get_datapoints() for page in self._pages.values()):
-            if isinstance(datapoint, WebDisplayDatapoint):
-                self.display_datapoints[id(datapoint)] = datapoint
-            if isinstance(datapoint, WebActionDatapoint):
-                self.action_datapoints[id(datapoint)] = datapoint
+        for connector in itertools.chain.from_iterable(page.get_connectors() for page in self._pages.values()):
+            self.connectors[id(connector)] = connector
         self._runner = aiohttp.web.AppRunner(self._app)
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
@@ -113,28 +109,29 @@ class WebServer:
                 logger.info('ws connection closed with exception %s', ws.exception())
         logger.debug('websocket connection closed')
         # Make sure the websocket is removed as a subscriber from all WebDisplayDatapoints
-        for datapoint in self.display_datapoints.values():
-            if isinstance(datapoint, WebDisplayDatapoint):
-                datapoint.ws_unsubscribe(ws)
+        for connector in self.connectors.values():
+            if isinstance(connector, WebDisplayDatapoint):
+                await connector.on_socket_close(ws)
         return ws
 
     async def _websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
-        data = msg.json()
-        # TODO error handling
-        action = data["action"]
-        if action == 'subscribe':
-            await self.display_datapoints[data["id"]].ws_subscribe(ws)
-        elif action == 'write':
-            await self.action_datapoints[data["id"]].update_from_ws(data["value"], ws)
+        message = msg.json()
+        try:
+            connector = self.connectors[message["id"]]
+        except KeyError:
+            logger.error("Could not route message from websocket to connector, since no connector with this id is "
+                         "known.")
+            return
+        await connector.from_websocket(message, ws)
 
 
-class WebDatapointContainer(metaclass=abc.ABCMeta):
+class WebConnectorContainer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+    def get_connectors(self) -> Iterable["WebConnector"]:
         pass
 
 
-class WebPage(WebDatapointContainer):
+class WebPage(WebConnectorContainer):
     def __init__(self, server: WebServer, name: str):
         self.server = server
         self.name = name
@@ -145,8 +142,8 @@ class WebPage(WebDatapointContainer):
             self.new_segment()
         self.segments[-1].items.append(item)
 
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return itertools.chain.from_iterable(item.get_datapoints() for item in self.segments)
+    def get_connectors(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return itertools.chain.from_iterable(item.get_connectors() for item in self.segments)
 
     def new_segment(self, title: Optional[str] = None, same_column: bool = False, full_width: bool = False):
         self.segments.append(_WebPageSegment(title, same_column, full_width))
@@ -157,24 +154,64 @@ class WebPage(WebDatapointContainer):
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
 
-class _WebPageSegment(WebDatapointContainer):
+class _WebPageSegment(WebConnectorContainer):
     def __init__(self, title: Optional[str], same_column: bool, full_width: bool):
         self.title = title
         self.same_column = same_column
         self.full_width = full_width
         self.items: List[WebPageItem] = []
 
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return itertools.chain.from_iterable(item.get_datapoints() for item in self.items)
+    def get_connectors(self) -> Iterable[Union["WebConnector"]]:
+        return itertools.chain.from_iterable(item.get_connectors() for item in self.items)
 
 
-class WebPageItem(WebDatapointContainer, metaclass=abc.ABCMeta):
+class WebPageItem(WebConnectorContainer, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def render(self) -> str:
         pass
 
 
-class WebDisplayDatapoint(Reading[T], Writable[T], metaclass=abc.ABCMeta):
+class WebConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
+    """
+    An abstract base class for all objects that want to exchange messages with JavaScript UI Widgets via the websocket
+    connection.
+
+    For every Message received from a client websocket, the :meth:`from_websocket` method of the appropriate
+    `WebConnector` is called. For this purpose, the :class:`WebServer` creates a dict of all WebConnectors in any
+    registered :class:`WebPage` by their Python object id at startup. The message from the websocket is expected to have
+    an `id` field which is used for the lookup.
+    """
+    @abc.abstractmethod
+    async def from_websocket(self, message: Any, ws: aiohttp.web.WebSocketResponse) -> None:
+        """
+        This method is called for every incoming message from a client to this specific `WebConnector` object.
+
+        Inheriting classes, which implement a specific interaction mechanism, should override this method to handle
+        the relevant websocket messages. Typically, the relevant messages are recognized by the `action` field in the
+        message. The overridden method should always call the super method (attention: It is a coroutine, that must be
+        awaited), to allow combining multiple interaction mechanism via multi-inheritance.
+
+        :param message: The JSON-decoded message from the websocket
+        :param ws: The concrete websocket, the message has been received from. This might be used to store the websocket
+            for later asynchronous sending of messages or to send an immediate response.
+        """
+        pass
+
+    async def on_socket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
+        """
+        Called on every `WebConnector` of the :class:`WebServer`, when a websocket disconnects.
+        :param ws: The websocket that disconnected
+        """
+        pass
+
+    def get_connectors(self) -> Iterable["WebConnector"]:
+        return (self,)
+
+    def __repr__(self):
+        return "{}<id={}>".format(self.__class__.__name__, id(self))
+
+
+class WebDisplayDatapoint(Reading[T], Writable[T], WebConnector, metaclass=abc.ABCMeta):
     is_reading_optional = False
 
     def __init__(self):
@@ -193,35 +230,37 @@ class WebDisplayDatapoint(Reading[T], Writable[T], metaclass=abc.ABCMeta):
     def convert_to_ws_value(self, value: T) -> Any:
         return value
 
-    async def ws_subscribe(self, ws):
-        if self._default_provider is None:
-            logger.error("Cannot handle websocket subscription for %s, since not read provider is registered.", self)
-            return
-        logger.debug("New websocket subscription for widget id %s.", id(self))
-        self.subscribed_websockets.add(ws)
-        current_value = await self._from_provider()
-        if current_value is not None:
-            data = json.dumps({'id': id(self),
-                               'value': self.convert_to_ws_value(current_value)},
-                              cls=SHCJsonEncoder)
-            await ws.send_str(data)
+    async def from_websocket(self, message: Any, ws: aiohttp.web.WebSocketResponse) -> None:
+        await super().from_websocket(message, ws)
+        if 'action' in message and message['action'] == 'subscribe':
+            if self._default_provider is None:
+                logger.error("Cannot handle websocket subscription for %s, since not read provider is registered.",
+                             self)
+                return
+            logger.debug("New websocket subscription for widget id %s.", id(self))
+            self.subscribed_websockets.add(ws)
+            current_value = await self._from_provider()
+            if current_value is not None:
+                data = json.dumps({'id': id(self),
+                                   'value': self.convert_to_ws_value(current_value)},
+                                  cls=SHCJsonEncoder)
+                await ws.send_str(data)
 
-    def ws_unsubscribe(self, ws):
+    async def on_socket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
         logger.debug("Unsubscribing websocket from %s.", self)
         self.subscribed_websockets.discard(ws)
 
-    def __repr__(self):
-        return "{}<id={}>".format(self.__class__.__name__, id(self))
 
-
-class WebActionDatapoint(Subscribable[T], metaclass=abc.ABCMeta):
+class WebActionDatapoint(Subscribable[T], WebConnector, metaclass=abc.ABCMeta):
     def convert_from_ws_value(self, value: Any) -> T:
         return from_json(self.type, value)
 
-    async def update_from_ws(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
-        await self._publish(self.convert_from_ws_value(value), [ws])
-        if isinstance(self, WebDisplayDatapoint):
-            await self._publish_to_ws(value)
+    async def from_websocket(self, msg: Any, ws: aiohttp.web.WebSocketResponse) -> None:
+        await super().from_websocket(msg, ws)
+        if 'action' in msg and msg['action'] == 'write':
+            await self._publish(self.convert_from_ws_value(msg['value']), [ws])
+            if isinstance(self, WebDisplayDatapoint):
+                await self._publish_to_ws(msg['value'])
 
 
 from . import widgets

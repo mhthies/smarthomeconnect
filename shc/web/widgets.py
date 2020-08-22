@@ -17,7 +17,7 @@ from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Op
 
 import markupsafe
 
-from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebDatapointContainer
+from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer, WebConnector
 from ..base import T, ConnectableWrapper
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1, RGBUInt8
@@ -33,9 +33,6 @@ class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
         super().__init__()
         self.label = label
 
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
-
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/switch.htm').render_async(id=id(self), label=self.label)
 
@@ -46,9 +43,6 @@ class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic
         super().__init__()
         self.values = values
         self.label = label
-
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/select.htm').render_async(
@@ -73,9 +67,6 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
         self.input_type = "number" if issubclass(self.type, (int, float)) else "text"
         self.input_suffix = input_suffix
 
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
-
     def convert_from_ws_value(self, value: Any) -> T:
         return self.type(value)
 
@@ -91,9 +82,6 @@ class Slider(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Gener
         super().__init__()
         self.label = label
         self.color = color
-
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
 
     def convert_from_ws_value(self, value: Any) -> T:
         return float(value)
@@ -115,8 +103,8 @@ class ButtonGroup(WebPageItem):
         self.label = label
         self.buttons = buttons
 
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return self.buttons
+    def get_connectors(self) -> Iterable[WebConnector]:
+        return self.buttons  # type: ignore
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/buttongroup.htm')\
@@ -187,9 +175,6 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
         self.format_string = format_string
         self.label = label
 
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return (self,)
-
     def convert_to_ws_value(self, value: T) -> Any:
         return self.format_string.format(value)
 
@@ -219,14 +204,14 @@ class HideRowBox(WebPageItem):
     def __init__(self, rows: List["HideRow"]):
         self.rows = rows
 
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return itertools.chain.from_iterable(row.get_datapoints() for row in self.rows)
+    def get_connectors(self) -> Iterable[WebConnector]:
+        return itertools.chain.from_iterable(row.get_connectors() for row in self.rows)
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/hiderowbox.htm').render_async(rows=self.rows)
 
 
-class HideRow(WebDisplayDatapoint[bool], WebDatapointContainer):
+class HideRow(WebDisplayDatapoint[bool], WebConnectorContainer):
     def __init__(self, label: Union[str, markupsafe.Markup], button: Optional[AbstractButton] = None,
                  color: str = 'blue',):
         self.type = bool
@@ -235,7 +220,7 @@ class HideRow(WebDisplayDatapoint[bool], WebDatapointContainer):
         self.button = button
         self.color = color
 
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+    def get_connectors(self) -> Iterable[WebConnector]:
         if self.button:
             yield self.button
         yield self
@@ -243,9 +228,6 @@ class HideRow(WebDisplayDatapoint[bool], WebDatapointContainer):
 
 class ColorChoser(WebActionDatapoint[RGBUInt8], WebDisplayDatapoint[RGBUInt8], WebPageItem):
     type = RGBUInt8
-
-    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
-        return [self]
 
     async def render(self) -> str:
         # TODO add label
