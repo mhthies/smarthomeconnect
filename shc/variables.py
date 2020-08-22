@@ -11,7 +11,7 @@
 
 import asyncio
 import logging
-from typing import Generic, Type, Optional, get_type_hints, List, Any, Union
+from typing import Generic, Type, Optional, List, Any, Union
 
 from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
 from .expressions import ExpressionWrapper
@@ -44,9 +44,8 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         self._variable_fields: List["VariableField"] = []
 
         # Create VariableFields for each typeannotated field of the type if it is typing.NamedTuple-based.
-        type_hints = get_type_hints(type_)
-        if issubclass(type_, tuple) and type_hints:
-            for name, field_type in type_hints.items():
+        if issubclass(type_, tuple) and type_.__annotations__:
+            for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
                 self._variable_fields.append(variable_field)
                 setattr(self, name, variable_field)
@@ -100,9 +99,8 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self._variable_fields: List["VariableField"] = []
 
         # Create VariableFields for each typeannotated field of the type if it is typing.NamedTuple-based.
-        type_hints = get_type_hints(type_)
-        if issubclass(type_, tuple) and type_hints:
-            for name, field_type in type_hints.items():
+        if issubclass(type_, tuple) and type_.__annotations__:
+            for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
                 self._variable_fields.append(variable_field)
                 setattr(self, name, variable_field)
