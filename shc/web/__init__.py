@@ -53,7 +53,9 @@ class WebServer:
             aiohttp.web.get("/ws", self._websocket_handler),
             aiohttp.web.static('/static', os.path.join(os.path.dirname(__file__), 'static')),
         ])
-        self.run_task: asyncio.Task
+        # aiohttp's Runner or Site do not provide a good method to await the stopping of the server. Thus we use our own
+        # Event for that purpose.
+        self._stopped = asyncio.Event()
         register_interface(self)
         # TODO add datapoint API
 
@@ -71,14 +73,15 @@ class WebServer:
         self._runner = aiohttp.web.AppRunner(self._app)
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
-        self.run_task = asyncio.create_task(site.start())
+        await site.start()
 
     async def wait(self) -> None:
-        await self.run_task
+        await self._stopped.wait()
 
     async def stop(self) -> None:
         logger.info("Cleaning up AppRunner ...")
         await self._runner.cleanup()
+        self._stopped.set()
 
     def page(self, name: str) -> "WebPage":
         if name in self._pages:
