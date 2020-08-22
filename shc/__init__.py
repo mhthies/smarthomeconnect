@@ -22,6 +22,7 @@ from . import misc
 from . import web
 from . import persistence
 from . import knx
+from . import dmx
 
 
 from .base import handler

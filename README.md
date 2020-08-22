@@ -20,6 +20,7 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 * configuration and definition of automation rules in plain Python
 * interfaces
     * KNX bus via KNXD
+    * DMX (via Enttec DMX USB Pro and compatible interfaces)
 * websocket-based web user interface (using *aiohttp*, *Jinja2* and *Semantic UI*)
     * widgets: buttons, text display, text/number inputs, dropdowns, … 
 * chronological and periodic timers for triggering rules
@@ -29,7 +30,6 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 ### Roadmap
 
 * JSON-over-MQTT interface
-* DMX interface
 * Extensibility of web interface (additional services via HTTP and websocket)
 * HTTP API (GET, POST, websocket-subscribe) + Client
 * More web widgets
