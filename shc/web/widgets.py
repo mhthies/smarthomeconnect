@@ -20,7 +20,7 @@ import markupsafe
 from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebDatapointContainer
 from ..base import T, ConnectableWrapper
 from ..conversion import SHCJsonEncoder
-from ..datatypes import RangeFloat1
+from ..datatypes import RangeFloat1, RGBUInt8
 
 
 def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
@@ -239,3 +239,14 @@ class HideRow(WebDisplayDatapoint[bool], WebDatapointContainer):
         if self.button:
             yield self.button
         yield self
+
+
+class ColorChoser(WebActionDatapoint[RGBUInt8], WebDisplayDatapoint[RGBUInt8], WebPageItem):
+    type = RGBUInt8
+
+    def get_datapoints(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+        return [self]
+
+    async def render(self) -> str:
+        # TODO add label
+        return await jinja_env.get_template('widgets/colorchoser.htm').render_async(id=id(self))

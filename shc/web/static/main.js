@@ -167,6 +167,22 @@ function SliderWidget(domElement, writeValue) {
     }
 }
 
+function ColorChoserWidget(domElement, writeValue) {
+    const id = parseInt(domElement.getAttribute('data-id'));
+    this.subscribeIds = [id];
+    var colorPicker = new iro.ColorPicker(domElement, {
+        color: "#000"
+    });
+
+    colorPicker.on('input:end', function(color) {
+        writeValue(id, [color.red, color.green, color.blue]);
+    });
+
+    this.update = function(value, for_id) {
+        colorPicker.color.rgb = {'r': value[0], 'g': value[1], 'b': value[2]};
+    };
+}
+
 function HideRowWidget(domElement, _writeValue) {
     const id = parseInt(domElement.getAttribute('data-id'));
     this.subscribeIds = [id];
@@ -190,6 +206,7 @@ const WIDGET_TYPES = new Map([
    ['text-display', TextDisplayWidget],
    ['text-input', TextInputWidget],
    ['slider', SliderWidget],
+   ['colorchoser', ColorChoserWidget],
    ['hiderow', HideRowWidget],
 ]);
 

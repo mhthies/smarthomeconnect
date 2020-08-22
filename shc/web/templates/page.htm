@@ -24,6 +24,7 @@
     <script src="/static/semantic-ui/components/slider.min.js"></script>
     <script src="/static/semantic-ui/components/sidebar.min.js"></script>
     <script src="/static/semantic-ui/components/transition.min.js"></script>
+    <script src="/static/iro.min.js"></script>
     <link rel="stylesheet" type="text/css" href="/static/main.css" />
     <script src="/static/main.js"></script>
 </head>
@@ -79,7 +80,7 @@
                     {% endif %}
                         {% if segment.title %}<h3 class="ui inverted header">{{ segment.title }}</h3>{% endif %}
                         <div class="ui segment">
-                            <div class="ui very relaxed divided list">
+                            <div class="ui relaxed divided list">
                                 {% for item in segment.items %}
                                     <div class="item">{{ item.render()|safe }}</div>
                                 {% endfor %}

@@ -9,6 +9,10 @@ This product bundles Fomantic-UI 2.8.6 in shc/web/static/semantic-ui/,
 which is available under the MIT License
 from https://fomantic-ui.com/.
 
+This product bundles iro.js 5.2.0 in shc/web/static/iro.min.js,
+which is available under the Mozilla Public License 2.0
+from https://github.com/jaames/iro.js.
+
 The “Prism” background pattern in shc/web/static/prism.png
 is part of the “Subtle Patterns” suite by Toptal Designers
 and is available as Creative Commons BY-SA 3.0
