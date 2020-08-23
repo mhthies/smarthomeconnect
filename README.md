@@ -111,3 +111,4 @@ SHC depends on the following Python packages:
 * `aiomysql` and `PyMySQL` (MIT License)
 * `jinja2` and `MarkupSafe` (BSD-3-Clause License)
 * `knxdclient` (Apache License 2.0)
+* `pyserial-asyncio` & `pySerial` (BSD-3-Clause License)
