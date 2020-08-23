@@ -249,7 +249,7 @@ const WIDGET_TYPES = new Map([
         console.info("Websocket opened. Subscribing widget values ...");
         for (const id of widgetMap.keys()) {
             ws.send(JSON.stringify({
-                'action': 'subscribe',
+                'sub': true,
                 'id': id
             }));
         }
@@ -265,9 +265,8 @@ const WIDGET_TYPES = new Map([
     function writeValue(id, value) {
         console.debug("Writing new value " + JSON.stringify(value) + " for widget id " + id.toString());
         ws.send(JSON.stringify({
-            'action': 'write',
             'id': id,
-            'value': value
+            'v': value
         }));
     }
 
