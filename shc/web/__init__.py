@@ -59,9 +59,9 @@ class WebServer:
         self.index_name = index_name
         self.root_url = root_url
 
-        # a dict of all `WebPages` by their `name` for rendering them in the `_page_handler`
+        # a dict of all `WebPage`s by their `name` for rendering them in the `_page_handler`
         self._pages: Dict[str, WebPage] = {}
-        # a dict of all `WebConnectors` by their Python object id for routing incoming websocket mesages
+        # a dict of all `WebConnector`s by their Python object id for routing incoming websocket mesages
         self.connectors: Dict[int, WebUIConnector] = {}
         # a set of all open websockets to close on graceful shutdown
         self._websockets = weakref.WeakSet()
@@ -96,7 +96,7 @@ class WebServer:
         self._app.add_routes([
             aiohttp.web.get("/", self._index_handler),
             aiohttp.web.get("/page/{name}/", self._page_handler, name='show_page'),
-            aiohttp.web.get("/ws", self._websocket_handler),
+            aiohttp.web.get("/ws", self._ui_websocket_handler),
             aiohttp.web.static('/static', os.path.join(os.path.dirname(__file__), 'static')),
         ])
         # aiohttp's Runner or Site do not provide a good method to await the stopping of the server. Thus we use our own
@@ -134,7 +134,7 @@ class WebServer:
             self._pages[name] = page
             return page
 
-    async def _index_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
+    async def _index_handler(self, _request: aiohttp.web.Request) -> aiohttp.web.Response:
         if not self.index_name:
             return aiohttp.web.HTTPNotFound()
         return aiohttp.web.HTTPFound(self._app.router['show_page'].url_for(name=self.index_name))
@@ -150,7 +150,7 @@ class WebServer:
                                            root_url=self.root_url, js_files=self._js_files, css_files=self._css_files)
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
-    async def _websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
+    async def _ui_websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
         ws = aiohttp.web.WebSocketResponse()
         await ws.prepare(request)
         self._websockets.add(ws)
@@ -159,7 +159,7 @@ class WebServer:
         try:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
-                    await self._websocket_dispatch(ws, msg)
+                    await self._ui_websocket_dispatch(ws, msg)
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.info('ws connection closed with exception %s', ws.exception())
         finally:
@@ -167,11 +167,10 @@ class WebServer:
             # Make sure the websocket is removed as a subscriber from all WebDisplayDatapoints
             self._websockets.discard(ws)
             for connector in self.connectors.values():
-                if isinstance(connector, WebDisplayDatapoint):
-                    await connector.websocket_close(ws)
+                await connector.websocket_close(ws)
             return ws
 
-    async def _websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
+    async def _ui_websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
         message = msg.json()
         try:
             connector = self.connectors[message["id"]]
@@ -250,7 +249,6 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
     registered :class:`WebPage` by their Python object id at startup. The message from the websocket is expected to have
     an `id` field which is used for the lookup.
     """
-    @abc.abstractmethod
     async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         """
         This method is called for incoming "value" messages from a client to this specific `WebUIConnector` object.
