@@ -17,7 +17,7 @@ from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Op
 
 import markupsafe
 
-from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer, WebConnector
+from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer, WebUIConnector
 from ..base import T, ConnectableWrapper
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1, RGBUInt8
@@ -103,7 +103,7 @@ class ButtonGroup(WebPageItem):
         self.label = label
         self.buttons = buttons
 
-    def get_connectors(self) -> Iterable[WebConnector]:
+    def get_connectors(self) -> Iterable[WebUIConnector]:
         return self.buttons  # type: ignore
 
     async def render(self) -> str:
@@ -204,7 +204,7 @@ class HideRowBox(WebPageItem):
     def __init__(self, rows: List["HideRow"]):
         self.rows = rows
 
-    def get_connectors(self) -> Iterable[WebConnector]:
+    def get_connectors(self) -> Iterable[WebUIConnector]:
         return itertools.chain.from_iterable(row.get_connectors() for row in self.rows)
 
     async def render(self) -> str:
@@ -220,7 +220,7 @@ class HideRow(WebDisplayDatapoint[bool], WebConnectorContainer):
         self.button = button
         self.color = color
 
-    def get_connectors(self) -> Iterable[WebConnector]:
+    def get_connectors(self) -> Iterable[WebUIConnector]:
         if self.button:
             yield self.button
         yield self

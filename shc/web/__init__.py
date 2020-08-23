@@ -62,7 +62,7 @@ class WebServer:
         # a dict of all `WebPages` by their `name` for rendering them in the `_page_handler`
         self._pages: Dict[str, WebPage] = {}
         # a dict of all `WebConnectors` by their Python object id for routing incoming websocket mesages
-        self.connectors: Dict[int, WebConnector] = {}
+        self.connectors: Dict[int, WebUIConnector] = {}
         # a set of all open websockets to close on graceful shutdown
         self._websockets = weakref.WeakSet()
         # data structure of the user interface's main menu
@@ -201,7 +201,7 @@ class WebServer:
 
 class WebConnectorContainer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def get_connectors(self) -> Iterable["WebConnector"]:
+    def get_connectors(self) -> Iterable["WebUIConnector"]:
         pass
 
 
@@ -230,7 +230,7 @@ class _WebPageSegment(WebConnectorContainer):
         self.full_width = full_width
         self.items: List[WebPageItem] = []
 
-    def get_connectors(self) -> Iterable[Union["WebConnector"]]:
+    def get_connectors(self) -> Iterable[Union["WebUIConnector"]]:
         return itertools.chain.from_iterable(item.get_connectors() for item in self.items)
 
 
@@ -240,20 +240,20 @@ class WebPageItem(WebConnectorContainer, metaclass=abc.ABCMeta):
         pass
 
 
-class WebConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
+class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
     """
     An abstract base class for all objects that want to exchange messages with JavaScript UI Widgets via the websocket
     connection.
 
     For every Message received from a client websocket, the :meth:`from_websocket` method of the appropriate
-    `WebConnector` is called. For this purpose, the :class:`WebServer` creates a dict of all WebConnectors in any
+    `WebUIConnector` is called. For this purpose, the :class:`WebServer` creates a dict of all WebConnectors in any
     registered :class:`WebPage` by their Python object id at startup. The message from the websocket is expected to have
     an `id` field which is used for the lookup.
     """
     @abc.abstractmethod
     async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         """
-        This method is called for incoming "value" messages from a client to this specific `WebConnector` object.
+        This method is called for incoming "value" messages from a client to this specific `WebUIConnector` object.
 
         :param value: The JSON-decoded 'value' field from the message from the websocket
         :param ws: The concrete websocket, the message has been received from.
@@ -262,13 +262,13 @@ class WebConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
 
     async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
         """
-        This method is called for incoming "subscribe" messages from a client to this specific `WebConnector` object.
+        This method is called for incoming "subscribe" messages from a client to this specific `WebUIConnector` object.
         """
         pass
 
     async def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
         """
-        Called on every `WebConnector` of the :class:`WebServer`, when a websocket disconnects.
+        Called on every `WebUIConnector` of the :class:`WebServer`, when a websocket disconnects.
 
         Warning: This method is not only called on `WebConnectors` being subscribed by the closing websocket. So make
         sure to silently ignore the closing of unknown websockets when overriding this method.
@@ -277,14 +277,14 @@ class WebConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
         """
         pass
 
-    def get_connectors(self) -> Iterable["WebConnector"]:
+    def get_connectors(self) -> Iterable["WebUIConnector"]:
         return (self,)
 
     def __repr__(self):
         return "{}<id={}>".format(self.__class__.__name__, id(self))
 
 
-class WebDisplayDatapoint(Reading[T], Writable[T], WebConnector, metaclass=abc.ABCMeta):
+class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc.ABCMeta):
     is_reading_optional = False
 
     def __init__(self):
@@ -294,7 +294,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebConnector, metaclass=abc.A
     async def _write(self, value: T, origin: List[Any]):
         await self._publish_to_ws(self.convert_to_ws_value(value))
 
-    # TODO: refactor int WebConnector?
+    # TODO: refactor into WebUIConnector?
     async def _publish_to_ws(self, value):
         logger.debug("Publishing value %s for %s for %s subscribed websockets ...",
                      value, id(self), len(self.subscribed_websockets))
@@ -323,7 +323,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebConnector, metaclass=abc.A
         self.subscribed_websockets.discard(ws)
 
 
-class WebActionDatapoint(Subscribable[T], WebConnector, metaclass=abc.ABCMeta):
+class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta):
     def convert_from_ws_value(self, value: Any) -> T:
         return from_json(self.type, value)
 
