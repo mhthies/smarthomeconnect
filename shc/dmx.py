@@ -11,7 +11,7 @@
 
 import abc
 import enum
-import time
+import logging
 from typing import List, Any, NamedTuple, Optional
 
 import serial_asyncio
@@ -20,6 +20,9 @@ import asyncio
 from shc.base import Writable
 from shc.datatypes import RangeUInt8
 from shc.supervisor import register_interface
+
+
+logger = logging.getLogger(__name__)
 
 
 class AbstractDMXConnector(metaclass=abc.ABCMeta):
@@ -50,6 +53,7 @@ class DMXAddress(Writable[RangeUInt8]):
         self.connector = connector
 
     async def _write(self, value: RangeUInt8, origin: List[Any]) -> None:
+        logger.debug("New value for DMX address %s: %s", self.address, value)
         self.connector.universe[self.address - 1] = value
         await self.connector.transmit()
 
@@ -69,7 +73,8 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         register_interface(self)
 
     async def start(self):
-        self._reader, self._writer = await serial_asyncio.open_serial_connection(url = self.serial_url)
+        logger.info("Starting Enttec DMX USB Pro interface on serial port %s ...", self.serial_url)
+        self._reader, self._writer = await serial_asyncio.open_serial_connection(url=self.serial_url)
         await self._transmit()
 
     async def wait(self):
@@ -88,27 +93,33 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
     async def transmit(self) -> None:
         # In case, ther is no running _transmit call, create a new one
         if not self.running_transmit or self.running_transmit.done():
-            start = time.time()
+            logger.debug("Immediately transmitting DMX data to interface ...")
             self.running_transmit = asyncio.create_task(self._transmit())
             await self.running_transmit
+            logger.debug("DMX transmit finished ...")
 
         # In case there is already a running _transmit call, create a Future for the next _transmit call, await the
         # completion of the current _transmit, create a new _transmit call, and finally update the Future with its
         # result.
         elif not self.next_transmit:
+            logger.debug("DMX transmit is already running. Queuing next transmit ...")
             self.next_transmit = asyncio.Future()
             await self.running_transmit
+            logger.debug("Starting queued DMX transmit ...")
             self.running_transmit = self.next_transmit
             self.next_transmit = None
             try:
                 await self._transmit()
                 self.running_transmit.set_result(None)
+                logger.debug("Queued DMX transmit finished ...")
             except Exception as e:
                 self.running_transmit.set_exception(e)
                 raise
 
         # In case there is a running _transmit and a Future for the next, simply await that future.
         else:
+            logger.debug("DMX transmit is already running. Queued next transmit already exists. Wating for queued "
+                         "transmit to finish ...")
             await self.next_transmit
 
     async def _transmit(self) -> None:
