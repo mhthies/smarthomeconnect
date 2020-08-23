@@ -81,6 +81,7 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         await self._writer.wait_closed()
 
     async def stop(self):
+        logger.info("Closing serial port %s ...", self.serial_url)
         self._writer.close()
         await self._writer.wait_closed()
 
