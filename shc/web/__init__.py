@@ -15,11 +15,13 @@ import itertools
 import json
 import logging
 import os
+import weakref
 from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple
 
 import aiohttp.web
 import jinja2
 import markupsafe
+from aiohttp import WSCloseCode
 
 from ..base import Reading, T, Writable, Subscribable
 from ..conversion import SHCJsonEncoder, from_json
@@ -38,13 +40,58 @@ jinja_env.filters['id'] = id
 
 
 class WebServer:
-    def __init__(self, host: str, port: int, index_name: str):
+    """
+    A SHC interface to provide the web user interface.
+    """
+    def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "/"):
+        """
+        :param host: The listening host. Use "" to listen on all interfaces or "localhost" to listen only on the
+            loopback interface.
+        :param port: The port to listen on
+        :param index_name: Name of the `WebPage`, the root URL redirects to. If None, the root URL returns an HTTP 404.
+        :param root_url: The base URL, at witch the user will reach this server. Used to construct internal links. May
+            be an absolute URI (like "https://myhost:8080/shc/") or an absolute-path reference (like "/shc/"). Defaults
+            to "/". Note: This does not affect the routes of this HTTP server. It is only relevant, if you use an HTTP
+            reverse proxy in front of this application, which serves the application in a sub path.
+        """
         self.host = host
         self.port = port
         self.index_name = index_name
+        self.root_url = root_url
+
+        # a dict of all `WebPages` by their `name` for rendering them in the `_page_handler`
         self._pages: Dict[str, WebPage] = {}
-        self.connectors: Dict[int, WebDisplayDatapoint] = {}
+        # a dict of all `WebConnectors` by their Python object id for routing incoming websocket mesages
+        self.connectors: Dict[int, WebConnector] = {}
+        # a set of all open websockets to close on graceful shutdown
+        self._websockets = weakref.WeakSet()
+        # data structure of the user interface's main menu
+        # The structure looks as follows:
+        # [('Label', 'page_name'),
+        #  ('Submenu label', [
+        #     ('Label 2', 'page_name2'), ...
+        #   ]),
+        #  ...]
+        # TODO provide interface for easier setting of this structure
         self.ui_menu_entries: List[Tuple[Union[str, markupsafe.Markup], Union[str, Tuple]]] = []
+        # List of all static js URLs to be included in the user interface pages
+        self._js_files = [
+            "static/jquery-3.min.js",
+            "static/semantic-ui/components/checkbox.min.js",
+            "static/semantic-ui/components/dropdown.min.js",
+            "static/semantic-ui/components/slider.min.js",
+            "static/semantic-ui/components/sidebar.min.js",
+            "static/semantic-ui/components/transition.min.js",
+            "static/iro.min.js",
+            "static/main.js",
+        ]
+        # List of all static css URLs to be included in the user interface pages
+        self._css_files = [
+            "static/semantic-ui/semantic.min.css",
+            "static/main.css",
+        ]
+
+        # The actual aiohttp web app
         self._app = aiohttp.web.Application()
         self._app.add_routes([
             aiohttp.web.get("/", self._index_handler),
@@ -55,12 +102,9 @@ class WebServer:
         # aiohttp's Runner or Site do not provide a good method to await the stopping of the server. Thus we use our own
         # Event for that purpose.
         self._stopped = asyncio.Event()
+
         register_interface(self)
         # TODO add datapoint API
-
-        # TODO allow registering HTTP APIs
-        # TODO allow registering websocket APIs
-        # TODO allow collecting page elements of certain type
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
@@ -75,6 +119,9 @@ class WebServer:
         await self._stopped.wait()
 
     async def stop(self) -> None:
+        logger.info("Closing open websockets ...")
+        for ws in set(self._websockets):
+            await ws.close(code=WSCloseCode.GOING_AWAY, message='Server shutdown')
         logger.info("Cleaning up AppRunner ...")
         await self._runner.cleanup()
         self._stopped.set()
@@ -88,39 +135,49 @@ class WebServer:
             return page
 
     async def _index_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
-        raise aiohttp.web.HTTPFound(self._app.router['show_page'].url_for(name=self.index_name))
+        if not self.index_name:
+            return aiohttp.web.HTTPNotFound()
+        return aiohttp.web.HTTPFound(self._app.router['show_page'].url_for(name=self.index_name))
 
     async def _page_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
             page = self._pages[request.match_info['name']]
         except KeyError:
             raise aiohttp.web.HTTPNotFound()
-        return await page.generate(request, self.ui_menu_entries)
+
+        template = jinja_env.get_template('page.htm')
+        body = await template.render_async(title=page.name, segments=page.segments, menu=self.ui_menu_entries,
+                                           root_url=self.root_url, js_files=self._js_files, css_files=self._css_files)
+        return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
     async def _websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
         ws = aiohttp.web.WebSocketResponse()
         await ws.prepare(request)
+        self._websockets.add(ws)
 
         msg: aiohttp.WSMessage
-        async for msg in ws:
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                await self._websocket_dispatch(ws, msg)
-            elif msg.type == aiohttp.WSMsgType.ERROR:
-                logger.info('ws connection closed with exception %s', ws.exception())
-        logger.debug('websocket connection closed')
-        # Make sure the websocket is removed as a subscriber from all WebDisplayDatapoints
-        for connector in self.connectors.values():
-            if isinstance(connector, WebDisplayDatapoint):
-                await connector.websocket_close(ws)
-        return ws
+        try:
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    await self._websocket_dispatch(ws, msg)
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    logger.info('ws connection closed with exception %s', ws.exception())
+        finally:
+            logger.debug('websocket connection closed')
+            # Make sure the websocket is removed as a subscriber from all WebDisplayDatapoints
+            self._websockets.discard(ws)
+            for connector in self.connectors.values():
+                if isinstance(connector, WebDisplayDatapoint):
+                    await connector.websocket_close(ws)
+            return ws
 
     async def _websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
         message = msg.json()
         try:
             connector = self.connectors[message["id"]]
         except KeyError:
-            logger.error("Could not route message from websocket to connector, since no connector with this id is "
-                         "known.")
+            logger.error("Could not route message from websocket to connector, since no connector with id %s is "
+                         "known.", message['id'])
             return
         if 'v' in message:
             await connector.from_websocket(message['v'], ws)
@@ -128,6 +185,18 @@ class WebServer:
             await connector.websocket_subscribe(ws)
         else:
             logger.warning("Don't know how to handle websocket message: %s", message)
+
+    def serve_static_file(self, path: os.PathLike) -> str:
+        # TODO
+        pass
+
+    def add_js_file(self, path: os.PathLike) -> None:
+        # TODO file is added only once
+        self._js_files.append(self.serve_static_file(path))
+
+    def add_css_file(self, path: os.PathLike) -> None:
+        # TODO file is added only once
+        self._css_files.append(self.serve_static_file(path))
 
 
 class WebConnectorContainer(metaclass=abc.ABCMeta):
@@ -152,11 +221,6 @@ class WebPage(WebConnectorContainer):
 
     def new_segment(self, title: Optional[str] = None, same_column: bool = False, full_width: bool = False):
         self.segments.append(_WebPageSegment(title, same_column, full_width))
-
-    async def generate(self, request: aiohttp.web.Request, menu_data) -> aiohttp.web.Response:
-        template = jinja_env.get_template('page.htm')
-        body = await template.render_async(title=self.name, segments=self.segments, menu=menu_data)
-        return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
 
 class _WebPageSegment(WebConnectorContainer):

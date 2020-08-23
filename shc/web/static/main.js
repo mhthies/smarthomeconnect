@@ -11,14 +11,24 @@
  */
 
 function ws_path(path) {
-    const loc = window.location;
-    let new_proto;
-    if (loc.protocol === "https:") {
-        new_proto = "wss:";
+    if (path.startsWith("/")) {
+        const loc = window.location;
+        let new_proto;
+        if (loc.protocol === "https:") {
+            new_proto = "wss:";
+        } else {
+            new_proto = "ws:";
+        }
+        return new_proto + "//" + loc.host + path;
     } else {
-        new_proto = "ws:";
+        const loc = new URL(path);
+        if (loc.protocol === "https:") {
+            loc.protocol = "wss:";
+        } else {
+            loc.protocol = "ws:";
+        }
+        return loc.href;
     }
-    return new_proto + "//" + loc.host + path;
 }
 
 function SwitchWidget(domElement, writeValue) {
@@ -230,7 +240,7 @@ const WIDGET_TYPES = new Map([
 
     function openWebsocket() {
         console.info("Opening websocket ...");
-        ws = new WebSocket(ws_path('/ws'));
+        ws = new WebSocket(ws_path(shcRootURL + 'ws'));
         ws.onopen = subscribe;
         ws.onmessage = dispatch_message;
         ws.onclose = function (e) {
