@@ -298,7 +298,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebConnector, metaclass=abc.A
     async def _publish_to_ws(self, value):
         logger.debug("Publishing value %s for %s for %s subscribed websockets ...",
                      value, id(self), len(self.subscribed_websockets))
-        data = json.dumps({'id': id(self), 'value': value}, cls=SHCJsonEncoder)
+        data = json.dumps({'id': id(self), 'v': value}, cls=SHCJsonEncoder)
         await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
 
     def convert_to_ws_value(self, value: T) -> Any:
@@ -314,7 +314,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebConnector, metaclass=abc.A
         current_value = await self._from_provider()
         if current_value is not None:
             data = json.dumps({'id': id(self),
-                               'value': self.convert_to_ws_value(current_value)},
+                               'v': self.convert_to_ws_value(current_value)},
                               cls=SHCJsonEncoder)
             await ws.send_str(data)
 

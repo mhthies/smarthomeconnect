@@ -150,8 +150,8 @@ function SliderWidget(domElement, writeValue) {
     $semanticUiSlider.slider({
         min: 0,
         max: 100,
-        step: 1,
-        showLabelTicks: true,
+        step: 0,
+        showLabelTicks: false,
         labelDistance: 200,
         interpretLabel: function(v) { return Math.round(v / 1).toString() + " %"; },
         onChange: onSliderChange
@@ -269,7 +269,7 @@ const WIDGET_TYPES = new Map([
         console.debug("Received message " + messageEvent.data);
         let data = JSON.parse(messageEvent.data);
         console.debug("Updating widget id " + data['id'].toString() + " ...");
-        widgetMap.get(data['id']).update(data['value'], data['id']);
+        widgetMap.get(data['id']).update(data['v'], data['id']);
     }
 
     function writeValue(id, value) {
@@ -280,7 +280,7 @@ const WIDGET_TYPES = new Map([
         }));
     }
 
-    window.onload = init;
+    document.addEventListener('DOMContentLoaded', (event) => init());
 })();
 
 $(function() {
