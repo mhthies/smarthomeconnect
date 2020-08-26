@@ -32,7 +32,7 @@ class _TimerSupervisor:
     Should be used as a singleton instance.
     """
     def __init__(self):
-        self.supervised_timers: List[_AbstractTimer] = []
+        self.supervised_timers: List[_AbstractScheduleTimer] = []
         self.timer_tasks: List[asyncio.Task] = []
 
     async def start(self) -> None:
@@ -47,7 +47,7 @@ class _TimerSupervisor:
         for task in self.timer_tasks:
             task.cancel()
 
-    def register_timer(self, timer):
+    def register_timer(self, timer: "_AbstractScheduleTimer") -> None:
         self.supervised_timers.append(timer)
 
 
@@ -87,7 +87,18 @@ def _random_time(maximum_offset: Optional[datetime.timedelta], random_function: 
     return maximum_offset * random_value
 
 
-class _AbstractTimer(Subscribable[None], metaclass=abc.ABCMeta):
+class _AbstractScheduleTimer(Subscribable[None], metaclass=abc.ABCMeta):
+    """
+    Abstract base class for all schedule Timer objects.
+
+    These objects are started upon startup of SHC by the :class:`_TimerSupervisor` and enter into a loop where they
+    calculate the next trigger time according to some schedule (dependent on the specific subclass) and await that
+    point in time via an asyncio sleep.
+
+    Since the Timer's main loop works the same for every schedule Timer implementation, it is implemented in this
+    abstract class. Only the :meth:`_next_execution` method has to be overriden by each subclass to calculate the next
+    trigger time (or return None if the Timer object finished its task).
+    """
     type = type(None)
 
     def __init__(self):
@@ -111,9 +122,9 @@ class _AbstractTimer(Subscribable[None], metaclass=abc.ABCMeta):
         pass
 
 
-class Every(_AbstractTimer):
+class Every(_AbstractScheduleTimer):
     """
-    A timer that periodically triggers with a given interval, optionally extended/shortened by a ranodom time.
+    A schedule timer that periodically triggers with a given interval, optionally extended/shortened by a ranodom time.
 
     It may either be triggered once on startup of SHC and then enter its periodical loop or be aligned with the wall
     clock, i.e. be triggered when the current time in the UNIX era is multiple of the interval.
@@ -152,9 +163,10 @@ def every(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
     return Every(*args, **kwargs).trigger
 
 
-class Once(_AbstractTimer):
+class Once(_AbstractScheduleTimer):
     """
-    A Timer which only triggers only once at startup of SHC, optionally be delayed by some offset and a random value.
+    A  schedule time  which only triggers only once at startup of SHC, optionally be delayed by some offset and a random
+    value.
     """
     def __init__(self, offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
                  random_function: str = 'uniform'):
@@ -193,7 +205,7 @@ class EveryNth(int):
 ValSpec = Union[int, Iterable[int], EveryNth, None]
 
 
-class At(_AbstractTimer):
+class At(_AbstractScheduleTimer):
     """
     Periodic timer which triggers on specific datetime values according to spec based on the Gregorian calendar and wall
     clock times. For each field in (year, month, day, hour, minute, second, millisecond) or (year, week, weekday, hour,
@@ -397,6 +409,7 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
 class TOn(_DelayedBool):
     async def _update(self, value: bool, origin: List[Any]):
         if value and self._change_task is None:
+            # TODO Make sure task is cancelled on shutdown
             self._change_task = asyncio.create_task(self._set_delayed(True, origin))
         elif not value:
             if self._change_task is not None:
@@ -409,6 +422,7 @@ class TOn(_DelayedBool):
 class TOff(_DelayedBool):
     async def _update(self, value: bool, origin: List[Any]):
         if not value and self._change_task is None:
+            # TODO Make sure task is cancelled on shutdown
             self._change_task = asyncio.create_task(self._set_delayed(True, origin))
         elif value:
             if self._change_task is not None:
@@ -424,12 +438,14 @@ class TOnOff(_DelayedBool):
             return
         if self._change_task is not None:
             self._change_task.cancel()
+        # TODO Make sure task is cancelled on shutdown
         self._change_task = asyncio.create_task(self._set_delayed(value, origin))
 
 
 class TPulse(_DelayedBool):
     async def _update(self, value: bool, origin: List[Any]):
         if value and not self._value:
+            # TODO Make sure task is cancelled on shutdown
             self._change_task = asyncio.create_task(self._set_delayed(False, origin))
             self._value = True
             await self._publish(True, origin)
@@ -448,6 +464,7 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
         wrapped.trigger(self._update)
 
     async def _update(self, value: T, origin: List[Any]) -> None:
+        # TODO Make sure task is cancelled on shutdown
         asyncio.create_task(self.__set_delayed(value, origin))
 
     async def __set_delayed(self, value: T, origin: List[Any]):

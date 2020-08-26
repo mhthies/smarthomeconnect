@@ -43,7 +43,7 @@ class AbstractTimerTest(unittest.TestCase):
     def setUp(self):
         ClockMock.enable()
 
-    class TestTimer(timer._AbstractTimer):
+    class TestTimer(timer._AbstractScheduleTimer):
         def __init__(self, times: List[datetime.datetime]):
             super().__init__()
             self.times = times
@@ -58,14 +58,15 @@ class AbstractTimerTest(unittest.TestCase):
     @async_test
     async def test_run(self) -> None:
         clock_mock = ClockMock(datetime.datetime(2020, 8, 20, 21, 8, 0), actual_sleep=0.01)
-        expected_events = [datetime.datetime(2020, 8, 20, 21, 8, 2).astimezone(), datetime.datetime(2020, 8, 20, 22, 0, 0).astimezone()]
+        expected_events = [datetime.datetime(2020, 8, 20, 21, 8, 2).astimezone(),
+                           datetime.datetime(2020, 8, 20, 22, 0, 0).astimezone()]
         events = []
 
         async def store_time(*args, **kwargs):
             events.append(clock_mock.now().astimezone())
 
         t = self.TestTimer(expected_events)
-        with unittest.mock.patch('shc.timer._AbstractTimer._publish', new=store_time):
+        with unittest.mock.patch('shc.timer._AbstractScheduleTimer._publish', new=store_time):
             with clock_mock:
                 await t.run()
         await asyncio.sleep(0.01)  # Allow async tasks to run to make sure all _publish tasks have been executed
