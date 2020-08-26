@@ -72,6 +72,10 @@ class AbstractTimerTest(unittest.TestCase):
         await asyncio.sleep(0.01)  # Allow async tasks to run to make sure all _publish tasks have been executed
         self.assertListEqual(expected_events, events)
 
+        self.assertAlmostEqual(t.last_execution,
+                               expected_events[-1],
+                               delta=datetime.timedelta(seconds=1))
+
 
 class EveryTimerTest(unittest.TestCase):
     def test_decorator(self) -> None:
@@ -87,3 +91,54 @@ class EveryTimerTest(unittest.TestCase):
         self.assertEqual(trigger_mock.call_args[0][0].delta, datetime.timedelta(seconds=5))
         self.assertIs(trigger_mock.call_args[0][1], my_function)
         self.assertIs(trigger_mock.call_args[0][1], returned)
+
+    def test_unaligned(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            every_timer = timer.Every(datetime.timedelta(minutes=5), align=False)
+            self.assertAlmostEqual(clock.now().astimezone(), every_timer._next_execution(),
+                                   delta=datetime.timedelta(seconds=1))
+            every_timer.last_execution = clock.now().astimezone()
+            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5), every_timer._next_execution(),
+                                   delta=datetime.timedelta(seconds=1))
+            clock.sleep(5 * 60)
+            every_timer.last_execution = clock.now().astimezone()
+            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5), every_timer._next_execution(),
+                                   delta=datetime.timedelta(seconds=1))
+
+    def test_unaligned_random(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            every_timer = timer.Every(datetime.timedelta(minutes=5), align=False, random=datetime.timedelta(seconds=20))
+            self.assertGreaterEqual(every_timer._next_execution(),
+                                    clock.now().astimezone() - datetime.timedelta(seconds=20))
+            self.assertLessEqual(every_timer._next_execution(),
+                                 clock.now().astimezone() + datetime.timedelta(seconds=20))
+            every_timer.last_execution = clock.now().astimezone()
+            self.assertGreaterEqual(every_timer._next_execution(),
+                                    clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20))
+            self.assertLessEqual(every_timer._next_execution(),
+                                 clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
+            clock.sleep(5 * 60 + 20)
+            every_timer.last_execution = clock.now().astimezone()
+            self.assertGreaterEqual(every_timer._next_execution(),
+                                    clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20))
+            self.assertLessEqual(every_timer._next_execution(),
+                                 clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
+    
+    def test_aligned(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            every_timer = timer.Every(datetime.timedelta(minutes=5), align=True)
+            base = every_timer._next_execution()
+            self.assertGreaterEqual(base - clock.now().astimezone(), datetime.timedelta(0))
+            self.assertLessEqual(base - clock.now().astimezone(), datetime.timedelta(minutes=5))
+
+            clock.current_time = base + datetime.timedelta(microseconds=1)  # We slept till the first execution
+            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5),
+                                   every_timer._next_execution(),
+                                   delta=datetime.timedelta(seconds=1))
+
+        # A new timer (after a restart 5 minutes later) should give us exactly base + 5 minutes as the first execution
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17) + datetime.timedelta(minutes=5)) as clock:
+            every_timer = timer.Every(datetime.timedelta(minutes=5), align=True)
+            self.assertAlmostEqual(base + datetime.timedelta(minutes=5),
+                                   every_timer._next_execution(),
+                                   delta=datetime.timedelta(seconds=1))
