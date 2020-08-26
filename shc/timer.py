@@ -98,6 +98,8 @@ class _AbstractScheduleTimer(Subscribable[None], metaclass=abc.ABCMeta):
     Since the Timer's main loop works the same for every schedule Timer implementation, it is implemented in this
     abstract class. Only the :meth:`_next_execution` method has to be overriden by each subclass to calculate the next
     trigger time (or return None if the Timer object finished its task).
+
+    :ivar:`last_execution`: Timestamp of the last execution. May be used by the *_next_execution* method.
     """
     type = type(None)
 
@@ -126,8 +128,14 @@ class Every(_AbstractScheduleTimer):
     """
     A schedule timer that periodically triggers with a given interval, optionally extended/shortened by a ranodom time.
 
-    It may either be triggered once on startup of SHC and then enter its periodical loop or be aligned with the wall
-    clock, i.e. be triggered when the current time in the UNIX era is multiple of the interval.
+    It may either be triggered once on startup of SHC and then enter its periodical loop *or* be aligned with the wall
+    clock, i.e. be triggered when the current time in the UNIX era is multiple of the interval. This alignment is
+    enabled by default. It provides the advantage of keeping the length of the interval, even when the SHC application
+    is restarted—als long as application's downtime does not fall together with the application's downtime or in the gap
+    between calculated time and random offset. In this case the trigger execution will be skipped once.
+
+    Thus, if it is important that the trigger being executed with *at least* the given interval, the *align*
+    functionality should be turned off. Otherwise it will cause a more stable interval.
     """
     def __init__(self, delta: datetime.timedelta, align: bool = True,
                  offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
