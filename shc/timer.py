@@ -126,13 +126,13 @@ class _AbstractScheduleTimer(Subscribable[None], metaclass=abc.ABCMeta):
 
 class Every(_AbstractScheduleTimer):
     """
-    A schedule timer that periodically triggers with a given interval, optionally extended/shortened by a ranodom time.
+    A schedule timer that periodically triggers with a given interval, optionally extended/shortened by a random time.
 
     It may either be triggered once on startup of SHC and then enter its periodical loop *or* be aligned with the wall
     clock, i.e. be triggered when the current time in the UNIX era is multiple of the interval. This alignment is
-    enabled by default. It provides the advantage of keeping the length of the interval, even when the SHC application
+    enabled by default. It has the advantage of keeping the length of the interval, even when the SHC application
     is restarted—als long as application's downtime does not fall together with the application's downtime or in the gap
-    between calculated time and random offset. In this case the trigger execution will be skipped once.
+    between calculated time and (random) offset. In this case the trigger execution will be skipped once.
 
     Thus, if it is important that the trigger being executed with *at least* the given interval, the *align*
     functionality should be turned off. Otherwise it will cause a more stable interval.
@@ -140,6 +140,17 @@ class Every(_AbstractScheduleTimer):
     def __init__(self, delta: datetime.timedelta, align: bool = True,
                  offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
                  random_function: str = 'uniform'):
+        """
+        :param delta: The interval between trigger events
+        :param align: If True, the interval is kept even after restarts. If False, the timer triggers once upon
+            application start up and keeps the interval from that point on.
+        :param offset: An offset to add to the trigger times. May be negative. This can be used for explicitly
+            offsetting multiple `Every` timers with the same `delta`.
+        :param random: A maximum offset to add to or substract from each trigger time. A random timedelta (roughly)
+            between -`random` and +`random` will be added to each individual trigger time.
+        :param random_function: Identifier of a random distribution function to be used for calculating the `random`
+            offset. See :func:`_random_time`'s documentation for supported values.
+        """
         super().__init__()
         self.delta = delta
         self.align = align
@@ -173,11 +184,19 @@ def every(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
 
 class Once(_AbstractScheduleTimer):
     """
-    A  schedule time  which only triggers only once at startup of SHC, optionally be delayed by some offset and a random
-    value.
+    A schedule timer which only triggers only once at startup of the SHC application, optionally delayed by some static
+    offset and an additional random offset.
     """
     def __init__(self, offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
                  random_function: str = 'uniform'):
+        """
+        :param offset: The single trigger event is delayed by this timedelta after SHC application startup
+        :param random: A maximum offset to add to or substract from each trigger time. A random timedelta (roughly)
+            between -`random` and +`random` will be added to the trigger time. If the resulting trigger time lies in the
+            past, the trigger will executed directly upon application startup.
+        :param random_function: Identifier of a random distribution function to be used for calculating the `random`
+            offset. See :func:`_random_time`'s documentation for supported values.
+        """
         super().__init__()
         self.offset = offset
         self.random = random
@@ -202,10 +221,10 @@ def once(*args, **kwargs) -> Callable[[LogicHandler], LogicHandler]:
 
 class EveryNth(int):
     """
-    A special integer class to be used as an argument for :meth:`At.__init__` to specify every nth number as a valid
-    number for triggering the timer.
+    A special integer class to be used as an argument for :meth:`At.__init__` to specify that every nth number of the as
+    a valid number of the specific field for triggering the timer.
 
-    E.g. month=EveryNth(2) equals month=[1,3,5,7,9,11], hour=EveryNth(6) equals hour=[0,6,12,18]
+    E.g. ``month=EveryNth(2)`` equals ``month=[1,3,5,7,9,11]``, ``hour=EveryNth(6) equals hour=[0,6,12,18]``
     """
     pass
 
@@ -218,12 +237,14 @@ class At(_AbstractScheduleTimer):
     Periodic timer which triggers on specific datetime values according to spec based on the Gregorian calendar and wall
     clock times. For each field in (year, month, day, hour, minute, second, millisecond) or (year, week, weekday, hour,
     minute, second, millisecond), a pattern may be specified, which may be
-    * None (all values allowed for that field)
-    * a single int value
-    * a sorted list of valid int values
-    * an EveryNth object (which is a wrapper around integers): It specifies that every nth value is valid
+
+    * `None` (all values allowed for that field)
+    * a single `int` value
+    * a sorted `list` of valid int values
+    * an :class:`EveryNth` object (which is a wrapper around integers): It specifies that every nth value is valid
       (e.g. month=EveryNth(2) equals month=[1,3,5,7,9,11], hour=EveryNth(6) equals hour=[0,6,12,18])
-    The timer is scheduled for the next datetime matching the patterns for every field.
+
+    The timer is scheduled for the next datetime matching the specified pattern of each field.
     """
     def __init__(self,
                  year: ValSpec = None,
@@ -237,6 +258,25 @@ class At(_AbstractScheduleTimer):
                  millis: ValSpec = 0,
                  random: Optional[datetime.timedelta] = None,
                  random_function: str = 'uniform'):
+        """
+        :param year: A pattern for the `year` value of the next trigger date/time (range: 0–2200)
+        :param month: A pattern for the `month` value of the next trigger date/time (range: 1–12). Must not be used
+            together with `weeknum` or `weekday`.
+        :param day: A pattern for the `day of month` value of the next trigger date/time (range: 1–31). Must not be used
+            together with `weeknum` or `weekday`.
+        :param weeknum: A pattern for the `week of year` value of the next trigger date/time according to the ISO
+            weeknumber (range: 1-53).  Must not be used together with `month` or `day`.
+        :param weekday: A pattern for the `weekday` value of the next trigger date/time (range: 1(monday) - 7(sunday)).
+            Must not be used together with `month` or `day`.
+        :param hour: A pattern for the `hour` value of the next trigger time (range: 0–23).
+        :param minute: A pattern for the `minute` value of the next trigger time (range: 0–59).
+        :param second: A pattern for the `second` value of the next trigger time (range: 0–59).
+        :param millis: A pattern for the `millisecond` value of the next trigger time (range: 0–999).
+        :param random: A maximum offset to add to or substract from each trigger time. A random timedelta (roughly)
+            between -`random` and +`random` will be added to each individual trigger time.
+        :param random_function: Identifier of a random distribution function to be used for calculating the `random`
+            offset. See :func:`_random_time`'s documentation for supported values.
+        """
         super().__init__()
         if weekday is None and weeknum is None:
             self.spec = (year, month, day, hour, minute, second, millis)

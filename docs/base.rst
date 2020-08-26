@@ -133,13 +133,15 @@ In case there is not default conversion for the relevant types or you want to co
         var2.subscribe(var1, convert=lambda x: ceil(x))
 
 
+.. _base.logic-handlers:
+
 Logic Handlers
 --------------
 
 A logic handler is a Python function which is executed (“triggered”) by a *Subscribable* object when it publishes a new value.
 To register a logic handler to be triggered by an object, use the object's :meth:`Subscribable.trigger` method.
 This method can either be used in a functional style (``subscribable_object.trigger(my_logic_handler)``) or as a decorator for the logic handler (as shown in the example below).
-For triggering logic handlers at defined times or in a fixed interval, the :mod:`shc.timer` module provides *Subscribable* timer objects which publish a *None* value at defined times.
+For triggering logic handlers at defined times or in a fixed interval, you may use a :ref:`Timer <timer>`.
 
 Since SHC is completely relying on asyncio for (pseudo-)concurrency, all methods dealing with runtime events (including *reading* and *writing* values) are defined as asynchronous coroutines.
 This also applies to logic handlers, which must be defined with ``async def`` accordingly.

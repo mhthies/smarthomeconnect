@@ -9,6 +9,7 @@ Welcome to Smart Home Connect's documentation!
     base
     variables_expressions
     datatypes
+    timer
     web
     interfaces
 
