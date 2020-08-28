@@ -10,10 +10,11 @@
 # specific language governing permissions and limitations under the License.
 
 import abc
+import enum
 import json
 import datetime
 import logging
-from typing import Type, Generic, List, Any, Optional
+from typing import Type, Generic, List, Any, Optional, AsyncIterable
 
 import aiomysql  # TODO make feature-dependent dependency
 
@@ -38,11 +39,17 @@ class AbstractPersistenceInterface(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    async def _write(self, name: str, value: str, log: bool):
+    async def _write(self, name: str, value: Any, log: bool):
         pass
 
     @abc.abstractmethod
-    async def _read(self, name: str) -> Optional[str]:
+    async def _read(self, name: str, type_: Type) -> Optional[Any]:
+        pass
+
+    @abc.abstractmethod
+    async def _retrieve_log(self, name: str, type_: Type, start_time: datetime.datetime, end_time: datetime.datetime
+                            ) -> AsyncIterable[str]:
+        # TODO add aggregation spec
         pass
 
     def variable(self, type_: Type, name: str, log: bool = True) -> "PersistenceVariable":
@@ -58,16 +65,15 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T]):
         self.interface = interface
 
     async def read(self) -> T:
-        value = await self.interface._read(self.name)
+        value = await self.interface._read(self.name, self.type)
         if value is None:
             raise UninitializedError("No value for has been persistet for variable '{}' yet.".format(self.name))
-        logger.debug("Retrieved value %s for %s from %s", value[0], self, self.interface)
-        return from_json(self.type, json.loads(value[0]))
+        logger.debug("Retrieved value %s for %s from %s", value, self, self.interface)
+        return value
 
     async def _write(self, value: T, origin: List[Any]):
-        data = json.dumps(value, cls=SHCJsonEncoder)
-        logger.debug("%s value %s for %s to persistence backend", "logging" if self.log else "updating", data, self)
-        await self.interface._write(self.name, data, log=self.log)
+        logger.debug("%s value %s for %s to persistence backend", "logging" if self.log else "updating", value, self)
+        await self.interface._write(self.name, value, log=self.log)
 
     def __repr__(self):
         return "<PersistenceVariable '{}'>".format(self.name)
@@ -92,19 +98,68 @@ class MySQLPersistence(AbstractPersistenceInterface):
         self.pool.close()
         await self.pool.wait_closed()
 
-    async def _write(self, name: str, value: str, log: bool):
+    async def _write(self, name: str, value: T, log: bool):
+        column_name = self._type_to_column(type(value))
+        value = self._into_mysql_type(value)
+        # TODO catch not yet ready connection pool
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if log:
-                    await cur.execute("INSERT INTO `log` (`name`, `ts`, `value`) VALUES (%s, %s, %s)",
+                    await cur.execute("INSERT INTO `log` (`name`, `ts`, `{}`) VALUES (%s, %s, %s)".format(column_name),
                                       (name, datetime.datetime.now().astimezone(), value))
                 else:
-                    await cur.execute("UPDATE `log` SET `ts` = %s, `value` = %s WHERE `name` = %s",
+                    await cur.execute("UPDATE `log` SET `ts` = %s, `{}` = %s WHERE `name` = %s".format(column_name),
                                       (datetime.datetime.now().astimezone(), value, name))
             await conn.commit()
 
-    async def _read(self, name: str) -> Optional[str]:
+    async def _read(self, name: str, type_: Type[T]) -> Optional[T]:
+        column_name = self._type_to_column(type_)
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT `value` from `log` WHERE `name` = %s ORDER BY `ts` DESC LIMIT 1", (name,))
-                return await cur.fetchone()
+                await cur.execute("SELECT `{}` from `log` WHERE `name` = %s ORDER BY `ts` DESC LIMIT 1"
+                                  .format(column_name),
+                                  (name,))
+                value = await cur.fetchone()
+        if value is None:
+            return None
+        return self._from_mysql_type(type_, value[0])
+
+    async def _retrieve_log(self, name: str, type_: Type, start_time: datetime.datetime, end_time: datetime.datetime
+                            ) -> AsyncIterable[str]:
+        # TODO
+        pass
+
+    @classmethod
+    def _type_to_column(cls, type_: type) -> str:
+        if issubclass(type_, (int, bool)):
+            return 'value_int'
+        elif issubclass(type_, float):
+            return 'value_float'
+        elif issubclass(type_, str):
+            return 'value_str'
+        elif issubclass(type_, enum.Enum):
+            return cls._type_to_column(type(next(iter(type_.__members__.values())).value))
+        else:
+            return 'value_str'
+
+    @classmethod
+    def _into_mysql_type(cls, value: Any) -> Any:
+        if isinstance(value, bool):
+            return value
+        elif isinstance(value, int):
+            return int(value)
+        elif isinstance(value, float):
+            return float(value)
+        elif isinstance(value, str):
+            return str(value)
+        elif isinstance(value, enum.Enum):
+            return cls._into_mysql_type(value.value)
+        else:
+            return json.dumps(value, cls=SHCJsonEncoder)
+
+    @classmethod
+    def _from_mysql_type(cls, type_: type, value: Any) -> Any:
+        if issubclass(type_, (bool, int, float, str, enum.Enum)):
+            return type_(value)
+        else:
+            return from_json(type_, json.loads(value))
