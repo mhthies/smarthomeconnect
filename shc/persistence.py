@@ -83,12 +83,14 @@ class MySQLPersistence(AbstractPersistenceInterface):
     def __init__(self, **kwargs):
         # see https://aiomysql.readthedocs.io/en/latest/connection.html#connection for valid parameters
         self.connect_args = kwargs
-        self.pool: aiomysql.Pool
+        self.pool: Optional[aiomysql.Pool] = None
+        self.pool_ready = asyncio.Event()
         register_interface(self)
 
     async def start(self) -> None:
         logger.info("Creating MySQL connection pool ...")
         self.pool = await aiomysql.create_pool(**self.connect_args)
+        self.pool_ready.set()
 
     async def wait(self) -> None:
         pass
@@ -101,7 +103,7 @@ class MySQLPersistence(AbstractPersistenceInterface):
     async def _write(self, name: str, value: T, log: bool):
         column_name = self._type_to_column(type(value))
         value = self._into_mysql_type(value)
-        # TODO catch not yet ready connection pool
+        await self.pool_ready.wait()
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if log:
@@ -114,6 +116,7 @@ class MySQLPersistence(AbstractPersistenceInterface):
 
     async def _read(self, name: str, type_: Type[T]) -> Optional[T]:
         column_name = self._type_to_column(type_)
+        await self.pool_ready.wait()
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute("SELECT `{}` from `log` WHERE `name` = %s ORDER BY `ts` DESC LIMIT 1"
