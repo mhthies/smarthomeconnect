@@ -249,6 +249,9 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
     registered :class:`WebPage` by their Python object id at startup. The message from the websocket is expected to have
     an `id` field which is used for the lookup.
     """
+    def __init__(self):
+        self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
+
     async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         """
         This method is called for incoming "value" messages from a client to this specific `WebUIConnector` object.
@@ -259,21 +262,26 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
         pass
 
     async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
+        await self._websocket_before_subscribe(ws)
+        self.subscribed_websockets.add(ws)
+
+    async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
         """
-        This method is called for incoming "subscribe" messages from a client to this specific `WebUIConnector` object.
+        This method is called by :meth:`websocket_subscribe`, when a new websocket subscribes to this specific
+        `WebUIConnector`, *before* the client is added to the `subscribed_websockets` variable.
+
+        This can be used to send an initial value or other initialization methods to the client.
         """
         pass
+
+    async def _websocket_publish(self, value: Any) -> None:
+        logger.debug("Publishing value %s for %s for %s subscribed websockets ...",
+                     value, id(self), len(self.subscribed_websockets))
+        data = json.dumps({'id': id(self), 'v': value}, cls=SHCJsonEncoder)
+        await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
 
     async def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
-        """
-        Called on every `WebUIConnector` of the :class:`WebServer`, when a websocket disconnects.
-
-        Warning: This method is not only called on `WebConnectors` being subscribed by the closing websocket. So make
-        sure to silently ignore the closing of unknown websockets when overriding this method.
-
-        :param ws: The websocket that disconnected
-        """
-        pass
+        self.subscribed_websockets.discard(ws)
 
     def get_connectors(self) -> Iterable["WebUIConnector"]:
         return (self,)
@@ -290,19 +298,12 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
 
     async def _write(self, value: T, origin: List[Any]):
-        await self._publish_to_ws(self.convert_to_ws_value(value))
-
-    # TODO: refactor into WebUIConnector?
-    async def _publish_to_ws(self, value):
-        logger.debug("Publishing value %s for %s for %s subscribed websockets ...",
-                     value, id(self), len(self.subscribed_websockets))
-        data = json.dumps({'id': id(self), 'v': value}, cls=SHCJsonEncoder)
-        await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
+        await self._websocket_publish(self.convert_to_ws_value(value))
 
     def convert_to_ws_value(self, value: T) -> Any:
         return value
 
-    async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
+    async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
         if self._default_provider is None:
             logger.error("Cannot handle websocket subscription for %s, since not read provider is registered.",
                          self)
@@ -316,10 +317,6 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc
                               cls=SHCJsonEncoder)
             await ws.send_str(data)
 
-    async def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
-        logger.debug("Unsubscribing websocket from %s.", self)
-        self.subscribed_websockets.discard(ws)
-
 
 class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta):
     def convert_from_ws_value(self, value: Any) -> T:
@@ -328,7 +325,7 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
     async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         await self._publish(self.convert_from_ws_value(value), [ws])
         if isinstance(self, WebDisplayDatapoint):
-            await self._publish_to_ws(value)
+            await self._websocket_publish(value)
 
 
 from . import widgets
