@@ -10,17 +10,20 @@
 # specific language governing permissions and limitations under the License.
 
 import abc
+import asyncio
 import enum
 import json
 import datetime
 import logging
-from typing import Type, Generic, List, Any, Optional, AsyncIterable
+from typing import Type, Generic, List, Any, Optional, AsyncIterable, Tuple, Set
 
+import aiohttp.web
 import aiomysql  # TODO make feature-dependent dependency
 
 from .base import T, Readable, Writable, UninitializedError
 from .conversion import from_json, SHCJsonEncoder
 from .supervisor import register_interface
+from .web import WebUIConnector
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +50,8 @@ class AbstractPersistenceInterface(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    async def _retrieve_log(self, name: str, type_: Type, start_time: datetime.datetime, end_time: datetime.datetime
-                            ) -> AsyncIterable[str]:
+    async def _retrieve_log(self, name: str, type_: Type, start_time: datetime.datetime, end_time: datetime.datetime,
+                            num: Optional[int], offset: int) -> List[Tuple[datetime.datetime, T]]:
         # TODO add aggregation spec
         pass
 
@@ -63,6 +66,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T]):
         self.name = name
         self.log = log
         self.interface = interface
+        self.subscribed_web_ui_views: List[PersistenceWebUIView] = []
 
     async def read(self) -> T:
         value = await self.interface._read(self.name, self.type)
@@ -71,12 +75,38 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T]):
         logger.debug("Retrieved value %s for %s from %s", value, self, self.interface)
         return value
 
+    async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime, num: Optional[int] = None,
+                           offset: int = 0) -> List[T]:
+        return await self.interface._retrieve_log(self.name, self.type, start_time, end_time, num, offset)
+
     async def _write(self, value: T, origin: List[Any]):
         logger.debug("%s value %s for %s to persistence backend", "logging" if self.log else "updating", value, self)
         await self.interface._write(self.name, value, log=self.log)
+        for web_ui_view in self.subscribed_web_ui_views:
+            await web_ui_view._new_value(value)
 
     def __repr__(self):
         return "<PersistenceVariable '{}'>".format(self.name)
+
+
+class PersistenceWebUIView(WebUIConnector):
+    def __init__(self, variable: PersistenceVariable, interval: datetime.timedelta):
+        # TODO extend for past interval
+        # TODO extend for aggregation
+        super().__init__()
+        self.variable = variable
+        variable.subscribed_web_ui_views.append(self)
+        self.interval = interval
+        self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
+
+    async def _new_value(self, value: Any):
+        await self._websocket_publish([value])
+
+    async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
+        # TODO use pageination
+        data = await self.variable.retrieve_log(datetime.datetime.now() - self.interval,
+                                                datetime.datetime.now() + datetime.timedelta(seconds=5))
+        await self._websocket_publish(data)
 
 
 class MySQLPersistence(AbstractPersistenceInterface):
@@ -127,10 +157,17 @@ class MySQLPersistence(AbstractPersistenceInterface):
             return None
         return self._from_mysql_type(type_, value[0])
 
-    async def _retrieve_log(self, name: str, type_: Type, start_time: datetime.datetime, end_time: datetime.datetime
-                            ) -> AsyncIterable[str]:
-        # TODO
-        pass
+    async def _retrieve_log(self, name: str, type_: Type[T], start_time: datetime.datetime, end_time: datetime.datetime,
+                            num: Optional[int], offset: int) -> List[Tuple[datetime.datetime, T]]:
+        column_name = self._type_to_column(type_)
+        await self.pool_ready.wait()
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT `ts`, `{}` from `log` WHERE `name` = %s AND `ts` <= %s and `ts` < %s "
+                                  "ORDER BY `ts` ASC{}".format(column_name, " LIMIT %s, %s" if num is not None else ""),
+                                  (name, start_time, end_time) + ((offset, num) if num is not None else ()))
+                return [(row[0], self._from_mysql_type(type_, row[1]))
+                        for row in await cur.fetchall()]
 
     @classmethod
     def _type_to_column(cls, type_: type) -> str:
