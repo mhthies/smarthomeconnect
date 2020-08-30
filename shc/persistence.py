@@ -15,7 +15,8 @@ import enum
 import json
 import datetime
 import logging
-from typing import Type, Generic, List, Any, Optional, AsyncIterable, Tuple, Set
+from pathlib import Path
+from typing import Type, Generic, List, Any, Optional, AsyncIterable, Tuple, Set, Iterable
 
 import aiohttp.web
 import aiomysql  # TODO make feature-dependent dependency
@@ -23,7 +24,7 @@ import aiomysql  # TODO make feature-dependent dependency
 from .base import T, Readable, Writable, UninitializedError
 from .conversion import from_json, SHCJsonEncoder
 from .supervisor import register_interface
-from .web import WebUIConnector
+from .web import WebUIConnector, WebPageItem, WebPage, WebServer
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T]):
         self.name = name
         self.log = log
         self.interface = interface
-        self.subscribed_web_ui_views: List[PersistenceWebUIView] = []
+        self.subscribed_web_ui_views: List[LoggingWebUIView] = []
 
     async def read(self) -> T:
         value = await self.interface._read(self.name, self.type)
@@ -89,10 +90,17 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T]):
         return "<PersistenceVariable '{}'>".format(self.name)
 
 
-class PersistenceWebUIView(WebUIConnector):
+class LoggingWebUIView(WebUIConnector):
+    """
+    A WebUIConnector which is used to retrieve a log/timeseries of a certain persistence variable for a certain time
+    interval via the Webinterface UI websocket and subscribe to updates of that persistence variable.
+    """
     def __init__(self, variable: PersistenceVariable, interval: datetime.timedelta):
+        # TODO extend with value conversion
         # TODO extend for past interval
         # TODO extend for aggregation
+        if not variable.log:
+            raise ValueError("Cannot use a PersistenceVariable with log=False for a web logging web ui widget")
         super().__init__()
         self.variable = variable
         variable.subscribed_web_ui_views.append(self)
@@ -100,13 +108,33 @@ class PersistenceWebUIView(WebUIConnector):
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
 
     async def _new_value(self, value: Any):
-        await self._websocket_publish([value])
+        await self._websocket_publish([datetime.datetime.now(), value])
 
     async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
-        # TODO use pageination
+        # TODO use pagination
+        # TODO somehow handle reconnects properly
         data = await self.variable.retrieve_log(datetime.datetime.now() - self.interval,
                                                 datetime.datetime.now() + datetime.timedelta(seconds=5))
-        await self._websocket_publish(data)
+        await ws.send_str(json.dumps({'id': id(self),
+                                      'v': data},
+                                     cls=SHCJsonEncoder))
+
+
+# TODO refactor this to somewhere else
+class LogListWidget(WebPageItem):
+    def __init__(self, variable: PersistenceVariable, interval: datetime.timedelta):
+        # TODO add formatting
+        # TODO allow multiple variables
+        self.connector = LoggingWebUIView(variable, interval)
+
+    def register_with_server(self, page: WebPage, server: WebServer) -> None:
+        server.add_js_file(Path(__file__).parent / 'persistence.js')
+
+    async def render(self) -> str:
+        return '<div data-widget="persistence.log_list" data-id="{}"></div>'.format(id(self.connector))
+
+    def get_connectors(self) -> Iterable["WebUIConnector"]:
+        return [self.connector]
 
 
 class MySQLPersistence(AbstractPersistenceInterface):
