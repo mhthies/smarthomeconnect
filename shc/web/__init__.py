@@ -15,6 +15,7 @@ import itertools
 import json
 import logging
 import os
+import pathlib
 import weakref
 from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple
 
@@ -90,6 +91,9 @@ class WebServer:
             "static/semantic-ui/semantic.min.css",
             "static/main.css",
         ]
+        # A dict of all static files served by the application. Used to make sure, any of those is only served at one
+        # path, when added via `serve_static_file()` multiple times.
+        self.static_files: Dict[pathlib.Path, str] = {}
 
         # The actual aiohttp web app
         self._app = aiohttp.web.Application()
@@ -185,16 +189,32 @@ class WebServer:
         else:
             logger.warning("Don't know how to handle websocket message: %s", message)
 
-    def serve_static_file(self, path: os.PathLike) -> str:
-        # TODO
-        pass
 
-    def add_js_file(self, path: os.PathLike) -> None:
-        # TODO file is added only once
+    def serve_static_file(self, path: pathlib.Path) -> str:
+        if path in self.static_files:
+            return self.static_files[path]
+        final_file_name = path.name
+        i = 0
+        while final_file_name in self.static_files:
+            final_file_name = "{}_{:04d}.{}".format(path.stem, i, path.suffix)
+        final_path = 'addon/{}'.format(final_file_name)
+        self.static_files[path] = final_path
+
+        # Unfortunately, aiohttp.web.static can only serve directories. We want to serve a single file here.
+        async def send_file(_request):
+            return aiohttp.web.FileResponse(path)
+        self._app.add_routes([aiohttp.web.get("/" + final_path, send_file)])
+
+        return final_path
+
+    def add_js_file(self, path: pathlib.Path) -> None:
+        if path in self.static_files:
+            return
         self._js_files.append(self.serve_static_file(path))
 
-    def add_css_file(self, path: os.PathLike) -> None:
-        # TODO file is added only once
+    def add_css_file(self, path: pathlib.Path) -> None:
+        if path in self.static_files:
+            return
         self._css_files.append(self.serve_static_file(path))
 
 
@@ -214,6 +234,7 @@ class WebPage(WebConnectorContainer):
         if not self.segments:
             self.new_segment()
         self.segments[-1].items.append(item)
+        item.register_with_server(self, self.server)
 
     def get_connectors(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
         return itertools.chain.from_iterable(item.get_connectors() for item in self.segments)
@@ -234,6 +255,19 @@ class _WebPageSegment(WebConnectorContainer):
 
 
 class WebPageItem(WebConnectorContainer, metaclass=abc.ABCMeta):
+    def register_with_server(self, page: WebPage, server: WebServer) -> None:
+        """
+        Called when the WebPageItem is added to a WebPage.
+
+        It may be used to get certain information about the WebPage or the WebServer or register required static files
+        with the WebServer, using :meth:`WebServer.serve_static_file`, :meth:`WebServer.add_js_file`,
+        :meth:`WebServer.serve_static_file`.
+
+        :param page: The WebPage, this WebPageItem is added to.
+        :param server: The WebServer, the WebPage (and thus, from now on, this WebPageItem) belongs to.
+        """
+        pass
+
     @abc.abstractmethod
     async def render(self) -> str:
         pass
