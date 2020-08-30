@@ -191,7 +191,7 @@ class MySQLPersistence(AbstractPersistenceInterface):
         await self.pool_ready.wait()
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT `ts`, `{}` from `log` WHERE `name` = %s AND `ts` <= %s and `ts` < %s "
+                await cur.execute("SELECT `ts`, `{}` from `log` WHERE `name` = %s AND `ts` >= %s and `ts` < %s "
                                   "ORDER BY `ts` ASC{}".format(column_name, " LIMIT %s, %s" if num is not None else ""),
                                   (name, start_time, end_time) + ((offset, num) if num is not None else ()))
                 return [(row[0], self._from_mysql_type(type_, row[1]))
