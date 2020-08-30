@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class RangeFloat1(float):
+    """
+    A range / percentage value, represented as a floating point number from 0.0 (0%) to 1.0 (100%).
+    """
     def __new__(cls, *args, **kwargs):
         # noinspection PyArgumentList
         res = float.__new__(cls, *args, **kwargs)
@@ -27,10 +30,16 @@ class RangeFloat1(float):
 
 
 class RangeUInt8(int):
+    """
+    A range / percentage value, represented as an 8bit integer number from 0 (0%) to 255 (100%).
+    """
     pass
 
 
 class RangeInt0To100(int):
+    """
+    A range / percentage value, represented as an 8bit integer percent number from 0 (0%) to 100 (100%).
+    """
     pass
 
 
@@ -53,10 +62,16 @@ register_converter(bool, RangeInt0To100, lambda v: RangeInt0To100(100 if v else 
 
 
 class AngleUInt8(int):
+    """
+    An angle, encoded as a 8-bit integer, from 0 (0°) to 255 (360°).
+    """
     pass
 
 
 class RGBUInt8(NamedTuple):
+    """
+    A 24bit color in RGB colorspace, composed of three :class:`RangeUInt8` values `red`, `green` and `blue`
+    """
     red: RangeUInt8
     green: RangeUInt8
     blue: RangeUInt8
