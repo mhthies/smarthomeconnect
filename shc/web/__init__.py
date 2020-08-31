@@ -17,7 +17,8 @@ import logging
 import os
 import pathlib
 import weakref
-from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple
+from json import JSONDecodeError
+from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple, Generic, Type
 
 import aiohttp.web
 import jinja2
@@ -42,7 +43,7 @@ jinja_env.filters['id'] = id
 
 class WebServer:
     """
-    A SHC interface to provide the web user interface.
+    A SHC interface to provide the web user interface and a REST+websocket API for interacting with Connectable objects.
     """
     def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "/"):
         """
@@ -64,8 +65,12 @@ class WebServer:
         self._pages: Dict[str, WebPage] = {}
         # a dict of all `WebConnector`s by their Python object id for routing incoming websocket mesages
         self.connectors: Dict[int, WebUIConnector] = {}
+        # a dict of all `WebApiObject`s by their name for handling incoming HTTP requests and subscribe messages
+        self._api_objects: Dict[str, WebApiObject] = {}
         # a set of all open websockets to close on graceful shutdown
-        self._websockets = weakref.WeakSet()
+        self._websockets: weakref.WeakSet[aiohttp.web.WebSocketResponse] = weakref.WeakSet()
+        # a set of all open tasks to close on graceful shutdown
+        self._associated_tasks: weakref.WeakSet[asyncio.Task] = weakref.WeakSet()
         # data structure of the user interface's main menu
         # The structure looks as follows:
         # [('Label', 'page_name'),
@@ -102,13 +107,15 @@ class WebServer:
             aiohttp.web.get("/page/{name}/", self._page_handler, name='show_page'),
             aiohttp.web.get("/ws", self._ui_websocket_handler),
             aiohttp.web.static('/static', os.path.join(os.path.dirname(__file__), 'static')),
+            aiohttp.web.get("/api/v1/ws", self._api_websocket_handler),
+            aiohttp.web.get("/api/v1/object/{name}", self._api_get_handler),
+            aiohttp.web.post("/api/v1/object/{name}", self._api_post_handler),
         ])
         # aiohttp's Runner or Site do not provide a good method to await the stopping of the server. Thus we use our own
         # Event for that purpose.
         self._stopped = asyncio.Event()
 
         register_interface(self)
-        # TODO add datapoint API
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
@@ -126,17 +133,48 @@ class WebServer:
         logger.info("Closing open websockets ...")
         for ws in set(self._websockets):
             await ws.close(code=WSCloseCode.GOING_AWAY, message='Server shutdown')
+        for task in set(self._associated_tasks):
+            task.cancel()
         logger.info("Cleaning up AppRunner ...")
         await self._runner.cleanup()
         self._stopped.set()
 
     def page(self, name: str) -> "WebPage":
+        """
+        Create a new WebPage with a given name.
+
+        If there is already a page with that name existing, it will be returned.
+
+        :param name: The `name` of the page, which is used in the page's URL to identify it
+        :return: The new WebPage object or the existing WebPage object with that name
+        """
         if name in self._pages:
             return self._pages[name]
         else:
             page = WebPage(self, name)
             self._pages[name] = page
             return page
+
+    def api(self, type_: Type, name: str) -> "WebApiObject":
+        """
+        Create a new API endpoint with a given name and type.
+
+        :param type_: The value type of the API endpoint object. Used as the *Connectable* object's `type` attribute and
+            for JSON-decoding/encoding the values transmitted via the API.
+        :param name: The name of the API object, which is the distinguishing part of the REST-API endpoint URL and used
+            to identify the object in the websocket API.
+        :return: A *Connectable* object that represents the API endpoint.
+        """
+        if name in self._api_objects:
+            existing = self._api_objects[name]
+            if existing.type is not type_:
+                raise TypeError("Type {} does not match type {} of existing API object with same name"
+                                .format(type_, existing.type))
+            return existing
+        else:
+            api_object = WebApiObject(type_, name)
+            self._api_objects[name] = api_object
+            return api_object
 
     async def _index_handler(self, _request: aiohttp.web.Request) -> aiohttp.web.Response:
         if not self.index_name:
@@ -163,11 +201,11 @@ class WebServer:
         try:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
-                    await self._ui_websocket_dispatch(ws, msg)
+                    asyncio.create_task(self._ui_websocket_dispatch(ws, msg))
                 elif msg.type == aiohttp.WSMsgType.ERROR:
-                    logger.info('ws connection closed with exception %s', ws.exception())
+                    logger.info('UI websocket connection closed with exception %s', ws.exception())
         finally:
-            logger.debug('websocket connection closed')
+            logger.debug('UI websocket connection closed')
             # Make sure the websocket is removed as a subscriber from all WebDisplayDatapoints
             self._websockets.discard(ws)
             for connector in self.connectors.values():
@@ -189,8 +227,155 @@ class WebServer:
         else:
             logger.warning("Don't know how to handle websocket message: %s", message)
 
+    async def _api_websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
+        ws = aiohttp.web.WebSocketResponse()
+        await ws.prepare(request)
+        self._websockets.add(ws)
+
+        msg: aiohttp.WSMessage
+        try:
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    asyncio.create_task(self._api_websocket_dispatch(ws, msg))
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    logger.info('API websocket connection closed with exception %s', ws.exception())
+        finally:
+            logger.debug('API websocket connection closed')
+            self._websockets.discard(ws)
+            for api_object in self._api_objects.values():
+                api_object.websocket_close(ws)
+            return ws
+
+    async def _api_websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
+        try:
+            message = msg.json()
+        except JSONDecodeError:
+            # TODO log
+            await ws.send_json({'status': 400, 'error': "Could not parse message as JSON: {}".format(msg.data)})
+            return
+
+        try:
+            name = message["name"]
+            action = message["action"]
+            handle = message.get("handle")
+        except KeyError:
+            # TODO log
+            await ws.send_json({'status': 422,
+                                'error': "Message does not include a 'name' and an 'action' field: {}".format(msg.data)
+                                })
+            return
+        try:
+            obj = self._api_objects[name]
+        except KeyError:
+            # TODO log
+            await ws.send_json({'status': 404, 'error': "There is no API object with name '{}'".format(name)})
+            return
+
+        # TODO include handle into error messages from here on
+        # TODO deduplicate response message creation
+        try:
+            if action == "subscribe":
+                await obj.websocket_subscribe(ws)
+                await ws.send_json({'status': 200, 'name': name, 'action': action, 'handle': handle})
+            elif action == "post":
+                try:
+                    await obj.http_post(message["value"], ws)
+                except (ValueError, TypeError) as e:
+                    await ws.send_json({'status': 422,
+                                        'error': "Could not use provided value to update API object: {}".format(e)})
+                    return
+                await ws.send_json({'status': 200, 'name': name, 'action': action, 'handle': handle})
+            elif action == "get":
+                value = await obj.http_get()
+                await ws.send_str(json.dumps({'status': 200, 'name': name, 'action': action, 'handle': handle, 'value': value},
+                                             cls=SHCJsonEncoder))
+            else:
+                await ws.send_json({'status': 422, 'error': "Not a valid action: '{}'".format(action)})
+                return
+        except Exception as e:
+            logger.error("Error while processing API websocket message from %s: %s", ws._req.remote, message,
+                         exc_info=e)
+            await ws.send_json({'status': 500, 'error': "Internal server error while processing message"})
+
+    async def _api_get_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
+        try:
+            api_object = self._api_objects[request.match_info['name']]
+        except KeyError:
+            name_failsafe = request.match_info.get('name', '<undefined>')
+            logger.warning("Could not find API object %s, requested by %s", name_failsafe, request.remote)
+            raise aiohttp.web.HTTPNotFound(reason="Could not find API Object with name {}"
+                                           .format(name_failsafe))
+        # Parse `wait` and `timeout` from request query string
+        wait = 'wait' in request.query
+        timeout = 30
+        if wait and request.query['wait']:
+            try:
+                timeout = float(request.query['wait'])
+            except ValueError as e:
+                raise aiohttp.web.HTTPBadRequest(reason="Could not parse 'wait' query parameter's value as float: {}"
+                                                 .format(e))
+
+        # if `wait`: Make this Request gracefully stoppable on shutdown by registering it for
+        if wait:
+            self._associated_tasks.add(asyncio.current_task())
+
+        # Now, let's actually call http_get of the API object
+        # If `wait`, this will await a new value or the `timeout`.
+        changed, value, etag = await api_object.http_get(wait, timeout, request.headers.get('If-None-Match'))
+
+        # If not changed (either when `wait` and timeout is reached) or if not `wait` and `If-None-Match` indicates
+        # unchanged value, return HTTP 304 Not Modified
+        if not changed:
+            return aiohttp.web.HTTPNotModified(headers={'ETag': etag})
+        else:
+            return aiohttp.web.Response(status=200 if value is not None else 409,
+                                        headers={'ETag': etag},
+                                        body=json.dumps(value, cls=SHCJsonEncoder),
+                                        content_type="application/json",
+                                        charset='utf-8')
+
+    async def _api_post_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
+        text = await request.text()
+        try:
+            data = json.loads(text)
+        except JSONDecodeError as e:
+            logger.warning("Invalid JSON body POSTed from %s to %s (error was: %s): %s",
+                         request.remote, request.url, e, text)
+            raise aiohttp.web.HTTPBadRequest(reason="Could not parse request body as json: {}".format(str(e)))
+
+        try:
+            name = request.match_info['name']
+            api_object = self._api_objects[name]
+        except KeyError:
+            name_failsafe = request.match_info.get('name', '<undefined>')
+            logger.warning("Could not find API object %s, requested by %s", name_failsafe, request.remote)
+            raise aiohttp.web.HTTPNotFound(reason="Could not find API Object with name {}"
+                                           .format(name_failsafe))
+        try:
+            await api_object.http_post(data, request)
+        except (ValueError, TypeError) as e:
+            logger.warning("Error while updating API object %s with value from %s (error was %s): %s", name,
+                         request.remote, e, data)
+            raise aiohttp.web.HTTPUnprocessableEntity(reason="Could not use provided value to update API object: {}"
+                                                      .format(e))
+        return aiohttp.web.HTTPOk()
 
     def serve_static_file(self, path: pathlib.Path) -> str:
+        """
+        Register a static file to be served on this HTTP server.
+
+        The URL is automatically chosen, based on the file's name and existing static files.
+        If the same path has already been added as a static file, its existing static URL is returned instead of
+        creating a new one.
+
+        This method should primarily be used by WebPageItem implementations within their
+        :meth:`WebPageItem.register_with_server` method.
+
+        :param path: The path of the local file to be served as a static file
+        :return: The URL of the static file, as a path, relative to the server's root URL, without leading slash. For
+            using it within the web UI's HTML code, the server's `root_url` must be prepended.
+        """
+        path = path.absolute()
         if path in self.static_files:
             return self.static_files[path]
         final_file_name = path.name
@@ -208,11 +393,29 @@ class WebServer:
         return final_path
 
     def add_js_file(self, path: pathlib.Path) -> None:
+        """
+        Register an additional static JavaScript file to be included in the web UI served by this server.
+
+        This method adds the given path as a static file to the webserver and includes its URL into every web UI page
+        using a `<script>` tag in the HTML head.
+        If the same file has already been added as a static file to the webserver, this method does nothing.
+
+        :param path: Local filesystem path of the JavaScript file to be included
+        """
         if path in self.static_files:
             return
         self._js_files.append(self.serve_static_file(path))
 
     def add_css_file(self, path: pathlib.Path) -> None:
+        """
+        Register an additional static CSS file to be included in the web UI served by this server.
+
+        This method adds the given path as a static file to the webserver and includes its URL into every web UI page
+        using a `<link rel="stylesheet">` tag in the HTML head.
+        If the same file has already been added as a static file to the webserver, this method does nothing.
+
+        :param path: Local filesystem path of the CSS file to be included
+        """
         if path in self.static_files:
             return
         self._css_files.append(self.serve_static_file(path))
@@ -360,6 +563,89 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
         await self._publish(self.convert_from_ws_value(value), [ws])
         if isinstance(self, WebDisplayDatapoint):
             await self._websocket_publish(value)
+
+
+class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
+    """
+    *Connectable* object that represents an endpoint of the REST/websocket API.
+
+    :ivar name: The name of this object in the REST/websocket API
+    """
+    is_reading_optional = False
+
+    def __init__(self, type_: Type[T], name: str):
+        self.type = type_
+        super().__init__()
+        self.name = name
+        self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
+        self.future: asyncio.Future[T] = asyncio.get_event_loop().create_future()
+
+    async def _write(self, value: T, origin: List[Any]) -> None:
+        await self._publish_http(value)
+
+    async def http_post(self, value: Any, origin: Any) -> None:
+        await self._publish(from_json(self.type, value), [origin])
+        await self._publish_http(value)
+
+    async def _publish_http(self, value: T) -> None:
+        """
+        Publish a new value to all subscribed websockets and waiting long-running poll requests.
+        """
+        self.future.set_result(value)
+        self.future = asyncio.get_event_loop().create_future()
+        data = json.dumps({'name': self.name, 'value': value}, cls=SHCJsonEncoder)
+        await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
+
+    async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
+        self.subscribed_websockets.add(ws)
+        current_value = await self._from_provider()
+        if current_value is not None:
+            data = json.dumps({'name': self.name, 'value': current_value}, cls=SHCJsonEncoder)
+            await ws.send_str(data)
+
+    def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
+        self.subscribed_websockets.discard(ws)
+
+    async def http_get(self, wait: bool = False, timeout: float = 30, etag_match: Optional[str] = None
+                       ) -> Tuple[bool, Any, str]:
+        """
+        Get the current value or await a new value.
+
+        This method is used for normal GET requests and long-running polls that only return when a new value is
+        awailable.
+
+        :param wait: If True, the method awaits the receiving of a new value or the expiration of the timeout. If False,
+            it simply *reads* and returns the current value
+        :param timeout: If `wait` is True and no value arrives within `timeout` seconds, this method returns, with the
+            first element in the result tuple set to True to indicate the timeout.
+        :param etag_match: The `If-None-Match` header value provided by the client. Should be the `etag` from the
+            client's last call to this method.
+            With `wait=True`: If given and not equal to the id of the current future, this method assumes that the
+            client missed a value and falls back to *read* and return the current value immediately. This way, we make
+            sure that the client does not miss an update while renewing its poll request.
+            With `wait=False`: Normal HTTP behaviour: If the etag does match the current future's is, we return
+            with `changed=False`, which should result in an
+        :return: A tuple (changed, value, etag).
+            `changed` is False, if this method returns due to a timeout or with `wait=False` and an etag indicating an
+            unchanged value, or True, if due to a new value. Should be used for the HTTP status code: 200 vs. 304.
+            `value` represents the new value (or None when `changed=False`).
+            `etag` is the id of the new future. It can be used as the HTML `ETag` header, so the client can send it in
+            the `If-None-Match` header of the next request, which is passed to this method's `etag_match` parameter.
+        """
+        # If not waiting for next value and etag indicates unchanged value: return with `changed=False`
+        if not wait and etag_match == str(id(self.future)):
+            return False, None, str(id(self.future))
+        # If not waiting for next value *or* etag indicates changed value: return current value
+        if not wait or (etag_match is not None and etag_match != id(self.future)):
+            value = await self._from_provider()
+            return True, value, str(id(self.future))
+
+        # If waiting for next value: Await future using timeout
+        try:
+            value = await asyncio.wait_for(self.future, timeout=timeout)
+            return True, value, str(id(self.future))
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            return False, None, str(id(self.future))
 
 
 from . import widgets
