@@ -236,7 +236,7 @@ class WebServer:
         try:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
-                    asyncio.create_task(self._api_websocket_dispatch(ws, msg))
+                    asyncio.create_task(self._api_websocket_dispatch(request, ws, msg))
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.info('API websocket connection closed with exception %s', ws.exception())
         finally:
@@ -246,11 +246,12 @@ class WebServer:
                 api_object.websocket_close(ws)
             return ws
 
-    async def _api_websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
+    async def _api_websocket_dispatch(self, request: aiohttp.web.Request, ws: aiohttp.web.WebSocketResponse,
+                                      msg: aiohttp.WSMessage) -> None:
         try:
             message = msg.json()
         except JSONDecodeError:
-            # TODO log
+            logger.warning("Websocket API message from %s is not a valid JSON string: %s", request.remote, msg.data)
             await ws.send_json({'status': 400, 'error': "Could not parse message as JSON: {}".format(msg.data)})
             return
 
@@ -259,43 +260,71 @@ class WebServer:
             action = message["action"]
             handle = message.get("handle")
         except KeyError:
-            # TODO log
+            logger.warning("Websocket API message from %s without 'name' or 'action' field: %s", request.remote,
+                           message)
             await ws.send_json({'status': 422,
-                                'error': "Message does not include a 'name' and an 'action' field: {}".format(msg.data)
-                                })
+                                'error': "Message does not include a 'name' and an 'action' field"})
             return
+        result = {'status': 204,
+                  'name': name,
+                  'action': action,
+                  'handle': handle}
         try:
             obj = self._api_objects[name]
         except KeyError:
-            # TODO log
-            await ws.send_json({'status': 404, 'error': "There is no API object with name '{}'".format(name)})
+            logger.warning("Could not find API object %s, requested by %s", name, request.remote)
+            result['status'] = 404
+            result['error'] = "There is no API object with name '{}'".format(name)
+            await ws.send_json(result)
             return
 
-        # TODO include handle into error messages from here on
-        # TODO deduplicate response message creation
         try:
+            # subscribe action
             if action == "subscribe":
+                logger.debug("got websocket subscribe request for API object %s from %s", name, request.remote)
                 await obj.websocket_subscribe(ws)
-                await ws.send_json({'status': 200, 'name': name, 'action': action, 'handle': handle})
+
+            # post action
             elif action == "post":
+                value_exists = False
                 try:
-                    await obj.http_post(message["value"], ws)
-                except (ValueError, TypeError) as e:
-                    await ws.send_json({'status': 422,
-                                        'error': "Could not use provided value to update API object: {}".format(e)})
-                    return
-                await ws.send_json({'status': 200, 'name': name, 'action': action, 'handle': handle})
+                    value = message["value"]
+                    value_exists = True
+                except KeyError:
+                    result['status'] = 422
+                    result['error'] = "message does not include a 'value' field"
+                    logger.warning("Websocket API POST message from %s without 'value' field: %s", request.remote,
+                                   message)
+                if value_exists:
+                    logger.debug("got post request for API object %s via websocket from %s with value %s",
+                                 name, request.remote, value)
+                    try:
+                        await obj.http_post(value, ws)
+                    except (ValueError, TypeError) as e:
+                        logger.warning("Error while updating API object %s with value via websocket from %s (error was "
+                                       "%s): %s", name, request.remote, e, value)
+                        result['status'] = 422
+                        result['error'] = "Could not use provided value to update API object: {}".format(e)
+
+            # get action
             elif action == "get":
+                logger.debug("got get request for API object %s via websocket from %s", name, request.remote)
                 value = await obj.http_get()
-                await ws.send_str(json.dumps({'status': 200, 'name': name, 'action': action, 'handle': handle, 'value': value},
-                                             cls=SHCJsonEncoder))
+                result['status'] = 200 if value is not None else 409
+                result['value'] = value
+
             else:
-                await ws.send_json({'status': 422, 'error': "Not a valid action: '{}'".format(action)})
-                return
+                logger.warning("Unknown websocket API action '%s', requested by %s", action, request.remote)
+                result['status'] = 422
+                result['error'] = "Not a valid action: '{}'".format(action)
         except Exception as e:
-            logger.error("Error while processing API websocket message from %s: %s", ws._req.remote, message,
+            logger.error("Error while processing API websocket message from %s: %s", request.remote, message,
                          exc_info=e)
-            await ws.send_json({'status': 500, 'error': "Internal server error while processing message"})
+            result['status'] = 500
+            result['error'] = "Internal server error while processing message"
+
+        # Finally, send a response
+        await ws.send_str(json.dumps(result, cls=SHCJsonEncoder))
 
     async def _api_get_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
@@ -340,7 +369,7 @@ class WebServer:
             data = json.loads(text)
         except JSONDecodeError as e:
             logger.warning("Invalid JSON body POSTed from %s to %s (error was: %s): %s",
-                         request.remote, request.url, e, text)
+                           request.remote, request.url, e, text)
             raise aiohttp.web.HTTPBadRequest(reason="Could not parse request body as json: {}".format(str(e)))
 
         try:
@@ -355,10 +384,10 @@ class WebServer:
             await api_object.http_post(data, request)
         except (ValueError, TypeError) as e:
             logger.warning("Error while updating API object %s with value from %s (error was %s): %s", name,
-                         request.remote, e, data)
+                           request.remote, e, data)
             raise aiohttp.web.HTTPUnprocessableEntity(reason="Could not use provided value to update API object: {}"
                                                       .format(e))
-        return aiohttp.web.HTTPOk()
+        return aiohttp.web.HTTPNoContent()
 
     def serve_static_file(self, path: pathlib.Path) -> str:
         """
@@ -439,7 +468,7 @@ class WebPage(WebConnectorContainer):
         self.segments[-1].items.append(item)
         item.register_with_server(self, self.server)
 
-    def get_connectors(self) -> Iterable[Union["WebDisplayDatapoint", "WebActionDatapoint"]]:
+    def get_connectors(self) -> Iterable["WebUIConnector"]:
         return itertools.chain.from_iterable(item.get_connectors() for item in self.segments)
 
     def new_segment(self, title: Optional[str] = None, same_column: bool = False, full_width: bool = False):
@@ -593,14 +622,14 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         """
         self.future.set_result(value)
         self.future = asyncio.get_event_loop().create_future()
-        data = json.dumps({'name': self.name, 'value': value}, cls=SHCJsonEncoder)
+        data = json.dumps({'status': 200, 'name': self.name, 'value': value}, cls=SHCJsonEncoder)
         await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
 
     async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
         self.subscribed_websockets.add(ws)
         current_value = await self._from_provider()
         if current_value is not None:
-            data = json.dumps({'name': self.name, 'value': current_value}, cls=SHCJsonEncoder)
+            data = json.dumps({'status': 200, 'name': self.name, 'value': current_value}, cls=SHCJsonEncoder)
             await ws.send_str(data)
 
     def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
