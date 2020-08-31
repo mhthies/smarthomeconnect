@@ -309,3 +309,34 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
                 logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
         return wrapper
     return decorator
+
+
+def blocking_handler() -> Callable[[Callable[[T, List[Any]], None]], LogicHandler]:
+    """
+    Decorator for custom blocking (non-async) logic handler functions.
+
+    Wraps a function to transform it into an async logic handler function, which is suited to be registered for
+    triggering by a subscribable object with :meth:`Subscribable.trigger`. The wrapped function is executed in a
+    separate thread, using asyncio's `run_in_executor()`.
+
+    Like :func:`handler`, this decorator catches and logs errors and ensures that the `origin` can magically be passed
+    when called directly by other logic handlers. However, since the wrapped function is not an asynchronous coroutine,
+    it is not able to call :meth:`Writable.write` or another logic handler directly. Thus, this decorator does not
+    include special measures for preparing and passing the `origin` list or avoiding recursive execution.
+    """
+    def decorator(f: Callable[[T, List[Any]], None]) -> LogicHandler:
+        @functools.wraps(f)
+        async def wrapper(value, origin: Optional[List[Any]] = None) -> None:
+            if origin is None:
+                try:
+                    origin = magicOriginVar.get()
+                except LookupError as e:
+                    raise ValueError("No origin attribute provided or set via execution context") from e
+            logger.info("Triggering blocking logic handler %s() from %s", f.__name__, origin)
+            try:
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, f, value, origin)
+            except Exception as e:
+                logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
+        return wrapper
+    return decorator
