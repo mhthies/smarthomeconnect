@@ -17,22 +17,29 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 
 ## Features
 
-* configuration and definition of automation rules in plain Python
 * interfaces
     * KNX bus via KNXD
     * DMX (via Enttec DMX USB Pro and compatible interfaces)
+    * HTTP/REST API + websocket API
 * websocket-based web user interface (using *aiohttp*, *Jinja2* and *Semantic UI*)
     * widgets: buttons, text display, text/number inputs, dropdowns, … 
-* chronological and periodic timers for triggering rules
+* configuration of data points/variables and definition of automation rules in plain Python
+    * full power of Python + intuitive representation and interconnection of different interfaces 
+    * type checking and extensible type conversion system
+    * connecting objects via Python expressions
+* chronological and periodic timers for triggering rules 
 * Logging/Persistence
     * to MySQL (using *aiomysql*)
 
 ### Roadmap
 
-* JSON-over-MQTT interface
-* Extensibility of web interface (additional services via HTTP and websocket)
-* HTTP API (GET, POST, websocket-subscribe) + Client
+* Log view web widget (line charts, stripe charts, log lists)
+* native HTTP API Client
+* Logging to Influx-DB
 * More web widgets
+    * Images with placeable interactive elements (icons, buttons, etc.)
+    * Gauges
+* MQTT interface (incl. JSON-over-MQTT)
 
 
 ## Simple Usage Example
