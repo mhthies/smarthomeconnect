@@ -1,7 +1,7 @@
 
 # Smart Home Connect
 
-[![GitHub Actions CI Status of the master branch](https://github.com/mhthies/smarthomeconnect/workflows/Python%20CI/badge.svg)](https://github.com/mhthies/smarthomeconnect/actions?query=workflow%3A%22Python+CI%22)
+[![GitHub Actions CI Status of the master branch](https://github.com/mhthies/smarthomeconnect/workflows/build/badge.svg)](https://github.com/mhthies/smarthomeconnect/actions?query=workflow%3Abuild)
 [![Documentation Status at readthedocs.io](https://readthedocs.org/projects/smarthomeconnect/badge/?version=latest)](https://smarthomeconnect.readthedocs.io/en/latest/?badge=latest)
 [![Latest PyPI version](https://badge.fury.io/py/smarthomeconnect.svg)](https://pypi.org/project/smarthomeconnect/)
 
