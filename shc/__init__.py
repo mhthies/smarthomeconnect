@@ -25,6 +25,6 @@ from . import knx
 from . import dmx
 
 
-from .base import handler
+from .base import handler, blocking_handler
 from .variables import Variable
 from .supervisor import main

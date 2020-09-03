@@ -200,6 +200,17 @@ Putting it all together, a logic handler may look as follows::
             loop = asyncio.get_event_loop()
             some_result = await loop.run_in_executor(None, some_cpu_heavy_calculation, value)
 
+    If you're logic handler function does not need to interact with asynchronous functions (i.e. not read or write *Connectables*' values or trigger other logic handlers), you may write it as a non-async function and use the :func:`shc.blocking_handler` decorator, which does the thread executor scheduling::
+
+        @shc.blocking_handler()
+        def my_blocking_logic_handler(value, _origin):
+            with open('/tmp/hello.txt', 'w') as f:
+                f.write("Hello, World!")
+
+            some_result = some_cpu_heavy_calculation(value)
+
+            # Unfortunately, no .write() or .read() possible here.
+
 
 ``shc.base`` Module Reference
 -----------------------------
@@ -229,3 +240,5 @@ Putting it all together, a logic handler may look as follows::
     .. automethod:: _from_provider
 
 .. autodecorator:: shc.handler
+
+.. autodecorator:: shc.blocking_handler
