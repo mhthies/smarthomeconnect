@@ -149,3 +149,35 @@ class EveryTimerTest(unittest.TestCase):
             self.assertAlmostEqual(base + datetime.timedelta(minutes=5),
                                    every_timer._next_execution(),
                                    delta=datetime.timedelta(seconds=1))
+
+
+class OnceTimerTest(unittest.TestCase):
+    def test_immediate(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            once_timer = timer.Once()
+            self.assertAlmostEqual(clock.now().astimezone(), once_timer._next_execution(),
+                                   delta=datetime.timedelta(seconds=1))
+            clock.sleep(1)
+            once_timer.last_execution = clock.now().astimezone()
+            self.assertIsNone(once_timer._next_execution())
+
+    def test_offset(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            once_timer = timer.Once(datetime.timedelta(hours=1))
+            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(hours=1),
+                                   once_timer._next_execution(), delta=datetime.timedelta(seconds=1))
+            clock.sleep(60*60)
+            once_timer.last_execution = clock.now().astimezone()
+            self.assertIsNone(once_timer._next_execution())
+
+    def test_offset_random(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            once_timer = timer.Once(datetime.timedelta(hours=1), random=datetime.timedelta(seconds=20))
+            next_execution = once_timer._next_execution()
+            self.assertGreaterEqual(next_execution,
+                                    clock.now().astimezone() + datetime.timedelta(hours=1, seconds=-20))
+            self.assertLessEqual(next_execution,
+                                 clock.now().astimezone() + datetime.timedelta(hours=1, seconds=20))
+            clock.sleep(60*60)
+            once_timer.last_execution = clock.now().astimezone()
+            self.assertIsNone(once_timer._next_execution())
