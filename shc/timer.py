@@ -326,7 +326,7 @@ class At(_AbstractScheduleTimer):
             elif i == 2 and self.week_mode:
                 return 7
             else:
-                return (datetime.date(val[0] + (1 if val[1] == 12 else 0), val[1] + (0 if val[1] == 12 else 1), 1)
+                return (datetime.date(val[0] + (1 if val[1] == 12 else 0), 1 if val[1] == 12 else val[1] + 1, 1)
                         - datetime.timedelta(days=1)).day
 
         if self.week_mode:
