@@ -326,7 +326,8 @@ class At(_AbstractScheduleTimer):
             elif i == 2 and self.week_mode:
                 return 7
             else:
-                return (datetime.date(val[0], val[1] + 1, 1) - datetime.timedelta(days=1)).day
+                return (datetime.date(val[0] + (1 if val[1] == 12 else 0), val[1] + (0 if val[1] == 12 else 1), 1)
+                        - datetime.timedelta(days=1)).day
 
         if self.week_mode:
             val = [now.year, now.isocalendar()[1], now.isocalendar()[2], now.hour, now.minute, now.second,
@@ -336,12 +337,15 @@ class At(_AbstractScheduleTimer):
 
         # Start with the first entry (year)
         i = 0
+        must_increase = False
         # Iterate through entries until all 7 are matching the spec
         while i < 7:
-            # In case the entry's current value matches the spec, move on to the next entry
-            if self._matches(val[i], self.spec[i], origin[i]):
+            # In case the entry's current value matches the spec and we didn't flag it to be increased, move on to the
+            # next entry
+            if not must_increase and self._matches(val[i], self.spec[i], origin[i]):
                 i += 1
                 continue
+            must_increase = False
             # Otherwise calculate the next higher value according to the spec
             new_val = self._next(val[i], self.spec[i], origin[i])
             # If the next higher value is valid, reset all following entries to their minimum values (origin) and
@@ -351,9 +355,9 @@ class At(_AbstractScheduleTimer):
                 i += 1
                 for j in range(i, 7):
                     val[j] = origin[j]
-            # If there is no valid higher entry, step back one entry: Increase the previous entry by one, reset all
-            # following entries to their minimum values (origin) and proceed by checking the new value of the previous
-            # entry.
+            # If there is no valid higher entry, step back one entry: Reset this and all
+            # following entries to their minimum values (origin) and proceed with the previous entry, while ensuring it
+            # will be increased.
             else:
                 i -= 1
                 # If we hit the year limit and thus cannot step back any further, return None to indicate that there
@@ -361,9 +365,9 @@ class At(_AbstractScheduleTimer):
                 if i < 0:
                     logger.warning("Could not find a next execution time for %s.", self)
                     return None
-                val[i] += 1
                 for j in range(i + 1, 7):
                     val[j] = origin[j]
+                must_increase = True
 
         if self.week_mode:
             val_date = datetime.date.fromisocalendar(val[0], val[1], val[2])
@@ -401,7 +405,7 @@ class At(_AbstractScheduleTimer):
         :return: The next higher matching value or None if there is none.
         """
         if spec is None:
-            return val
+            return val + 1
         if isinstance(spec, Iterable):
             try:
                 return next(v for v in spec if v > val)
