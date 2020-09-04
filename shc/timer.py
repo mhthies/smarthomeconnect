@@ -15,6 +15,7 @@ import datetime
 import logging
 import math
 import random
+import weakref
 from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic
 
 from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError
@@ -34,6 +35,7 @@ class _TimerSupervisor:
     def __init__(self):
         self.supervised_timers: List[_AbstractScheduleTimer] = []
         self.timer_tasks: List[asyncio.Task] = []
+        self.temporary_tasks: weakref.WeakSet[asyncio.Task] = weakref.WeakSet()
 
     async def start(self) -> None:
         logger.info("Starting TimerSupervisor with %s timers ...", len(self.supervised_timers))
@@ -46,9 +48,14 @@ class _TimerSupervisor:
         logger.info("Cancelling supervised timers ...")
         for task in self.timer_tasks:
             task.cancel()
+        for task in self.temporary_tasks:
+            task.cancel()
 
     def register_timer(self, timer: "_AbstractScheduleTimer") -> None:
         self.supervised_timers.append(timer)
+
+    def add_temporary_task(self, task: asyncio.Task) -> None:
+        self.temporary_tasks.add(task)
 
 
 timer_supervisor = _TimerSupervisor()
@@ -445,6 +452,8 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
         return self._value
 
     async def _set_delayed(self, value: bool, origin: List[Any]):
+        # Make sure this task is cancelled on shutdown
+        timer_supervisor.add_temporary_task(asyncio.current_task())
         try:
             await _logarithmic_sleep(datetime.datetime.now() + self.delay)
         except asyncio.CancelledError:
@@ -457,7 +466,6 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
 class TOn(_DelayedBool):
     async def _update(self, value: bool, origin: List[Any]):
         if value and self._change_task is None:
-            # TODO Make sure task is cancelled on shutdown
             self._change_task = asyncio.create_task(self._set_delayed(True, origin))
         elif not value:
             if self._change_task is not None:
@@ -470,7 +478,6 @@ class TOn(_DelayedBool):
 class TOff(_DelayedBool):
     async def _update(self, value: bool, origin: List[Any]):
         if not value and self._change_task is None:
-            # TODO Make sure task is cancelled on shutdown
             self._change_task = asyncio.create_task(self._set_delayed(True, origin))
         elif value:
             if self._change_task is not None:
@@ -486,14 +493,12 @@ class TOnOff(_DelayedBool):
             return
         if self._change_task is not None:
             self._change_task.cancel()
-        # TODO Make sure task is cancelled on shutdown
         self._change_task = asyncio.create_task(self._set_delayed(value, origin))
 
 
 class TPulse(_DelayedBool):
     async def _update(self, value: bool, origin: List[Any]):
         if value and not self._value:
-            # TODO Make sure task is cancelled on shutdown
             self._change_task = asyncio.create_task(self._set_delayed(False, origin))
             self._value = True
             await self._publish(True, origin)
@@ -512,10 +517,11 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
         wrapped.trigger(self._update)
 
     async def _update(self, value: T, origin: List[Any]) -> None:
-        # TODO Make sure task is cancelled on shutdown
         asyncio.create_task(self.__set_delayed(value, origin))
 
     async def __set_delayed(self, value: T, origin: List[Any]):
+        # Make sure this task is cancelled on shutdown
+        timer_supervisor.add_temporary_task(asyncio.current_task())
         try:
             await _logarithmic_sleep(datetime.datetime.now() + self.delay)
         except asyncio.CancelledError:
