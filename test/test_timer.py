@@ -77,21 +77,28 @@ class AbstractTimerTest(unittest.TestCase):
                                delta=datetime.timedelta(seconds=1))
 
 
+class TimerDecoratorText(unittest.TestCase):
+    def test_decorators(self) -> None:
+        for decorator, timer_class, attr in ((timer.every, timer.Every, {'delta': datetime.timedelta(seconds=5)}),
+                                             (timer.once, timer.Once, {'offset': datetime.timedelta(seconds=7)}),
+                                             (timer.at, timer.At, {'random': datetime.timedelta(seconds=20)}),):
+            with self.subTest(decorator=decorator.__name__):
+                async def my_function(_val, _origin):
+                    return
+
+                with unittest.mock.patch('shc.base.Subscribable.trigger',
+                                         autospec=True, side_effect=lambda s, t: t) as trigger_mock:
+                    returned = decorator(**attr)(my_function)
+
+                trigger_mock.assert_called_once()
+                self.assertIsInstance(trigger_mock.call_args[0][0], timer_class)
+                for attr_name, attr_value in attr.items():
+                    self.assertEqual(getattr(trigger_mock.call_args[0][0], attr_name), attr_value)
+                self.assertIs(trigger_mock.call_args[0][1], my_function)
+                self.assertIs(trigger_mock.call_args[0][1], returned)
+
+
 class EveryTimerTest(unittest.TestCase):
-    def test_decorator(self) -> None:
-        async def my_function(_val, _origin):
-            return
-
-        with unittest.mock.patch('shc.base.Subscribable.trigger',
-                                 autospec=True, side_effect=lambda s, t: t) as trigger_mock:
-            returned = timer.every(datetime.timedelta(seconds=5))(my_function)
-
-        trigger_mock.assert_called_once()
-        self.assertIsInstance(trigger_mock.call_args[0][0], timer.Every)
-        self.assertEqual(trigger_mock.call_args[0][0].delta, datetime.timedelta(seconds=5))
-        self.assertIs(trigger_mock.call_args[0][1], my_function)
-        self.assertIs(trigger_mock.call_args[0][1], returned)
-
     def test_unaligned(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=False)
