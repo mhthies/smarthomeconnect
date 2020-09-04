@@ -181,3 +181,75 @@ class OnceTimerTest(unittest.TestCase):
             clock.sleep(60*60)
             once_timer.last_execution = clock.now().astimezone()
             self.assertIsNone(once_timer._next_execution())
+
+
+class AtTimerTest(unittest.TestCase):
+    def _assert_datetime(self, expected: datetime.datetime, actual: datetime.datetime):
+        self.assertAlmostEqual(expected.astimezone(), actual, delta=datetime.timedelta(seconds=.1))
+
+    def test_simple_next(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            once_timer = timer.At(hour=15, minute=7, second=17, millis=200)
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 15, 7, 17, 200000), once_timer._next_execution())
+            once_timer = timer.At(hour=15, minute=7, second=25)
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 15, 7, 25), once_timer._next_execution())
+            once_timer = timer.At(hour=15, minute=12)
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 15, 12, 0), once_timer._next_execution())
+            once_timer = timer.At(hour=16)
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 16, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(day=19)
+            self._assert_datetime(datetime.datetime(2020, 1, 19, 0, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(month=8)
+            self._assert_datetime(datetime.datetime(2020, 8, 1, 0, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(year=2021)
+            self._assert_datetime(datetime.datetime(2021, 1, 1, 0, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(weekday=5)
+            self._assert_datetime(datetime.datetime(2020, 1, 3, 0, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(weeknum=15)
+            self._assert_datetime(datetime.datetime(2020, 4, 6, 0, 0, 0), once_timer._next_execution())
+
+    def test_spec_forms(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            once_timer = timer.At(hour=timer.EveryNth(2))
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 16, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(hour=timer.EveryNth(6))
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 18, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(hour=[13, 17, 20])
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 17, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(hour=None, minute=18)
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 15, 18, 0), once_timer._next_execution())
+            once_timer = timer.At(hour=timer.EveryNth(3), minute=None, second=None)
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 15, 7, 17), once_timer._next_execution())
+
+    def test_stepback(self) -> None:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+            once_timer = timer.At(hour=None, minute=0)
+            self._assert_datetime(datetime.datetime(2020, 1, 1, 16, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(hour=15, minute=0)
+            self._assert_datetime(datetime.datetime(2020, 1, 2, 15, 0, 0), once_timer._next_execution())
+            once_timer = timer.At(month=1, day=1, hour=timer.EveryNth(15), minute=[5, 7], second=16)
+            self._assert_datetime(datetime.datetime(2021, 1, 1, 0, 5, 16), once_timer._next_execution())
+
+    def test_overflows(self) -> None:
+        with ClockMock(datetime.datetime(2020, 12, 31, 23, 59, 46)) as clock:
+            once_timer = timer.At(hour=None, minute=None, second=timer.EveryNth(15))
+            self._assert_datetime(datetime.datetime(2021, 1, 1, 0, 0, 0), once_timer._next_execution())
+        with ClockMock(datetime.datetime(2019, 2, 1, 15, 7, 17)) as clock:
+            once_timer = timer.At(day=29)
+            self._assert_datetime(datetime.datetime(2019, 3, 29, 0, 0, 0), once_timer._next_execution())
+        with ClockMock(datetime.datetime(2020, 2, 1, 15, 7, 17)) as clock:
+            once_timer = timer.At(day=29)
+            self._assert_datetime(datetime.datetime(2020, 2, 29, 0, 0, 0), once_timer._next_execution())
+        with ClockMock(datetime.datetime(2020, 4, 1, 15, 7, 17)) as clock:
+            once_timer = timer.At(day=31)
+            self._assert_datetime(datetime.datetime(2020, 5, 31, 0, 0, 0), once_timer._next_execution())
+        with ClockMock(datetime.datetime(2019, 1, 1, 15, 7, 17)) as clock:
+            once_timer = timer.At(weeknum=53)
+            self._assert_datetime(datetime.datetime(2020, 12, 28, 0, 0, 0), once_timer._next_execution())
+        with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0)) as clock:
+            once_timer = timer.At(year=2019)
+            self.assertIsNone(once_timer._next_execution())
+
+    def test_exception(self) -> None:
+        with self.assertRaises(ValueError):
+            once_timer = timer.At(day=[1,5,15], weeknum=timer.EveryNth(2))
