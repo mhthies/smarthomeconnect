@@ -111,9 +111,6 @@ class WebServer:
             aiohttp.web.get("/api/v1/object/{name}", self._api_get_handler),
             aiohttp.web.post("/api/v1/object/{name}", self._api_post_handler),
         ])
-        # aiohttp's Runner or Site do not provide a good method to await the stopping of the server. Thus we use our own
-        # Event for that purpose.
-        self._stopped = asyncio.Event()
 
         register_interface(self)
 
@@ -125,6 +122,9 @@ class WebServer:
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
         await site.start()
+        # aiohttp's Runner or Site do not provide a good method to await the stopping of the server. Thus we use our own
+        # Event for that purpose.
+        self._stopped = asyncio.Event()
 
     async def wait(self) -> None:
         await self._stopped.wait()

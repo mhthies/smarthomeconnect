@@ -1,5 +1,7 @@
 import asyncio
+import concurrent.futures
 import functools
+import threading
 import time
 import unittest.mock
 import datetime
@@ -163,3 +165,46 @@ class SimpleIntRepublisher(base.Writable, base.Subscribable):
     async def _write(self, value: T, origin: List[Any]):
         await self._publish(value, origin)
 
+
+class InterfaceThreadRunner:
+    """
+    Some magic for running an SHC interface in a separate AsyncIO event loop in a background thread. This is helpful
+    for testing the interface's features from the main thread, using blocking functions (e.g. selenium for web testing).
+
+    The interface must not contain AsyncIO futures which are created at construction time and used by the
+    start/wait/stop coroutines.
+    """
+
+    def __init__(self, interface):
+        self.interface = interface
+        self.server_started_event = threading.Event()
+
+    def start(self) -> None:
+        """
+        Start the interface in a background thread.
+
+        This method blocks until the successful startup of the interface (completion of its start() coroutine).
+        """
+        executor = concurrent.futures.ThreadPoolExecutor()
+        self.future = executor.submit(self._run)
+        res = self.server_started_event.wait(timeout=5)
+        if not res:
+            raise TimeoutError("Interface {} did not come up within 5 seconds".format(self.interface))
+
+    def _run(self) -> None:
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_until_complete(self._run_coro())
+
+    async def _run_coro(self) -> None:
+        await self.interface.start()
+        self.server_started_event.set()
+        await self.interface.wait()
+
+    def stop(self) -> None:
+        """
+        Stop the interface via its stop() coroutine and block until it is fully shutdown.
+        """
+        stop_future = asyncio.run_coroutine_threadsafe(self.interface.stop(), self.loop)
+        stop_future.result()
+        self.future.result()
