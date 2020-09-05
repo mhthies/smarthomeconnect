@@ -370,7 +370,10 @@ class At(_AbstractScheduleTimer):
                 must_increase = True
 
         if self.week_mode:
-            val_date = datetime.date.fromisocalendar(val[0], val[1], val[2])
+            # Unfortunately, the fromisocalendar() function has only been added in Python 3.8:
+            # val_date = datetime.date.fromisocalendar(val[0], val[1], val[2])
+            val_date = datetime.datetime.strptime("{}-W{}-1".format(val[0], val[1]), '%G-W%V-%u') \
+                       + datetime.timedelta(days=val[2]-1)
             result = datetime.datetime(val_date.year, val_date.month, val_date.day, val[3], val[4], val[5],
                                        val[6] * 1000).astimezone()
         else:
