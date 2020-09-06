@@ -173,23 +173,38 @@ class InterfaceThreadRunner:
 
     The interface must not contain AsyncIO futures which are created at construction time and used by the
     start/wait/stop coroutines.
+
+    The interface will most probably not be thread-safe internally (as SHC usually runs in only one AsyncIO event loop
+    in a single thread). Thus, after starting the interface via the `InterfaceThreadRunner`, its methods/coroutines must
+    only be called within the `InterfaceThreadRunner`s AsnycIO event loop::
+
+        interface = SomeSHCInterface()
+        runner = InterfaceThreadRunner(interface)
+        runner.start()
+        asyncio.run_coroutine_threadsafe(interface.some_coro(*args), loop=runner.loop).result()
+        runner.loop.call_soon_threadsafe(interface.some_method(*args))
+        runner.stop()
+
+    :ivar loop: The event loop of the background thread, in which the interface is running. This variable is only
+        available after :meth:`start` has successfully completed.
+    :ivar interface: The wrapped interface (passed to the constructor).
     """
 
     def __init__(self, interface):
         self.interface = interface
-        self.server_started_event = threading.Event()
+        self._server_started_future = concurrent.futures.Future()
 
     def start(self) -> None:
         """
         Start the interface in a background thread.
 
         This method blocks until the successful startup of the interface (completion of its start() coroutine).
+        :raises TimeoutError: If the interface does not come up (complete its `start()` coroutine) within 5 seconds.
+        :raises Exception: If the interface raised an Exception in its `start()` coroutine.
         """
         executor = concurrent.futures.ThreadPoolExecutor()
         self.future = executor.submit(self._run)
-        res = self.server_started_event.wait(timeout=5)
-        if not res:
-            raise TimeoutError("Interface {} did not come up within 5 seconds".format(self.interface))
+        self._server_started_future.result(timeout=5)
 
     def _run(self) -> None:
         self.loop = asyncio.new_event_loop()
@@ -197,8 +212,12 @@ class InterfaceThreadRunner:
         self.loop.run_until_complete(self._run_coro())
 
     async def _run_coro(self) -> None:
-        await self.interface.start()
-        self.server_started_event.set()
+        try:
+            await self.interface.start()
+            self._server_started_future.set_result(None)
+        except Exception as e:
+            self._server_started_future.set_exception(e)
+            return
         await self.interface.wait()
 
     def stop(self) -> None:
