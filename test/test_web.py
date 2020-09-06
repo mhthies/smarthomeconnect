@@ -7,7 +7,7 @@ from shc import web
 from ._helper import InterfaceThreadRunner
 
 
-@unittest.skipIf(shutil.which("geckodriver") is not None, "Selenium's geckodriver is not available in PATH")
+@unittest.skipIf(shutil.which("geckodriver") is None, "Selenium's geckodriver is not available in PATH")
 class SimpleWebTest(unittest.TestCase):
     def setUp(self) -> None:
         self.server = web.WebServer("localhost", 42080, 'index')
