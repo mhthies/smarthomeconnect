@@ -8,7 +8,7 @@ from selenium import webdriver
 import selenium.webdriver.firefox.options
 
 from shc import web
-from ._helper import InterfaceThreadRunner, ExampleReadable
+from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock
 
 
 @unittest.skipIf(shutil.which("geckodriver") is None, "Selenium's geckodriver is not available in PATH")
@@ -70,9 +70,9 @@ class WebWidgetsTest(AbstractWebTest):
         page = self.server.page('index')
         page.add_item(web.widgets.ButtonGroup("My button group", [b1, b2, b3, b4]))
 
-        with unittest.mock.patch.object(b1, '_publish') as b1_publish,\
-                unittest.mock.patch.object(b3, '_publish') as b3_publish,\
-                unittest.mock.patch.object(b4, '_publish') as b4_publish:
+        with unittest.mock.patch.object(b1, '_publish', new_callable=AsyncMock) as b1_publish,\
+                unittest.mock.patch.object(b3, '_publish', new_callable=AsyncMock) as b3_publish,\
+                unittest.mock.patch.object(b4, '_publish', new_callable=AsyncMock) as b4_publish:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
 
