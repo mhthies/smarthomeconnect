@@ -1,3 +1,4 @@
+import threading
 import unittest
 import unittest.mock
 from typing import List, Any
@@ -121,6 +122,42 @@ class TestHandler(unittest.TestCase):
         self.assertEqual(2, self.call_counter)
 
     # TODO test error handling
+
+
+class TestBlockingHandler(unittest.TestCase):
+    @async_test
+    async def test_basic_trigger(self):
+        a = ExampleSubscribable(int)
+        thread_id_container = []
+
+        def save_thread(*args):
+            thread_id_container.append(threading.get_ident())
+
+        handler = unittest.mock.Mock(side_effect=save_thread)
+        handler.__name__ = "handler_mock"
+        wrapped_handler = base.blocking_handler()(handler)  # type: ignore
+        a.trigger(wrapped_handler)
+        await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        handler.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
+        self.assertIsInstance(thread_id_container[0], int)
+        self.assertNotEqual(thread_id_container[0], threading.get_ident())
+
+    @async_test
+    async def test_magic_origin_receiving(self):
+        a = ExampleSubscribable(int)
+        mock = unittest.mock.Mock()
+
+        @a.trigger
+        @base.handler()
+        async def test_handler(value, _origin):
+            await blocking_test_handler(value)
+
+        @base.blocking_handler()
+        def blocking_test_handler(value, _origin):
+            mock(value, _origin)
+
+        await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        mock.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
 
 
 class TestReading(unittest.TestCase):
