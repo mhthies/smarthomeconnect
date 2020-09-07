@@ -457,12 +457,26 @@ class WebConnectorContainer(metaclass=abc.ABCMeta):
 
 
 class WebPage(WebConnectorContainer):
+    """
+    Programmatic representation of a web UI page.
+
+    To create a new page or get an existing page by name, use the :meth:`WebServer.page` method of the target web
+    interface.
+    """
     def __init__(self, server: WebServer, name: str):
         self.server = server
         self.name = name
         self.segments: List["_WebPageSegment"] = []
 
-    def add_item(self, item: "WebPageItem"):
+    def add_item(self, item: "WebPageItem") -> None:
+        """
+        Add a new `WebPageItem` (widget) to the page.
+
+        The item is appended to the current segment (see :meth:`new_segment`). If the page does not have any segments
+        yet, a first segment is created with the default parameters (half-width, no heading) to contain the item.
+
+        :param item: The `WebPageItem` to be added to this page
+        """
         if not self.segments:
             self.new_segment()
         self.segments[-1].items.append(item)
@@ -471,7 +485,18 @@ class WebPage(WebConnectorContainer):
     def get_connectors(self) -> Iterable["WebUIConnector"]:
         return itertools.chain.from_iterable(item.get_connectors() for item in self.segments)
 
-    def new_segment(self, title: Optional[str] = None, same_column: bool = False, full_width: bool = False):
+    def new_segment(self, title: Optional[str] = None, same_column: bool = False, full_width: bool = False) -> None:
+        """
+        Create a new visual segment on the page, to contain further `WebPageItems`, optionally with a heading.
+
+        :param title: A title for the segment, which is shown as a heading above the segment
+        :param same_column: If True, the segment is added below the previous segment, in the same column (left or
+            right). Otherwise, by default, the other column is used, which creates a new row, if the previous segment
+            is in the right column. This option has no effect, when used for the first segment of a page.
+        :param full_width: If True, the segment spans the full width of the page layout on large screens (1127px at
+            maximum), instead of using only one of the two columns. In this case, the `same_column` parameter has no
+            effect.
+        """
         self.segments.append(_WebPageSegment(title, same_column, full_width))
 
 
@@ -487,13 +512,16 @@ class _WebPageSegment(WebConnectorContainer):
 
 
 class WebPageItem(WebConnectorContainer, metaclass=abc.ABCMeta):
+    """
+    Abstract base class for all web UI widgets which can be added to a web UI page.
+    """
     def register_with_server(self, page: WebPage, server: WebServer) -> None:
         """
         Called when the WebPageItem is added to a WebPage.
 
-        It may be used to get certain information about the WebPage or the WebServer or register required static files
-        with the WebServer, using :meth:`WebServer.serve_static_file`, :meth:`WebServer.add_js_file`,
-        :meth:`WebServer.serve_static_file`.
+        It may be overidden by inheriting classes to get certain information about the WebPage or the WebServer or
+        register required static files with the WebServer, using :meth:`WebServer.serve_static_file`,
+        :meth:`WebServer.add_js_file`, :meth:`WebServer.serve_static_file`.
 
         :param page: The WebPage, this WebPageItem is added to.
         :param server: The WebServer, the WebPage (and thus, from now on, this WebPageItem) belongs to.
@@ -502,6 +530,16 @@ class WebPageItem(WebConnectorContainer, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def render(self) -> str:
+        """
+        Generate the HTML code of this `WebPageItem`.
+
+        This coroutine is called as part of the rendering of the `WebPage`, the `WebPageItem` has been added to. It must
+        be overriden by inheriting classes to return HTML code of the specific widget class to be inserted into the
+        pages HTML code. To create interactive widgets, the HTML code should contain tags with `data-widget` and
+        `data-id` attributes.
+
+        :return: The HTML code of the specific `WebPageItem`
+        """
         pass
 
 
@@ -522,8 +560,10 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
         """
         This method is called for incoming "value" messages from a client to this specific `WebUIConnector` object.
 
+        It should be overridden by concrete `WebUIConnector` implementations to handle incoming values.
+
         :param value: The JSON-decoded 'value' field from the message from the websocket
-        :param ws: The concrete websocket, the message has been received from.
+        :param ws: The websocket connection, the message has been received from.
         """
         pass
 
@@ -536,11 +576,20 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
         This method is called by :meth:`websocket_subscribe`, when a new websocket subscribes to this specific
         `WebUIConnector`, *before* the client is added to the `subscribed_websockets` variable.
 
-        This can be used to send an initial value or other initialization methods to the client.
+        It can be overridden to send an initial value or other initialization data to the client.
         """
         pass
 
     async def _websocket_publish(self, value: Any) -> None:
+        """
+        Send a value to the to all websocket clients subscribed to this `WebUIConnector` object
+
+        This will trigger a call to the `update()` method of the subscribed JavaScript Widget objects.
+
+        :param value: The value to send to the clients. Must be JSON-serializable using the `SHCJsonEncoder`, i.e. it
+            should only include standard JSON types or types which have been registered for JSON conversion via
+            :func:`shc.conversion.register_json_conversion`.
+        """
         logger.debug("Publishing value %s for %s for %s subscribed websockets ...",
                      value, id(self), len(self.subscribed_websockets))
         data = json.dumps({'id': id(self), 'v': value}, cls=SHCJsonEncoder)
@@ -557,16 +606,41 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
 
 
 class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc.ABCMeta):
-    is_reading_optional = False
+    """
+    Abstract base class for `WebUIConnectors` for state-displaying web UI widgets.
 
-    def __init__(self):
-        super().__init__()
-        self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
+    This base class inherits from :class:`WebUIConnector` as well as the *Connectable* base classes :class:`Writable`
+    and :class:`Reading`, which allows to *read* and *receive* values from another *Connectable* and forward them over
+    the websocket to update a UI widget. This way, widgets reflecting the current value of a *Connectable* object can be
+    built.
+
+    This base class may be mixed with :class:`WebActionDatapoint`, creating a `Writable` + `Subscribable` class, to build
+    interactive Widgets which display **and** update the connected objects' value.
+
+    As this is a generic *Connectable* class, don't forget to define the :ref:`type attribute <base.typing>`, when
+    inheriting from it—either as a class attribute or as an instance attribute, set in the constructor.
+    """
+    is_reading_optional = False
 
     async def _write(self, value: T, origin: List[Any]):
         await self._websocket_publish(self.convert_to_ws_value(value))
 
     def convert_to_ws_value(self, value: T) -> Any:
+        """
+        Callback method to convert new (*received* or *read*) values, before being JSON-encoded and published to the
+        websocket clients
+
+        This method may be overridden by inheriting classes to do any transformation of the new value, including type
+        conversions. For example, a complex value of the object's *value type* may be used to evaluate a logic
+        expression and only send the boolean result to the UI widget.
+
+        Defaults to the identity function (simply returning the new value as is).
+
+        :param value: The new value, as *read* or *received* from another *Connectable* object
+        :return: The value to JSON-encoded and published to all subscribed websocket clients. Must be JSON-serializable
+            using the `SHCJsonEncoder`, i.e. it should only include standard JSON types or types which have been
+            registered for JSON conversion via :func:`shc.conversion.register_json_conversion`.
+        """
         return value
 
     async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
@@ -585,7 +659,31 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc
 
 
 class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta):
+    """
+    Abstract base class for `WebUIConnectors` for interactive web UI widgets, publishing values to other objects.
+
+    This base class inherits from :class:`WebUIConnector` as well as the *Connectable* base class :class:`Subscribable`,
+    which allows it to *publish* values to other *Connectable* objects, when the UI widget sends a websocket message.
+    This way, interactive widgets can be built, which publish values when the user interacts with them.
+
+    This base class may be mixed with :class:`WebDisplayDatapoint`, creating a `Writable` + `Subscribable` class, to
+    build interactive Widgets which display **and** update the connected objects' value.
+
+    As this is a generic *Connectable* class, don't forget to define the :ref:`type attribute <base.typing>`, when
+    inheriting from it—either as a class attribute or as an instance attribute, set in the constructor.
+    """
     def convert_from_ws_value(self, value: Any) -> T:
+        """
+        Callback method to convert/transform values from a websocket client, before *publishing* them.
+
+        This method may be overridden by inheriting classes to do any transformation of the new value, including type
+        conversions. For example, a None-value may be transformed to a static value of the object's *value type*.
+
+        Defaults to the identity function (simply returning the value as is).
+
+        :param value: The JSON-decoded value, received from the websocket client
+        :return: The value to be *published* to subscribed *Connectable* objects.
+        """
         return from_json(self.type, value)
 
     async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
