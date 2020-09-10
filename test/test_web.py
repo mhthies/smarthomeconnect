@@ -6,6 +6,7 @@ import unittest.mock
 
 from selenium import webdriver
 import selenium.webdriver.firefox.options
+from selenium.webdriver.common.keys import Keys
 
 from shc import web
 from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock
@@ -117,3 +118,50 @@ class WebWidgetsTest(AbstractWebTest):
             b1_publish.assert_called_once()
             b3_publish.assert_called_once()
             b4_publish.assert_called_once_with(42, unittest.mock.ANY)
+
+    def test_display(self) -> None:
+        page = self.server.page('index')
+        text_widget = web.widgets.TextDisplay(int, "{} lux", "Brightness").connect(ExampleReadable(int, 42))
+        page.add_item(text_widget)
+
+        self.server_runner.start()
+        self.driver.get("http://localhost:42080")
+        value_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//*[@data-id]')
+        self.assertEqual("42 lux", value_element.text.strip())
+
+        asyncio.run_coroutine_threadsafe(text_widget.write(56, [self]), loop=self.server_runner.loop).result()
+        time.sleep(0.05)
+        self.assertEqual("56 lux", value_element.text.strip())
+
+    def test_input_int(self) -> None:
+        page = self.server.page('index')
+        input_widget = web.widgets.TextInput(int, "Brightness").connect(ExampleReadable(int, 42))
+        page.add_item(input_widget)
+
+        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            input_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//input')
+            self.assertEqual("42", input_element.get_attribute("value"))
+
+            asyncio.run_coroutine_threadsafe(input_widget.write(56, [self]), loop=self.server_runner.loop).result()
+            time.sleep(0.05)
+            self.assertEqual("56", input_element.get_attribute("value"))
+
+            input_element.send_keys(Keys.SHIFT + Keys.HOME, Keys.BACK_SPACE)
+            input_element.send_keys("15", Keys.ENTER)
+            time.sleep(0.05)
+            self.assertEqual("15", input_element.get_attribute("value"))
+            publish_mock.assert_called_once_with(15, unittest.mock.ANY)
+
+            input_element.send_keys(Keys.SHIFT + Keys.HOME, Keys.BACK_SPACE)
+            input_element.send_keys("18", Keys.ESCAPE)
+            time.sleep(0.05)
+            self.assertEqual("15", input_element.get_attribute("value"))
+            publish_mock.assert_called_once()
+
+            input_element.send_keys(Keys.SHIFT + Keys.HOME, Keys.BACK_SPACE)
+            input_element.send_keys("42", Keys.TAB)
+            time.sleep(0.05)
+            self.assertEqual("42", input_element.get_attribute("value"))
+            publish_mock.assert_called_with(42, unittest.mock.ANY)
