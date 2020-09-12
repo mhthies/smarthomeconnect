@@ -357,7 +357,7 @@ class WebServer:
         # If not changed (either when `wait` and timeout is reached) or if not `wait` and `If-None-Match` indicates
         # unchanged value, return HTTP 304 Not Modified
         if not changed:
-            return aiohttp.web.HTTPNotModified(headers={'ETag': etag})
+            raise aiohttp.web.HTTPNotModified(headers={'ETag': etag})
         else:
             return aiohttp.web.Response(status=200 if value is not None else 409,
                                         headers={'ETag': etag},
@@ -389,7 +389,7 @@ class WebServer:
                            request.remote, e, data)
             raise aiohttp.web.HTTPUnprocessableEntity(reason="Could not use provided value to update API object: {}"
                                                       .format(e))
-        return aiohttp.web.HTTPNoContent()
+        raise aiohttp.web.HTTPNoContent()
 
     def serve_static_file(self, path: pathlib.Path) -> str:
         """
