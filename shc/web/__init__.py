@@ -774,7 +774,7 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         if not wait and etag_match == str(id(self.future)):
             return False, None, str(id(self.future))
         # If not waiting for next value *or* etag indicates changed value: return current value
-        if not wait or (etag_match is not None and etag_match != id(self.future)):
+        if not wait or (etag_match is not None and etag_match != str(id(self.future))):
             value = await self._from_provider()
             return True, value, str(id(self.future))
 
