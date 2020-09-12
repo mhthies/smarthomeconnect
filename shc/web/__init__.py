@@ -284,7 +284,8 @@ class WebServer:
             # subscribe action
             if action == "subscribe":
                 logger.debug("got websocket subscribe request for API object %s from %s", name, request.remote)
-                await obj.websocket_subscribe(ws)
+                await obj.websocket_subscribe(ws, handle)
+                return
 
             # post action
             elif action == "post":
@@ -311,7 +312,7 @@ class WebServer:
             # get action
             elif action == "get":
                 logger.debug("got get request for API object %s via websocket from %s", name, request.remote)
-                value = await obj.http_get()
+                value = (await obj.http_get())[1]
                 result['status'] = 200 if value is not None else 409
                 result['value'] = value
 
@@ -734,11 +735,13 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         data = json.dumps({'status': 200, 'name': self.name, 'value': value}, cls=SHCJsonEncoder)
         await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
 
-    async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
+    async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse, handle: Any) -> None:
         self.subscribed_websockets.add(ws)
         current_value = await self._from_provider()
         if current_value is not None:
-            data = json.dumps({'status': 200, 'name': self.name, 'value': current_value}, cls=SHCJsonEncoder)
+            data = json.dumps({'status': 200, 'action': 'subscribe', 'name': self.name, 'value': current_value,
+                               'handle': handle},
+                              cls=SHCJsonEncoder)
             await ws.send_str(data)
 
     def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
