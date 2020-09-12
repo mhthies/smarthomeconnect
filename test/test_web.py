@@ -363,8 +363,6 @@ class WebSocketAPITest(unittest.TestCase):
 
         self.server_runner.stop()
 
-    # TODO test errors on invalid JSON, missing action, missing object, unknown object
-
     @async_test
     async def test_errors(self) -> None:
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
