@@ -1,8 +1,12 @@
 import asyncio
+import json
 import shutil
 import time
 import unittest
 import unittest.mock
+import urllib.request
+import urllib.error
+import http.client
 
 from selenium import webdriver
 import selenium.webdriver.firefox.options
@@ -165,3 +169,155 @@ class WebWidgetsTest(AbstractWebTest):
             time.sleep(0.05)
             self.assertEqual("42", input_element.get_attribute("value"))
             publish_mock.assert_called_with(42, unittest.mock.ANY)
+
+    def test_input_string(self) -> None:
+        page = self.server.page('index')
+        input_widget = web.widgets.TextInput(str, "Message of the Day").connect(ExampleReadable(str, "Hello, World!"))
+        page.add_item(input_widget)
+
+        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            time.sleep(0.05)
+            input_element = self.driver.find_element_by_xpath(
+                '//*[normalize-space(text()) = "Message of the Day"]/..//input')
+            self.assertEqual("Hello, World!", input_element.get_attribute("value"))
+
+            asyncio.run_coroutine_threadsafe(input_widget.write("Foobar", [self]), loop=self.server_runner.loop).result()
+            time.sleep(0.05)
+            self.assertEqual("Foobar", input_element.get_attribute("value"))
+
+            input_element.send_keys(Keys.SHIFT + Keys.HOME, Keys.BACK_SPACE)
+            input_element.send_keys("Hello, SHC!", Keys.ENTER)
+            time.sleep(0.05)
+            self.assertEqual("Hello, SHC!", input_element.get_attribute("value"))
+            publish_mock.assert_called_once_with("Hello, SHC!", unittest.mock.ANY)
+
+
+class TestAPI(unittest.TestCase):
+    # We use the Python built-in (synchronous) HTTP client (urllib.request / http.client) to test the compatibility with
+    # another HTTP implementation and have a more realistic control flow/timing (with different threads instead of one
+    # AsyncIO event loop)
+    def setUp(self) -> None:
+        self.server = web.WebServer("localhost", 42080, 'index')
+        self.server_runner = InterfaceThreadRunner(self.server)
+
+    def tearDown(self) -> None:
+        self.server_runner.stop()
+
+    def test_rest_get(self):
+        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        self.server_runner.start()
+
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen("http://localhost:42080/api/v1/object/a_non_existing_object")
+        self.assertEqual(404, cm.exception.code)
+
+        response: http.client.HTTPResponse = urllib.request.urlopen(
+            "http://localhost:42080/api/v1/object/the_api_object")
+        self.assertEqual(42, json.loads(response.read()))
+        etag1 = response.headers["ETag"]
+
+        # GET request with 'If-None-Match' header with the retrieved ETag should return HTTP 304 NotModified
+        request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object",
+                                         headers={'If-None-Match': etag1})
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen(request)
+        self.assertEqual(304, cm.exception.code)
+        self.assertEqual(etag1, cm.exception.headers["ETag"])
+
+    def test_rest_get_wait(self):
+        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        self.server_runner.start()
+
+        async def scheduled_update(value):
+            await asyncio.sleep(0.2)
+            await api_object.write(value, self)
+
+        tic = time.time()
+        asyncio.run_coroutine_threadsafe(scheduled_update(56), self.server_runner.loop)
+
+        response: http.client.HTTPResponse = urllib.request.urlopen(
+            "http://localhost:42080/api/v1/object/the_api_object?wait=0.5")
+        toc = time.time()
+        self.assertEqual(56, json.loads(response.read()))
+        self.assertAlmostEqual(0.2, toc-tic, delta=0.02)
+
+        # When no update happens, we should retrieve a HTTP 304 NotModified after 0.5 s
+        tic = time.time()
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            urllib.request.urlopen("http://localhost:42080/api/v1/object/the_api_object?wait=0.5")
+        toc = time.time()
+        self.assertEqual(304, cm.exception.getcode())
+        self.assertAlmostEqual(0.5, toc-tic, delta=0.02)
+
+    def test_rest_get_wait_etag(self):
+        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        self.server_runner.start()
+
+        # A normal GET request to get the current ETag
+        response: http.client.HTTPResponse = urllib.request.urlopen(
+            "http://localhost:42080/api/v1/object/the_api_object")
+        etag1 = response.headers["ETag"]
+
+        async def scheduled_update(value):
+            await asyncio.sleep(0.2)
+            await api_object.write(value, self)
+
+        # A GET request with matching ETag and wait parameter. It should wait for the next value
+        tic = time.time()
+        asyncio.run_coroutine_threadsafe(scheduled_update(56), self.server_runner.loop)
+
+        request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object?wait=0.5",
+                                         headers={'If-None-Match': etag1})
+        response: http.client.HTTPResponse = urllib.request.urlopen(request)
+        toc = time.time()
+        etag2 = response.headers['ETag']
+        self.assertEqual(56, json.loads(response.read()))
+        self.assertAlmostEqual(0.2, toc-tic, delta=0.02)
+        self.assertNotEqual(etag1, etag2)
+
+        # Now, simulate that we missed that update by sending the same ETag again. It should return immediately with a
+        # freshly read value (which is still 42) but the new ETag
+        tic = time.time()
+        request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object?wait=0.5",
+                                         headers={'If-None-Match': etag1})
+        response: http.client.HTTPResponse = urllib.request.urlopen(request)
+        toc = time.time()
+        self.assertEqual(42, json.loads(response.read()))
+        self.assertEqual(etag2, response.headers['ETag'])
+        self.assertAlmostEqual(0, toc-tic, delta=0.02)
+
+    def test_rest_post(self):
+        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        self.server_runner.start()
+
+        # POST to non-existing object
+        with unittest.mock.patch.object(api_object, '_publish', new_callable=AsyncMock) as publish_mock:
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                request = urllib.request.Request("http://localhost:42080/api/v1/object/non_existing_object",
+                                                 data=json.dumps(56).encode(), method="POST")
+                urllib.request.urlopen(request)
+        self.assertEqual(404, cm.exception.code)
+        publish_mock.assert_not_called()
+
+        # valid POST
+        with unittest.mock.patch.object(api_object, '_publish', new_callable=AsyncMock) as publish_mock:
+            request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object",
+                                             data=json.dumps(56).encode(), method="POST")
+            urllib.request.urlopen(request)
+        publish_mock.assert_called_once_with(56, unittest.mock.ANY)
+
+        # POST with invalid JSON data → HTTP 400 InvalidRequest
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object",
+                                             data="56,".encode(), method="POST")
+            urllib.request.urlopen(request)
+        self.assertEqual(400, cm.exception.code)
+
+        # POST with invalid JSON data type → HTTP 422 InvalidRequest
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object",
+                                             data=json.dumps("abc").encode(), method="POST")
+            urllib.request.urlopen(request)
+        self.assertEqual(422, cm.exception.code)
