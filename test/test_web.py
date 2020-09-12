@@ -8,12 +8,13 @@ import urllib.request
 import urllib.error
 import http.client
 
+import aiohttp
 from selenium import webdriver
 import selenium.webdriver.firefox.options
 from selenium.webdriver.common.keys import Keys
 
 from shc import web
-from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock
+from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
 
 
 @unittest.skipIf(shutil.which("geckodriver") is None, "Selenium's geckodriver is not available in PATH")
@@ -321,3 +322,153 @@ class TestAPI(unittest.TestCase):
                                              data=json.dumps("abc").encode(), method="POST")
             urllib.request.urlopen(request)
         self.assertEqual(422, cm.exception.code)
+
+
+class WebSocketAPITest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = web.WebServer("localhost", 42080, 'index')
+        self.server_runner = InterfaceThreadRunner(self.server)
+
+        self.closing = False
+        self.ws_callback = unittest.mock.Mock()
+
+    async def start_websocket(self):
+        async def handle_websocket(ws):
+            async for msg in ws:
+                if msg.type in (aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.BINARY):
+                    self.ws_callback(msg.data)
+                elif msg.type == aiohttp.WSMsgType.CLOSED:
+                    if self.closing:
+                        break
+                    else:
+                        raise AssertionError("Websocket closed by server.")
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    raise AssertionError("Websocket error: {}".format(msg.data))
+
+        self.client_session = aiohttp.ClientSession()
+        self.ws = await self.client_session.ws_connect('http://localhost:42080/api/v1/ws')
+        self.ws_receiver_task = asyncio.create_task(handle_websocket(self.ws))
+
+    def tearDown(self) -> None:
+        # Close client
+        # websocket
+        self.closing = True
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.ws.close())
+        loop.create_task(self.client_session.close())
+        pending = asyncio.all_tasks(loop)
+        loop.run_until_complete(asyncio.gather(*pending))
+        # Await ws receiver task to catch websocket errors
+        loop.run_until_complete(self.ws_receiver_task)
+
+        self.server_runner.stop()
+
+    # TODO test errors on invalid JSON, missing action, missing object, unknown object
+
+    @async_test
+    async def test_errors(self) -> None:
+        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        self.server_runner.start()
+        await self.start_websocket()
+
+        # Invalid JSON → 400
+        await self.ws.send_str("42,")
+        await asyncio.sleep(0.05)
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual(400, data['status'])
+        self.assertIn('JSON', data['error'])
+
+        # Missing action → 422
+        self.ws_callback.reset_mock()
+        await self.ws.send_json({'name': 'the_api_object'})
+        await asyncio.sleep(0.05)
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual(422, data['status'])
+        self.assertIn('action', data['error'])
+
+        # Missing object name → 422
+        self.ws_callback.reset_mock()
+        await self.ws.send_json({'action': 'get'})
+        await asyncio.sleep(0.05)
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual(422, data['status'])
+        self.assertIn('name', data['error'])
+
+        # Invalid action → 422
+        self.ws_callback.reset_mock()
+        await self.ws.send_json({'action': 'foobar', 'name': 'the_api_object'})
+        await asyncio.sleep(0.05)
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual(422, data['status'])
+        self.assertIn('action', data['error'])
+
+        # Unknown object → 404
+        self.ws_callback.reset_mock()
+        await self.ws.send_json({'action': 'get', 'name': 'non_existing_object'})
+        await asyncio.sleep(0.05)
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual(404, data['status'])
+        self.assertIn('name', data['error'])
+
+    @async_test
+    async def test_get(self) -> None:
+        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        self.server_runner.start()
+        await self.start_websocket()
+
+        await self.ws.send_json({'action': 'get', 'name': 'the_api_object'})
+        await asyncio.sleep(0.05)
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual('get', data['action'])
+        self.assertEqual('the_api_object', data['name'])
+        self.assertEqual(200, data['status'])
+        self.assertEqual(42, data['value'])
+
+    @async_test
+    async def test_post(self) -> None:
+        api_object = self.server.api(int, "the_api_object")
+        self.server_runner.start()
+        await self.start_websocket()
+
+        with unittest.mock.patch.object(api_object, '_publish', new_callable=AsyncMock) as publish_mock:
+            await self.ws.send_json({'action': 'post', 'name': 'the_api_object', 'value': 56})
+            await asyncio.sleep(0.05)
+
+        publish_mock.assert_called_once_with(56, unittest.mock.ANY)
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual('post', data['action'])
+        self.assertEqual('the_api_object', data['name'])
+        self.assertEqual(204, data['status'])
+
+    @async_test
+    async def test_subscribe(self) -> None:
+        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        self.server_runner.start()
+        await self.start_websocket()
+
+        await self.ws.send_json({'action': 'subscribe', 'name': 'the_api_object'})
+        await asyncio.sleep(0.05)
+
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual('subscribe', data['action'])
+        self.assertEqual('the_api_object', data['name'])
+        self.assertEqual(42, data['value'])
+        self.assertEqual(200, data['status'])
+
+        self.ws_callback.reset_mock()
+        asyncio.run_coroutine_threadsafe(api_object.write(56, [self]), self.server_runner.loop)
+        await asyncio.sleep(0.05)
+
+        self.ws_callback.assert_called_once()
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertEqual('the_api_object', data['name'])
+        self.assertEqual(56, data['value'])
+        self.assertEqual(200, data['status'])
