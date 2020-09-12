@@ -118,6 +118,8 @@ class WebServer:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
         for connector in itertools.chain.from_iterable(page.get_connectors() for page in self._pages.values()):
             self.connectors[id(connector)] = connector
+        for api_object in self._api_objects.values():
+            api_object.start()
         self._runner = aiohttp.web.AppRunner(self._app)
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
@@ -705,7 +707,16 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         super().__init__()
         self.name = name
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
-        self.future: asyncio.Future[T] = asyncio.get_event_loop().create_future()
+        self.future: asyncio.Future[T]
+
+    def start(self) -> None:
+        """
+        Do some things at startup of the webserver.
+        """
+        # We do this upon server startup to ensure that the future is bound to the correct AsyncIO event loop.
+        # This might not be the case if we create the future in the __init__ method, since the object creation might be
+        # done in a different Thread than the SHC main event loop thread (as in our unittests).
+        self.future = asyncio.get_event_loop().create_future()
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         await self._publish_http(value)
