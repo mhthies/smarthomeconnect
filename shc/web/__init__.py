@@ -73,13 +73,12 @@ class WebServer:
         self._associated_tasks: weakref.WeakSet[asyncio.Task] = weakref.WeakSet()
         # data structure of the user interface's main menu
         # The structure looks as follows:
-        # [('Label', 'page_name'),
-        #  ('Submenu label', [
-        #     ('Label 2', 'page_name2'), ...
+        # [('Label', 'icon', 'page_name'),
+        #  ('Submenu label', None, [
+        #     ('Label 2', 'icon', 'page_name2'), ...
         #   ]),
         #  ...]
-        # TODO provide interface for easier setting of this structure
-        self.ui_menu_entries: List[Tuple[Union[str, markupsafe.Markup], Union[str, Tuple]]] = []
+        self.ui_menu_entries: List[Tuple[str, Optional[str], Union[str, List[Tuple[str, Optional[str], str]]]]] = []
         # List of all static js URLs to be included in the user interface pages
         self._js_files = [
             "static/jquery-3.min.js",
@@ -141,21 +140,71 @@ class WebServer:
         await self._runner.cleanup()
         self._stopped.set()
 
-    def page(self, name: str) -> "WebPage":
+    def page(self, name: str, title: Optional[str] = None, menu_entry: Union[bool, str] = False,
+             menu_icon: Optional[str] = None, menu_sub_label: Optional[str] = None, menu_sub_icon: Optional[str] = None
+             ) -> "WebPage":
         """
         Create a new WebPage with a given name.
 
         If there is already a page with that name existing, it will be returned.
 
-        :param name: The `name` of the page, which is used in the page's URL to identify it
+        :param name: The `name` of the page, which is used in the page's URL to identify it.
+        :param title: The title/heading of the page. If not given, the name is used.
+        :param menu_entry: If True (or a none-empty string) and this is a new page, an entry in the main menu will be
+            created for the page. If `menu_entry` is a string, it will be used as the label, otherwise, the title will
+            be used as a label.
+        :param menu_icon: If given, the menu entry is prepended with the named icon
+        :param menu_sub_label: If given, the menu entry is labeled with `menu_sub_label` and added to a submenu, labeled
+            with `menu_entry` (and `menu_icon`, if given).
+        :param menu_sub_icon: If given and `menu_sub_label` is given, the named icon is prepended to the submenu entry.
         :return: The new WebPage object or the existing WebPage object with that name
+        :raises ValueError: If `menu_entry` is not False and there is already a menu entry with the same label (or a
+            submenu entry with the same two labels)
         """
         if name in self._pages:
             return self._pages[name]
         else:
-            page = WebPage(self, name)
+            if not title:
+                title = name
+            page = WebPage(self, name, title)
             self._pages[name] = page
+            if menu_entry:
+                self.add_menu_entry(name,
+                                    menu_entry if isinstance(menu_entry, str) else title,
+                                    menu_icon, menu_sub_label, menu_sub_icon)
             return page
+
+    def add_menu_entry(self, page_name: str, label: str, icon: Optional[str] = None, sub_label: Optional[str] = None,
+                       sub_icon: Optional[str] = None) -> None:
+        """
+        Create an entry for a named web UI page in the web UI's main navigation menu.
+
+        The existence of the page is not checked, so menu entries can be created before the page has been created.
+
+        :param page_name: The name of the page (link target)
+        :param label: The label of the entry (or the submenu to place the entry in) in the main menu
+        :param icon: If given, the menu entry is prepended with the named icon
+        :param sub_label: If given, the menu entry is labeled with `sub_label` and added to a submenu, labeled with
+            `label` (and `icon`, if given).
+        :param sub_icon: If given and `menu_sub_label` is given, the named icon is prepended to the submenu entry.
+        :raises ValueError: If there is already a menu entry with the same label (or a submenu entry with the same two
+            labels)
+        """
+        existing_entry = next((e for e in self.ui_menu_entries if e[0] == label), None)
+        if not sub_label:
+            if existing_entry:
+                raise ValueError("UI main menu entry with label {} exists already. Contents: {}"
+                                 .format(label, existing_entry[2]))
+            self.ui_menu_entries.append((label, icon, page_name))
+
+        elif existing_entry:
+            if not isinstance(existing_entry[2], list):
+                raise ValueError("Existing UI main menu entry with label {} is not a submenu but a link to page {}"
+                                 .format(label, existing_entry[2]))
+            existing_entry[2].append((sub_label, sub_icon, page_name))
+
+        else:
+            self.ui_menu_entries.append((label, icon, [(sub_label, sub_icon, page_name)]))
 
     def api(self, type_: Type, name: str) -> "WebApiObject":
         """
@@ -190,7 +239,7 @@ class WebServer:
             raise aiohttp.web.HTTPNotFound()
 
         template = jinja_env.get_template('page.htm')
-        body = await template.render_async(title=page.name, segments=page.segments, menu=self.ui_menu_entries,
+        body = await template.render_async(title=page.title, segments=page.segments, menu=self.ui_menu_entries,
                                            root_url=self.root_url, js_files=self._js_files, css_files=self._css_files)
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
@@ -466,9 +515,10 @@ class WebPage(WebConnectorContainer):
     To create a new page or get an existing page by name, use the :meth:`WebServer.page` method of the target web
     interface.
     """
-    def __init__(self, server: WebServer, name: str):
+    def __init__(self, server: WebServer, name: str, title: str):
         self.server = server
         self.name = name
+        self.title = title
         self.segments: List["_WebPageSegment"] = []
 
     def add_item(self, item: "WebPageItem") -> None:

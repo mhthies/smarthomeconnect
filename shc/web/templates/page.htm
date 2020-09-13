@@ -29,15 +29,21 @@
 <body>
     {% if menu %}
         <div class="ui sidebar inverted vertical menu main-menu">
-            {% for label, link in menu %}
+            {% for label, icon, link in menu %}
                 {% if link is string %}
-                    <a class="item" href="/page/{{ link }}/">{{ label }}</a>
+                    <a class="item" href="/page/{{ link }}/">
+                        {% if icon %}<i class="{{ icon }} icon"></i>{% endif %}
+                        {{ label }}
+                    </a>
                 {% else %}
                     <div class="item">
                         <div class="header">{{ label }}</div>
                         <div class="menu">
-                            {% for sub_label, sub_link in link %}
-                                <a class="item" href="/page/{{ sub_link }}/">{{ sub_label }}</a>
+                            {% for sub_label, sub_icon, sub_link in link %}
+                                <a class="item" href="/page/{{ sub_link }}/">
+                                    {% if icon %}<i class="{{ icon }} icon"></i>{% endif %}
+                                    {{ sub_label }}
+                                </a>
                             {% endfor %}
                         </div>
                     </div>
@@ -49,16 +55,22 @@
         {% if menu %}
             <div class="ui large top inverted fixed menu main-menu">
                 <div class="ui container">
-                    {% for label, link in menu %}
+                    {% for label, icon, link in menu %}
                         {% if link is string %}
-                            <a class="mobile hidden item" href="/page/{{ link }}/">{{ label }}</a>
+                            <a class="mobile hidden item" href="/page/{{ link }}/">
+                                {% if icon %}<i class="{{ icon }} icon"></i>{% endif %}
+                                {{ label }}
+                            </a>
                         {% else %}
                             <div class="mobile hidden ui dropdown item">
                                 {{ label }}
                                 <i class="dropdown icon"></i>
                                 <div class="menu">
-                                    {% for sub_label, sub_link in link %}
-                                        <a class="item" href="/page/{{ sub_link }}/">{{ sub_label }}</a>
+                                    {% for sub_label, sub_icon, sub_link in link %}
+                                        <a class="item" href="/page/{{ sub_link }}/">
+                                            {% if sub_icon %}<i class="{{ sub_icon }} icon"></i>{% endif %}
+                                            {{ sub_label }}
+                                        </a>
                                     {% endfor %}
                                 </div>
                             </div>
