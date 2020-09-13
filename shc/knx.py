@@ -46,6 +46,7 @@ register_converter(KNXHVACMode, int, lambda v: v.value)
 register_converter(int, KNXHVACMode, lambda v: KNXHVACMode(v))
 register_converter(KNXUpDown, bool, lambda v: v.value)
 register_converter(bool, KNXUpDown, lambda v: KNXUpDown(v))
+register_converter(datetime.datetime, knxdclient.KNXTime, knxdclient.KNXTime.from_datetime)
 
 
 KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
