@@ -43,7 +43,7 @@ class SimpleWebTest(AbstractWebTest):
         self.driver.get("http://localhost:42080")
 
     def test_page(self) -> None:
-        page = self.server.page('index')
+        page = self.server.page('index', 'Home Page')
         page.add_item(web.widgets.ButtonGroup("My button group", [
             web.widgets.StatelessButton(42, "Foobar")
         ]))
@@ -55,12 +55,37 @@ class SimpleWebTest(AbstractWebTest):
         self.server_runner.start()
         self.driver.get("http://localhost:42080")
 
-        self.assertIn('index', self.driver.page_source)
+        self.assertIn('Home Page', self.driver.page_source)
+        self.assertIn('Home Page', self.driver.title)
         self.assertIn('Another segment', self.driver.page_source)
         button = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "Foobar"]')
         self.assertIn("My button group", button.find_element_by_xpath('../..').text)
         button = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "Bar"]')
         self.assertIn("Another button group", button.find_element_by_xpath('../..').text)
+
+    def test_main_menu(self) -> None:
+        self.server.page('index', menu_entry="Home", menu_icon='home')
+        self.server.add_menu_entry('another_page', label="Foo", sub_label="Bar", sub_icon="bars")
+
+        self.server_runner.start()
+        self.driver.get("http://localhost:42080")
+
+        # Only search for the (visible) main navigation bar, instead of the hidden sidebare for mobile screens:
+        container = self.driver.find_element_by_css_selector('.pusher')
+
+        home_link = container.find_element_by_css_selector('i.home.icon').find_element_by_xpath('..')
+        self.assertIn("Home", home_link.text)
+        home_link.click()
+
+        container = self.driver.find_element_by_css_selector('.pusher')
+        submenu = container.find_element_by_xpath('.//div[contains(text(), "Foo")]')
+        submenu_entry = submenu.find_element_by_xpath('.//a[contains(@class, "item")]')
+        self.assertFalse(submenu_entry.is_displayed())
+        submenu.click()
+        self.assertIn("Bar", submenu_entry.text)
+        self.assertTrue(submenu_entry.is_displayed())
+        self.assertEqual(submenu_entry.get_attribute('href').strip(), "http://localhost:42080/page/another_page/")
+        submenu_entry.find_element_by_css_selector('i.bars.icon')
 
 
 class WebWidgetsTest(AbstractWebTest):
@@ -206,7 +231,7 @@ class TestAPI(unittest.TestCase):
     def tearDown(self) -> None:
         self.server_runner.stop()
 
-    def test_rest_get(self):
+    def test_rest_get(self) -> None:
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
 
@@ -227,7 +252,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(304, cm.exception.code)
         self.assertEqual(etag1, cm.exception.headers["ETag"])
 
-    def test_rest_get_wait(self):
+    def test_rest_get_wait(self) -> None:
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
 
@@ -252,7 +277,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(304, cm.exception.getcode())
         self.assertAlmostEqual(0.5, toc-tic, delta=0.02)
 
-    def test_rest_get_wait_etag(self):
+    def test_rest_get_wait_etag(self) -> None:
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
 
@@ -289,7 +314,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(etag2, response.headers['ETag'])
         self.assertAlmostEqual(0, toc-tic, delta=0.02)
 
-    def test_rest_post(self):
+    def test_rest_post(self) -> None:
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
 
@@ -332,7 +357,7 @@ class WebSocketAPITest(unittest.TestCase):
         self.closing = False
         self.ws_callback = unittest.mock.Mock()
 
-    async def start_websocket(self):
+    async def start_websocket(self) -> None:
         async def handle_websocket(ws):
             async for msg in ws:
                 if msg.type in (aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.BINARY):
