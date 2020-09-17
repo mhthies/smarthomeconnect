@@ -1,11 +1,12 @@
 import asyncio
 import concurrent.futures
 import functools
+import heapq
 import threading
 import time
 import unittest.mock
 import datetime
-from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List
+from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List, Union, Tuple, Set
 
 from shc import base
 
@@ -54,7 +55,8 @@ class ClockMock:
     :meth:`datetime.date.today` to return the mocked time instead of the real wall clock time, was well as the
     :func:`time.sleep` and :func:`asyncio.sleep` functions to enhance the mocked time instead of actually sleeping.
     Optionally, the patched sleep methods can actually sleep for a predefined time to allow concurrent things to happen
-    in the mean time (which would normally happen during the sleep).
+    in the mean time (which would normally happen during the sleep). This also allows to let the ClockMock synchronize
+    multiple threads or AsyncIO coroutines, sleeping for different times in parallel.
 
     Before using `ClockMock`s, the :meth:`enable` class method must be called once to make the `date` and `datetime`
     classes patchable.
@@ -66,14 +68,69 @@ class ClockMock:
         self.actual_sleep = actual_sleep
         self.original_sleep = time.sleep
         self.original_async_sleep = asyncio.sleep
+        # A Mutex to make the the `queue` of sleeping Threads/Coroutines thread-safe
+        self.mutex = threading.RLock()
+        # Priority queue (heapq) of waiting Threads/Coroutines ordered by their wakeup time
+        self.queue: List[Tuple[datetime.datetime, int, Union[int, asyncio.Task]]] = []
+        # A counter for sleep times to make all entries in the queue unique
+        self.counter = 0
+        # Set of counter values of invalidated entries in the `queue`. Those must be skipped when checking if a
+        # Thread/Couroutine is the next to wake up
+        self.invalid_queue: Set[int] = set()
+
+    def tidy_queue(self):
+        while True:
+            if self.queue[0][1] in self.invalid_queue:
+                self.invalid_queue.remove(self.queue[0][1])
+                heapq.heappop(self.queue)
+            else:
+                return
 
     def sleep(self, seconds: float) -> None:
-        self.original_sleep(self.actual_sleep)
-        self.current_time += datetime.timedelta(seconds=seconds) + self.overshoot
+        thread_id = threading.get_ident()
+        # Add us to the queue of waiting threads/coroutines
+        with self.mutex:
+            target_time = self.current_time + datetime.timedelta(seconds=seconds) + self.overshoot
+            heapq.heappush(self.queue, (target_time, self.counter, thread_id))
+            self.counter += 1
+        # Actually sleep while other thread/coroutine work or sleep (but shorter than we do in emulated time)
+        while True:
+            self.original_sleep(self.actual_sleep)
+            with self.mutex:
+                self.tidy_queue()
+                if self.queue[0][2] == thread_id:
+                    heapq.heappop(self.queue)
+                    break
+        # Update emulated wall clock to the target sleep time
+        self.current_time = target_time
 
     async def async_sleep(self, seconds: float) -> None:
-        await self.original_async_sleep(self.actual_sleep)
-        self.current_time += datetime.timedelta(seconds=seconds) + self.overshoot
+        current_task = asyncio.current_task()
+        target_time = self.current_time + datetime.timedelta(seconds=seconds) + self.overshoot
+        # Add us to the queue of waiting threads/coroutines
+        with self.mutex:
+            count = self.counter
+            heapq.heappush(self.queue, (target_time, count, current_task))
+            self.counter += 1
+        # Actually sleep while other thread/coroutine work or sleep (but shorter than we do in emulated time)
+        while True:
+            try:
+                await self.original_async_sleep(self.actual_sleep)
+            except asyncio.CancelledError:
+                # If the sleep is ended by cancelling the task, we must make sure to invalidate our queue entry.
+                # Otherwise, other threads/coroutines would sleep infinitely waiting for us to wake up
+                with self.mutex:
+                    self.invalid_queue.add(count)
+                raise
+            # Check if we are next to wake up or if another thread/coroutine should wake up before us, according to
+            # emulated time
+            with self.mutex:
+                self.tidy_queue()
+                if self.queue[0][2] is current_task:
+                    heapq.heappop(self.queue)
+                    break
+        # Update emulated wall clock to the target sleep time
+        self.current_time = target_time
 
     def now(self) -> datetime.datetime:
         return self.current_time
