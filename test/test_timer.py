@@ -5,11 +5,12 @@ import unittest.mock
 from typing import Optional, List
 
 from shc import timer, base
-from ._helper import ClockMock, async_test
+from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock
 
 
 class LogarithmicSleepTest(unittest.TestCase):
-    def setUp(self) -> None:
+    @classmethod
+    def setUpClass(cls) -> None:
         ClockMock.enable()
 
     @async_test
@@ -253,3 +254,116 @@ class AtTimerTest(unittest.TestCase):
     def test_exception(self) -> None:
         with self.assertRaises(ValueError):
             once_timer = timer.At(day=[1,5,15], weeknum=timer.EveryNth(2))
+
+
+class BoolTimerTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        ClockMock.enable()
+
+    @async_test
+    async def test_ton(self) -> None:
+        begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
+        call_times = []
+
+        def save_time(*args):
+            call_times.append(datetime.datetime.now())
+
+        base = ExampleSubscribable(bool)
+        ton = timer.TOn(base, datetime.timedelta(seconds=42))
+
+        with unittest.mock.patch.object(ton, "_publish", new=AsyncMock(side_effect=save_time)) as publish_mock:
+            with ClockMock(begin, actual_sleep=0.05) as clock:
+                self.assertFalse(await ton.read())
+
+                # False should not be forwarded, when value is already False
+                await base.publish(False, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_not_called()
+
+                # True should be forwarded with delay
+                await base.publish(True, [self])
+                await asyncio.sleep(45)
+                publish_mock.assert_called_with(True, unittest.mock.ANY)
+                self.assertAlmostEqual(begin + datetime.timedelta(seconds=42.01), call_times[-1],
+                                       delta=datetime.timedelta(seconds=.01))
+
+                # False should now be forwarded immediately
+                publish_mock.reset_mock()
+                await base.publish(False, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_called_with(False, unittest.mock.ANY)
+
+                # True delay should be suppressable with False ...
+                publish_mock.reset_mock()
+                await base.publish(True, [self])
+                await asyncio.sleep(20)
+                await base.publish(False, [self])
+                await asyncio.sleep(30)
+                publish_mock.assert_not_called()
+
+                # ... and not extendable with True
+                publish_mock.reset_mock()
+                tic = datetime.datetime.now()
+                await base.publish(True, [self])
+                await asyncio.sleep(20)
+                await base.publish(True, [self])
+                await asyncio.sleep(30)
+                publish_mock.assert_called_with(True, unittest.mock.ANY)
+                self.assertAlmostEqual(tic + datetime.timedelta(seconds=42), call_times[-1],
+                                       delta=datetime.timedelta(seconds=.01))
+
+    @async_test
+    async def test_toff(self) -> None:
+        begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
+        call_times = []
+
+        def save_time(*args):
+            call_times.append(datetime.datetime.now())
+
+        base = ExampleSubscribable(bool)
+        toff = timer.TOff(base, datetime.timedelta(seconds=42))
+
+        with unittest.mock.patch.object(toff, "_publish", new=AsyncMock(side_effect=save_time)) as publish_mock:
+            with ClockMock(begin, actual_sleep=0.05) as clock:
+                self.assertFalse(await toff.read())
+
+                # False should not be forwarded, when value is already False
+                await base.publish(False, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_not_called()
+
+                # True should be forwarded with immediately
+                await base.publish(True, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_called_with(True, unittest.mock.ANY)
+
+                # False should now be forwarded with delay
+                publish_mock.reset_mock()
+                await base.publish(False, [self])
+                await asyncio.sleep(45)
+                publish_mock.assert_called_with(False, unittest.mock.ANY)
+                self.assertAlmostEqual(begin + datetime.timedelta(seconds=42.01), call_times[-1],
+                                       delta=datetime.timedelta(seconds=.01))
+
+                # False delay should be suppressable with True ...
+                await base.publish(True, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.reset_mock()
+                await base.publish(False, [self])
+                await asyncio.sleep(20)
+                await base.publish(True, [self])
+                await asyncio.sleep(30)
+                publish_mock.assert_not_called()
+
+                # ... and not extendable with False
+                publish_mock.reset_mock()
+                tic = datetime.datetime.now()
+                await base.publish(False, [self])
+                await asyncio.sleep(20)
+                await base.publish(False, [self])
+                await asyncio.sleep(30)
+                publish_mock.assert_called_with(False, unittest.mock.ANY)
+                self.assertAlmostEqual(tic + datetime.timedelta(seconds=42), call_times[-1],
+                                       delta=datetime.timedelta(seconds=.01))
+
