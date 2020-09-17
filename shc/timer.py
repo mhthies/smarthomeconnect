@@ -450,7 +450,7 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
         self.delay = delay
         self._value = False
         self._change_task: Optional[asyncio.Task] = None
-        wrapped.trigger(self._write)
+        wrapped.trigger(self._update)
 
     @abc.abstractmethod
     async def _update(self, value: bool, origin: List[Any]): ...
@@ -462,7 +462,7 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
         # Make sure this task is cancelled on shutdown
         timer_supervisor.add_temporary_task(asyncio.current_task())
         try:
-            await _logarithmic_sleep(datetime.datetime.now() + self.delay)
+            await _logarithmic_sleep(datetime.datetime.now().astimezone() + self.delay)
         except asyncio.CancelledError:
             return
         self._value = value
@@ -478,20 +478,22 @@ class TOn(_DelayedBool):
             if self._change_task is not None:
                 self._change_task.cancel()
                 self._change_task = None
-            self._value = False
-            await self._publish(False, origin)
+            if self._value:
+                self._value = False
+                await self._publish(False, origin)
 
 
 class TOff(_DelayedBool):
     async def _update(self, value: bool, origin: List[Any]):
         if not value and self._change_task is None:
-            self._change_task = asyncio.create_task(self._set_delayed(True, origin))
+            self._change_task = asyncio.create_task(self._set_delayed(False, origin))
         elif value:
             if self._change_task is not None:
                 self._change_task.cancel()
                 self._change_task = None
-            self._value = False
-            await self._publish(False, origin)
+            if not self._value:
+                self._value = True
+                await self._publish(True, origin)
 
 
 class TOnOff(_DelayedBool):
