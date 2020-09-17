@@ -106,6 +106,7 @@ class WebWidgetsTest(AbstractWebTest):
                 unittest.mock.patch.object(b4, '_publish', new_callable=AsyncMock) as b4_publish:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
+            time.sleep(0.05)
 
             b1_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B1"]')
             b2_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B2"]')
@@ -156,6 +157,7 @@ class WebWidgetsTest(AbstractWebTest):
 
         self.server_runner.start()
         self.driver.get("http://localhost:42080")
+        time.sleep(0.05)
         value_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//*[@data-id]')
         self.assertEqual("42 lux", value_element.text.strip())
 
@@ -171,6 +173,7 @@ class WebWidgetsTest(AbstractWebTest):
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
+            time.sleep(0.05)
             input_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//input')
             self.assertEqual("42", input_element.get_attribute("value"))
 
