@@ -367,3 +367,64 @@ class BoolTimerTest(unittest.TestCase):
                 self.assertAlmostEqual(tic + datetime.timedelta(seconds=42), call_times[-1],
                                        delta=datetime.timedelta(seconds=.01))
 
+    @async_test
+    async def test_pulse(self) -> None:
+        begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
+        call_times = []
+
+        def save_time(*args):
+            call_times.append(datetime.datetime.now())
+
+        base = ExampleSubscribable(bool)
+        tpulse = timer.TPulse(base, datetime.timedelta(seconds=42))
+
+        with unittest.mock.patch.object(tpulse, "_publish", new=AsyncMock(side_effect=save_time)) as publish_mock:
+            with ClockMock(begin, actual_sleep=0.05) as clock:
+                self.assertFalse(await tpulse.read())
+
+                # False should not be forwarded
+                await base.publish(False, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_not_called()
+
+                # True should be forwarded with immediately and automatically result in a later False
+                await base.publish(True, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_called_with(True, unittest.mock.ANY)
+                await asyncio.sleep(45)
+                self.assertEqual(2, publish_mock.call_count)
+                publish_mock.assert_called_with(False, unittest.mock.ANY)
+                self.assertAlmostEqual(begin + datetime.timedelta(seconds=42.01), call_times[-1],
+                                       delta=datetime.timedelta(seconds=.01))
+
+                # Pulse should not be stoppable with False
+                publish_mock.reset_mock()
+                start = clock.now()
+                await base.publish(True, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_called_with(True, unittest.mock.ANY)
+                await asyncio.sleep(20)
+                await base.publish(False, [self])
+                await asyncio.sleep(0.01)
+                self.assertEqual(1, publish_mock.call_count)
+                await asyncio.sleep(45)
+                self.assertEqual(2, publish_mock.call_count)
+                publish_mock.assert_called_with(False, unittest.mock.ANY)
+                self.assertAlmostEqual(start + datetime.timedelta(seconds=42.01), call_times[-1],
+                                       delta=datetime.timedelta(seconds=.01))
+
+                # ... or extendable with True
+                publish_mock.reset_mock()
+                start = clock.now()
+                await base.publish(True, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_called_with(True, unittest.mock.ANY)
+                await asyncio.sleep(20)
+                await base.publish(True, [self])
+                await asyncio.sleep(0.01)
+                self.assertEqual(1, publish_mock.call_count)
+                await asyncio.sleep(45)
+                self.assertEqual(2, publish_mock.call_count)
+                publish_mock.assert_called_with(False, unittest.mock.ANY)
+                self.assertAlmostEqual(start + datetime.timedelta(seconds=42.01), call_times[-1],
+                                       delta=datetime.timedelta(seconds=.01))
