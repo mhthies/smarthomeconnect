@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import json
+import math
 import shutil
 import time
 import unittest
@@ -16,7 +17,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 
 from shc import web
-from shc.datatypes import RangeFloat1
+from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
 from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
 
 
@@ -258,6 +259,58 @@ class WebWidgetsTest(AbstractWebTest):
             time.sleep(0.05)
             publish_mock.assert_called_once()
             self.assertEqual(0.0, publish_mock.call_args[0][0])
+
+    def test_colorchoser(self) -> None:
+        page = self.server.page('index')
+        input_widget = web.widgets.ColorChoser()\
+            .connect(ExampleReadable(RGBUInt8, RGBUInt8(RangeUInt8(127), RangeUInt8(127), RangeUInt8(127))))
+        page.add_item(input_widget)
+
+        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            time.sleep(1)
+            wheel_element = self.driver.find_element_by_css_selector('.IroWheel')
+            wheel_handle_element = wheel_element.find_element_by_css_selector('.IroHandle>circle')
+            slider_element = self.driver.find_element_by_css_selector('.IroSlider')
+            slider_handle_element = slider_element.find_element_by_css_selector('.IroHandle>circle')
+
+            # The wheel handle should be in the center of the wheel ...
+            wheel_rect = wheel_element.rect
+            wheel_center = (wheel_rect['x'] + wheel_rect['width']/2, wheel_rect['y'] + wheel_rect['height']/2)
+            wheel_handle_rect = wheel_element.rect
+            wheel_handle_center = (wheel_handle_rect['x'] + wheel_handle_rect['width']/2,
+                                   wheel_handle_rect['y'] + wheel_handle_rect['height']/2)
+            self.assertAlmostEqual(wheel_center[0], wheel_handle_center[0], delta=4)  # 4px off is okay
+            self.assertAlmostEqual(wheel_center[1], wheel_handle_center[1], delta=4)  # 4px off is okay
+
+            # The slider handle should be at 50%
+            slider_rect = slider_element.rect
+            slider_handle_rect = slider_handle_element.rect
+            self.assertAlmostEqual(slider_rect['x'] + slider_rect['width']/2,
+                                   slider_handle_rect['x'] + slider_handle_rect['width']/2, delta=4)  # 4px off is okay
+
+            # Now, lets set a yellow color at 80% brightness
+            # Yellow is in the right lower corner of the wheel, at 120° clockwise from the top or -60° (-pi/3 rad)
+            # mathematically. (Attention: The y axis is inverted in contrast to the normal mathetmatical orientation)
+            ActionChains(self.driver)\
+                .move_to_element_with_offset(slider_element, 0.8 * slider_rect['width'], slider_rect['height']/2)\
+                .click()\
+                .move_to_element(wheel_handle_element)\
+                .click_and_hold()\
+                .move_to_element_with_offset(
+                    wheel_element,
+                    wheel_rect['width']/2 + 0.6 * math.cos(-math.pi/3) * wheel_rect['width'],
+                    wheel_rect['height']/2 + -0.6 * math.sin(-math.pi/3) * wheel_rect['height'])\
+                .release()\
+                .perform()
+
+            time.sleep(0.05)
+            self.assertEqual(2, publish_mock.call_count)
+            latest_color = publish_mock.call_args[0][0]
+            self.assertAlmostEqual(204, latest_color.red, delta=13)  # 5% off is okay
+            self.assertAlmostEqual(204, latest_color.green, delta=13)
+            self.assertAlmostEqual(0, latest_color.blue, delta=6)
 
     def test_enum_select(self) -> None:
         class ExampleEnum(enum.Enum):
