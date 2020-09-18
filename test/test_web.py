@@ -1,4 +1,5 @@
 import asyncio
+import enum
 import json
 import shutil
 import time
@@ -257,6 +258,41 @@ class WebWidgetsTest(AbstractWebTest):
             time.sleep(0.05)
             publish_mock.assert_called_once()
             self.assertEqual(0.0, publish_mock.call_args[0][0])
+
+    def test_enum_select(self) -> None:
+        class ExampleEnum(enum.Enum):
+            SOME_VALUE = 0
+            SOME_OTHER_VALUE = 1
+            YET_ANOTHER_VALUE = 2
+
+        page = self.server.page('index')
+        input_widget = web.widgets.EnumSelect(ExampleEnum, "Select the Foo")\
+            .connect(ExampleReadable(ExampleEnum, ExampleEnum.SOME_OTHER_VALUE))
+        page.add_item(input_widget)
+
+        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            time.sleep(0.05)
+            container_element = self.driver.find_element_by_xpath(
+                '//*[normalize-space(text()) = "Select the Foo"]/..')
+            menu_element = container_element.find_element_by_css_selector('.selection.dropdown')
+
+            menu_element.click()
+            second_option_element = menu_element\
+                .find_element_by_xpath('.//*[normalize-space(text()) = "SOME_OTHER_VALUE"][contains(@class, "item")]')
+            self.assertIn("selected", second_option_element.get_attribute('class'))
+
+            # select the third option
+            third_option_element = menu_element\
+                .find_element_by_xpath('.//*[normalize-space(text()) = "YET_ANOTHER_VALUE"]')
+            third_option_element.click()
+
+            time.sleep(0.05)
+            menu_element.click()
+            self.assertNotIn("selected", second_option_element.get_attribute('class'))
+            self.assertIn("selected", third_option_element.get_attribute('class'))
+            publish_mock.assert_called_once_with(ExampleEnum.YET_ANOTHER_VALUE, unittest.mock.ANY)
 
 
 class TestAPI(unittest.TestCase):
