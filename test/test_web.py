@@ -12,8 +12,10 @@ import aiohttp
 from selenium import webdriver
 import selenium.webdriver.firefox.options
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver import ActionChains
 
 from shc import web
+from shc.datatypes import RangeFloat1
 from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
 
 
@@ -221,6 +223,40 @@ class WebWidgetsTest(AbstractWebTest):
             time.sleep(0.05)
             self.assertEqual("Hello, SHC!", input_element.get_attribute("value"))
             publish_mock.assert_called_once_with("Hello, SHC!", unittest.mock.ANY)
+
+    def test_slider(self) -> None:
+        page = self.server.page('index')
+        input_widget = web.widgets.Slider("Amount of Foo").connect(ExampleReadable(RangeFloat1, RangeFloat1(0.3)))
+        page.add_item(input_widget)
+
+        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            time.sleep(0.05)
+            container_element = self.driver.find_element_by_xpath(
+                '//*[normalize-space(text()) = "Amount of Foo"]/..')
+            slider_element = container_element.find_element_by_css_selector('.slider')
+            handle_element = slider_element.find_element_by_css_selector(".thumb")
+
+            # Center of handle should be somewhere near 30% of width of
+            slider_width = slider_element.rect['width']
+            slider_start = slider_element.rect['x']
+            handle_center = handle_element.rect['x'] + handle_element.rect['width']/2
+            self.assertAlmostEqual(slider_start + 0.3 * slider_width, handle_center, delta=4)  # 4px off is okay
+
+            # Let's move the handle to about 70%
+            ActionChains(self.driver).drag_and_drop_by_offset(handle_element, 0.4 * slider_width, 0).perform()
+
+            time.sleep(0.05)
+            publish_mock.assert_called_once()
+            self.assertAlmostEqual(0.7, publish_mock.call_args[0][0], delta=0.05)  # 5% off is okay
+
+            # Let's move the handle to about 0%
+            publish_mock.reset_mock()
+            ActionChains(self.driver).drag_and_drop_by_offset(handle_element, -0.8 * slider_width, 0).perform()
+            time.sleep(0.05)
+            publish_mock.assert_called_once()
+            self.assertEqual(0.0, publish_mock.call_args[0][0])
 
 
 class TestAPI(unittest.TestCase):
