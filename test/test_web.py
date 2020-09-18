@@ -177,7 +177,7 @@ class WebWidgetsTest(AbstractWebTest):
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
-            time.sleep(0.05)
+            time.sleep(0.4)
             input_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//input')
             self.assertEqual("42", input_element.get_attribute("value"))
 
@@ -211,7 +211,7 @@ class WebWidgetsTest(AbstractWebTest):
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
-            time.sleep(0.05)
+            time.sleep(0.4)
             input_element = self.driver.find_element_by_xpath(
                 '//*[normalize-space(text()) = "Message of the Day"]/..//input')
             self.assertEqual("Hello, World!", input_element.get_attribute("value"))
@@ -234,7 +234,7 @@ class WebWidgetsTest(AbstractWebTest):
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
-            time.sleep(0.05)
+            time.sleep(0.4)
             container_element = self.driver.find_element_by_xpath(
                 '//*[normalize-space(text()) = "Amount of Foo"]/..')
             slider_element = container_element.find_element_by_css_selector('.slider')
@@ -269,7 +269,7 @@ class WebWidgetsTest(AbstractWebTest):
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
-            time.sleep(1)
+            time.sleep(0.4)
             wheel_element = self.driver.find_element_by_css_selector('.IroWheel')
             wheel_handle_element = wheel_element.find_element_by_css_selector('.IroHandle>circle')
             slider_element = self.driver.find_element_by_css_selector('.IroSlider')
