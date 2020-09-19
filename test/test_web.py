@@ -93,6 +93,29 @@ class SimpleWebTest(AbstractWebTest):
 
 
 class WebWidgetsTest(AbstractWebTest):
+    def test_switch(self) -> None:
+        page = self.server.page('index')
+        switch_widget = web.widgets.Switch("Main Power").connect(ExampleReadable(bool, True))
+        page.add_item(switch_widget)
+
+        with unittest.mock.patch.object(switch_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            time.sleep(0.05)
+            checkbox_element = self.driver.find_element_by_xpath(
+                '//*[normalize-space(text()) = "Main Power"]/..//input')
+            self.assertTrue(checkbox_element.is_selected())
+
+            asyncio.run_coroutine_threadsafe(switch_widget.write(False, [self]), loop=self.server_runner.loop).result()
+            time.sleep(0.05)
+            self.assertFalse(checkbox_element.is_selected())
+
+            checkbox_container = checkbox_element.find_element_by_xpath('./..')
+            checkbox_container.click()
+            time.sleep(0.05)
+            self.assertTrue(checkbox_element.is_selected())
+            publish_mock.assert_called_once_with(True, unittest.mock.ANY)
+
     def test_buttons(self) -> None:
         b1 = web.widgets.ToggleButton(label="B1", color='yellow')
         b2 = web.widgets.DisplayButton(label="B2", color='blue')
