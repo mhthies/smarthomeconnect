@@ -61,13 +61,14 @@ KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
     '7': (int, knxdclient.KNXDPT.UINT16),
     '8': (int, knxdclient.KNXDPT.INT16),
     '9': (float, knxdclient.KNXDPT.FLOAT16),
-    '10': (datetime.time, knxdclient.KNXDPT.TIME),
+    '10': (knxdclient.KNXTime, knxdclient.KNXDPT.TIME),
     '11': (datetime.date, knxdclient.KNXDPT.DATE),
     '12': (int, knxdclient.KNXDPT.UINT32),
     '13': (int, knxdclient.KNXDPT.INT32),
     '14': (float, knxdclient.KNXDPT.FLOAT32),
     '16': (str, knxdclient.KNXDPT.STRING),
     '17': (int, knxdclient.KNXDPT.SCENE_NUMBER),
+    '19': (datetime.datetime, knxdclient.KNXDPT.DATE_TIME),
     '20.102': (KNXHVACMode, knxdclient.KNXDPT.ENUM8),
 }
 
