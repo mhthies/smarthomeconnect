@@ -28,13 +28,15 @@ def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
 
 
 class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
-    def __init__(self, label: Union[str, markupsafe.Markup]):
+    def __init__(self, label: Union[str, markupsafe.Markup], color: str = ''):
         self.type = bool
         super().__init__()
         self.label = label
+        self.color = color
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/switch.htm').render_async(id=id(self), label=self.label)
+        return await jinja_env.get_template('widgets/switch.htm').render_async(id=id(self), label=self.label,
+                                                                               color=self.color)
 
 
 class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic[T]):
