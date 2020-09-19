@@ -41,7 +41,7 @@
                         <div class="menu">
                             {% for sub_label, sub_icon, sub_link in link %}
                                 <a class="item" href="{{ root_url }}page/{{ sub_link }}/">
-                                    {% if icon %}<i class="{{ icon }} icon"></i>{% endif %}
+                                    {% if sub_icon %}<i class="{{ sub_icon }} icon"></i>{% endif %}
                                     {{ sub_label }}
                                 </a>
                             {% endfor %}
