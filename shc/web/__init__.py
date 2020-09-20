@@ -740,9 +740,10 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
         return from_json(self.type, value)
 
     async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
-        await self._publish(self.convert_from_ws_value(value), [ws])
+        value_converted = self.convert_from_ws_value(value)
+        await self._publish(value_converted, [ws])
         if isinstance(self, WebDisplayDatapoint):
-            await self._websocket_publish(value)
+            await self._websocket_publish(self.convert_to_ws_value(value_converted))
 
 
 class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
