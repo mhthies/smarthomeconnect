@@ -123,11 +123,12 @@ class AbstractButton(metaclass=abc.ABCMeta):
 class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
     stateful = False
 
-    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = ''):
+    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = ''):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
+        self.color = color
 
     def convert_from_ws_value(self, value: Any) -> T:
         return self.value
