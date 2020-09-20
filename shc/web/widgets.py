@@ -118,29 +118,42 @@ class AbstractButton(metaclass=abc.ABCMeta):
     color: str = ''
     stateful: bool = True
     enabled: bool = True
+    confirm: Iterable[bool] = ()
+    confirm_message: str = ""
+
+    @property
+    def confirm_csv_int(self) -> str:
+        return ",".join(str(int(v)) for v in self.confirm)
 
 
 class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
     stateful = False
 
-    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = ''):
+    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = '', confirm_message: str = ''):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
         self.color = color
+        if confirm_message:
+            self.confirm = [False, True]
+            self.confirm_message = confirm_message
 
     def convert_from_ws_value(self, value: Any) -> T:
         return self.value
 
 
 class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton, Generic[T]):
-    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = 'blue'):
+    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = 'blue',
+                 confirm_message: str = ''):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
         self.color = color
+        if confirm_message:
+            self.confirm = [False, True]
+            self.confirm_message = confirm_message
 
     def convert_from_ws_value(self, value: Any) -> T:
         return self.value
@@ -150,11 +163,15 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
 
 
 class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint[bool]):
-    def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = 'blue'):
+    def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = 'blue', confirm_message: str = '',
+                 confirm_values: Iterable[bool] = (False, True)):
         self.type = bool
         super().__init__()
         self.label = label
         self.color = color
+        if confirm_message:
+            self.confirm_message = confirm_message
+            self.confirm = confirm_values
 
 
 class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
@@ -187,8 +204,8 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
 
 class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
     def __init__(self, values: List[Tuple[T, Union[str, markupsafe.Markup]]], label: Union[str, markupsafe.Markup],
-                 color: str = 'blue'):
-        buttons = [ValueButton(value=v[0], label=v[1], color=color) for v in values]
+                 color: str = 'blue', confirm_message: str = ''):
+        buttons = [ValueButton(value=v[0], label=v[1], color=color, confirm_message=confirm_message) for v in values]
         super().__init__(label, buttons)
 
     def connect(self, *args, **kwargs):
@@ -198,9 +215,10 @@ class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
 
 
 class EnumButtonGroup(ValueListButtonGroup):
-    def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup], color: str = 'blue'):
+    def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup], color: str = 'blue',
+                 confirm_message: str = ''):
         values = [(entry, entry.name) for entry in type_]
-        super().__init__(values, label, color)
+        super().__init__(values, label, color, confirm_message)
 
 
 class HideRowBox(WebPageItem):

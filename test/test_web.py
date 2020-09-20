@@ -13,6 +13,7 @@ import http.client
 import aiohttp
 from selenium import webdriver
 import selenium.webdriver.firefox.options
+from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 
@@ -176,6 +177,49 @@ class WebWidgetsTest(AbstractWebTest):
             b1_publish.assert_called_once()
             b3_publish.assert_called_once()
             b4_publish.assert_called_once_with(42, unittest.mock.ANY)
+
+    def test_button_confirm(self) -> None:
+        button = web.widgets.ToggleButton(label="B1", color='yellow', confirm_message="Sure?", confirm_values=(True,))
+
+        page = self.server.page('index')
+        page.add_item(web.widgets.ButtonGroup("My button group", [button]))
+
+        with unittest.mock.patch.object(button, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            time.sleep(0.05)
+
+            button_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B1"]')
+
+            # Check click with alert
+            self.assertNotIn('yellow', button_element.get_attribute('class'))
+            button_element.click()
+            time.sleep(0.05)
+            publish_mock.assert_not_called()
+
+            # dismiss alert
+            alert = Alert(self.driver)
+            self.assertEqual("Sure?", alert.text)
+            alert.dismiss()
+            time.sleep(0.05)
+            publish_mock.assert_not_called()
+            self.assertNotIn('yellow', button_element.get_attribute('class'))
+
+            # Click again and accept alert
+            button_element.click()
+            time.sleep(0.01)
+            alert = Alert(self.driver)
+            alert.accept()
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(True, unittest.mock.ANY)
+            self.assertIn('yellow', button_element.get_attribute('class'))
+
+            # No alert for setting to False
+            publish_mock.reset_mock()
+            button_element.click()
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(False, unittest.mock.ANY)
+            self.assertNotIn('yellow', button_element.get_attribute('class'))
 
     def test_display(self) -> None:
         page = self.server.page('index')

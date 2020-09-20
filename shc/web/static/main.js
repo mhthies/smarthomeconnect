@@ -69,6 +69,12 @@ function SelectWidget(domElement, writeValue) {
 function ButtonWidget(domElement, writeValue) {
     const id = parseInt(domElement.getAttribute('data-id'));
     const stateful = domElement.getAttribute('data-stateful') === 'True';
+    const confirm_values = domElement.getAttribute('data-confirm')
+        ? domElement.getAttribute('data-confirm')
+            .split(',')
+            .map(v => parseInt(v))
+        : [];
+    const confirm_message = domElement.getAttribute('data-confirm-message');
     let on = false;
     this.subscribeIds = [];
 
@@ -82,7 +88,11 @@ function ButtonWidget(domElement, writeValue) {
     };
 
     domElement.addEventListener('click', function (event) {
-        writeValue(id, !on);
+        let value = !on;
+        if (confirm_values.indexOf(1 * value) !== -1 && !window.confirm(confirm_message || "Are you sure?")) {
+            return;
+        }
+        writeValue(id, value);
         if (stateful)
             domElement.classList.add('active');
     });
