@@ -1,6 +1,7 @@
 <label class="shc label" for="switch-widget-{{ id }}">{{ label }}</label>
 <div class="ui right floated fitted toggle checkbox {{ color }}">
     <input type="checkbox" tabindex="0" class="hidden" data-widget="switch" data-id="{{ id }}"
+           {% if confirm_csv_int %}data-confirm="{{ confirm_csv_int }}" data-confirm-message="{{ confirm_message }}"{% endif %}
            id="switch-widget-{{ id }}">
     <label></label>
 </div>

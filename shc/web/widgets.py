@@ -28,15 +28,19 @@ def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
 
 
 class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
-    def __init__(self, label: Union[str, markupsafe.Markup], color: str = ''):
+    def __init__(self, label: Union[str, markupsafe.Markup], color: str = '', confirm_message: str = '',
+                 confirm_values: Iterable[bool] = (False, True)):
         self.type = bool
         super().__init__()
         self.label = label
         self.color = color
+        self.confirm_message = confirm_message
+        self.confirm = confirm_values if confirm_message else ()
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/switch.htm').render_async(id=id(self), label=self.label,
-                                                                               color=self.color)
+        return await jinja_env.get_template('widgets/switch.htm').render_async(
+            id=id(self), label=self.label, color=self.color,
+            confirm_csv_int=",".join(str(int(v)) for v in self.confirm), confirm_message=self.confirm_message)
 
 
 class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic[T]):

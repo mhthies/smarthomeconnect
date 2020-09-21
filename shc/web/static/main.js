@@ -35,12 +35,22 @@ function SwitchWidget(domElement, writeValue) {
     $(domElement).closest('.checkbox').checkbox();
     const widget = this;
     this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
+    const confirm_values = domElement.getAttribute('data-confirm')
+        ? domElement.getAttribute('data-confirm')
+            .split(',')
+            .map(v => parseInt(v))
+        : [];
+    const confirm_message = domElement.getAttribute('data-confirm-message');
 
     this.update = function(value, for_id) {
         domElement.checked = value;
     };
 
     domElement.addEventListener('change', function (event) {
+        if (confirm_values.indexOf(1 * event.target.checked) !== -1
+                && !window.confirm(confirm_message || "Are you sure?")) {
+            return;
+        }
         writeValue(widget.subscribeIds[0], event.target.checked);
     });
 }

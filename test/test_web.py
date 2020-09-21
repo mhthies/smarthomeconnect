@@ -117,6 +117,36 @@ class WebWidgetsTest(AbstractWebTest):
             self.assertTrue(checkbox_element.is_selected())
             publish_mock.assert_called_once_with(True, unittest.mock.ANY)
 
+    def test_switch_confirm(self) -> None:
+        switch = web.widgets.Switch("Some Switch", confirm_values=(True,), confirm_message="My text")\
+            .connect(ExampleReadable(bool, False))
+
+        page = self.server.page('index')
+        page.add_item(switch)
+
+        with unittest.mock.patch.object(switch, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            time.sleep(0.4)
+            checkbox_container = self.driver.find_element_by_xpath(
+                '//*[normalize-space(text()) = "Some Switch"]/..//input/..')
+
+            # Setting to true requires confirmation
+            checkbox_container.click()
+            time.sleep(0.05)
+            publish_mock.assert_not_called()
+            alert = Alert(self.driver)
+            self.assertEqual("My text", alert.text)
+            alert.accept()
+            time.sleep(0.1)
+            publish_mock.assert_called_once_with(True, unittest.mock.ANY)
+
+            # Setting back to false should not require a confirmation
+            publish_mock.reset_mock()
+            checkbox_container.click()
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(False, unittest.mock.ANY)
+
     def test_buttons(self) -> None:
         b1 = web.widgets.ToggleButton(label="B1", color='yellow')
         b2 = web.widgets.DisplayButton(label="B2", color='blue')
