@@ -357,6 +357,47 @@ class WebWidgetsTest(AbstractWebTest):
             publish_mock.assert_called_once()
             self.assertEqual(0.0, publish_mock.call_args[0][0])
 
+    def test_hiderow(self) -> None:
+        page = self.server.page('index')
+        foo_button = web.widgets.StatelessButton(True, web.widgets.icon('power off'))
+        foo_row = web.widgets.HideRow("Foo", foo_button, 'red').connect(ExampleReadable(bool, True))
+        bar_row = web.widgets.HideRow("Bar").connect(ExampleReadable(bool, True))
+        foobar_row = web.widgets.HideRow("Foobar", color='yellow').connect(ExampleReadable(bool, False))
+        page.add_item(web.widgets.HideRowBox([foo_row, bar_row, foobar_row]))
+
+        with unittest.mock.patch.object(foo_button, '_publish', new_callable=AsyncMock) as publish_mock:
+            self.server_runner.start()
+            self.driver.get("http://localhost:42080")
+            time.sleep(0.4)
+            foo_row_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Foo"]')
+            bar_row_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Bar"]')
+            # Foobar row should not be findable, since Selenium's xpath can only find DOM elements by text content if
+            # they are visible
+            foobar_row_element = self.driver.find_element_by_xpath('//*[contains(text(), "Foobar")]')
+            button = foo_row_element.find_element_by_css_selector("button")
+
+            self.assertTrue(foo_row_element.is_displayed())
+            self.assertTrue(bar_row_element.is_displayed())
+            self.assertFalse(foobar_row_element.is_displayed())
+            self.assertIn('red', foo_row_element.get_attribute('class'))
+            self.assertIn('blue', bar_row_element.get_attribute('class'))
+            self.assertIn('yellow', foobar_row_element.get_attribute('class'))
+            self.assertIn('power off', button.find_element_by_css_selector('.icon').get_attribute('class'))
+
+            # Click the button
+            button.click()
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(True, unittest.mock.ANY)
+
+            # Swap the rows
+            asyncio.run_coroutine_threadsafe(foo_row.write(False, [self]), loop=self.server_runner.loop).result()
+            asyncio.run_coroutine_threadsafe(bar_row.write(False, [self]), loop=self.server_runner.loop).result()
+            asyncio.run_coroutine_threadsafe(foobar_row.write(True, [self]), loop=self.server_runner.loop).result()
+            time.sleep(1)
+            self.assertFalse(foo_row_element.is_displayed())
+            self.assertFalse(bar_row_element.is_displayed())
+            self.assertTrue(foobar_row_element.is_displayed())
+
     def test_colorchoser(self) -> None:
         page = self.server.page('index')
         input_widget = web.widgets.ColorChoser()\
