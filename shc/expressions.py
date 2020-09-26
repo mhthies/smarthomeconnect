@@ -280,7 +280,7 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
 
     @staticmethod
     def _wrap_static_value(val: Union[S, Readable[S]]) -> Readable[S]:
-        class Wrapper(Readable[S], Generic[S]):
+        class Wrapper(Readable[S]):
             def __init__(self, v: S):
                 self.v = v
 
@@ -349,7 +349,7 @@ class IfThenElse(ExpressionHandler, Generic[T]):
     """
     def __init__(self, condition: Union[bool, Readable[bool]], then: Union[T, Readable[T]], otherwise: Union[T, Readable[T]]):
         super().__init__(then.type if isinstance(then, Connectable) else type(then), (condition, then, otherwise))
-        self.condition = self._wrap_static_value(condition)
+        self.condition: Readable[bool] = self._wrap_static_value(condition)
         self.then = self._wrap_static_value(then)
         self.otherwise = self._wrap_static_value(otherwise)
 

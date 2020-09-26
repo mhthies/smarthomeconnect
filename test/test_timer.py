@@ -73,6 +73,7 @@ class AbstractTimerTest(unittest.TestCase):
         await asyncio.sleep(0.01)  # Allow async tasks to run to make sure all _publish tasks have been executed
         self.assertListEqual(expected_events, events)
 
+        assert(t.last_execution is not None)
         self.assertAlmostEqual(t.last_execution,
                                expected_events[-1],
                                delta=datetime.timedelta(seconds=1))
@@ -103,14 +104,20 @@ class EveryTimerTest(unittest.TestCase):
     def test_unaligned(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=False)
-            self.assertAlmostEqual(clock.now().astimezone(), every_timer._next_execution(),
+            next_execution = every_timer._next_execution()
+            assert(next_execution is not None)
+            self.assertAlmostEqual(clock.now().astimezone(), next_execution,
                                    delta=datetime.timedelta(seconds=1))
             every_timer.last_execution = clock.now().astimezone()
-            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5), every_timer._next_execution(),
+            next_execution = every_timer._next_execution()
+            assert(next_execution is not None)
+            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5), next_execution,
                                    delta=datetime.timedelta(seconds=1))
             clock.sleep(5 * 60)
             every_timer.last_execution = clock.now().astimezone()
-            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5), every_timer._next_execution(),
+            next_execution = every_timer._next_execution()
+            assert(next_execution is not None)
+            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5), next_execution,
                                    delta=datetime.timedelta(seconds=1))
 
     def test_unaligned_random(self) -> None:
@@ -136,19 +143,24 @@ class EveryTimerTest(unittest.TestCase):
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=True)
             base = every_timer._next_execution()
+            assert(base is not None)
             self.assertGreaterEqual(base - clock.now().astimezone(), datetime.timedelta(0))
             self.assertLessEqual(base - clock.now().astimezone(), datetime.timedelta(minutes=5))
 
             clock.current_time = base + datetime.timedelta(microseconds=1)  # We slept till the first execution
+            next_execution = every_timer._next_execution()
+            assert(next_execution is not None)
             self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5),
-                                   every_timer._next_execution(),
+                                   next_execution,
                                    delta=datetime.timedelta(seconds=1))
 
         # A new timer (after a restart 5 minutes later) should give us exactly base + 5 minutes as the first execution
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17) + datetime.timedelta(minutes=5)) as clock:
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=True)
+            next_execution = every_timer._next_execution()
+            assert(next_execution is not None)
             self.assertAlmostEqual(base + datetime.timedelta(minutes=5),
-                                   every_timer._next_execution(),
+                                   next_execution,
                                    delta=datetime.timedelta(seconds=1))
 
 
@@ -156,7 +168,9 @@ class OnceTimerTest(unittest.TestCase):
     def test_immediate(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             once_timer = timer.Once()
-            self.assertAlmostEqual(clock.now().astimezone(), once_timer._next_execution(),
+            next_execution = once_timer._next_execution()
+            assert(next_execution is not None)
+            self.assertAlmostEqual(clock.now().astimezone(), next_execution,
                                    delta=datetime.timedelta(seconds=1))
             clock.sleep(1)
             once_timer.last_execution = clock.now().astimezone()
@@ -165,8 +179,10 @@ class OnceTimerTest(unittest.TestCase):
     def test_offset(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             once_timer = timer.Once(datetime.timedelta(hours=1))
-            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(hours=1),
-                                   once_timer._next_execution(), delta=datetime.timedelta(seconds=1))
+            next_execution = once_timer._next_execution()
+            assert(next_execution is not None)
+            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(hours=1), next_execution,
+                                   delta=datetime.timedelta(seconds=1))
             clock.sleep(60*60)
             once_timer.last_execution = clock.now().astimezone()
             self.assertIsNone(once_timer._next_execution())
@@ -185,7 +201,8 @@ class OnceTimerTest(unittest.TestCase):
 
 
 class AtTimerTest(unittest.TestCase):
-    def _assert_datetime(self, expected: datetime.datetime, actual: datetime.datetime):
+    def _assert_datetime(self, expected: datetime.datetime, actual: Optional[datetime.datetime]) -> None:
+        assert(actual is not None)
         self.assertAlmostEqual(expected.astimezone(), actual, delta=datetime.timedelta(seconds=.1))
 
     def test_simple_next(self) -> None:

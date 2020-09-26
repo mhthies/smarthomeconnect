@@ -56,7 +56,7 @@ class SHCJsonEncoder(json.JSONEncoder):
 
 def from_json(type_: Type[T], value: Any) -> T:
     if issubclass(type_, (bool, int, float, str)):
-        return type_(value)
+        return type_(value)  # type: ignore
     if issubclass(type_, enum.Enum):
         return type_(value)  # type: ignore
     if issubclass(type_, tuple) and type_.__annotations__:

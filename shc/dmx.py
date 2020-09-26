@@ -14,7 +14,7 @@ import enum
 import logging
 from typing import List, Any, NamedTuple, Optional
 
-import serial_asyncio
+import serial_asyncio  # type: ignore
 import asyncio
 
 from shc.base import Writable

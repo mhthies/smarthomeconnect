@@ -11,11 +11,11 @@ import urllib.error
 import http.client
 
 import aiohttp
-from selenium import webdriver
-import selenium.webdriver.firefox.options
-from selenium.webdriver.common.alert import Alert
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver import ActionChains
+from selenium import webdriver  # type: ignore
+import selenium.webdriver.firefox.options  # type: ignore
+from selenium.webdriver.common.alert import Alert  # type: ignore
+from selenium.webdriver.common.keys import Keys  # type: ignore
+from selenium.webdriver import ActionChains  # type: ignore
 
 from shc import web
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
@@ -151,7 +151,7 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_buttons(self) -> None:
         b1 = web.widgets.ToggleButton(label="B1", color='yellow')
-        b2 = web.widgets.DisplayButton(label="B2", color='blue')
+        b2: web.widgets.DisplayButton[bool] = web.widgets.DisplayButton(label="B2", color='blue')
         b3 = web.widgets.StatelessButton(42, "B3")
         b4 = web.widgets.ValueButton(42, "B4", color="red")
         ExampleReadable(bool, True).connect(b1)

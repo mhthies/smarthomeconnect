@@ -110,7 +110,7 @@ class ClockMock:
         # Add us to the queue of waiting threads/coroutines
         with self.mutex:
             count = self.counter
-            heapq.heappush(self.queue, (target_time, count, current_task))
+            heapq.heappush(self.queue, (target_time, count, current_task))  # type: ignore
             self.counter += 1
         # Actually sleep while other thread/coroutine work or sleep (but shorter than we do in emulated time)
         while True:
@@ -166,11 +166,11 @@ class ClockMock:
 
         class NewDate(datetime.date):
             pass
-        datetime.date = NewDate
+        datetime.date = NewDate  # type: ignore
 
         class NewDateTime(datetime.datetime):
             pass
-        datetime.datetime = NewDateTime
+        datetime.datetime = NewDateTime  # type: ignore
 
 # ###########################
 # Example Connectable objects
@@ -183,7 +183,7 @@ class ExampleReadable(base.Readable[T], Generic[T]):
     def __init__(self, type_: Type[T], value: T, side_effect=None):
         self.type = type_
         super().__init__()
-        self.read = AsyncMock(return_value=value, side_effect=side_effect)
+        self.read = AsyncMock(return_value=value, side_effect=side_effect)  # type: ignore
 
     async def read(self) -> T: ...
 
@@ -201,7 +201,7 @@ class ExampleWritable(base.Writable[T], Generic[T]):
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
-        self._write = AsyncMock()
+        self._write = AsyncMock()  # type: ignore
 
     async def _write(self, value: T, origin: List[Any]) -> None: ...
 

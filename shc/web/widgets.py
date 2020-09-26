@@ -65,10 +65,10 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
         self.type = type_
         super().__init__()
         self.label = label
-        self.min = min
-        self.max = max
-        self.step = step
-        if self.step is None and issubclass(self.type, int):
+        self.min: Optional[Ti] = min
+        self.max: Optional[Ti] = max
+        self.step: Optional[Ti] = step
+        if self.step is None and issubclass(type_, int):
             self.step = 1
         self.input_type = "number" if issubclass(self.type, (int, float)) else "text"
         self.input_suffix = input_suffix
@@ -181,7 +181,8 @@ class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint
 class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
     enabled = False
 
-    def __init__(self, value: T = True,  label: Union[str, markupsafe.Markup] = '', color: str = 'blue'):
+    def __init__(self, value: T = True,  label: Union[str, markupsafe.Markup] = '',  # type: ignore
+                 color: str = 'blue'):
         self.type = type(value)
         super().__init__()
         self.value = value
@@ -247,7 +248,7 @@ class HideRow(WebDisplayDatapoint[bool], WebConnectorContainer):
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         if self.button:
-            yield self.button
+            yield self.button  # type: ignore
         yield self
 
 

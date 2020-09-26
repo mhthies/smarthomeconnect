@@ -74,6 +74,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
     async def _init_from_provider(self) -> None:
         value = await self._from_provider()
         if value is not None:
+            assert(self._default_provider is not None)
             await self._write(value, [self._default_provider[0]])
 
     @property

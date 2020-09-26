@@ -18,7 +18,7 @@ import logging
 from typing import Type, Generic, List, Any, Optional, Tuple, Set
 
 import aiohttp.web
-import aiomysql  # TODO make feature-dependent dependency
+import aiomysql  # type: ignore  # TODO make feature-dependent dependency
 
 from ..base import T, Readable, Writable, UninitializedError
 from ..conversion import from_json, SHCJsonEncoder
@@ -135,6 +135,7 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
         column_name = self._type_to_column(type(value))
         value = self._into_mysql_type(value)
         await self.interface.pool_ready.wait()
+        assert(self.interface.pool is not None)
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if self.log:
@@ -148,6 +149,7 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
     async def _read_from_log(self) -> Optional[T]:
         column_name = self._type_to_column(self.type)
         await self.interface.pool_ready.wait()
+        assert(self.interface.pool is not None)
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute("SELECT `{}` from `log` WHERE `name` = %s ORDER BY `ts` DESC LIMIT 1"
@@ -163,6 +165,7 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
                             num: Optional[int] = None, offset: int = 0) -> List[Tuple[datetime.datetime, T]]:
         column_name = self._type_to_column(self.type)
         await self.interface.pool_ready.wait()
+        assert(self.interface.pool is not None)
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute("SELECT `ts`, `{}` from `log` WHERE `name` = %s AND `ts` >= %s and `ts` < %s "

@@ -398,7 +398,9 @@ class WebServer:
 
         # if `wait`: Make this Request gracefully stoppable on shutdown by registering it for
         if wait:
-            self._associated_tasks.add(asyncio.current_task())
+            current_task = asyncio.current_task()
+            assert(current_task is not None)
+            self._associated_tasks.add(current_task)
 
         # Now, let's actually call http_get of the API object
         # If `wait`, this will await a new value or the `timeout`.
