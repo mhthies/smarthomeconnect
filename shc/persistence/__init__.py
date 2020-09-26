@@ -115,9 +115,10 @@ class MySQLPersistence:
         pass
 
     async def stop(self) -> None:
-        logger.info("Clossing all MySQL connections ...")
-        self.pool.close()
-        await self.pool.wait_closed()
+        if self.pool is not None:
+            logger.info("Closing all MySQL connections ...")
+            self.pool.close()
+            await self.pool.wait_closed()
 
     def variable(self, type_: Type, name: str, log: bool = True) -> "MySQLPersistenceVariable":
         return MySQLPersistenceVariable(self, type_, name, log)

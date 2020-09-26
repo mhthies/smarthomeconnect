@@ -90,7 +90,7 @@ class Slider(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Gener
         self.color = color
 
     def convert_from_ws_value(self, value: Any) -> T:
-        return float(value)
+        return RangeFloat1(float(value))
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/slider.htm').render_async(

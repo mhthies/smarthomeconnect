@@ -133,7 +133,7 @@ class WebServer:
     async def stop(self) -> None:
         logger.info("Closing open websockets ...")
         for ws in set(self._websockets):
-            await ws.close(code=WSCloseCode.GOING_AWAY, message='Server shutdown')
+            await ws.close(code=WSCloseCode.GOING_AWAY, message=b'Server shutdown')
         for task in set(self._associated_tasks):
             task.cancel()
         logger.info("Cleaning up AppRunner ...")

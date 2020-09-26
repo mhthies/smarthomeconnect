@@ -538,7 +538,7 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
         changed = value != self._value
         logger.debug("Value %s for Delay %s is now active and published", value, self)
         self._value = value
-        await self._publish(value, origin, changed)
+        await self._publish(value, origin)
 
     async def read(self) -> T:
         if self._value is None:

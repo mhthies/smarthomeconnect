@@ -36,7 +36,6 @@ class PeriodicReader(Readable[T], Subscribable[T], Generic[T]):
     async def read(self) -> T:
         return await self.wrapped.read()
 
-    @handler()
     async def do_read(self, _value, origin) -> None:
         # We add the wrapped Readable object to the `origin` list to avoid publishing back its own value, in case it is
         # subscribed to one of our subscribers (e.g. a variable).
