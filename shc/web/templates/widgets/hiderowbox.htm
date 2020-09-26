@@ -1,10 +1,10 @@
 {% from "buttons.inc.htm" import render_button %}
-<table class="ui basic table">
+<table class="ui basic unstackable table">
     {% for row in rows %}
         <tr data-widget="hiderow" data-id="{{ row|id }}" class="transition hidden"><td class="{{ row.color }}">
             {{ row.label }}
             {% if row.button %}
-                <div class="ui right floated">
+                <div class="ui right floated shc hiderow-button">
                     {{ render_button(row.button, 'tiny') }}
                 </div>
             {% endif %}

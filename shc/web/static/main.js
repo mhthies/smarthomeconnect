@@ -249,7 +249,8 @@ function HideRowWidget(domElement, _writeValue) {
     }
 
     this.update = function(value, for_id) {
-        $(domElement).transition('slide down ' + (value ? 'in' : 'out'))
+        if (value === domElement.classList.contains('hidden'))
+            $(domElement).transition('zoom ' + (value ? 'in' : 'out'));
     };
 }
 

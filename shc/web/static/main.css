@@ -157,3 +157,7 @@ body.pushable>.pusher, body:not(.pushable) {
   margin-left: auto;
   margin-right: auto;
 }
+
+.ui.list>.item [class*="right floated"].shc.hiderow-button {
+    margin: -7px -10px -7px 10px;
+}
