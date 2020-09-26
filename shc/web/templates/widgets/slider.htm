@@ -1,3 +1,5 @@
-<label class="shc label">{{ label }}</label>
-<div class="ui right floated value-display"></div>
+<div class="shc slider-label-container">
+    <label class="shc label">{{ label }}</label>
+    <div class="ui right floated {{ color or "black" }} label value-display"></div>
+</div>
 <div class="ui {{ color }} labeled slider" id="slider-1" data-widget="slider" data-id="{{ id }}"></div>

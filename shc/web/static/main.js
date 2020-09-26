@@ -31,6 +31,25 @@ function ws_path(path) {
     }
 }
 
+function forEachNodeRecursive(node, func) {
+    /**
+     * Iterate DOM subtree recursively in a depth-first pre-order, starting at `node`, and call `func` for each node
+     * (incl. `node`).
+     *
+     * If `func` returns `false`, the iteration is stopped.
+     */
+    let res = func(node);
+    if (res === false)
+        return false;
+    node = node.firstChild;
+    while (node) {
+        res = forEachNodeRecursive(node, func);
+        if (res === false)
+            return false;
+        node = node.nextSibling;
+    }
+}
+
 function SwitchWidget(domElement, writeValue) {
     $(domElement).closest('.checkbox').checkbox();
     const widget = this;
@@ -169,31 +188,36 @@ function SliderWidget(domElement, writeValue) {
     let sendingDisabled = false;
     $semanticUiSlider.slider({
         min: 0,
-        max: 100,
-        step: 0,
-        showLabelTicks: false,
+        max: 1000,
+        step: 1,
+        showLabelTicks: true,
         labelDistance: 200,
-        interpretLabel: function(v) { return Math.round(v / 1).toString() + " %"; },
+        interpretLabel: function(v) {
+            if (v % 250 === 0)
+                return Math.round(v / 10).toString() + " %";
+            else
+                return "";
+        },
         onChange: onSliderChange
     });
     let displayBox = null;
-    for (const node of domElement.parentNode.childNodes.values()) {
+    forEachNodeRecursive(domElement.parentNode, function(node) {
         if (node.nodeType === 1 && node.classList.contains('value-display')) {
             displayBox = node;
-            break;
+            return false;
         }
-    }
+    });
 
     this.update = function(value, for_id) {
         sendingDisabled = true;
-        $semanticUiSlider.slider('set value', value * 100);
+        $semanticUiSlider.slider('set value', Math.round(value * 1000));
         displayBox.textContent = Math.round(value * 100).toString() + " %";
         sendingDisabled = false;
     };
 
     function onSliderChange() {
         if (!sendingDisabled)
-            writeValue(id, $semanticUiSlider.slider('get value') / 100);
+            writeValue(id, $semanticUiSlider.slider('get value') / 1000);
     }
 }
 

@@ -333,7 +333,7 @@ class WebWidgetsTest(AbstractWebTest):
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
             container_element = self.driver.find_element_by_xpath(
-                '//*[normalize-space(text()) = "Amount of Foo"]/..')
+                '//*[normalize-space(text()) = "Amount of Foo"]/../..')
             slider_element = container_element.find_element_by_css_selector('.slider')
             handle_element = slider_element.find_element_by_css_selector(".thumb")
 

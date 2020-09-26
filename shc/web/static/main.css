@@ -21,6 +21,17 @@ body.pushable>.pusher, body:not(.pushable) {
 .shc.label.float-btn {
     line-height: 36px;
 }
+.shc.slider-label-container:after{
+    clear: both;
+    display: block;
+    content: "";
+}
+.shc.slider-label-container{
+    margin-bottom: 8px;
+}
+.shc.slider-label-container>.shc.label{
+    line-height: 26px;
+}
 
 
 /* ************************** *
