@@ -215,7 +215,7 @@ class DummyIntWrapper(base.ConnectableWrapper[int]):
     def __init__(self):
         self.connect = unittest.mock.Mock()
 
-    def connect(self, *args, **kwargs) -> "Connectable": ...
+    def connect(self, *args, **kwargs) -> "DummyIntWrapper": ...
 
 
 class TestConnecting(unittest.TestCase):

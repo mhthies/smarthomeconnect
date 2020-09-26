@@ -24,6 +24,8 @@ from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_te
 
 @unittest.skipIf(shutil.which("geckodriver") is None, "Selenium's geckodriver is not available in PATH")
 class AbstractWebTest(unittest.TestCase):
+    driver: webdriver.Firefox
+
     def setUp(self) -> None:
         self.server = web.WebServer("localhost", 42080, 'index')
         self.server_runner = InterfaceThreadRunner(self.server)
@@ -562,7 +564,7 @@ class TestAPI(unittest.TestCase):
 
         request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object?wait=0.5",
                                          headers={'If-None-Match': etag1})
-        response: http.client.HTTPResponse = urllib.request.urlopen(request)
+        response = urllib.request.urlopen(request)
         toc = time.time()
         etag2 = response.headers['ETag']
         self.assertEqual(56, json.loads(response.read()))
@@ -574,7 +576,7 @@ class TestAPI(unittest.TestCase):
         tic = time.time()
         request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object?wait=0.5",
                                          headers={'If-None-Match': etag1})
-        response: http.client.HTTPResponse = urllib.request.urlopen(request)
+        response = urllib.request.urlopen(request)
         toc = time.time()
         self.assertEqual(42, json.loads(response.read()))
         self.assertEqual(etag2, response.headers['ETag'])

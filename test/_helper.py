@@ -6,7 +6,7 @@ import threading
 import time
 import unittest.mock
 import datetime
-from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List, Union, Tuple, Set
+from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List, Union, Tuple, Set, Optional
 
 from shc import base
 
@@ -212,7 +212,7 @@ class ExampleReading(base.Reading[T], Generic[T]):
         self.type = type_
         super().__init__()
 
-    async def do_read(self) -> T:
+    async def do_read(self) -> Optional[T]:
         return await self._from_provider()
 
 

@@ -17,8 +17,8 @@ from typing import TypeVar, Dict, Tuple, Type, Callable, Any
 S = TypeVar('S')
 T = TypeVar('T')
 
-_TYPE_CONVERSIONS: Dict[Tuple[Type[S], Type[T]], Callable[[S], T]] = {}
-_JSON_CONVERSIONS: Dict[Type[T], Tuple[Callable[[T], Any], Callable[[Any], T]]] = {}
+_TYPE_CONVERSIONS: Dict[Tuple[Type, Type], Callable[[Any], Any]] = {}
+_JSON_CONVERSIONS: Dict[Type, Tuple[Callable[[Any], Any], Callable[[Any], Any]]] = {}
 
 
 def register_converter(from_type: Type[S], to_type: Type[T], converter: Callable[[S], T]) -> None:

@@ -388,7 +388,7 @@ class WebServer:
                                            .format(name_failsafe))
         # Parse `wait` and `timeout` from request query string
         wait = 'wait' in request.query
-        timeout = 30
+        timeout = 30.0
         if wait and request.query['wait']:
             try:
                 timeout = float(request.query['wait'])

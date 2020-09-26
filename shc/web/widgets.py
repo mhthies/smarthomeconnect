@@ -73,7 +73,7 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
         self.input_type = "number" if issubclass(self.type, (int, float)) else "text"
         self.input_suffix = input_suffix
 
-    def convert_from_ws_value(self, value: Any) -> T:
+    def convert_from_ws_value(self, value: Any) -> Ti:
         return self.type(value)
 
     async def render(self) -> str:
@@ -82,14 +82,14 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
             input_suffix=self.input_suffix)
 
 
-class Slider(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Generic[Ti]):
+class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], WebPageItem):
     def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = ''):
         self.type = RangeFloat1
         super().__init__()
         self.label = label
         self.color = color
 
-    def convert_from_ws_value(self, value: Any) -> T:
+    def convert_from_ws_value(self, value: Any) -> RangeFloat1:
         return RangeFloat1(float(value))
 
     async def render(self) -> str:
@@ -104,7 +104,7 @@ class EnumSelect(Select):
 
 
 class ButtonGroup(WebPageItem):
-    def __init__(self, label: Union[str, markupsafe.Markup], buttons: List["AbstractButton"]):
+    def __init__(self, label: Union[str, markupsafe.Markup], buttons: Iterable["AbstractButton"]):
         super().__init__()
         self.label = label
         self.buttons = buttons
@@ -188,7 +188,7 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
         self.label = label
         self.color = color
 
-    def convert_to_ws_value(self, value: T) -> Any:
+    def convert_to_ws_value(self, value: T) -> bool:
         return value == self.value
 
 

@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_origin')
 
+C = TypeVar('C', bound="Connectable")
+
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
     """
@@ -33,12 +35,12 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
     """
     type: Type[T]
 
-    def connect(self, other: "Connectable",
+    def connect(self: C, other: "Connectable",
                 send: Optional[bool] = None,
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: bool = False) -> "Connectable":
+                convert: bool = False) -> C:
         if isinstance(other, ConnectableWrapper):
             # If other object is not connectable itself but wraps one or more connectable objects (like, for example, a
             # `web.widgets.ValueButtonGroup`), let it use its special implementation of `connect()`.
@@ -72,12 +74,12 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     type: Type[T]
 
     @abc.abstractmethod
-    def connect(self, other: "Connectable",
+    def connect(self: C, other: "Connectable",
                 send: Optional[bool] = None,
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: bool = False) -> "Connectable":
+                convert: bool = False) -> C:
         pass
 
 

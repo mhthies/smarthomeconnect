@@ -347,7 +347,7 @@ class IfThenElse(ExpressionHandler, Generic[T]):
     have the same value type). If the `condition` evaluates to True, this object evaluates to the value of `then`,
     otherwise it evaluates to the value of `otherwise`.
     """
-    def __init__(self, condition: Union[Readable[bool]], then: Union[T, Readable[T]], otherwise: Union[T, Readable[T]]):
+    def __init__(self, condition: Union[bool, Readable[bool]], then: Union[T, Readable[T]], otherwise: Union[T, Readable[T]]):
         super().__init__(then.type if isinstance(then, Connectable) else type(then), (condition, then, otherwise))
         self.condition = self._wrap_static_value(condition)
         self.then = self._wrap_static_value(then)
