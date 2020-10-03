@@ -1,0 +1,13 @@
+{% from "buttons.inc.htm" import render_button %}
+<div class="shc image-container">
+    <img class="background" src="{{ image_url }}" />
+    {% for x, y, item in items %}
+        <div class="item" style="left: {{ x*100 }}%; top: {{ y*100 }}%">
+            {% if item is button %}
+                {{ render_button(item, style='tiny compact circular icon') }}
+            {% elif item is imageMapLabel %}
+                <div class="ui {{ item.color }} small label" data-id="{{ item | id }}" data-widget="text-display"></div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>

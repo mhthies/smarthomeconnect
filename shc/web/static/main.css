@@ -161,3 +161,15 @@ body.pushable>.pusher, body:not(.pushable) {
 .ui.list>.item [class*="right floated"].shc.hiderow-button {
     margin: -7px -10px -7px 10px;
 }
+
+.shc.image-container {
+    position: relative;
+    max-width: 100%;
+}
+.shc.image-container>.background {
+    width: 100%;
+}
+.shc.image-container>.item {
+    position: absolute;
+    transform: translateX(-50%) translateY(-50%);
+}

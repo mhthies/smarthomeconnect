@@ -9,6 +9,7 @@ import unittest.mock
 import urllib.request
 import urllib.error
 import http.client
+from pathlib import Path
 
 import aiohttp
 from selenium import webdriver  # type: ignore
@@ -260,7 +261,7 @@ class WebWidgetsTest(AbstractWebTest):
 
         self.server_runner.start()
         self.driver.get("http://localhost:42080")
-        time.sleep(0.05)
+        time.sleep(0.4)
         value_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//*[@data-id]')
         self.assertEqual("42 lux", value_element.text.strip())
 
@@ -486,6 +487,47 @@ class WebWidgetsTest(AbstractWebTest):
             self.assertNotIn("selected", second_option_element.get_attribute('class'))
             self.assertIn("selected", third_option_element.get_attribute('class'))
             publish_mock.assert_called_once_with(ExampleEnum.YET_ANOTHER_VALUE, unittest.mock.ANY)
+
+    def test_image_map(self) -> None:
+        page = self.server.page('index')
+        b1 = web.widgets.ToggleButton(label="B1", color='yellow').connect(ExampleReadable(bool, True))
+        l2 = web.widgets.ImageMapLabel(float, color='red').connect(ExampleReadable(float, 15.3))
+
+        page.add_item(web.widgets.ImageMap((Path(__file__)).parent / 'assets' / 'example_image.jpg', [
+            (0.3, 0.3, b1),
+            (0.9, 0.55, l2)
+        ]))
+
+        self.server_runner.start()
+        self.driver.get("http://localhost:42080")
+        time.sleep(0.4)
+
+        # Check that the background image is served and loaded correctly
+        background_image = self.driver.find_element_by_css_selector('.shc.image-container .background')
+        self.assertTrue(self.driver.execute_script(
+            "return arguments[0].complete "
+            "&& typeof arguments[0].naturalWidth != \"undefined\" "
+            "&& arguments[0].naturalWidth == 600", background_image))
+        background_image_rect = background_image.rect
+
+        # Check that there is a correctly styled button element, labeled "B1", at the right position
+        b1_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B1"]')
+        self.assertIn('yellow', b1_element.get_attribute('class'))
+        b1_rect = b1_element.rect
+        self.assertAlmostEqual(background_image_rect['x'] + background_image_rect['width'] * 0.3,
+                               b1_rect['x'] + b1_rect['width']/2, delta=4)  # 4px off is okay
+        self.assertAlmostEqual(background_image_rect['y'] + background_image_rect['height'] * 0.3,
+                               b1_rect['y'] + b1_rect['height']/2, delta=4)  # 4px off is okay
+
+        # Check that there is a label in the right position
+        l2_element = self.driver.find_element_by_css_selector('.shc.image-container .ui.label')
+        self.assertEqual("15.3", l2_element.text.strip())
+        self.assertIn('red', l2_element.get_attribute('class'))
+        l2_rect = l2_element.rect
+        self.assertAlmostEqual(background_image_rect['x'] + background_image_rect['width'] * 0.9,
+                               l2_rect['x'] + l2_rect['width']/2, delta=4)  # 4px off is okay
+        self.assertAlmostEqual(background_image_rect['y'] + background_image_rect['height'] * 0.55,
+                               l2_rect['y'] + l2_rect['height']/2, delta=4)  # 4px off is okay
 
 
 class TestAPI(unittest.TestCase):

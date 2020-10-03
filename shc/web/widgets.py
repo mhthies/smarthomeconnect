@@ -13,11 +13,14 @@ import abc
 import enum
 import itertools
 import json
+import pathlib
+from os import PathLike
 from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Optional
 
 import markupsafe
 
-from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer, WebUIConnector
+from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer, WebUIConnector, \
+    WebPage, WebServer
 from ..base import T, ConnectableWrapper
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1, RGBUInt8
@@ -267,3 +270,41 @@ class ColorChoser(WebActionDatapoint[RGBUInt8], WebDisplayDatapoint[RGBUInt8], W
     async def render(self) -> str:
         # TODO add label
         return await jinja_env.get_template('widgets/colorchoser.htm').render_async(id=id(self))
+
+
+ImageMapItem = Union[AbstractButton, "ImageMapLabel"]
+
+
+class ImageMap(WebPageItem):
+    def __init__(self, image: PathLike, items: Iterable[Tuple[float, float, ImageMapItem]]):
+        super().__init__()
+        self.image = image
+        self.image_url = None
+        self.items = items
+
+    def register_with_server(self, _page: WebPage, server: WebServer) -> None:
+        self.image_url = server.root_url + server.serve_static_file(pathlib.Path(self.image))
+
+    def get_connectors(self) -> Iterable[WebUIConnector]:
+        for x, y, item in self.items:
+            # TODO support nested connectors?
+            if isinstance(item, WebUIConnector):
+                yield item
+
+    async def render(self) -> str:
+        return await jinja_env.get_template('widgets/imagemap.htm')\
+            .render_async(items=self.items, image_url=self.image_url)
+
+
+class ImageMapLabel(WebDisplayDatapoint[T]):
+    def __init__(self, type_: Type[T], format_string: str = "{}", color: str = ""):
+        self.type = type_
+        super().__init__()
+        self.color = color
+        self.format_string = format_string
+
+    def convert_to_ws_value(self, value: T) -> Any:
+        return self.format_string.format(value)
+
+
+jinja_env.tests['imageMapLabel'] = lambda item: isinstance(item, ImageMapLabel)
