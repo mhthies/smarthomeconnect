@@ -82,11 +82,7 @@ class WebServer:
         # List of all static js URLs to be included in the user interface pages
         self._js_files = [
             "static/jquery-3.min.js",
-            "static/semantic-ui/components/checkbox.min.js",
-            "static/semantic-ui/components/dropdown.min.js",
-            "static/semantic-ui/components/slider.min.js",
-            "static/semantic-ui/components/sidebar.min.js",
-            "static/semantic-ui/components/transition.min.js",
+            "static/semantic-ui/semantic.min.js",
             "static/iro.min.js",
             "static/main.js",
         ]
