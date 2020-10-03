@@ -1,7 +1,7 @@
 {% macro render_button(button, style='') %}
-    <button class="ui {% if button.stateful %}loading{% elif button.color %}{{ button.color }}{% endif %} {{ style }} button"
+    <button class="ui {% if button.stateful %}loading{% endif %} {% if button.color and (button.outline or not button.stateful) %}{{ button.color }}{% endif %} {{ style }} button"
             {% if not button.enabled %}disabled="disabled"{% endif %}
-            data-widget="button" data-stateful="{{ button.stateful }}" data-on-class="{{ button.color }}"
+            data-widget="button" data-stateful="{{ button.stateful }}" data-on-class="{{ button.color if not button.outline else "" }}" data-off-class="{{ "basic" if button.outline else "" }}"
             {% if button.confirm %}data-confirm="{{ button.confirm_csv_int }}" data-confirm-message="{{ button.confirm_message }}"{% endif %}
             data-id="{{ button|id }}">
         {{ button.label }}

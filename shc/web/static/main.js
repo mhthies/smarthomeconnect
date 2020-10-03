@@ -104,6 +104,12 @@ function ButtonWidget(domElement, writeValue) {
             .map(v => parseInt(v))
         : [];
     const confirm_message = domElement.getAttribute('data-confirm-message');
+    const onClasses = domElement.getAttribute('data-on-class')
+        ? domElement.getAttribute('data-on-class').split(" ")
+        : [];
+    const offClasses = domElement.getAttribute('data-off-class')
+        ? domElement.getAttribute('data-off-class').split(" ")
+        : [];
     let on = false;
     this.subscribeIds = [];
 
@@ -112,7 +118,10 @@ function ButtonWidget(domElement, writeValue) {
 
     this.update = function(value, for_id) {
         on = value;
-        domElement.classList.toggle(domElement.getAttribute('data-on-class'), value);
+        for (const cls of onClasses)
+            domElement.classList.toggle(cls, value);
+        for (const cls of offClasses)
+            domElement.classList.toggle(cls, !value);
         domElement.classList.remove('loading', 'active');
     };
 

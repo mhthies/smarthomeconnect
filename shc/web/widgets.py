@@ -122,6 +122,7 @@ class AbstractButton(metaclass=abc.ABCMeta):
     color: str = ''
     stateful: bool = True
     enabled: bool = True
+    outline: bool = False
     confirm: Iterable[bool] = ()
     confirm_message: str = ""
 
@@ -130,15 +131,20 @@ class AbstractButton(metaclass=abc.ABCMeta):
         return ",".join(str(int(v)) for v in self.confirm)
 
 
+jinja_env.tests['button'] = lambda item: isinstance(item, AbstractButton)
+
+
 class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
     stateful = False
 
-    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = '', confirm_message: str = ''):
+    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = '', confirm_message: str = '',
+                 outline: bool = False):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
         self.color = color
+        self.outline = outline
         if confirm_message:
             self.confirm = [False, True]
             self.confirm_message = confirm_message
@@ -149,12 +155,13 @@ class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
 
 class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton, Generic[T]):
     def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = 'blue',
-                 confirm_message: str = ''):
+                 confirm_message: str = '', outline: bool = False):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
         self.color = color
+        self.outline = outline
         if confirm_message:
             self.confirm = [False, True]
             self.confirm_message = confirm_message
@@ -168,11 +175,12 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
 
 class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint[bool]):
     def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = 'blue', confirm_message: str = '',
-                 confirm_values: Iterable[bool] = (False, True)):
+                 confirm_values: Iterable[bool] = (False, True), outline: bool = False):
         self.type = bool
         super().__init__()
         self.label = label
         self.color = color
+        self.outline = outline
         if confirm_message:
             self.confirm_message = confirm_message
             self.confirm = confirm_values
@@ -182,12 +190,13 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
     enabled = False
 
     def __init__(self, value: T = True,  label: Union[str, markupsafe.Markup] = '',  # type: ignore
-                 color: str = 'blue'):
+                 color: str = 'blue', outline: bool = False):
         self.type = type(value)
         super().__init__()
         self.value = value
         self.label = label
         self.color = color
+        self.outline = outline
 
     def convert_to_ws_value(self, value: T) -> bool:
         return value == self.value
