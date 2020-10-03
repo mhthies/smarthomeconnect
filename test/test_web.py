@@ -500,7 +500,7 @@ class WebWidgetsTest(AbstractWebTest):
 
         self.server_runner.start()
         self.driver.get("http://localhost:42080")
-        time.sleep(0.4)
+        time.sleep(0.6)
 
         # Check that the background image is served and loaded correctly
         background_image = self.driver.find_element_by_css_selector('.shc.image-container .background')

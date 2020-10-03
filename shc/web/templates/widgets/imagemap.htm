@@ -7,7 +7,7 @@
                 {{ render_button(item, style='tiny compact circular icon' + (' with-popup' if sub_items else ''), disabled=False if sub_items else None) }}
             {% elif item is imageMapLabel %}
                 <div class="ui {{ item.color }} small label {% if sub_items %}with-popup{% endif %}"
-                     data-id="{{ item | id }}" data-widget="text-display"><i class="notched circle loading icon"></i></div>
+                     data-id="{{ item | id }}" data-widget="text-display"><i class="fitted notched circle loading icon"></i></div>
             {% endif %}
             {% if sub_items %}
                 <div class="ui fixed very wide popup">
