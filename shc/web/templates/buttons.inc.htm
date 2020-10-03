@@ -1,7 +1,14 @@
-{% macro render_button(button, style='') %}
-    <button class="ui {% if button.stateful %}loading{% endif %} {% if button.color and (button.outline or not button.stateful) %}{{ button.color }}{% endif %} {{ style }} button"
-            {% if not button.enabled %}disabled="disabled"{% endif %}
-            data-widget="button" data-stateful="{{ button.stateful }}" data-on-class="{{ button.color if not button.outline else "" }}" data-off-class="{{ "basic" if button.outline else "" }}"
+{% macro render_button(button, style='', disabled=None) %}
+    {% set disabled = disabled if not disabled is none else not button.enabled %}
+    <button class="ui {% if button.stateful %}loading{% endif %}
+                   {% if button.color and (button.outline or not button.stateful) %} {{ button.color }}{% endif %}
+                   {% if not button.stateful and button.outline %} basic{% endif %} {{ style }} button"
+            {% if disabled %}disabled="disabled"{% endif %}
+            {# There are situations, where we want the button to be enabled, but not be sending values. This is the
+               case, when a DisplayButton is used in an ImageMap widget with a sub-items popup.#}
+            {% if not button.enabled %}data-send="false"{% endif %}
+            data-widget="button" data-stateful="{{ button.stateful }}"
+            data-on-class="{{ button.color if not button.outline else "" }}" data-off-class="{{ "basic" if button.outline else "" }}"
             {% if button.confirm %}data-confirm="{{ button.confirm_csv_int }}" data-confirm-message="{{ button.confirm_message }}"{% endif %}
             data-id="{{ button|id }}">
         {{ button.label }}

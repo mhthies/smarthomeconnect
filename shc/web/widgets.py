@@ -276,20 +276,23 @@ ImageMapItem = Union[AbstractButton, "ImageMapLabel"]
 
 
 class ImageMap(WebPageItem):
-    def __init__(self, image: PathLike, items: Iterable[Tuple[float, float, ImageMapItem]]):
+    def __init__(self, image: PathLike, items: Iterable[Union[Tuple[float, float, ImageMapItem],
+                                                              Tuple[float, float, ImageMapItem, List[WebPageItem]]]]):
         super().__init__()
         self.image = image
         self.image_url = None
-        self.items = items
+        self.items: List[Tuple[float, float, ImageMapItem, List[WebPageItem]]]\
+            = [item if len(item) >= 4 else (*item, [],)
+               for item in items]
 
     def register_with_server(self, _page: WebPage, server: WebServer) -> None:
         self.image_url = server.root_url + server.serve_static_file(pathlib.Path(self.image))
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
-        for x, y, item in self.items:
-            # TODO support nested connectors?
+        for x, y, item, sub_items in self.items:
             if isinstance(item, WebUIConnector):
                 yield item
+            yield from sub_items
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/imagemap.htm')\

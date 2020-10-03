@@ -110,6 +110,7 @@ function ButtonWidget(domElement, writeValue) {
     const offClasses = domElement.getAttribute('data-off-class')
         ? domElement.getAttribute('data-off-class').split(" ")
         : [];
+    const send = !((domElement.getAttribute('data-send') || '') == 'false');
     let on = false;
     this.subscribeIds = [];
 
@@ -125,15 +126,17 @@ function ButtonWidget(domElement, writeValue) {
         domElement.classList.remove('loading', 'active');
     };
 
-    domElement.addEventListener('click', function (event) {
-        let value = !on;
-        if (confirm_values.indexOf(1 * value) !== -1 && !window.confirm(confirm_message || "Are you sure?")) {
-            return;
-        }
-        writeValue(id, value);
-        if (stateful)
-            domElement.classList.add('active');
-    });
+    if (send) {
+        domElement.addEventListener('click', function (event) {
+            let value = !on;
+            if (confirm_values.indexOf(1 * value) !== -1 && !window.confirm(confirm_message || "Are you sure?")) {
+                return;
+            }
+            writeValue(id, value);
+            if (stateful)
+                domElement.classList.add('active');
+        });
+    }
 }
 
 function TextDisplayWidget(domElement, writeValue) {
@@ -339,5 +342,8 @@ const WIDGET_TYPES = new Map([
 
 $(function() {
     $('.main-menu .ui.dropdown').dropdown();
-    $('.ui.sidebar').sidebar({transition: 'overlay'}).sidebar('attach events', '#mobile_item');;
+    $('.ui.sidebar').sidebar({transition: 'overlay'}).sidebar('attach events', '#mobile_item');
+    $('.shc.image-container .with-popup').each(function(){
+        $(this).popup({on: 'click'});
+    });
 });
