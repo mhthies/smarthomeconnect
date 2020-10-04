@@ -42,6 +42,36 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 * MQTT interface (incl. JSON-over-MQTT)
 
 
+## Getting started
+
+0. (Optional) Create a virtual environment to keep your Python package repositories clean:
+   ```bash
+   python3 -m virtualenv -p python3 venv
+   . venv/bin/activate
+   ```
+   Read more about virtual environments [in the offical Python docs](https://docs.python.org/3/tutorial/venv.html).
+  
+1. Install the `smarthomeconnect` Python distribution from PyPI:
+   ```bash
+   pip3 install smarthomeconnect
+   ```
+
+2. Create a Python script (let's call it `my_home_automation.py`) which imports and starts Smart Home Connect:
+   ```python
+   #!/usr/bin/env python3
+   import shc
+
+   # TODO add interfaces and Variables
+  
+   shc.main()
+   ```
+   When running this script (`python3 my_home_authomation.py`), SHC should start and exit (successfully) immediately, since no interfaces are defined.
+   See the code below for an example with the Web UI and the KNX interface.
+
+3. Read about the basic concepts of SHC and available interfaces in the [SHC documentation](https://smarthomeconnect.readthedocs.io/en/latest/).
+   Extend your script to create interfaces and Variables, *connect* connectable objects, define logic handlers and let them be triggered.
+
+
 ## Simple Usage Example
 
 ```python
@@ -119,3 +149,33 @@ SHC depends on the following Python packages:
 * `jinja2` and `MarkupSafe` (BSD-3-Clause License)
 * `knxdclient` (Apache License 2.0)
 * `pyserial-asyncio` & `pySerial` (BSD-3-Clause License)
+
+
+## Development
+
+Feel free to open an issue on GitHub if you miss a feature or find an unexpected behaviour or bug. 
+Please, consult the [documentation](https://smarthomeconnect.readthedocs.io/en/latest/) on the relevant topic and search the GitHub issues for existing reports of the issue first.
+
+If you want to help with the development of *Smart Home Connect*, your Pull Requests are always appreciated.
+
+Setting up a dev environment for SHC is simple:
+Clone the git repository and install the development dependencies, listed in `requirements.txt`:
+```bash
+git clone https://github.com/mhthies/smarthomeconnect
+cd smarthomeconnect
+pip3 install -r requirements.txt
+```
+You may want to use a virtual environment to avoid messing up your Python packages.
+
+Please make sure that all the unittests are passing, when submitting a Pull Request:
+```bash
+python3 -m unittest
+```
+The web tests require Firefox and `geckodriver` to be installed on your systems. 
+
+Additionally, I'd like to keep the test coverage on a high level.
+To check it, you may want to determine it locally, using the `coverage` tool:
+```bash
+coverage run -m unittest
+coverage html
+``` 
