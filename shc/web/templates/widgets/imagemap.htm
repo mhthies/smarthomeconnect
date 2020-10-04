@@ -2,22 +2,25 @@
 <div class="shc image-container">
     <img class="background" src="{{ image_url }}" />
     {% for x, y, item, sub_items in items %}
-        <div class="item" style="left: {{ x*100 }}%; top: {{ y*100 }}%">
+        <div class="item {% if sub_items %}with-popup{% endif %}" style="left: {{ x*100 }}%; top: {{ y*100 }}%"
+             {% if sub_items %}data-popup-id="#imagemap-popup-{{ item|id }}" data-popup-position="{{ 'bottom' if y < 0.3333 else 'top' }} {{ 'left' if x < 0.3333 else ('right' if x > 0.6667 else 'center') }}"{% endif %}>
             {% if item is button %}
-                {{ render_button(item, style='tiny compact circular icon' + (' with-popup' if sub_items else ''), disabled=False if sub_items else None) }}
+                {{ render_button(item, style='tiny compact circular icon', disabled=False if sub_items else None) }}
             {% elif item is imageMapLabel %}
-                <div class="ui {{ item.color }} small label {% if sub_items %}with-popup{% endif %}"
+                <div class="ui {{ item.color }} small label"
                      data-id="{{ item | id }}" data-widget="text-display"><i class="fitted notched circle loading icon"></i></div>
             {% endif %}
             {% if sub_items %}
-                <div class="ui fixed very wide popup">
-                    <div class="ui relaxed divided list">
-                        {% for sub_item in sub_items %}
-                            <div class="item">{{ sub_item.render()|safe }}</div>
-                        {% endfor %}
-                    </div>
-                </div>
             {% endif %}
+        </div>
+    {% endfor %}
+    {% for x, y, item, sub_items in items if sub_items%}
+        <div class="ui fixed very wide popup" id="imagemap-popup-{{ item|id }}">
+            <div class="ui relaxed divided list">
+                {% for sub_item in sub_items %}
+                    <div class="item">{{ sub_item.render()|safe }}</div>
+                {% endfor %}
+            </div>
         </div>
     {% endfor %}
 </div>

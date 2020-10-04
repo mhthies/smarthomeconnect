@@ -343,7 +343,12 @@ const WIDGET_TYPES = new Map([
 $(function() {
     $('.main-menu .ui.dropdown').dropdown();
     $('.ui.sidebar').sidebar({transition: 'overlay'}).sidebar('attach events', '#mobile_item');
-    $('.shc.image-container .with-popup').each(function(){
-        $(this).popup({on: 'click'});
+    $('.shc.image-container .with-popup>*').each(function(){
+        $(this).popup({
+            on: 'click',
+            popup: $(this).parent().attr('data-popup-id'),
+            position: $(this).parent().attr('data-popup-position'),
+            movePopup: false,
+            forcePosition: true});
     });
 });

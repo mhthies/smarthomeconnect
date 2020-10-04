@@ -173,6 +173,6 @@ body.pushable>.pusher, body:not(.pushable) {
     position: absolute;
     transform: translateX(-50%) translateY(-50%);
 }
-.shc.image-container>.item>.with-popup {
+.shc.image-container>.item.with-popup>* {
     cursor: pointer;
 }
