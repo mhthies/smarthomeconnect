@@ -236,7 +236,8 @@ class WebServer:
 
         template = jinja_env.get_template('page.htm')
         body = await template.render_async(title=page.title, segments=page.segments, menu=self.ui_menu_entries,
-                                           root_url=self.root_url, js_files=self._js_files, css_files=self._css_files)
+                                           root_url=self.root_url, js_files=self._js_files, css_files=self._css_files,
+                                           server_token=id(self))
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
     async def _ui_websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
@@ -261,6 +262,15 @@ class WebServer:
 
     async def _ui_websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
         message = msg.json()
+        if 'serverToken' in message:
+            # Detect server restarts (if serverToken of client's page is different from our current server id) and
+            # ask client to reload page.
+            if message['serverToken'] != id(self):
+                logger.debug("Client's serverToken %s does not match our id. Asking for reload.",
+                             message['serverToken'])
+                await ws.send_json({'reload': True})
+            return
+
         try:
             connector = self.connectors[message["id"]]
         except KeyError:

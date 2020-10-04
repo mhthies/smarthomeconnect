@@ -20,7 +20,8 @@
         <link rel="stylesheet" type="text/css" href="{{root_url}}{{ css_file }}" />
     {% endfor %}
     <script>
-        shcRootURL = "{{root_url|safe}}";
+        const shcRootURL = "{{root_url|safe}}";
+        const shcServerToken = {{ server_token }};
     </script>
     {% for js_file in js_files %}
         <script src="{{root_url}}{{ js_file }}"></script>

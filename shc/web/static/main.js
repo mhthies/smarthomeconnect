@@ -314,6 +314,11 @@ const WIDGET_TYPES = new Map([
 
     function subscribe() {
         console.info("Websocket opened. Subscribing widget values ...");
+        // Send serverToken to server to reload page on server restarts
+        ws.send(JSON.stringify({
+            'serverToken': shcServerToken
+        }));
+        // Subscribe to WebConnector objects
         for (const id of widgetMap.keys()) {
             ws.send(JSON.stringify({
                 'sub': true,
@@ -325,16 +330,27 @@ const WIDGET_TYPES = new Map([
     function dispatch_message(messageEvent) {
         console.debug("Received message " + messageEvent.data);
         let data = JSON.parse(messageEvent.data);
-        console.debug("Updating widget id " + data['id'].toString() + " ...");
-        widgetMap.get(data['id']).update(data['v'], data['id']);
+        if (data['reload']) {
+            console.debug("Reloading page, because server told us to do so.");
+            location.reload();
+        } else if (data['id']) {
+            console.debug("Updating widget id " + data['id'].toString() + " ...");
+            widgetMap.get(data['id']).update(data['v'], data['id']);
+        } else {
+            console.error("Don't know how to handle websocket message ", data);
+        }
     }
 
     function writeValue(id, value) {
         console.debug("Writing new value " + JSON.stringify(value) + " for widget id " + id.toString());
-        ws.send(JSON.stringify({
-            'id': id,
-            'v': value
-        }));
+        try {
+            ws.send(JSON.stringify({
+                'id': id,
+                'v': value
+            }));
+        } catch (e) {
+            console.error("Error while sending value via websocket", e);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', (event) => init());
