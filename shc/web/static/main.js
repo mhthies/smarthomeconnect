@@ -280,6 +280,8 @@ const WIDGET_TYPES = new Map([
 (function () {
     let widgetMap = new Map();
     let ws;
+    let connectionErrorToast = null;  // The Semantic UI 'toast' element which indicates a lost websocket connection.
+    let connectionPreviouslyEstablished = false; // true, once we established a websocket connection successfully.
 
     function init() {
         console.info("Intializing Smart Home Connect web UI.");
@@ -302,6 +304,17 @@ const WIDGET_TYPES = new Map([
         ws.onmessage = dispatch_message;
         ws.onclose = function (e) {
             console.info('Socket is closed. Reconnect will be attempted in 1 second.', e.reason);
+            if (!connectionErrorToast) {
+                connectionErrorToast = $('body').toast({
+                    'message': connectionPreviouslyEstablished
+                        ? "Connection to websocket server failed ..."
+                        : "Connection to SHC server lost ...",
+                    'class': 'error',
+                    showIcon: 'exclamation circle',
+                    displayTime: 0,
+                    closeOnClick: false
+                });
+            }
             setTimeout(function () {
                 openWebsocket();
             }, 1000);
@@ -313,6 +326,10 @@ const WIDGET_TYPES = new Map([
     }
 
     function subscribe() {
+        if (connectionErrorToast) {
+            connectionErrorToast.toast('close');
+            connectionErrorToast = null;
+        }
         console.info("Websocket opened. Subscribing widget values ...");
         // Send serverToken to server to reload page on server restarts
         ws.send(JSON.stringify({
@@ -344,12 +361,20 @@ const WIDGET_TYPES = new Map([
     function writeValue(id, value) {
         console.debug("Writing new value " + JSON.stringify(value) + " for widget id " + id.toString());
         try {
+            if (!ws)
+                throw "Websocket not available";
+            if (ws.readyState !== WebSocket.OPEN)
+                throw "Websocket is not open."
             ws.send(JSON.stringify({
                 'id': id,
                 'v': value
             }));
         } catch (e) {
-            console.error("Error while sending value via websocket", e);
+            console.error("Error while sending value via websocket:", e);
+            $('body').toast({
+                'message': "Error while sending value.",
+                'class': 'warning',
+                showIcon: 'exclamation circle'});
         }
     }
 
