@@ -280,9 +280,9 @@ class ImageMap(WebPageItem):
                                                               Tuple[float, float, ImageMapItem, List[WebPageItem]]]]):
         super().__init__()
         self.image = image
-        self.image_url = None
+        self.image_url: str
         self.items: List[Tuple[float, float, ImageMapItem, List[WebPageItem]]]\
-            = [item if len(item) >= 4 else (*item, [],)
+            = [item if len(item) >= 4 else (item[0], item[1], item[2], [],)  # type: ignore # (MyPy does not get it ...)
                for item in items]
 
     def register_with_server(self, _page: WebPage, server: WebServer) -> None:
