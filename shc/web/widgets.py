@@ -292,7 +292,7 @@ class ImageMap(WebPageItem):
         for x, y, item, sub_items in self.items:
             if isinstance(item, WebUIConnector):
                 yield item
-            yield from sub_items
+            yield from itertools.chain.from_iterable(i.get_connectors() for i in sub_items)
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/imagemap.htm')\
