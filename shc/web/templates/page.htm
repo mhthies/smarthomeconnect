@@ -38,6 +38,7 @@
                     </a>
                 {% else %}
                     <div class="item">
+                        {% if icon %}<i class="{{ icon }} icon"></i>{% endif %}
                         <div class="header">{{ label }}</div>
                         <div class="menu">
                             {% for sub_label, sub_icon, sub_link in link %}
@@ -64,6 +65,7 @@
                             </a>
                         {% else %}
                             <div class="mobile hidden ui dropdown item">
+                                {% if icon %}<i class="{{ icon }} icon"></i>{% endif %}
                                 {{ label }}
                                 <i class="dropdown icon"></i>
                                 <div class="menu">
