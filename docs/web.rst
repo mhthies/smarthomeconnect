@@ -17,9 +17,17 @@ TODO creating a page (:meth:`WebServer.page`)
 
 TODO page segments (:meth:`WebPage.new_segment`)
 
+See :ref:`web.widgets` for a reference of the pre-defined ui widget types.
+
+
+
 TODO filling the navigation bar
 
-TODO widgets
+
+.. toctree::
+   :hidden:
+
+   web/widgets
 
 
 

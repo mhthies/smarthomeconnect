@@ -8,6 +8,21 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
+"""
+This module contains all the predefined user interface widget (:class:`shc.web.WebPageItem`) classes, which can be
+instantiated and added to :class:`WebPage`s in order to compose the web user interface.
+
+In addition, there are descriptor classes, like the button classes (e.g. :class:`ToggleButton`) and the
+:class:`ImageMapLabel`. Instances of these classes are used to create an interactive element within another widget.
+They cannot be added to a ui page directly, but must be added to a compatible container element (like
+:class:`ButtonGroup` or :class:`ImageMap`) instead. Still, they form the endpoint for the dynamic interaction and thus
+are `Connectable` objects.
+
+Please note that each widget or button instance must not be used multiple times (neither on the same nor on
+different pages). To create two or more similar and synchronized widgets/buttons, create two instances with the same
+settings and `connect` both of them to the same :class:`shc.Variable`.
+"""
+
 
 import abc
 import enum
@@ -41,10 +56,38 @@ __all__ = [
 
 
 def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
+    """
+    Create HTML markup for a Fontawesome/Semantic UI icon, to be used in PageItem labels, button labels, etc.
+
+    :param icon_name: Name of the icon. See https://fomantic-ui.com/elements/icon.html for reference.
+    :param label: Optional textual label to be placed along with the icon. The styling of the icon is slightly changed,
+        when `label` is non-empty to optimize the spacing between icon an text.
+    :return: (safe) HTML markup to be passed to a Jinja template (of a web page or web widget), e.g. via one of the
+        `label` attributes.
+    """
     return markupsafe.Markup('<i class="ui {}{} icon"></i>'.format("" if label else "fitted ", icon_name)) + label
 
 
 class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
+    """
+    A `WebPageItem` showing a label and a right-aligned toggle switch.
+
+    This widget is a `Connectable` object with type `bool`. It should be connected to a `Readable` object for
+    initialization, e.g. a :class:`shc.Variable` of bool type.
+
+    :param label: The label to be displayed near the switch. Either a plain string (which is automatically escaped for
+        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML, e.g.
+        produced by :func:`icon`.
+    :param color: Background color of the switch, when in 'on' position. The available colors are the same as for
+        buttons. See https://fomantic-ui.com/elements/button.html#colored for reference.
+    :param confirm_message: If provided, the user is asked for confirmation of each interaction with the switch with
+        this message and "OK" and "Cancel" buttons. `confirm_values` may be used to restrict the confirmation to
+        switching on or switching off.
+    :param confirm_values: If `confirm_message` is given, this parameter specifies, which changes of the switch must be
+        confirmed by the user. When set to `[True]`, only switching on (sending True) must be confirmed, when set to
+        `[False]`, only switching off must be confirmed. Defaults to `[False, True]`, i.e. every change must be
+        confirmed.
+    """
     def __init__(self, label: Union[str, markupsafe.Markup], color: str = '', confirm_message: str = '',
                  confirm_values: Iterable[bool] = (False, True)):
         self.type = bool
@@ -61,22 +104,71 @@ class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
 
 
 class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic[T]):
-    def __init__(self, values: List[Tuple[T, Union[str, markupsafe.Markup]]], label: str = ''):
-        self.type = type(values[0][0])
+    """
+    A dropdown (HTML <select>) ui widget with label.
+
+    This widget is a generic `Connectable` object. The type is determined by the values' type. It should be connected to
+    a `Readable` object for initialization.
+
+    :param options: List of options in the dropdown. Each option is a tuple of (value, label). All values must be of the
+        same type. Each label can either be a plain string or a :class:`markupsafe.Markupsafe` with pre-formatted HTML,
+        e.g. from the :func:`icon` function. Since Semantic UI's JavaScript-based <select>-replacement is used, even
+        complex HTML should be rendered properly.
+    :param label: The label to be displayed near the dropdown. Either a plain string (which is automatically escaped for
+        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML, e.g.
+        produced by :func:`icon`.
+    """
+    def __init__(self, options: List[Tuple[T, Union[str, markupsafe.Markup]]], label: str = ''):
+        self.type = type(options[0][0])
         super().__init__()
-        self.values = values
+        self.options = options
         self.label = label
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/select.htm').render_async(
             id=id(self), label=self.label, options=[(json.dumps(value, cls=SHCJsonEncoder), label)
-                                                for value, label in self.values])
+                                                    for value, label in self.options])
+
+
+class EnumSelect(Select):
+    """
+    Specialized version of :class:`Select` for choosing between the entries of a given enum type by their `name`.
+
+    :param type_: The enum type. It is used as the `type` attribute for `connecting` and to generate the dropdown
+        entries from its enum members.
+    :param label: The label to be displayed near the dropdown. Either a plain string (which is automatically escaped for
+        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML, e.g.
+        produced by :func:`icon`.
+    """
+    def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup] = ''):
+        values = [(entry, entry.name) for entry in type_]
+        super().__init__(values, label)
 
 
 Ti = TypeVar('Ti', int, float, str)
 
 
 class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Generic[Ti]):
+    """
+    An input field ui widget for numbers and strings with label.
+
+    This widget is a generic `Connectable` object. The type is specified by the `type_` parameter. The `TextInput`
+    should be connected to a `Readable` object for initialization.
+
+    :param type_: The value type to be entered. Used as the `type` for connecting with other Connectables and to
+        determine the HTML input type. Must be int, float or str.
+    :param label: The label to be displayed near the input. Either a plain string (which is automatically escaped for
+        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML, e.g.
+        produced by :func:`icon`.
+    :param min: The minimal value to be entered (only useful if `type_` is int or float). Used as the HTML `min`
+        attribute.
+    :param max: The maximal value to be entered (only useful if `type_` is int or float). Used as the HTML `max`
+        attribute.
+    :param step: The default increment step when using the arrow buttons or arrow keys in the input field (only useful
+        if `type_` is int or float). Used as the HTML `step` attribute.
+    :param input_suffix: A plain string or HTML markup to be appended to the right of the input field, using Semantic
+        UI's `labeled inputs <https://fomantic-ui.com/elements/input.html#labeled>`_.
+    """
     def __init__(self, type_: Type[Ti], label: Union[str, markupsafe.Markup] = '', min: Optional[Ti] = None,
                  max: Optional[Ti] = None, step: Optional[Ti] = None, input_suffix: Union[str, markupsafe.Markup] = ''):
         self.type = type_
@@ -99,7 +191,57 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
             input_suffix=self.input_suffix)
 
 
+class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
+    """
+    A ui widget which simply displays the value of the connected `Connectable` object as text.
+
+    This widget is a generic `Connectable` object. The type is specified by the `type_` parameter. The `TextInput`
+    should be connected to a `Readable` object for initialization.
+
+    The formatting of the value can be controlled via the `format_string` parameter, which is used with Python 3's
+    `str.format()` method. To show the value with default formatting, use the '{}' format. Other format specifiers may
+    be used, e.g. to specify the floating point accuracy::
+
+        TextDisplay(float, '{:.2f}', "Current value of my_float").connect(my_float_variable)
+
+    The format string may, of course, contain additional characters outside the format specifier to prepend and/or
+    append static strings to the dynamically formatted value.
+    See https://docs.python.org/3/library/string.html#formatstrings for a full reference of valid format strings.
+
+    :param type_: The expected value type, used as the `type` attribute of this `Connectable`
+    :param format_string: A Python format string which is used to format the value into a string representation. The
+        formatting is done by calling `format_string.format(value)` for every new value to be displayed.
+    :param label: A label to be displayed left of the formatted value. Either a plain string (which is automatically
+        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        e.g. produced by :func:`icon`.
+    """
+    def __init__(self, type_: Type[T], format_string: str, label: Union[str, markupsafe.Markup]):
+        self.type = type_
+        super().__init__()
+        self.format_string = format_string
+        self.label = label
+
+    def convert_to_ws_value(self, value: T) -> Any:
+        return self.format_string.format(value)
+
+    async def render(self) -> str:
+        return await jinja_env.get_template('widgets/textdisplay.htm').render_async(id=id(self), label=self.label)
+
+
 class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], WebPageItem):
+    """
+    A visual slider ui widget, labeled with a scale from 0%-100% to set range values.
+
+    This widget is a generic `Connectable` object with type :class:`shc.datatypes.RangeFloat1`. It should be connected
+    to a `Readable` object for initialization. Using the `convert` parameter of the `connect()` method, a `Slider`
+    can be connected to `Connectable` objects of other default range types, like :class:`shc.datatypes.RangeUInt8`.
+
+    :param label: The label to be displayed above the slider (left). Either a plain string (which is automatically
+        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        e.g. produced by :func:`icon`.
+    :param color: Background color of the slider and the upper right label showing the current value. Must be one of
+        Semantic UI's predefined slider colors: https://fomantic-ui.com/modules/slider.html#colored
+    """
     def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = ''):
         self.type = RangeFloat1
         super().__init__()
@@ -112,12 +254,6 @@ class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/slider.htm').render_async(
             id=id(self), label=self.label, color=self.color)
-
-
-class EnumSelect(Select):
-    def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup] = ''):
-        values = [(entry, entry.name) for entry in type_]
-        super().__init__(values, label)
 
 
 class ButtonGroup(WebPageItem):
@@ -217,20 +353,6 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
 
     def convert_to_ws_value(self, value: T) -> bool:
         return value == self.value
-
-
-class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
-    def __init__(self, type_: Type[T], format_string: str, label: Union[str, markupsafe.Markup]):
-        self.type = type_
-        super().__init__()
-        self.format_string = format_string
-        self.label = label
-
-    def convert_to_ws_value(self, value: T) -> Any:
-        return self.format_string.format(value)
-
-    async def render(self) -> str:
-        return await jinja_env.get_template('widgets/textdisplay.htm').render_async(id=id(self), label=self.label)
 
 
 class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
