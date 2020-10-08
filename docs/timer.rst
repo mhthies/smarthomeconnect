@@ -19,16 +19,10 @@ Schedule Timers
 ---------------
 
 .. autoclass:: Once
-    :members:
-    :special-members:
 
 .. autoclass:: Every
-    :members:
-    :special-members:
 
 .. autoclass:: At
-    :members:
-    :special-members:
 
 .. autoclass:: EveryNth
 
