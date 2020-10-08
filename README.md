@@ -9,6 +9,7 @@
 
 *Smart Home Connect* (SHC) is yet another Python home automation framework—in line with [Home Assistant](https://www.home-assistant.io/), [SmartHome.py](https://mknx.github.io/smarthome/), [SmartHomeNG](https://www.smarthomeng.de/) and probably many more.
 Its purpose is to connect "smart home" devices via different communication protocols, provide means for creating automation rules/scripts and a web interface for controling the devices via browser.
+It is currently under development and does not provide a stable API or complete documentation yet.
 
 In contrast to most other home automation frameworks, SHC is completely based on Python's asynchronous coroutines (asyncio) and configured via pure Python scripts instead of YAML files or a fancy web engineering tool.
 Its configuration is based on instantiating *Connectable* objects (like state variables, User Interface Buttons, KNX Group Addresses, etc.) and interconnecting them with simple Read/Subscribe patterns.
@@ -43,6 +44,8 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 
 
 ## Getting started
+
+**Warning: This project is still under rapid development. Interfaces may change without individual warnings/notifications, even in non-backwards-compatible ways.** 
 
 0. (Optional) Create a virtual environment to keep your Python package repositories clean:
    ```bash
