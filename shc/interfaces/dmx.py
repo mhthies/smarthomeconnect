@@ -17,9 +17,9 @@ from typing import List, Any, NamedTuple, Optional
 import serial_asyncio  # type: ignore
 import asyncio
 
-from shc.base import Writable
-from shc.datatypes import RangeUInt8
-from shc.supervisor import register_interface
+from ..base import Writable
+from ..datatypes import RangeUInt8
+from ..supervisor import register_interface
 
 
 logger = logging.getLogger(__name__)

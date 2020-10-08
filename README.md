@@ -79,7 +79,7 @@ import datetime
 import shc
 
 # Configure interfaces
-knx_connection = shc.knx.KNXConnector()
+knx_connection = shc.interfaces.knx.KNXConnector()
 web_interface = shc.web.WebServer("localhost", 8080, "index")
 
 web_index_page = web_interface.page('index')
@@ -88,7 +88,7 @@ web_index_page = web_interface.page('index')
 # Simple On/Off Variable, connected to KNX Group Address (initialized per Group Read telegram),
 # with a switch widget in the web user interface
 ceiling_lights = shc.Variable(bool, "ceiling lights")\
-    .connect(knx_connection.group(shc.knx.KNXGAD(1, 2, 3), dpt="1", init=True))
+    .connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 3), dpt="1", init=True))
 
 web_index_page.add_item(shc.web.widgets.Switch("Ceiling Lights")
                         .connect(ceiling_lights))
@@ -112,16 +112,16 @@ web_index_page.add_item(
 
 # close shutters via button in the web user interface (stateless event, so no Variable required) 
 web_index_page.add_item(shc.web.widgets.ButtonGroup("Shutters", [
-    shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN,
+    shc.web.widgets.StatelessButton(shc.interfaces.knx.KNXUpDown.DOWN,
                                     shc.web.widgets.icon("arrow down"))
-    .connect(knx_connection.group(shc.knx.KNXGAD(3, 2, 1), dpt="1.008"))
+    .connect(knx_connection.group(shc.interfaces.knx.KNXGAD(3, 2, 1), dpt="1.008"))
 ]))
 
 # use expression syntax to switch on fan when temperature is over 25 degrees 
 temperature = shc.Variable(float, "temperature")\
-    .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 1), dpt="9", init=True))
+    .connect(knx_connection.group(shc.interfaces.knx.KNXGAD(0, 0, 1), dpt="9", init=True))
 fan = shc.Variable(bool, "fan")\
-    .connect(knx_connection.group(shc.knx.KNXGAD(0, 0, 2), dpt="1"))\
+    .connect(knx_connection.group(shc.interfaces.knx.KNXGAD(0, 0, 2), dpt="1"))\
     .connect(temperature.EX > 25.0)
 
 # Start up SHC

@@ -21,9 +21,7 @@ from . import timer
 from . import misc
 from . import web
 from . import persistence
-from . import knx
-from . import dmx
-
+from . import interfaces
 
 from .base import handler, blocking_handler
 from .variables import Variable

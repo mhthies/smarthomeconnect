@@ -16,10 +16,11 @@ import logging
 from typing import List, Any, Dict, Tuple, Optional, Set
 
 import knxdclient
-from . import datatypes
-from .base import Writable, Subscribable, Reading, T
-from .conversion import register_converter
-from .supervisor import register_interface
+
+from .. import datatypes
+from ..base import Writable, Subscribable, Reading, T
+from ..conversion import register_converter
+from ..supervisor import register_interface
 
 KNXGAD = knxdclient.GroupAddress
 
