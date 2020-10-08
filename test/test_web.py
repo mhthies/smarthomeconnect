@@ -167,7 +167,7 @@ class WebWidgetsTest(AbstractWebTest):
                 unittest.mock.patch.object(b4, '_publish', new_callable=AsyncMock) as b4_publish:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
-            time.sleep(0.05)
+            time.sleep(0.4)
 
             b1_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B1"]')
             b2_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B2"]')
