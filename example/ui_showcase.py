@@ -19,10 +19,11 @@ Some things to note:
   https://fomantic-ui.com/elements/button.html#colored for reference.
 """
 import random
+import enum
 from pathlib import Path
 
 import shc
-from shc.datatypes import RangeUInt8
+from shc.datatypes import RangeUInt8, RangeFloat1, RGBUInt8
 from shc.web.widgets import *
 
 
