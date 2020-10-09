@@ -167,7 +167,7 @@ overview_page.add_item(HideRowBox([
     # The optional button in the HideRow is completely independent from the row itself. Thus, we must connect the foobar
     # variable individually to the button and to the HideRow
     HideRow("Foobar", color='black', button=StatelessButton(False, icon('power off'), color='red').connect(foobar))
-        .connect(foobar),
+    .connect(foobar),
 ]))
 
 if __name__ == '__main__':

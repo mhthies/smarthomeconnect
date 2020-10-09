@@ -675,8 +675,8 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc
     the websocket to update a UI widget. This way, widgets reflecting the current value of a *Connectable* object can be
     built.
 
-    This base class may be mixed with :class:`WebActionDatapoint`, creating a `Writable` + `Subscribable` class, to build
-    interactive Widgets which display **and** update the connected objects' value.
+    This base class may be mixed with :class:`WebActionDatapoint`, creating a `Writable` + `Subscribable` class, to
+    build interactive Widgets which display **and** update the connected objects' value.
 
     As this is a generic *Connectable* class, don't forget to define the :ref:`type attribute <base.typing>`, when
     inheriting from it—either as a class attribute or as an instance attribute, set in the constructor.
@@ -848,4 +848,4 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
             return False, None, str(id(self.future))
 
 
-from . import widgets
+from . import widgets  # noqa: E402

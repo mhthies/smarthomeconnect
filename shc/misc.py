@@ -17,7 +17,7 @@ from shc.timer import Every
 
 """
 This module contains some helper/adapter classes to support special patterns of interconnection of :class:`Connectable`
-objects.   
+objects.
 """
 
 

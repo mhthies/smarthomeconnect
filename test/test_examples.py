@@ -14,4 +14,3 @@ class TestUiShowcase(unittest.TestCase):
 
         import example.ui_showcase
         shc.main()
-

@@ -316,7 +316,8 @@ class WebWidgetsTest(AbstractWebTest):
                 '//*[normalize-space(text()) = "Message of the Day"]/..//input')
             self.assertEqual("Hello, World!", input_element.get_attribute("value"))
 
-            asyncio.run_coroutine_threadsafe(input_widget.write("Foobar", [self]), loop=self.server_runner.loop).result()
+            asyncio.run_coroutine_threadsafe(input_widget.write("Foobar", [self]), loop=self.server_runner.loop)\
+                .result()
             time.sleep(0.05)
             self.assertEqual("Foobar", input_element.get_attribute("value"))
 

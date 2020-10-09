@@ -172,6 +172,7 @@ class ClockMock:
             pass
         datetime.datetime = NewDateTime  # type: ignore
 
+
 # ###########################
 # Example Connectable objects
 # ###########################

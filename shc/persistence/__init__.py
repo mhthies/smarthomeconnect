@@ -162,7 +162,7 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
         return self._from_mysql_type(value[0])
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
-                            num: Optional[int] = None, offset: int = 0) -> List[Tuple[datetime.datetime, T]]:
+                           num: Optional[int] = None, offset: int = 0) -> List[Tuple[datetime.datetime, T]]:
         column_name = self._type_to_column(self.type)
         await self.interface.pool_ready.wait()
         assert(self.interface.pool is not None)

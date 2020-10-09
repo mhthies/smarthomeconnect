@@ -138,7 +138,7 @@ class EveryTimerTest(unittest.TestCase):
                                     clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20))
             self.assertLessEqual(every_timer._next_execution(),
                                  clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
-    
+
     def test_aligned(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=True)
@@ -270,7 +270,7 @@ class AtTimerTest(unittest.TestCase):
 
     def test_exception(self) -> None:
         with self.assertRaises(ValueError):
-            once_timer = timer.At(day=[1,5,15], weeknum=timer.EveryNth(2))
+            once_timer = timer.At(day=[1, 5, 15], weeknum=timer.EveryNth(2))
 
 
 class BoolTimerTest(unittest.TestCase):
