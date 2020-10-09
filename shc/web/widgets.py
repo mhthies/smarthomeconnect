@@ -196,7 +196,8 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
     A ui widget which simply displays the value of the connected `Connectable` object as text.
 
     This widget is a generic `Connectable` object. The type is specified by the `type_` parameter. The `TextInput`
-    should be connected to a `Readable` object for initialization.
+    should be connected to a `Readable` object for initialization. In contrast to interactive widgets, it does only
+    consume, but not produce values, so it's not `Subscribable`.
 
     The formatting of the value can be controlled via the `format_string` parameter, which is used with Python 3's
     `str.format()` method. To show the value with default formatting, use the '{}' format. Other format specifiers may
@@ -257,6 +258,17 @@ class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], 
 
 
 class ButtonGroup(WebPageItem):
+    """
+    A ui widget consisting of one or more (right-aligned) buttons with a label.
+
+    The appearance (color, label, etc.) and possible interactions of each individual button is specified by a button
+    descriptor (any subclass of :class:`AbstractButton`) for each button. These button descriptors form the SHC-side
+    interface to the buttons to connect them with other `Connectable` objects. The `ButtonGroup` itself is not
+    `Connectable`.
+
+    :param label: The label to be shown left of the buttons
+    :param buttons: List of button descriptors
+    """
     def __init__(self, label: Union[str, markupsafe.Markup], buttons: Iterable["AbstractButton"]):
         super().__init__()
         self.label = label
@@ -271,6 +283,27 @@ class ButtonGroup(WebPageItem):
 
 
 class AbstractButton(metaclass=abc.ABCMeta):
+    """
+    Abstract base class for button descriptor objects.
+
+    Instances of Concrete subclasses can be passed to container widgets like :class:`ButtonGroup` and :class:`ImageMap`
+    and specify the layout (color, label, etc.) and functionality of a button. They also form the SHC-side interface
+    for interacting with the button, i.e. they are `Subscriable` and/or `Reading`+`Writable`.
+
+    :var label: The label/text content of the button. Either a plain string (which should automatically be escaped for
+        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet and properly
+        escaped HTML code.
+    :var color: The color of the button. One of the Semantic UI button colors.
+    :var stateful: If True, the button has an on/off state. It should only be shown fully colored, when in 'on' state.
+        Additionally, it should be shown in 'loading' state until an initial value is received from the server.
+    :var enabled: If False, the button should not be clickable (HTML disabled attribute)
+    :var outline: If True (and `stateful==True`), the button should be shown with a colored outline in 'off' state
+    :var confirm: A list of all values (True and/or False) which should be confirmed by the user after a click on the
+        button, before being sent to the server. An emtpy list/tuple means no confirmation is required for any
+        interaction with this button.
+    :var confirm_message: The message to be shown in the confirm window, when a confirmation is required for an
+        interaction with this button.
+    """
     label: Union[str, markupsafe.Markup] = ''
     color: str = ''
     stateful: bool = True
@@ -288,6 +321,25 @@ jinja_env.tests['button'] = lambda item: isinstance(item, AbstractButton)
 
 
 class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
+    """
+    Button descriptor for a stateless button, i.e. a button that has no visual on/off state and always sends the same
+    value, when clicked.
+
+    `StatelessButtons` are `Subscribable`, but not `Writable`. The `type` is the type of their `value`.
+
+    :param value: The value to be published by this object when the button is clicked by the user
+    :param label: The label/text content of the button. Either a plain string (which is automatically
+        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        e.g. produced by :func:`icon`.
+    :param color: The color of the button. One of the Semantic UI button colors. See
+        https://fomantic-ui.com/elements/button.html#colored for reference. If not specified, the button is shown in the
+        grey-ish default color. Since the button has no on/off state, the specified color is always shown.
+    :param confirm_message: If not empty, the user must confirm each click on the button in a confirm windows with this
+        message.
+    :param outline: If True, the button is not shown fully colored, but only with its outline
+        (`Semantic UI basic button <https://fomantic-ui.com/elements/button.html#basic>`_). Since the button has no
+        on/off state, this holds all the time.
+    """
     stateful = False
 
     def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = '', confirm_message: str = '',
@@ -307,6 +359,31 @@ class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
 
 
 class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton, Generic[T]):
+    """
+    Button descriptor for a button with a fixed value.
+
+    This button publishes a fixed value upon every click, just like the :class:`StatelessButton`. Unlike a
+    `StatelessButton`, it is dynamically lit up (shown in full color) when the current value of the connected object
+    matches the fixed value of the button.
+
+    The `type` of this `Connectable` object is determined from the `value`. The `ValueButton` should be connected
+    to a `Readable` object for initialization of the ui.
+
+    For creating multiple `ValueButtons` with different values for the same variable, take a look a the
+    :class:`ValueListButtonGroup` widget.
+
+    :param value: The value to be published by this object when the button is clicked by the user
+    :param label: The label/text content of the button. Either a plain string (which is automatically
+        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        e.g. produced by :func:`icon`.
+    :param color: The color of the button when it is lit up (i.e. `conncted` object's current value matches the
+        `value`). Must be one of the Semantic UI button colors. See https://fomantic-ui.com/elements/button.html#colored
+        for reference. Defaults to 'blue'.
+    :param confirm_message: If not empty, the user must confirm each click on the button in a confirm windows with this
+        message.
+    :param outline: If True, the button is shown with a colored outline in its configured `color` **when not lit up**,
+        instead of its grey-ish default appearance.
+    """
     def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = 'blue',
                  confirm_message: str = '', outline: bool = False):
         self.type = type(value)
