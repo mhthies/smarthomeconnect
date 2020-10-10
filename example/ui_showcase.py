@@ -144,21 +144,25 @@ overview_page = web_server.page('overview', "Overview", menu_entry='Some Submenu
 # ImageMap supports all the different Buttons as items, as well as the special ImageMapLabel
 # The optional fourth entry of each item is a list of WebPageItems (everything we have shown so far – even an ImageMap))
 # to be placed in a popup shown when the item is clicked.
-overview_page.add_item(ImageMap(Path("../test/assets/example_image.jpg"), [
-    (0.20, 0.25, ToggleButton("Foo", outline=True).connect(foo)),
-    (0.40, 0.25, ToggleButton("Bar", color='red', outline=True).connect(bar)),
-    # Foobar requires confirmation when switched on.
-    (0.60, 0.25, ToggleButton("Foobar", color='black', outline=True,
-                              confirm_message="Do you want the foobar?", confirm_values=[True]).connect(foobar)),
+overview_page.add_item(ImageMap(
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Newburn_Flats_Floor_Plan.pdf"
+    "/page1-543px-Newburn_Flats_Floor_Plan.pdf.jpg",
+    [
+        (0.20, 0.30, ToggleButton("Foo", outline=True).connect(foo)),
+        (0.33, 0.30, ToggleButton("Bar", color='red', outline=True).connect(bar)),
+        # Foobar requires confirmation when switched on.
+        (0.67, 0.30, ToggleButton("Foobar", color='black', outline=True,
+                                  confirm_message="Do you want the foobar?", confirm_values=[True]).connect(foobar)),
 
-    (0.80, 0.25, DisplayButton(label=icon('hat wizard'), color="black").connect(bar)),
+        (0.26, 0.42, DisplayButton(label=icon('hat wizard'), color="red").connect(bar)),
 
-    # We use the RangeFloat1 → bool conversion here to highlight the button with the popup, whenever the yak_wool value
-    # is > 0. To use another condition, you can pass a (lambda) function to the `convert` parameter
-    (0.5, 0.5, DisplayButton(label=icon('dragon'), color="black").connect(yak_wool, convert=True), [
-        Slider("Yak Wool").connect(yak_wool)
-    ]),
-]))
+        # We use the RangeFloat1 → bool conversion here to highlight the button with the popup, whenever the yak_wool value
+        # is > 0. To use another condition, you can pass a (lambda) function to the `convert` parameter
+        (0.42, 0.52, DisplayButton(label=icon('dragon'), color="black").connect(yak_wool, convert=True), [
+            Slider("Yak Wool").connect(yak_wool)
+        ]),
+    ]
+))
 
 overview_page.new_segment()
 overview_page.add_item(HideRowBox([

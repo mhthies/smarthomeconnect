@@ -489,17 +489,24 @@ ImageMapItem = Union[AbstractButton, "ImageMapLabel"]
 
 
 class ImageMap(WebPageItem):
-    def __init__(self, image: PathLike, items: Iterable[Union[Tuple[float, float, ImageMapItem],
-                                                              Tuple[float, float, ImageMapItem, List[WebPageItem]]]]):
+    def __init__(self, image: Union[PathLike, str],
+                 items: Iterable[Union[Tuple[float, float, ImageMapItem],
+                                       Tuple[float, float, ImageMapItem, List[WebPageItem]]]]):
         super().__init__()
         self.image = image
-        self.image_url: str
+        self.image_url: str = ''
+        # Allow using external images: If `image` is an absolute URI, simply use it as the img src, instead of trying
+        # to serve it via our http server
+        if isinstance(image, str) and '://' in image:
+            self.image_url = image
+
         self.items: List[Tuple[float, float, ImageMapItem, List[WebPageItem]]]\
             = [item if len(item) >= 4 else (item[0], item[1], item[2], [],)  # type: ignore # (MyPy does not get it ...)
                for item in items]
 
     def register_with_server(self, _page: WebPage, server: WebServer) -> None:
-        self.image_url = server.root_url + server.serve_static_file(pathlib.Path(self.image))
+        if not self.image_url:
+            self.image_url = server.root_url + server.serve_static_file(pathlib.Path(self.image))
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         for x, y, item, sub_items in self.items:
