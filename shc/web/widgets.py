@@ -372,7 +372,8 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
     For creating multiple `ValueButtons` with different values for the same variable, take a look a the
     :class:`ValueListButtonGroup` widget.
 
-    :param value: The value to be published by this object when the button is clicked by the user
+    :param value: The value to be published by this object when the button is clicked by the user. Also the value which
+        is compared to the `connected` object's current value to determine if the button should be lit up.
     :param label: The label/text content of the button. Either a plain string (which is automatically
         escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
@@ -404,6 +405,31 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
 
 
 class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint[bool]):
+    """
+    Button descriptor for an on/off button.
+
+    Click such a button once to turn it 'on', click it again to turn it 'off'. The button is lit up (fully colored),
+    when in 'on' state (the `connected` object's value is `True`) and shown in the grey-ish default color, when in 'off'
+    state (unless `outline==True`). When clicked in 'on' state, a `False` value is published and vice versa.
+
+    A `ToggleButton` is a `Connectable` object with type `bool´. It should be connected to a `Readable` object for
+    initialization of the ui – otherwise it will show a spinner animation until the first True/False value is received.
+
+    :param label: The label/text content of the button. Either a plain string (which is automatically
+        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        e.g. produced by :func:`icon`.
+    :param color: The color of the button when in 'on' state. Must be one of the Semantic UI button colors.
+        See https://fomantic-ui.com/elements/button.html#colored for reference. Defaults to 'blue'.
+    :param confirm_message: If provided, the user is asked for confirmation of each interaction with the button with
+        this message and "OK" and "Cancel" buttons. `confirm_values` may be used to restrict the confirmation to
+        switching on or switching off.
+    :param confirm_values: If `confirm_message` is given, this parameter specifies, which changes of the button must be
+        confirmed by the user. When set to `[True]`, only switching on (sending True, i.e. clicking in 'off' state) must
+        be confirmed; when set to `[False]`, only switching off must be confirmed. Defaults to `[False, True]`, i.e.
+        every click must be confirmed.
+    :param outline: If True, the button is shown with a colored outline in its configured `color` **in 'off' state**,
+        instead of its grey-ish default appearance.
+    """
     def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = 'blue', confirm_message: str = '',
                  confirm_values: Iterable[bool] = (False, True), outline: bool = False):
         self.type = bool
@@ -417,6 +443,27 @@ class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint
 
 
 class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
+    """
+    Button descriptor for a read-only (non-clickable) button.
+
+    A `DisplayButton` behaves similar to a :class:`ValueButton`: It has a preconfigured fixed `value` and is lit up
+    (displayed in full color) when the `connected` object's value equals this fixed value. However the `DisplayButton`
+    is not clickable. It is a pure display widget, which does not provide user interaction. This, on the SHC-side it
+    is not `Subscribable`.
+
+    The `type` of this `Connectable` object is determined from the `value`. The `DisplayButton` should be connected
+    to a `Readable` object for initialization of the ui.
+
+    :param value: The value which is compared to the `connected` object's current value to determine if the button
+        should be lit up. Defaults to `True`, resulting in a behaviour of a disabled :class:`ToggleButton`.
+    :param label: The label/text content of the button. Either a plain string (which is automatically
+        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        e.g. produced by :func:`icon`.
+    :param color: The color of the button when in 'on' state. Must be one of the Semantic UI button colors.
+        See https://fomantic-ui.com/elements/button.html#colored for reference. Defaults to 'blue'.
+    :param outline: If True, the button is shown with a colored outline in its configured `color` **when not lit up**,
+        instead of its grey-ish default appearance.
+    """
     enabled = False
 
     def __init__(self, value: T = True,  label: Union[str, markupsafe.Markup] = '',  # type: ignore
@@ -433,6 +480,19 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
 
 
 class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
+    """
+    A derived :class:`ButtonGroup` widget to simplify creating a list of :class:`ValueButtons` for the same variable.
+
+    For convenience, this object is a :class:`ConnectableWrapper`. This means, you can use the :meth:`connect` method
+    with another `Connectable` object (like a `Variable`), to connect all the contained `ValueButtons` to that object
+    at once.
+
+    :param values: A list of `(value, label)` tuples. For each tuple, a :class:`ValueButton` is created. All values must
+        be of the same type.
+    :param label: The label of the :class:`ButtonGroup`
+    :param color: A common `color` for all buttons
+    :param confirm_message: A common `confirm_message` for all buttons
+    """
     def __init__(self, values: List[Tuple[T, Union[str, markupsafe.Markup]]], label: Union[str, markupsafe.Markup],
                  color: str = 'blue', confirm_message: str = ''):
         buttons = [ValueButton(value=v[0], label=v[1], color=color, confirm_message=confirm_message) for v in values]
@@ -445,6 +505,19 @@ class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
 
 
 class EnumButtonGroup(ValueListButtonGroup):
+    """
+    A derived of :class:`ValueListButtonGroup`, which is a :class:`ButtonGroup` of :class:`ValueButtons`
+
+    This specialized variant takes an enum type (derived from :class:`enum.Enum`) and creates a :class:`ValueButton` for
+    each entry/member of that enum, with the members' names as button labels. Like `ValueListButtonGroup`, this object
+    is a :class:`ConnectableWrapper`, so you can use the :meth:`connect` to connect all the contained `ValueButtons` to
+    another `Connectable` object at once.
+
+    :param type_: The enum type to create the value buttons for
+    :param label: The label of the :class:`ButtonGroup`
+    :param color: A common `color` for all buttons
+    :param confirm_message: A common `confirm_message` for all buttons
+    """
     def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup], color: str = 'blue',
                  confirm_message: str = ''):
         values = [(entry, entry.name) for entry in type_]
