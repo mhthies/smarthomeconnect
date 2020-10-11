@@ -105,7 +105,7 @@ class WebWidgetsTest(AbstractWebTest):
         with unittest.mock.patch.object(switch_widget, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
-            time.sleep(0.05)
+            time.sleep(0.4)
             checkbox_element = self.driver.find_element_by_xpath(
                 '//*[normalize-space(text()) = "Main Power"]/..//input')
             self.assertTrue(checkbox_element.is_selected())
@@ -220,7 +220,7 @@ class WebWidgetsTest(AbstractWebTest):
         with unittest.mock.patch.object(button, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
-            time.sleep(0.05)
+            time.sleep(0.4)
 
             button_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B1"]')
 
@@ -468,7 +468,7 @@ class WebWidgetsTest(AbstractWebTest):
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
-            time.sleep(0.05)
+            time.sleep(0.4)
             container_element = self.driver.find_element_by_xpath(
                 '//*[normalize-space(text()) = "Select the Foo"]/..')
             menu_element = container_element.find_element_by_css_selector('.selection.dropdown')
