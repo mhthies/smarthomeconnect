@@ -19,6 +19,7 @@ import weakref
 from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic
 
 from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError
+from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
 
@@ -468,6 +469,10 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
         await self._publish(value, origin)
         self._change_task = None
 
+    @property
+    def EX(self) -> ExpressionWrapper:
+        return ExpressionWrapper(self)
+
 
 class TOn(_DelayedBool):
     async def _update(self, value: bool, origin: List[Any]):
@@ -545,3 +550,7 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
         if self._value is None:
             raise UninitializedError("{} is not initialized yet.", repr(self))
         return self._value
+
+    @property
+    def EX(self) -> ExpressionWrapper:
+        return ExpressionWrapper(self)
