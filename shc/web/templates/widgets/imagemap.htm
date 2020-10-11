@@ -1,5 +1,5 @@
 {% from "buttons.inc.htm" import render_button %}
-<div class="shc image-container">
+<div class="shc image-container" {% if not max_width is none %}style="width: {{max_width}}px;"{% endif %}>
     <img class="background" src="{{ image_url }}" />
     {% for x, y, item, sub_items in items %}
         <div class="item {% if sub_items %}with-popup{% endif %}" style="left: {{ x*100 }}%; top: {{ y*100 }}%"

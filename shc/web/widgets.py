@@ -564,7 +564,8 @@ ImageMapItem = Union[AbstractButton, "ImageMapLabel"]
 class ImageMap(WebPageItem):
     def __init__(self, image: Union[PathLike, str],
                  items: Iterable[Union[Tuple[float, float, ImageMapItem],
-                                       Tuple[float, float, ImageMapItem, List[WebPageItem]]]]):
+                                       Tuple[float, float, ImageMapItem, List[WebPageItem]]]],
+                 max_width: Optional[int] = None):
         super().__init__()
         self.image = image
         self.image_url: str = ''
@@ -573,6 +574,7 @@ class ImageMap(WebPageItem):
         if isinstance(image, str) and '://' in image:
             self.image_url = image
 
+        self.max_width = max_width
         self.items: List[Tuple[float, float, ImageMapItem, List[WebPageItem]]]\
             = [item if len(item) >= 4 else (item[0], item[1], item[2], [],)  # type: ignore # (MyPy does not get it ...)
                for item in items]
@@ -589,7 +591,7 @@ class ImageMap(WebPageItem):
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/imagemap.htm')\
-            .render_async(items=self.items, image_url=self.image_url)
+            .render_async(items=self.items, image_url=self.image_url, max_width=self.max_width)
 
 
 class ImageMapLabel(WebDisplayDatapoint[T]):
