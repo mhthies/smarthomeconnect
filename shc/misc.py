@@ -13,6 +13,7 @@ import datetime
 from typing import Generic, Type, List, Any
 
 from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper
+from shc.expressions import ExpressionWrapper
 from shc.timer import Every
 
 """
@@ -90,3 +91,100 @@ class _PipeEnd(Subscribable[T], Writable[T], Generic[T]):
 
     async def _write(self, value: T, origin: List[Any]):
         await self.other_end._publish(value, origin)
+
+
+class BreakableSubscription(Subscribable[T], Generic[T]):
+    """
+    A transparent wrapper for `Subscribable` objects, that allows to dynamically switch forwarding of new values on and
+    off.
+
+    A `BreakableSubscription` object can wrap any `Subscribable` object and is `Subscribable` itself to transparently
+    re-publish all published values of the wrapped object. However, the re-publishing can be switched on and off through
+    a `Readable` boolean control object.
+
+    This can be used to dynamically disable automatic control rules, e.g. control of variables through expressions.
+    In the following example, the `fan` is automatically controlled via an expression, based on `room_temperature`, but
+    only as long as the `automatic_fan_control` is on. Otherwise, it will not get value updates from that comparison
+    expression and thus keep its current value::
+
+        fan = shc.Variable(bool)
+        room_temperature = shc.Variable(float)
+        automatic_fan_control = shc.Variable(bool)
+
+        fan.connect(shc.misc.BreakableSubscription(room_temperature.EX > 25.0,
+                                                   automatic_fan_control))
+
+    If the wrapped object is also `Readable` and the control object is also `Subscribable`, the current value of the
+    wrapped object is read and published when the subscription is enabled (the control object changes to `True`).
+
+    :param wrapped: The Subscribable object to be wrapped
+    :param control: The Readable control object
+    """
+    def __init__(self, wrapped: Subscribable[T], control: Readable[bool]):
+        self.type = wrapped.type
+        super().__init__()
+        self.wrapped = wrapped
+        self.control = control
+        wrapped.trigger(self._new_value)
+        if isinstance(control, Subscribable) and isinstance(wrapped, Readable):
+            control.trigger(self._connection_change)
+
+    async def _new_value(self, value: T, origin: List[Any]) -> None:
+        if await self.control.read():
+            await self._publish(value, origin)
+
+    async def _connection_change(self, connected: bool, origin: List[Any]) -> None:
+        if not connected:
+            return
+        await self._publish(await self.wrapped.read(), origin)  # type: ignore
+
+
+class Hysteresis(Subscribable[bool], Readable[bool], Generic[T]):
+    """
+    A Hysteresis function wrapper for Subscribable objects of any comparable type.
+
+    The `Hysteresis` object is a `Subscribable` and `Readable` object of boolean type, which wraps any `Subscribable`
+    object of a `type` which is comparable with `<`. On any value update of the wrapped object, its current value is
+    compared to two fixed bounds. When the value exceeds the upper bound, the `Hysteresis` publishes a `True` value;
+    when it falls below the lower bound, the `Hysteresis` publishes a `False` value. As long as the value stays between
+    the two bounds, the `Hysteresis` keeps its previous value (and does not publish anything). The output boolean
+    value of the `Hysteresis` may be inverted via the `inverted` parameter.
+
+    :param wrapped: The `Subscribable` object to apply the hysteresis on
+    :param lower: The lower bound of the hysteresis
+    :param upper: The lower bound of the hysteresis
+    :param inverted: If True, the boolean output is inverted (False when value is above upper bound, True when value is
+        below lower bound)
+    :param initial_value: The initial value of the `Hysteresis` object, which is returned on `read()` requests, until
+        the first value outside of the bounds is received. Attention: If `inverted` is True, the initial value is
+        inverted, too.
+    """
+    def __init__(self, wrapped: Subscribable[T], lower: T, upper: T, inverted: bool = False,
+                 initial_value: bool = False):
+        super().__init__()
+        wrapped.trigger(self._new_value)
+        self.value = initial_value  #: Current output value (uninverted)
+        if not isinstance(lower, wrapped.type) or not isinstance(upper, wrapped.type):
+            raise TypeError("'lower' and 'upper' must be instances of the wrapped Subscribable's type, which is {}"
+                            .format(wrapped.type.__name__))
+        self.lower = lower
+        self.upper = upper
+        if lower > upper:
+            raise ValueError('Lower bound of hysteresis must be lower than upper bound.')
+        self.inverted = inverted
+
+    async def _new_value(self, value: T, origin: List[Any]) -> None:
+        old_value = self.value
+        if value < self.lower:
+            self.value = False
+        elif value > self.upper:
+            self.value = True
+        if self.value != old_value:
+            await self._publish(self.value != self.inverted, origin)
+
+    async def read(self) -> T:
+        return self.value != self.inverted
+
+    @property
+    def EX(self) -> ExpressionWrapper[T]:
+        return ExpressionWrapper(self)

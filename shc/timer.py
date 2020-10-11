@@ -554,3 +554,81 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
     @property
     def EX(self) -> ExpressionWrapper:
         return ExpressionWrapper(self)
+
+
+class TimerSwitch(Subscribable[bool], Readable[bool]):
+    """
+    A helper to program something similar to those old-fashioned digital timer switch adaptors
+
+    A `TimerSwitch` is basically a bool Variable with a fancy constructor to let some timers set the variable to True or
+    False. Additionally, a `duration` mode is built in, which allows to specify a duration after which the `TimerSwitch`
+    switches off (is set to False) automatically – similar to the :class:`TPulse` timer.
+
+    A simple usage example for switching on at 8:00 and off at 13:37, but 9:00 and 15:00 on weekens may look like::
+
+        timer_switch = TimerSwitch(on=[At(weekday=[1,2,3,4,5], hour=8),
+                                       At(weekday=[6,7], hour=9),
+                                   off=[At(weekday=[1,2,3,4,5], hour=13, minute=37),
+                                        At(weekday=[6,7], hour=15)]
+        my_ceiling_lights.connect(timer_switch)
+
+    To enable or disable the `TimerSwitch`, you may want to take a look at the :class:`shc.misc.BreakableSubscription`.
+
+    :param on: A list of timers which should trigger a 'switch on' action (i.e. set the `TimerSwitch`s value to True
+        when triggering)
+    :param off: A list of timers which should trigger a 'switch off' action (i.e. set the `TimerSwitch`s value to False
+        when triggering). Either this parameter or the `duration` (but not both) must be specified.
+    :param duration: Period of time, after which the `TimerSwitch` will be switched off automatically after each
+        'switch on' event. Must be used as an alternative to the `off` parameter.
+    :param duration_random: An optional (maximum) offset to add to or substract from the `duration` period. If
+        `duration` is used, a random timedelta between -`random` and +`random` will be added to each individual 'on'
+        period.
+    """
+    type = bool
+
+    def __init__(self, on: Iterable[Subscribable], off: Optional[Iterable[Subscribable]] = None,
+                 duration: Optional[datetime.timedelta] = None, duration_random: Optional[datetime.timedelta] = None):
+        super().__init__()
+        if not off and duration is None:
+            raise ValueError("Either 'off' timer specs or a 'duration' must be specified")
+        if off and duration is not None:
+            raise ValueError("'off' timer specs and a 'duration' cannot be specified at the same time")
+        if duration_random and duration is None:
+            raise ValueError("A 'duration_random' value does not make sense without a duration")
+
+        self.value = False
+        self.duration = duration
+        self.duration_random = duration_random
+        self.delay_task: Optional[asyncio.Task] = None
+
+        for on_timer in on:
+            on_timer.trigger(self._on)
+        if off:
+            for off_timer in off:
+                off_timer.trigger(self._off)
+
+    async def _on(self, _v, origin) -> None:
+        if not self.value:
+            self.value = True
+            await self._publish(True, origin)
+            if self.duration is not None:
+                if self.delay_task:
+                    self.delay_task.cancel()
+                self.delay_task = asyncio.create_task(self._delayed_off(origin))
+                timer_supervisor.add_temporary_task(self.delay_task)
+
+    async def _off(self, _v, origin) -> None:
+        if self.value:
+            self.value = False
+            await self._publish(False, origin)
+
+    async def _delayed_off(self, origin) -> None:
+        await _logarithmic_sleep(datetime.datetime.now().astimezone() + _random_time(self.duration_random))
+        await self._off(False, origin)
+
+    async def read(self) -> bool:
+        return self.value
+
+    @property
+    def EX(self) -> ExpressionWrapper:
+        return ExpressionWrapper(self)
