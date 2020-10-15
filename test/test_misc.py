@@ -73,3 +73,51 @@ class MiscTests(unittest.TestCase):
 
         await control.write(True, [self])
         sub._write.assert_called_once_with(56.0, [self, control, unittest.mock.ANY])
+
+    @async_test
+    async def test_hysteresis(self) -> None:
+        pub = ExampleSubscribable(float)
+        hystersis = shc.misc.Hysteresis(pub, 42.0, 56.0)
+        sub = ExampleWritable(bool).connect(hystersis)
+
+        # Check initial value
+        self.assertEqual(False, await hystersis.read())
+
+        # Check climbing value
+        await pub.publish(41.0, [self])
+        await pub.publish(43.5, [self])
+        await pub.publish(44.5, [self])
+        self.assertEqual(False, await hystersis.read())
+        sub._write.assert_not_called()
+
+        await pub.publish(57.4, [self])
+        sub._write.assert_called_once_with(True, [self, pub, hystersis])
+        self.assertEqual(True, await hystersis.read())
+
+        sub._write.reset_mock()
+        await pub.publish(58, [self])
+        sub._write.assert_not_called()
+        self.assertEqual(True, await hystersis.read())
+
+        # Check descending value
+        await pub.publish(44.5, [self])
+        self.assertEqual(True, await hystersis.read())
+        sub._write.assert_not_called()
+
+        await pub.publish(41.4, [self])
+        sub._write.assert_called_once_with(False, [self, pub, hystersis])
+        self.assertEqual(False, await hystersis.read())
+
+        sub._write.reset_mock()
+        await pub.publish(40.0, [self])
+        sub._write.assert_not_called()
+        self.assertEqual(False, await hystersis.read())
+
+        # Check jumps
+        await pub.publish(57.4, [self])
+        sub._write.assert_called_once_with(True, [self, pub, hystersis])
+        self.assertEqual(True, await hystersis.read())
+        sub._write.reset_mock()
+        await pub.publish(41.4, [self])
+        sub._write.assert_called_once_with(False, [self, pub, hystersis])
+        self.assertEqual(False, await hystersis.read())
