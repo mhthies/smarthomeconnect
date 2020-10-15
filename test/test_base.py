@@ -1,3 +1,4 @@
+import logging
 import threading
 import unittest
 import unittest.mock
@@ -30,7 +31,15 @@ class TestSubscribe(unittest.TestCase):
         await a.publish(TOTALLY_RANDOM_NUMBER, [b, self])
         self.assertEqual(b._write.call_count, 0)
 
-    # TODO test error handling
+    @async_test
+    async def test_error_handling(self):
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(int)
+        b._write.side_effect = RuntimeError("Really unexpected error in _write")
+        a.subscribe(b)
+        with self.assertLogs(level=logging.ERROR) as ctx:
+            await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        self.assertIn("unexpected error in _write", "\n".join(ctx.output))
 
     @async_test
     async def test_type_conversion(self):
@@ -49,7 +58,17 @@ class TestSubscribe(unittest.TestCase):
         with self.assertRaises(TypeError):
             a.subscribe(c)
 
-        # TODO conversion with explicit converter
+    @async_test
+    async def test_explicit_conversion(self):
+        a = ExampleSubscribable(int)
+        b = ExampleWritable(float)
+
+        converter = unittest.mock.Mock(side_effect=(56.5,))
+
+        a.subscribe(b, convert=converter)
+        await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        converter.assert_called_once_with(TOTALLY_RANDOM_NUMBER)
+        b._write.assert_called_once_with(56.5, unittest.mock.ANY)
 
 
 class TestHandler(unittest.TestCase):
@@ -121,7 +140,19 @@ class TestHandler(unittest.TestCase):
         await another_test_handler(TOTALLY_RANDOM_NUMBER, [])
         self.assertEqual(2, self.call_counter)
 
-    # TODO test error handling
+    @async_test
+    async def test_error_handling(self):
+        a = ExampleSubscribable(int)
+        mock = AsyncMock(side_effect=RuntimeError("Really unexpected error in _write"))
+
+        @a.trigger
+        @base.handler()
+        async def test_handler(value, _origin):
+            await mock()
+
+        with self.assertLogs(level=logging.ERROR) as ctx:
+            await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        self.assertIn("unexpected error in _write", "\n".join(ctx.output))
 
 
 class TestBlockingHandler(unittest.TestCase):
@@ -185,7 +216,18 @@ class TestReading(unittest.TestCase):
         with self.assertRaises(TypeError):
             c.set_provider(a, convert=True)
 
-        # TODO conversion with explicit converter
+    @async_test
+    async def test_type_conversion(self):
+        a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
+        b = ExampleReading(float, False)
+
+        converter = unittest.mock.Mock(side_effect=(56.5,))
+
+        b.set_provider(a, convert=converter)
+
+        result = await b.do_read()
+        converter.assert_called_once_with(TOTALLY_RANDOM_NUMBER)
+        self.assertEqual(result, 56.5)
 
 
 class DummyIntReadSubscribable(base.Readable[int], base.Subscribable[int]):
