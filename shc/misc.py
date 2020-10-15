@@ -12,7 +12,7 @@
 import datetime
 from typing import Generic, Type, List, Any
 
-from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper
+from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError
 from shc.expressions import ExpressionWrapper
 from shc.timer import Every
 
@@ -130,13 +130,21 @@ class BreakableSubscription(Subscribable[T], Generic[T]):
             control.trigger(self._connection_change)
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
-        if await self.control.read():
+        try:
+            connected = await self.control.read()
+        except UninitializedError:
+            # We default to False, if the control variable is not initialized yet
+            return
+        if connected:
             await self._publish(value, origin)
 
     async def _connection_change(self, connected: bool, origin: List[Any]) -> None:
         if not connected:
             return
-        await self._publish(await self.wrapped.read(), origin)  # type: ignore
+        try:
+            await self._publish(await self.wrapped.read(), origin)  # type: ignore
+        except UninitializedError:
+            pass
 
 
 class Hysteresis(Subscribable[bool], Readable[bool], Generic[T]):
