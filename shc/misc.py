@@ -167,6 +167,8 @@ class Hysteresis(Subscribable[bool], Readable[bool], Generic[T]):
         the first value outside of the bounds is received. Attention: If `inverted` is True, the initial value is
         inverted, too.
     """
+    type = bool
+
     def __init__(self, wrapped: Subscribable[T], lower: T, upper: T, inverted: bool = False,
                  initial_value: bool = False):
         super().__init__()
