@@ -181,7 +181,7 @@ class TestBlockingHandler(unittest.TestCase):
         @a.trigger
         @base.handler()
         async def test_handler(value, _origin) -> None:
-            await blocking_test_handler(value)
+            await blocking_test_handler(value)  # type: ignore  # MyPy doesn't get that @blocking_handler() changes args
 
         @base.blocking_handler()
         def blocking_test_handler(value, _origin):
@@ -253,11 +253,12 @@ class DummyFloatReadingWritable(base.Reading[float], base.Writable[float]):
 
 class DummyIntWrapper(base.ConnectableWrapper[int]):
     type = int
+    connect: unittest.mock.Mock  # required to let MyPy know that we can use Mock's methods
 
     def __init__(self):
         self.connect = unittest.mock.Mock()
 
-    def connect(self, *args, **kwargs) -> "DummyIntWrapper": ...
+    def connect(self, *args, **kwargs) -> "DummyIntWrapper": ...  # type: ignore
 
 
 class TestConnecting(unittest.TestCase):

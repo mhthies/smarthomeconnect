@@ -12,5 +12,5 @@ class TestUiShowcase(unittest.TestCase):
             await shc.supervisor.stop()
         shc.supervisor.event_loop.create_task(shutdown())
 
-        import example.ui_showcase
+        import example.ui_showcase  # type: ignore
         shc.main()

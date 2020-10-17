@@ -181,12 +181,14 @@ T = TypeVar('T')
 
 
 class ExampleReadable(base.Readable[T], Generic[T]):
+    read: AsyncMock  # required to let MyPy know that we can use Mock's methods
+
     def __init__(self, type_: Type[T], value: T, side_effect=None):
         self.type = type_
         super().__init__()
-        self.read = AsyncMock(return_value=value, side_effect=side_effect)  # type: ignore
+        self.read = AsyncMock(return_value=value, side_effect=side_effect)
 
-    async def read(self) -> T: ...
+    async def read(self) -> T: ...  # type: ignore
 
 
 class ExampleSubscribable(base.Subscribable[T], Generic[T]):
@@ -199,12 +201,14 @@ class ExampleSubscribable(base.Subscribable[T], Generic[T]):
 
 
 class ExampleWritable(base.Writable[T], Generic[T]):
+    _write: AsyncMock  # required to let MyPy know that we can use Mock's methods
+
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
-        self._write = AsyncMock()  # type: ignore
+        self._write = AsyncMock()
 
-    async def _write(self, value: T, origin: List[Any]) -> None: ...
+    async def _write(self, value: T, origin: List[Any]) -> None: ...  # type: ignore
 
 
 class ExampleReading(base.Reading[T], Generic[T]):
