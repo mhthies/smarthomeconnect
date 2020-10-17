@@ -156,8 +156,8 @@ overview_page.add_item(ImageMap(
 
         (0.26, 0.42, DisplayButton(label=icon('hat wizard'), color="red").connect(bar)),
 
-        # We use the RangeFloat1 → bool conversion here to highlight the button with the popup, whenever the yak_wool value
-        # is > 0. To use another condition, you can pass a (lambda) function to the `convert` parameter
+        # We use the RangeFloat1 → bool conversion here to highlight the button with the popup, whenever the yak_wool
+        # value is > 0. To use another condition, you can pass a (lambda) function to the `convert` parameter
         (0.42, 0.52, DisplayButton(label=icon('dragon'), color="black").connect(yak_wool, convert=True), [
             Slider("Yak Wool").connect(yak_wool)
         ]),
