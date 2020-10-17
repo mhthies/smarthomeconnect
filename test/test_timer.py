@@ -5,7 +5,7 @@ import unittest.mock
 from typing import Optional, List
 
 from shc import timer, base
-from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock
+from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock, ExampleWritable
 
 
 class LogarithmicSleepTest(unittest.TestCase):
@@ -445,3 +445,84 @@ class BoolTimerTest(unittest.TestCase):
                 publish_mock.assert_called_with(False, unittest.mock.ANY)
                 self.assertAlmostEqual(start + datetime.timedelta(seconds=42.01), call_times[-1],
                                        delta=datetime.timedelta(seconds=.01))
+
+
+class TimerSwitchTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        ClockMock.enable()
+
+    @async_test
+    async def test_simple(self) -> None:
+        pub_on1 = ExampleSubscribable(type(None))
+        pub_on2 = ExampleSubscribable(type(None))
+        pub_off1 = ExampleSubscribable(type(None))
+        pub_off2 = ExampleSubscribable(type(None))
+
+        timerswitch = timer.TimerSwitch([pub_on1, pub_on2], [pub_off1, pub_off2])
+
+        with unittest.mock.patch.object(timerswitch, "_publish", new=AsyncMock()) as publish_mock:
+            self.assertFalse(await timerswitch.read())
+
+            await pub_on1.publish(None, [self])
+            publish_mock.assert_called_once_with(True, unittest.mock.ANY)
+            self.assertTrue(await timerswitch.read())
+
+            publish_mock.reset_mock()
+            await pub_on2.publish(None, [self])
+            publish_mock.assert_not_called()
+            self.assertTrue(await timerswitch.read())
+
+            await pub_off2.publish(None, [self])
+            publish_mock.assert_called_once_with(False, unittest.mock.ANY)
+            self.assertFalse(await timerswitch.read())
+
+            publish_mock.reset_mock()
+            await pub_off1.publish(None, [self])
+            publish_mock.assert_not_called()
+            self.assertFalse(await timerswitch.read())
+
+    @async_test
+    async def test_duration(self) -> None:
+        begin = datetime.datetime(2020, 1, 1, 0, 0, 0)
+        pub_on1 = ExampleSubscribable(type(None))
+        pub_on2 = ExampleSubscribable(type(None))
+
+        timerswitch = timer.TimerSwitch([pub_on1, pub_on2], duration=datetime.timedelta(seconds=42))
+
+        with unittest.mock.patch.object(timerswitch, "_publish", new=AsyncMock()) as publish_mock:
+            with ClockMock(begin, actual_sleep=0.05) as clock:
+                self.assertFalse(await timerswitch.read())
+
+                await pub_on2.publish(None, [self])
+                publish_mock.assert_called_once_with(True, unittest.mock.ANY)
+                self.assertTrue(await timerswitch.read())
+
+                # Retrigger duration after 32 seconds
+                await asyncio.sleep(32)
+                publish_mock.reset_mock()
+                await pub_on1.publish(None, [self])
+                publish_mock.assert_not_called()
+                self.assertTrue(await timerswitch.read())
+
+                # After 52 seconds, the timerswitch should still be on, since it has been retriggered at 32 sec.
+                await asyncio.sleep(20)
+                publish_mock.assert_not_called()
+                self.assertTrue(await timerswitch.read())
+
+                # After 74 seconds the timerswitch should automatically switch off. Let't test its state at 73 and 75
+                # sec.
+                await asyncio.sleep(21)
+                publish_mock.assert_not_called()
+                self.assertTrue(await timerswitch.read())
+
+                await asyncio.sleep(2)
+                publish_mock.assert_called_once_with(False, unittest.mock.ANY)
+                self.assertFalse(await timerswitch.read())
+
+    def test_error(self) -> None:
+        pub_on1 = ExampleSubscribable(bool)
+        pub_off1 = ExampleSubscribable(bool)
+
+        with self.assertRaises(ValueError):
+            timer.TimerSwitch([pub_on1], [pub_off1], datetime.timedelta(seconds=42))
