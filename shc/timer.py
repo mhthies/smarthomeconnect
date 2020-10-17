@@ -623,6 +623,7 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
             await self._publish(False, origin)
 
     async def _delayed_off(self, origin) -> None:
+        assert(self.duration is not None)
         await _logarithmic_sleep(datetime.datetime.now().astimezone() + self.duration
                                  + _random_time(self.duration_random))
         await self._off(False, origin)
