@@ -179,22 +179,22 @@ class Hysteresis(Subscribable[bool], Readable[bool], Generic[T]):
                             .format(wrapped.type.__name__))
         self.lower = lower
         self.upper = upper
-        if lower > upper:
+        if lower > upper:  # type: ignore  # To defined that T is comparable, we need to use Protocols from Python 3.8
             raise ValueError('Lower bound of hysteresis must be lower than upper bound.')
         self.inverted = inverted
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
         old_value = self.value
-        if value < self.lower:
+        if value < self.lower:  # type: ignore
             self.value = False
-        elif value > self.upper:
+        elif value > self.upper:  # type: ignore
             self.value = True
         if self.value != old_value:
             await self._publish(self.value != self.inverted, origin)
 
-    async def read(self) -> T:
+    async def read(self) -> bool:
         return self.value != self.inverted
 
     @property
-    def EX(self) -> ExpressionWrapper[T]:
+    def EX(self) -> ExpressionWrapper[bool]:
         return ExpressionWrapper(self)
