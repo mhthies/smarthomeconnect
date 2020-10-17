@@ -14,7 +14,7 @@ TOTALLY_RANDOM_NUMBER = 42
 
 class TestSubscribe(unittest.TestCase):
     @async_test
-    async def test_simple_subscribe(self):
+    async def test_simple_subscribe(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
         a.subscribe(b)
@@ -22,7 +22,7 @@ class TestSubscribe(unittest.TestCase):
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
 
     @async_test
-    async def test_loopback_protection(self):
+    async def test_loopback_protection(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
         a.subscribe(b)
@@ -32,7 +32,7 @@ class TestSubscribe(unittest.TestCase):
         self.assertEqual(b._write.call_count, 0)
 
     @async_test
-    async def test_error_handling(self):
+    async def test_error_handling(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
         b._write.side_effect = RuntimeError("Really unexpected error in _write")
@@ -42,7 +42,7 @@ class TestSubscribe(unittest.TestCase):
         self.assertIn("unexpected error in _write", "\n".join(ctx.output))
 
     @async_test
-    async def test_type_conversion(self):
+    async def test_type_conversion(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(float)
 
@@ -59,7 +59,7 @@ class TestSubscribe(unittest.TestCase):
             a.subscribe(c)
 
     @async_test
-    async def test_explicit_conversion(self):
+    async def test_explicit_conversion(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(float)
 
@@ -73,7 +73,7 @@ class TestSubscribe(unittest.TestCase):
 
 class TestHandler(unittest.TestCase):
     @async_test
-    async def test_basic_trigger(self):
+    async def test_basic_trigger(self) -> None:
         a = ExampleSubscribable(int)
         handler = AsyncMock()
         handler.__name__ = "handler_mock"
@@ -83,33 +83,33 @@ class TestHandler(unittest.TestCase):
         handler.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
 
     @async_test
-    async def test_magic_origin_passing(self):
+    async def test_magic_origin_passing(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
 
         @a.trigger
         @base.handler()
-        async def test_handler(value, _origin):
+        async def test_handler(value, _origin) -> None:
             await b.write(value)
 
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
 
     @async_test
-    async def test_reset_origin(self):
+    async def test_reset_origin(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
 
         @a.trigger
         @base.handler(reset_origin=True)
-        async def test_handler(value, _origin):
+        async def test_handler(value, _origin) -> None:
             await b.write(value)
 
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [test_handler])
 
     @async_test
-    async def test_no_recursion(self):
+    async def test_no_recursion(self) -> None:
         a = SimpleIntRepublisher()
         self.call_counter = 0
 
@@ -125,7 +125,7 @@ class TestHandler(unittest.TestCase):
         self.assertEqual(1, self.call_counter)
 
     @async_test
-    async def test_allow_recursion(self):
+    async def test_allow_recursion(self) -> None:
         a = SimpleIntRepublisher()
         self.call_counter = 0
 
@@ -141,13 +141,13 @@ class TestHandler(unittest.TestCase):
         self.assertEqual(2, self.call_counter)
 
     @async_test
-    async def test_error_handling(self):
+    async def test_error_handling(self) -> None:
         a = ExampleSubscribable(int)
         mock = AsyncMock(side_effect=RuntimeError("Really unexpected error in _write"))
 
         @a.trigger
         @base.handler()
-        async def test_handler(value, _origin):
+        async def test_handler(value, _origin) -> None:
             await mock()
 
         with self.assertLogs(level=logging.ERROR) as ctx:
@@ -157,7 +157,7 @@ class TestHandler(unittest.TestCase):
 
 class TestBlockingHandler(unittest.TestCase):
     @async_test
-    async def test_basic_trigger(self):
+    async def test_basic_trigger(self) -> None:
         a = ExampleSubscribable(int)
         thread_id_container = []
 
@@ -174,13 +174,13 @@ class TestBlockingHandler(unittest.TestCase):
         self.assertNotEqual(thread_id_container[0], threading.get_ident())
 
     @async_test
-    async def test_magic_origin_receiving(self):
+    async def test_magic_origin_receiving(self) -> None:
         a = ExampleSubscribable(int)
         mock = unittest.mock.Mock()
 
         @a.trigger
         @base.handler()
-        async def test_handler(value, _origin):
+        async def test_handler(value, _origin) -> None:
             await blocking_test_handler(value)
 
         @base.blocking_handler()
@@ -193,7 +193,7 @@ class TestBlockingHandler(unittest.TestCase):
 
 class TestReading(unittest.TestCase):
     @async_test
-    async def test_simple_reading(self):
+    async def test_simple_reading(self) -> None:
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, False)
         b.set_provider(a)
@@ -201,7 +201,7 @@ class TestReading(unittest.TestCase):
         self.assertEqual(result, TOTALLY_RANDOM_NUMBER)
 
     @async_test
-    async def test_type_conversion(self):
+    async def test_type_conversion(self) -> None:
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(float, False)
         with self.assertRaises(TypeError):
@@ -217,7 +217,7 @@ class TestReading(unittest.TestCase):
             c.set_provider(a, convert=True)
 
     @async_test
-    async def test_type_conversion(self):
+    async def test_explicit_conversion(self) -> None:
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(float, False)
 
@@ -261,7 +261,7 @@ class DummyIntWrapper(base.ConnectableWrapper[int]):
 
 
 class TestConnecting(unittest.TestCase):
-    def test_subscribing(self):
+    def test_subscribing(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
 
@@ -288,7 +288,7 @@ class TestConnecting(unittest.TestCase):
         with self.assertRaises(TypeError):
             b.connect(a, send=True)
 
-    def test_mandatory_reading(self):
+    def test_mandatory_reading(self) -> None:
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, False)
 
@@ -316,7 +316,7 @@ class TestConnecting(unittest.TestCase):
         with self.assertRaises(TypeError):
             b.connect(a, provide=True)
 
-    def test_optional_reading(self):
+    def test_optional_reading(self) -> None:
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, True)
 
@@ -330,7 +330,7 @@ class TestConnecting(unittest.TestCase):
 
     # TODO test None return values of _from_provider
 
-    def test_type_conversion(self):
+    def test_type_conversion(self) -> None:
         a = DummyIntReadSubscribable()
         b = DummyFloatReadingWritable()
 
@@ -352,7 +352,7 @@ class TestConnecting(unittest.TestCase):
             mock_subscribe.assert_called_once_with(b, convert=True)
             mock_set_provider.assert_called_once_with(a, convert=True)
 
-    def test_connectable_wrapper(self):
+    def test_connectable_wrapper(self) -> None:
         a = DummyIntReadSubscribable()
         b = DummyIntWrapper()
 
