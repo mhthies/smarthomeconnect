@@ -562,7 +562,7 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
 
     A `TimerSwitch` is basically a bool Variable with a fancy constructor to let some timers set the variable to True or
     False. Additionally, a `duration` mode is built in, which allows to specify a duration after which the `TimerSwitch`
-    switches off (is set to False) automatically – similar to the :class:`TPulse` timer.
+    switches off (is set to False) automatically – similar to the :class:`TPulse` timer (but with retriggerability).
 
     A simple usage example for switching on at 8:00 and off at 13:37, but 9:00 and 15:00 on weekens may look like::
 
@@ -611,11 +611,11 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
         if not self.value:
             self.value = True
             await self._publish(True, origin)
-            if self.duration is not None:
-                if self.delay_task:
-                    self.delay_task.cancel()
-                self.delay_task = asyncio.create_task(self._delayed_off(origin))
-                timer_supervisor.add_temporary_task(self.delay_task)
+        if self.duration is not None:
+            if self.delay_task is not None:
+                self.delay_task.cancel()
+            self.delay_task = asyncio.create_task(self._delayed_off(origin))
+            timer_supervisor.add_temporary_task(self.delay_task)
 
     async def _off(self, _v, origin) -> None:
         if self.value:
