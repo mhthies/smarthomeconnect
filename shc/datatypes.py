@@ -112,7 +112,7 @@ class RGBFloat1(NamedTuple):
     def __mul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100, float]) -> "RGBFloat1":
         if not isinstance(other, float):
             try:
-                other = get_converter(type(other), RangeFloat1)
+                other = get_converter(type(other), RangeFloat1)(other)
             except TypeError:
                 return NotImplemented
         return RGBFloat1(RangeFloat1(self.red * other),
@@ -144,7 +144,7 @@ class HSVFloat1(NamedTuple):
         # Multiplication with a scalar (range) only effects the value
         if not isinstance(other, float):
             try:
-                other = get_converter(type(other), RangeFloat1)
+                other = get_converter(type(other), RangeFloat1)(other)
             except TypeError:
                 return NotImplemented
         return HSVFloat1(self.hue, self.saturation, RangeFloat1(self.value * other))
