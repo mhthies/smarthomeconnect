@@ -155,7 +155,9 @@ class HSVFloat1(NamedTuple):
     @classmethod
     def from_rgb(cls, value: RGBFloat1) -> "HSVFloat1":
         # Taken from Wikipedia: https://de.wikipedia.org/wiki/HSV-Farbraum#Umrechnung_RGB_in_HSV/HSL
-        r = value.red; g = value.green; b = value.blue
+        r = value.red
+        g = value.green
+        b = value.blue
         max_v = max(r, g, b)
         min_v = min(r, g, b)
         h = (0 if max_v == min_v
@@ -170,7 +172,9 @@ class HSVFloat1(NamedTuple):
 
     def to_rgb(self) -> "RGBFloat1":
         # Taken from Wikipedia: https://de.wikipedia.org/wiki/HSV-Farbraum#Umrechnung_HSV_in_RGB
-        h = self.hue; s = self.saturation; v = self.value
+        h = self.hue
+        s = self.saturation
+        v = self.value
         hi = math.floor(h * 6)
         f = h * 6 - hi
         p = v * (1 - s)
@@ -201,4 +205,3 @@ register_converter(HSVFloat1, RGBUInt8, hsv_to_rgbuint8)
 register_converter(RGBUInt8, HSVFloat1, lambda v: HSVFloat1.from_rgb(RGBFloat1(RangeFloat1(v.red / 255),
                                                                                RangeFloat1(v.green / 255),
                                                                                RangeFloat1(v.blue / 255))))
-
