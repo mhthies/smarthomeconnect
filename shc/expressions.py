@@ -17,6 +17,7 @@ from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple
 
 from . import conversion
 from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler
+from .datatypes import RangeFloat1, RangeUInt8, HSVFloat1, RGBFloat1, RGBUInt8
 
 
 class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
@@ -423,6 +424,32 @@ TYPES_MUL: Dict[Tuple[Type, Type], Type] = {
     (float, datetime.timedelta): datetime.timedelta,
     (datetime.timedelta, int): datetime.timedelta,
     (int, datetime.timedelta): datetime.timedelta,
+    (RangeFloat1, float): float,
+    (float, RangeFloat1): float,
+    (RangeFloat1, RangeFloat1): RangeFloat1,
+    (RangeUInt8, float): float,
+    (float, RangeUInt8): float,
+    (RangeFloat1, RangeUInt8): RangeFloat1,
+    (RangeUInt8, RangeUInt8): RangeUInt8,
+    (RangeUInt8, RangeFloat1): RangeFloat1,
+    (float, RGBUInt8): RGBUInt8,
+    (RangeFloat1, RGBUInt8): RGBUInt8,
+    (RangeUInt8, RGBUInt8): RGBUInt8,
+    (RGBUInt8, float): RGBUInt8,
+    (RGBUInt8, RangeFloat1): RGBUInt8,
+    (RGBUInt8, RangeUInt8): RGBUInt8,
+    (float, RGBFloat1): RGBFloat1,
+    (RangeFloat1, RGBFloat1): RGBFloat1,
+    (RangeUInt8, RGBFloat1): RGBFloat1,
+    (RGBFloat1, float): RGBFloat1,
+    (RGBFloat1, RangeFloat1): RGBFloat1,
+    (RGBFloat1, RangeUInt8): RGBFloat1,
+    (float, HSVFloat1): HSVFloat1,
+    (RangeFloat1, HSVFloat1): HSVFloat1,
+    (RangeUInt8, HSVFloat1): HSVFloat1,
+    (HSVFloat1, float): HSVFloat1,
+    (HSVFloat1, RangeFloat1): HSVFloat1,
+    (HSVFloat1, RangeUInt8): HSVFloat1,
 }
 TYPES_FLOORDIV: Dict[Tuple[Type, Type], Type] = {
     (int, int): int,

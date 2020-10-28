@@ -29,12 +29,34 @@ class RangeFloat1(float):
             raise ValueError("{} is out of the allowed range for type {}".format(res, cls.__name__))
         return res
 
+    def __mul__(self, other: Union["RangeFloat1", float]) -> Union["RangeFloat1", float]:
+        if isinstance(other, RangeFloat1):
+            return RangeFloat1(float.__mul__(self, other))
+        elif isinstance(other, float):
+            return float.__mul__(self, other)
+        else:
+            return NotImplemented
+
+    def __rmul__(self, other: Union["RangeFloat1", float]) -> Union["RangeFloat1", float]:
+        return self.__mul__(other)
+
 
 class RangeUInt8(int):
     """
     A range / percentage value, represented as an 8bit integer number from 0 (0%) to 255 (100%).
     """
-    pass
+    def __mul__(self, other: Union["RangeFloat1", "RangeUInt8", float]) -> Union["RangeFloat1", "RangeUInt8", float]:
+        if isinstance(other, RangeFloat1):
+            return RangeFloat1(int.__mul__(self, other) / 255)
+        if isinstance(other, float):
+            return int.__mul__(self, other) / 255
+        elif isinstance(other, RangeUInt8):
+            return RangeUInt8(round(int.__mul__(self, other) / 255))
+        else:
+            return NotImplemented
+
+    def __rmul__(self, other: Union["RangeFloat1", "RangeUInt8", float]) -> "RangeUInt8":
+        return self.__mul__(other)
 
 
 class RangeInt0To100(int):
