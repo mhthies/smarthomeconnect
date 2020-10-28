@@ -13,4 +13,4 @@ function LogListWidget(domElement, _writeValue) {
     };
 }
 
-WIDGET_TYPES.set('persistence.log_list', LogListWidget);
+WIDGET_TYPES.set('log.log_list', LogListWidget);

@@ -20,7 +20,7 @@ from . import conversion
 from . import timer
 from . import misc
 from . import web
-from . import persistence
+from . import log
 from . import interfaces
 
 from .base import handler, blocking_handler
