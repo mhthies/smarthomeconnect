@@ -70,9 +70,9 @@ register_converter(RangeFloat1, RangeInt0To100, lambda v: RangeInt0To100(round(v
 register_converter(RangeUInt8, RangeInt0To100,
                    lambda v: RangeInt0To100(round(v * 100 / 255)))
 register_converter(RangeUInt8, RangeFloat1, lambda v: RangeFloat1(v / 255))
-register_converter(RangeInt0To100, RangeFloat1, lambda v: RangeFloat1(v / 100))
-register_converter(RangeInt0To100, RangeUInt8, lambda v: RangeUInt8(round(v / 100 * 255)))
-register_converter(RangeFloat1, RangeUInt8, lambda v: RangeUInt8(round(v * 255)))
+register_converter(RangeInt0To100, RangeFloat1, lambda v: RangeFloat1(float(v) / 100))
+register_converter(RangeInt0To100, RangeUInt8, lambda v: RangeUInt8(round(int(v) / 100 * 255)))
+register_converter(RangeFloat1, RangeUInt8, lambda v: RangeUInt8(round(float(v) * 255)))
 
 register_converter(float, RangeFloat1, lambda v: RangeFloat1(v))
 register_converter(int, RangeUInt8, lambda v: RangeUInt8(v))
