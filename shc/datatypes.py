@@ -31,9 +31,9 @@ class RangeFloat1(float):
 
     def __mul__(self, other: Union["RangeFloat1", float]) -> Union["RangeFloat1", float]:
         if isinstance(other, RangeFloat1):
-            return RangeFloat1(float.__mul__(self, other))
+            return RangeFloat1(float(self) * float(other))
         elif isinstance(other, float):
-            return float.__mul__(self, other)
+            return float(self) * other
         else:
             return NotImplemented
 
@@ -47,11 +47,11 @@ class RangeUInt8(int):
     """
     def __mul__(self, other: Union["RangeFloat1", "RangeUInt8", float]) -> Union["RangeFloat1", "RangeUInt8", float]:
         if isinstance(other, RangeFloat1):
-            return RangeFloat1(int.__mul__(self, other) / 255)
+            return RangeFloat1(int(self) * float(other) / 255)
         if isinstance(other, float):
-            return int.__mul__(self, other) / 255
+            return int(self) * other / 255
         elif isinstance(other, RangeUInt8):
-            return RangeUInt8(round(int.__mul__(self, other) / 255))
+            return RangeUInt8(round(int(self) * int(other) / 255))
         else:
             return NotImplemented
 
@@ -104,15 +104,15 @@ class RGBUInt8(NamedTuple):
     green: RangeUInt8
     blue: RangeUInt8
 
-    def __mul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100, float]) -> "RGBUInt8":
-        if isinstance(other, float):
-            return RGBUInt8(RangeUInt8(round(self.red * other)),
-                            RangeUInt8(round(self.green * other)),
-                            RangeUInt8(round(self.blue * other)))
+    def __mul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100]) -> "RGBUInt8":
+        if isinstance(other, RangeFloat1):
+            return RGBUInt8(RangeUInt8(round(int(self.red) * float(other))),
+                            RangeUInt8(round(int(self.green) * float(other))),
+                            RangeUInt8(round(int(self.blue) * float(other))))
         elif isinstance(other, RangeUInt8):
-            return RGBUInt8(RangeUInt8(round(self.red * other / 255)),
-                            RangeUInt8(round(self.green * other / 255)),
-                            RangeUInt8(round(self.blue * other / 255)))
+            return RGBUInt8(self.red * other,
+                            self.green * other,
+                            self.blue * other)
         elif isinstance(other, RangeInt0To100):
             return RGBUInt8(RangeUInt8(round(self.red * other / 100)),
                             RangeUInt8(round(self.green * other / 100)),
@@ -131,12 +131,9 @@ class RGBFloat1(NamedTuple):
     green: RangeFloat1
     blue: RangeFloat1
 
-    def __mul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100, float]) -> "RGBFloat1":
-        if not isinstance(other, float):
-            try:
-                other = get_converter(type(other), RangeFloat1)(other)
-            except TypeError:
-                return NotImplemented
+    def __mul__(self, other: Union[RangeUInt8, RangeFloat1]) -> "RGBFloat1":
+        if not isinstance(other, (RangeUInt8, RangeFloat1)):
+            return NotImplemented
         return RGBFloat1(RangeFloat1(self.red * other),
                          RangeFloat1(self.green * other),
                          RangeFloat1(self.blue * other))

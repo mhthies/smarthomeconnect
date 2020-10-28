@@ -444,10 +444,8 @@ TYPES_MUL: Dict[Tuple[Type, Type], Type] = {
     (RGBFloat1, float): RGBFloat1,
     (RGBFloat1, RangeFloat1): RGBFloat1,
     (RGBFloat1, RangeUInt8): RGBFloat1,
-    (float, HSVFloat1): HSVFloat1,
     (RangeFloat1, HSVFloat1): HSVFloat1,
     (RangeUInt8, HSVFloat1): HSVFloat1,
-    (HSVFloat1, float): HSVFloat1,
     (HSVFloat1, RangeFloat1): HSVFloat1,
     (HSVFloat1, RangeUInt8): HSVFloat1,
 }
