@@ -147,7 +147,7 @@ class BreakableSubscription(Subscribable[T], Generic[T]):
             pass
 
 
-class Hysteresis(Subscribable[bool], Readable[bool], Generic[T]):
+class Hysteresis(Subscribable[bool], Readable[bool]):
     """
     A Hysteresis function wrapper for Subscribable objects of any comparable type.
 
