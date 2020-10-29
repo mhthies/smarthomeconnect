@@ -118,22 +118,22 @@ class ConversionTests(unittest.TestCase):
 
 
 class ColorTests(unittest.TestCase):
-    def test_rgb_multiplication(self) -> None:
+    def test_rgb_scaling(self) -> None:
         some_blue = datatypes.RGBFloat1(datatypes.RangeFloat1(.25),
                                         datatypes.RangeFloat1(.5),
                                         datatypes.RangeFloat1(.75))
 
-        some_dim_blue = some_blue * datatypes.RangeFloat1(0.5)
+        some_dim_blue = some_blue.dimmed(datatypes.RangeFloat1(0.5))
         self.assertAlmostEqual(some_dim_blue.red, .125)
         self.assertAlmostEqual(some_dim_blue.green, .25)
         self.assertAlmostEqual(some_dim_blue.blue, .375)
 
-        some_dim_blue2 = some_blue * datatypes.RangeInt0To100(50)
+        some_dim_blue2 = some_blue.dimmed(datatypes.RangeInt0To100(50))
         self.assertAlmostEqual(some_dim_blue2.red, .125, delta=0.01)
         self.assertAlmostEqual(some_dim_blue2.green, .25, delta=0.01)
         self.assertAlmostEqual(some_dim_blue2.blue, .375, delta=0.01)
 
-        some_dim_blue3 = some_blue * datatypes.RangeUInt8(127)
+        some_dim_blue3 = some_blue.dimmed(datatypes.RangeUInt8(127))
         self.assertAlmostEqual(some_dim_blue3.red, .125, delta=0.01)
         self.assertAlmostEqual(some_dim_blue3.green, .25, delta=0.01)
         self.assertAlmostEqual(some_dim_blue3.blue, .375, delta=0.01)
@@ -142,13 +142,13 @@ class ColorTests(unittest.TestCase):
                                             datatypes.RangeFloat1(.6667),
                                             datatypes.RangeFloat1(.75))
 
-        some_dim_hsv_blue = some_blue_hsv * datatypes.RangeFloat1(0.5)
+        some_dim_hsv_blue = some_blue_hsv.dimmed(datatypes.RangeFloat1(0.5))
         self.assertAlmostEqual(some_dim_hsv_blue.hue, 210/360)
         self.assertAlmostEqual(some_dim_hsv_blue.saturation, .6667)
         self.assertAlmostEqual(some_dim_hsv_blue.value, .375)
 
-        some_dim_hsv_blue2 = some_blue_hsv * datatypes.RangeInt0To100(50)
+        some_dim_hsv_blue2 = some_blue_hsv.dimmed(datatypes.RangeInt0To100(50))
         self.assertAlmostEqual(some_dim_hsv_blue2.value, .375, delta=0.01)
 
-        some_dim_hsv_blue3 = some_blue_hsv * datatypes.RangeUInt8(127)
+        some_dim_hsv_blue3 = some_blue_hsv.dimmed(datatypes.RangeUInt8(127))
         self.assertAlmostEqual(some_dim_hsv_blue3.value, .375, delta=0.01)

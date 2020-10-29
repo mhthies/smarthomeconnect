@@ -11,7 +11,7 @@
 
 import logging
 import math
-from typing import NamedTuple, Union
+from typing import NamedTuple, Union, overload
 
 from shc.conversion import register_converter, get_converter
 
@@ -29,15 +29,23 @@ class RangeFloat1(float):
             raise ValueError("{} is out of the allowed range for type {}".format(res, cls.__name__))
         return res
 
-    def __mul__(self, other: Union["RangeFloat1", float]) -> Union["RangeFloat1", float]:
-        if isinstance(other, RangeFloat1):
-            return RangeFloat1(float(self) * float(other))
-        elif isinstance(other, float):
-            return float(self) * other
-        else:
-            return NotImplemented
+    @overload
+    def __mul__(self, other: "RangeFloat1") -> "RangeFloat1": ...
+    @overload
+    def __mul__(self, other: Union[int, float]) -> float: ...
 
-    def __rmul__(self, other: Union["RangeFloat1", float]) -> Union["RangeFloat1", float]:
+    def __mul__(self, other):
+        if isinstance(other, RangeFloat1):
+            return RangeFloat1(super().__mul__(float(other)))
+        else:
+            return super().__mul__(other)
+
+    @overload
+    def __rmul__(self, other: "RangeFloat1") -> "RangeFloat1": ...
+    @overload
+    def __rmul__(self, other: Union[int, float]) -> float: ...
+
+    def __rmul__(self, other):
         return self.__mul__(other)
 
 
@@ -45,34 +53,36 @@ class RangeUInt8(int):
     """
     A range / percentage value, represented as an 8bit integer number from 0 (0%) to 255 (100%).
     """
-    def __mul__(self, other: Union["RangeFloat1", "RangeUInt8", float]) -> Union["RangeFloat1", "RangeUInt8", float]:
-        if isinstance(other, RangeFloat1):
-            return RangeFloat1(int(self) * float(other) / 255)
-        if isinstance(other, float):
-            return int(self) * other / 255
-        elif isinstance(other, RangeUInt8):
-            return RangeUInt8(round(int(self) * int(other) / 255))
-        else:
-            return NotImplemented
+    @classmethod
+    def from_float(cls, value: float) -> "RangeUInt8":
+        if not isinstance(value, RangeFloat1):
+            value = RangeFloat1(value)
+        return RangeUInt8(round(value * 255))
 
-    def __rmul__(self, other: Union["RangeFloat1", "RangeUInt8", float]) -> "RangeUInt8":
-        return self.__mul__(other)
+    def as_float(self) -> RangeFloat1:
+        return RangeFloat1(int(self) / 255)
 
 
 class RangeInt0To100(int):
     """
     A range / percentage value, represented as an 8bit integer percent number from 0 (0%) to 100 (100%).
     """
-    pass
+    @classmethod
+    def from_float(cls, value: float) -> "RangeInt0To100":
+        if not isinstance(value, RangeFloat1):
+            value = RangeFloat1(value)
+        return RangeInt0To100(round(value * 100))
+
+    def as_float(self) -> RangeFloat1:
+        return RangeFloat1(int(self) / 100)
 
 
-register_converter(RangeFloat1, RangeInt0To100, lambda v: RangeInt0To100(round(v * 100)))
-register_converter(RangeUInt8, RangeInt0To100,
-                   lambda v: RangeInt0To100(round(v * 100 / 255)))
-register_converter(RangeUInt8, RangeFloat1, lambda v: RangeFloat1(v / 255))
-register_converter(RangeInt0To100, RangeFloat1, lambda v: RangeFloat1(float(v) / 100))
-register_converter(RangeInt0To100, RangeUInt8, lambda v: RangeUInt8(round(int(v) / 100 * 255)))
-register_converter(RangeFloat1, RangeUInt8, lambda v: RangeUInt8(round(float(v) * 255)))
+register_converter(RangeFloat1, RangeInt0To100, RangeInt0To100.from_float)
+register_converter(RangeUInt8, RangeInt0To100, lambda v: RangeInt0To100.from_float(v.as_float()))
+register_converter(RangeUInt8, RangeFloat1, lambda v: v.as_float())
+register_converter(RangeInt0To100, RangeFloat1, lambda v: v.as_float())
+register_converter(RangeInt0To100, RangeUInt8, lambda v: RangeUInt8.from_float(v.as_float()))
+register_converter(RangeFloat1, RangeUInt8, RangeUInt8.from_float)
 
 register_converter(float, RangeFloat1, lambda v: RangeFloat1(v))
 register_converter(int, RangeUInt8, lambda v: RangeUInt8(v))
@@ -104,23 +114,24 @@ class RGBUInt8(NamedTuple):
     green: RangeUInt8
     blue: RangeUInt8
 
-    def __mul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100]) -> "RGBUInt8":
-        if isinstance(other, RangeFloat1):
-            return RGBUInt8(RangeUInt8(round(int(self.red) * float(other))),
-                            RangeUInt8(round(int(self.green) * float(other))),
-                            RangeUInt8(round(int(self.blue) * float(other))))
-        elif isinstance(other, RangeUInt8):
-            return RGBUInt8(self.red * other,
-                            self.green * other,
-                            self.blue * other)
-        elif isinstance(other, RangeInt0To100):
-            return RGBUInt8(RangeUInt8(round(self.red * other / 100)),
-                            RangeUInt8(round(self.green * other / 100)),
-                            RangeUInt8(round(self.blue * other / 100)))
-        return NotImplemented
+    def dimmed(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100]) -> "RGBUInt8":
+        if not isinstance(other, RangeFloat1):
+            other = get_converter(type(other), RangeFloat1)(other)
 
-    def __rmul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100, float]) -> "RGBUInt8":
-        return self.__mul__(other)
+        return RGBUInt8(RangeUInt8.from_float(self.red.as_float() * other),
+                        RangeUInt8.from_float(self.green.as_float() * other),
+                        RangeUInt8.from_float(self.blue.as_float() * other))
+
+    @classmethod
+    def from_float(cls, value: "RGBFloat1") -> "RGBUInt8":
+        return RGBUInt8(RangeUInt8.from_float(value.red),
+                        RangeUInt8.from_float(value.green),
+                        RangeUInt8.from_float(value.blue))
+
+    def as_float(self) -> "RGBFloat1":
+        return RGBFloat1(self.red.as_float(),
+                         self.green.as_float(),
+                         self.blue.as_float())
 
 
 class RGBFloat1(NamedTuple):
@@ -131,23 +142,17 @@ class RGBFloat1(NamedTuple):
     green: RangeFloat1
     blue: RangeFloat1
 
-    def __mul__(self, other: Union[RangeUInt8, RangeFloat1]) -> "RGBFloat1":
-        if not isinstance(other, (RangeUInt8, RangeFloat1)):
-            return NotImplemented
-        return RGBFloat1(RangeFloat1(self.red * other),
-                         RangeFloat1(self.green * other),
-                         RangeFloat1(self.blue * other))
+    def dimmed(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100]) -> "RGBFloat1":
+        if not isinstance(other, RangeFloat1):
+            other = get_converter(type(other), RangeFloat1)(other)
 
-    def __rmul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100, float]) -> "RGBFloat1":
-        return self.__mul__(other)
+        return RGBFloat1(self.red * other,
+                         self.green * other,
+                         self.blue * other)
 
 
-register_converter(RGBUInt8, RGBFloat1, lambda v: RGBFloat1(RangeFloat1(v.red / 255),
-                                                            RangeFloat1(v.green / 255),
-                                                            RangeFloat1(v.blue / 255)))
-register_converter(RGBFloat1, RGBUInt8, lambda v: RGBUInt8(RangeUInt8(round(v.red * 255)),
-                                                           RangeUInt8(round(v.green * 255)),
-                                                           RangeUInt8(round(v.blue * 255))))
+register_converter(RGBUInt8, RGBFloat1, lambda v: v.as_float())
+register_converter(RGBFloat1, RGBUInt8, RGBUInt8.from_float)
 
 
 class HSVFloat1(NamedTuple):
@@ -159,17 +164,10 @@ class HSVFloat1(NamedTuple):
     saturation: RangeFloat1
     value: RangeFloat1
 
-    def __mul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100, float]) -> "HSVFloat1":
-        # Multiplication with a scalar (range) only effects the value
-        if not isinstance(other, float):
-            try:
-                other = get_converter(type(other), RangeFloat1)(other)
-            except TypeError:
-                return NotImplemented
+    def dimmed(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100]) -> "HSVFloat1":
+        if not isinstance(other, RangeFloat1):
+            other = get_converter(type(other), RangeFloat1)(other)
         return HSVFloat1(self.hue, self.saturation, RangeFloat1(self.value * other))
-
-    def __rmul__(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100, float]) -> "HSVFloat1":
-        return self.__mul__(other)
 
     @classmethod
     def from_rgb(cls, value: RGBFloat1) -> "HSVFloat1":
@@ -189,7 +187,7 @@ class HSVFloat1(NamedTuple):
             h += 1
         return cls(RangeFloat1(h), RangeFloat1(s), RangeFloat1(v))
 
-    def to_rgb(self) -> "RGBFloat1":
+    def as_rgb(self) -> "RGBFloat1":
         # Taken from Wikipedia: https://de.wikipedia.org/wiki/HSV-Farbraum#Umrechnung_HSV_in_RGB
         h = self.hue
         s = self.saturation
@@ -209,18 +207,7 @@ class HSVFloat1(NamedTuple):
         return RGBFloat1(RangeFloat1(r), RangeFloat1(g), RangeFloat1(b))
 
 
-register_converter(HSVFloat1, RGBFloat1, lambda v: v.to_rgb())
-register_converter(RGBFloat1, HSVFloat1, lambda v: HSVFloat1.from_rgb(v))
-
-
-def hsv_to_rgbuint8(v: HSVFloat1) -> RGBUInt8:
-    rgb = v.to_rgb()
-    return RGBUInt8(RangeUInt8(round(rgb.red * 255)),
-                    RangeUInt8(round(rgb.green * 255)),
-                    RangeUInt8(round(rgb.blue * 255)))
-
-
-register_converter(HSVFloat1, RGBUInt8, hsv_to_rgbuint8)
-register_converter(RGBUInt8, HSVFloat1, lambda v: HSVFloat1.from_rgb(RGBFloat1(RangeFloat1(v.red / 255),
-                                                                               RangeFloat1(v.green / 255),
-                                                                               RangeFloat1(v.blue / 255))))
+register_converter(HSVFloat1, RGBFloat1, lambda v: v.as_rgb())
+register_converter(RGBFloat1, HSVFloat1, HSVFloat1.from_rgb)
+register_converter(HSVFloat1, RGBUInt8, lambda v: RGBUInt8.from_float(v.as_rgb()))
+register_converter(RGBUInt8, HSVFloat1, lambda v: HSVFloat1.from_rgb(v.as_float()))
