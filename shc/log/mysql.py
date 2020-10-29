@@ -4,7 +4,7 @@ import enum
 import json
 from typing import Optional, Type, Generic, List, Tuple, Any
 
-import aiomysql
+import aiomysql  # type: ignore
 
 from ..base import T
 from ..conversion import SHCJsonEncoder, from_json
