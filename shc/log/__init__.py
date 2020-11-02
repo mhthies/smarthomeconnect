@@ -92,5 +92,3 @@ class LoggingWebUIView(WebUIConnector):
         await ws.send_str(json.dumps({'id': id(self),
                                       'v': data},
                                      cls=SHCJsonEncoder))
-
-
