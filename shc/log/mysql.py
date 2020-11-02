@@ -45,7 +45,7 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
         self.name = name
         self.log = log
 
-    async def _write_to_log(self, value: Type[T]):
+    async def _write_to_log(self, value: T):
         column_name = self._type_to_column(type(value))
         value = self._into_mysql_type(value)
         await self.interface.pool_ready.wait()
