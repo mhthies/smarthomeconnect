@@ -13,7 +13,7 @@ import abc
 import json
 import datetime
 import logging
-from typing import Type, Generic, List, Any, Optional, Set
+from typing import Type, Generic, List, Any, Optional, Set, Tuple
 
 import aiohttp.web
 
@@ -40,8 +40,19 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
         pass
 
     @abc.abstractmethod
-    async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime, num: Optional[int] = None,
-                           offset: int = 0) -> List[T]:
+    async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
+                           include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
+        """
+        Retrieve all log entries for this log variable in the specified time range from the log backend/database
+
+        The method shall return a list of all log entries with a timestamp greater or equal to the `start_time` and
+        less than the `end_time`. If `include_previous` is True (shall be the default value), the last entry *before*
+        the start shall also be included, if there is no entry exactly at the start_time.
+
+        :param start_time: Begin of the time range (inclusive)
+        :param end_time: End of the time range (exclusive)
+        :param include_previous: If True (the default), the last value *before* `start_time`
+        """
         pass
 
     async def read(self) -> T:

@@ -76,15 +76,25 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
         return self._from_mysql_type(value[0])
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
-                           num: Optional[int] = None, offset: int = 0) -> List[Tuple[datetime.datetime, T]]:
+                           include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
         column_name = self._type_to_column(self.type)
         await self.interface.pool_ready.wait()
         assert(self.interface.pool is not None)
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT `ts`, `{}` from `log` WHERE `name` = %s AND `ts` >= %s and `ts` < %s "
-                                  "ORDER BY `ts` ASC{}".format(column_name, " LIMIT %s, %s" if num is not None else ""),
-                                  (self.name, start_time, end_time) + ((offset, num) if num is not None else ()))
+                if include_previous:
+                    await cur.execute(
+                        "SELECT `ts`, `{0}` from `log` WHERE `name` = %s AND `ts` <= %s"
+                        "ORDER BY `ts` DESC, LIMIT 1"
+                        "UNION SELECT `ts`, `{0}` from `log` WHERE `name` = %s AND `ts` > %s AND `ts` < %s "
+                        "ORDER BY `ts` ASC".format(column_name),
+                        (self.name, start_time, self.name, start_time, end_time))
+                else:
+                    await cur.execute(
+                        "SELECT `ts`, `{0}` from `log` WHERE `name` = %s AND `ts` >= %s AND `ts` < %s "
+                        "ORDER BY `ts` ASC".format(column_name),
+                        (self.name, start_time, end_time))
+
                 return [(row[0], self._from_mysql_type(row[1]))
                         for row in await cur.fetchall()]
 
