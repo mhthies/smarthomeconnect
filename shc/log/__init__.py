@@ -10,10 +10,11 @@
 # specific language governing permissions and limitations under the License.
 
 import abc
+import enum
 import json
 import datetime
 import logging
-from typing import Type, Generic, List, Any, Optional, Set, Tuple
+from typing import Type, Generic, List, Any, Optional, Set, Tuple, Union, cast
 
 import aiohttp.web
 
@@ -22,6 +23,14 @@ from ..conversion import SHCJsonEncoder
 from ..web import WebUIConnector
 
 logger = logging.getLogger(__name__)
+
+
+class AggregationMethod(enum.Enum):
+    AVERAGE = 0
+    MINIMUM = 1
+    MAXIMUM = 2
+    ON_TIME = 3
+    ON_TIME_RATIO = 4
 
 
 class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.ABCMeta):
@@ -54,6 +63,145 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
         :param include_previous: If True (the default), the last value *before* `start_time`
         """
         pass
+
+    async def retrieve_aggregated_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
+                                      aggregation_method: AggregationMethod, aggregation_interval: datetime.timedelta
+                                      ) -> List[Tuple[datetime.datetime, float]]:
+        data_raw = await self.retrieve_log(start_time, end_time, include_previous=True)
+        aggregation_timestamps = [start_time + i * aggregation_interval
+                                  for i in range((end_time - start_time) // aggregation_interval)]
+
+        # The last aggregation_timestamps is not added to the results, but only used to delimit the last aggregation
+        # interval.
+        if aggregation_timestamps[-1] < end_time:
+            aggregation_timestamps.append(end_time)
+
+        result: List[Tuple[datetime.datetime, float]] = []
+
+        if aggregation_method in (AggregationMethod.MINIMUM, AggregationMethod.MAXIMUM):
+            if not issubclass(self.type, (int, float)):
+                raise TypeError("MINIMUM and MAXIMUM aggregation is only applicable to int and float type log "
+                                "variables.")
+            fn = {
+                AggregationMethod.MINIMUM: min,
+                AggregationMethod.MAXIMUM: max
+            }[aggregation_method]
+
+            next_aggr_ts_index = 0
+
+            # Get first entry and its timestamp for skipping of empty aggregation intervals and initialization of the
+            # first relevant interval
+            data = cast(List[Tuple[datetime.datetime, Union[int, float]]], data_raw)
+            iterator = iter(data)
+            try:
+                last_ts, last_value = next(iterator)
+            except StopIteration:
+                return []
+
+            # Ignore aggregation intervals before the first entry
+            while last_ts >= aggregation_timestamps[next_aggr_ts_index]:
+                next_aggr_ts_index += 1
+                if next_aggr_ts_index >= len(aggregation_timestamps):
+                    return []
+
+            aggregated_value = last_value  # type: ignore
+            for ts, value in iterator:
+                # The timestamp is after the next aggregation interval begin, finalize the current aggregation interval
+                # value
+                if ts >= aggregation_timestamps[next_aggr_ts_index]:
+                    if next_aggr_ts_index > 0:
+                        result.append((aggregation_timestamps[next_aggr_ts_index-1], aggregated_value))
+                    next_aggr_ts_index += 1
+                    if next_aggr_ts_index >= len(aggregation_timestamps):
+                        return result
+
+                    aggregated_value = last_value
+
+                    # Fill up aggregation intervals without entries
+                    while ts >= aggregation_timestamps[next_aggr_ts_index]:
+                        result.append((aggregation_timestamps[next_aggr_ts_index-1], last_value))
+                        next_aggr_ts_index += 1
+                        if next_aggr_ts_index >= len(aggregation_timestamps):
+                            return result
+
+                last_value = value
+                aggregated_value = fn(aggregated_value, value)
+
+            if next_aggr_ts_index > 0:
+                result.append((aggregation_timestamps[next_aggr_ts_index - 1], aggregated_value))
+            return result
+
+        elif aggregation_method == AggregationMethod.AVERAGE:
+            raise TypeError("AVERAGE aggregation is only applicable to int and float type log variables.")
+            next_aggr_ts_index = 0
+            # Get first entry and its timestamp for skipping of empty aggregation intervals and initialization of the
+            # first relevant interval
+            data = cast(List[Tuple[datetime.datetime, Union[int, float]]], data_raw)
+            iterator = iter(data)
+            try:
+                last_ts, last_value = next(iterator)
+            except StopIteration:
+                return []
+
+            # Ignore aggregation intervals before the first entry
+            while last_ts >= aggregation_timestamps[next_aggr_ts_index]:
+                next_aggr_ts_index += 1
+                if next_aggr_ts_index >= len(aggregation_timestamps):
+                    return []
+
+            value_sum = 0.0
+            time_sum = 0.0
+
+            for ts, value in iterator:
+                # The timestamp is after the next aggregation timestamp, finalize the current aggregation timestamp
+                # value
+                if ts >= aggregation_timestamps[next_aggr_ts_index]:
+                    if next_aggr_ts_index > 0:
+                        # Add remaining part to the last aggregation interval
+                        remaining_delta_seconds = (aggregation_timestamps[next_aggr_ts_index] - last_ts).total_seconds()
+                        value_sum += last_value * remaining_delta_seconds
+                        time_sum += remaining_delta_seconds
+
+                        # Add average result entry from accumulated values
+                        result.append((aggregation_timestamps[next_aggr_ts_index-1], value_sum / time_sum))
+
+                    next_aggr_ts_index += 1
+                    if next_aggr_ts_index >= len(aggregation_timestamps):
+                        return result
+
+                    # Fill up aggregation intervals without entries
+                    while ts >= aggregation_timestamps[next_aggr_ts_index]:
+                        result.append((aggregation_timestamps[next_aggr_ts_index-1], last_value))
+                        next_aggr_ts_index += 1
+                        if next_aggr_ts_index >= len(aggregation_timestamps):
+                            return result
+
+                    value_sum = 0
+                    time_sum = 0
+
+                # Accumulate the weighted value and time interval to the `*_sum` variables
+                if next_aggr_ts_index > 0:
+                    interval_start = aggregation_timestamps[next_aggr_ts_index-1]
+                    value_start = max(last_ts, interval_start)
+                    time_delta_seconds = (ts - value_start).total_seconds()
+                    value_sum += last_value * time_delta_seconds
+                    time_sum += time_delta_seconds
+
+                last_value = value
+                last_ts = ts
+
+            if next_aggr_ts_index > 0:
+                # Add remaining part to the last aggregation interval
+                remaining_delta_seconds = (aggregation_timestamps[next_aggr_ts_index] - last_ts).total_seconds()
+                value_sum += last_value * remaining_delta_seconds
+                time_sum += remaining_delta_seconds
+
+                # Add average result entry from accumulated values
+                result.append((aggregation_timestamps[next_aggr_ts_index - 1], value_sum / time_sum))
+            return result
+
+        else:
+            raise ValueError("Unsupported aggregation method {}".format(aggregation_method))
 
     async def read(self) -> T:
         value = await self._read_from_log()
