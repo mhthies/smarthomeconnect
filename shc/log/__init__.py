@@ -132,7 +132,8 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
             return result
 
         elif aggregation_method == AggregationMethod.AVERAGE:
-            raise TypeError("AVERAGE aggregation is only applicable to int and float type log variables.")
+            if not issubclass(self.type, (int, float)):
+                raise TypeError("AVERAGE aggregation is only applicable to int and float type log variables.")
             next_aggr_ts_index = 0
             # Get first entry and its timestamp for skipping of empty aggregation intervals and initialization of the
             # first relevant interval
