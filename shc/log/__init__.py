@@ -14,7 +14,7 @@ import enum
 import json
 import datetime
 import logging
-from typing import Type, Generic, List, Any, Optional, Set, Tuple, Union, cast
+from typing import Type, Generic, List, Any, Optional, Set, Tuple, Union, cast, TypeVar
 
 import aiohttp.web
 
@@ -76,7 +76,15 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
         if aggregation_timestamps[-1] < end_time:
             aggregation_timestamps.append(end_time)
 
-        result: List[Tuple[datetime.datetime, float]] = []
+        aggregator: AbstractAggregator[Union[int, float], float]
+        if aggregation_method == AggregationMethod.MINIMUM:
+            aggregator = MinAggregator()
+        elif aggregation_method == AggregationMethod.MAXIMUM:
+            aggregator = MaxAggregator()
+        elif aggregation_method == AggregationMethod.AVERAGE:
+            aggregator = AverageAggregator()
+        else:
+            raise ValueError("Unsupported aggregation method {}".format(aggregation_method))
 
         if not issubclass(self.type, (int, float)):
             # TODO fix for bool aggregation (on time) analysis
@@ -98,93 +106,48 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
             if next_aggr_ts_index >= len(aggregation_timestamps):
                 return []
 
-        if aggregation_method in (AggregationMethod.MINIMUM, AggregationMethod.MAXIMUM):
-            fn = {
-                AggregationMethod.MINIMUM: min,
-                AggregationMethod.MAXIMUM: max
-            }[aggregation_method]
+        result: List[Tuple[datetime.datetime, float]] = []
+        aggregator.reset()
 
-            aggregated_value = last_value
-            for ts, value in iterator:
-                # The timestamp is after the next aggregation interval begin, finalize the current aggregation interval
-                # value
-                if ts >= aggregation_timestamps[next_aggr_ts_index]:
-                    if next_aggr_ts_index > 0:
-                        result.append((aggregation_timestamps[next_aggr_ts_index-1], aggregated_value))
-                    next_aggr_ts_index += 1
-                    if next_aggr_ts_index >= len(aggregation_timestamps):
-                        return result
-
-                    aggregated_value = last_value
-
-                    # Fill up aggregation intervals without entries
-                    while ts >= aggregation_timestamps[next_aggr_ts_index]:
-                        result.append((aggregation_timestamps[next_aggr_ts_index-1], last_value))
-                        next_aggr_ts_index += 1
-                        if next_aggr_ts_index >= len(aggregation_timestamps):
-                            return result
-
-                last_value = value
-                aggregated_value = fn(aggregated_value, value)
-
-            if next_aggr_ts_index > 0:
-                result.append((aggregation_timestamps[next_aggr_ts_index - 1], aggregated_value))
-            return result
-
-        elif aggregation_method == AggregationMethod.AVERAGE:
-            value_sum = 0.0
-            time_sum = 0.0
-
-            for ts, value in iterator:
-                # The timestamp is after the next aggregation timestamp, finalize the current aggregation timestamp
-                # value
-                if ts >= aggregation_timestamps[next_aggr_ts_index]:
-                    if next_aggr_ts_index > 0:
-                        # Add remaining part to the last aggregation interval
-                        remaining_delta_seconds = (aggregation_timestamps[next_aggr_ts_index] - last_ts).total_seconds()
-                        value_sum += last_value * remaining_delta_seconds
-                        time_sum += remaining_delta_seconds
-
-                        # Add average result entry from accumulated values
-                        result.append((aggregation_timestamps[next_aggr_ts_index-1], value_sum / time_sum))
-
-                    next_aggr_ts_index += 1
-                    if next_aggr_ts_index >= len(aggregation_timestamps):
-                        return result
-
-                    # Fill up aggregation intervals without entries
-                    while ts >= aggregation_timestamps[next_aggr_ts_index]:
-                        result.append((aggregation_timestamps[next_aggr_ts_index-1], last_value))
-                        next_aggr_ts_index += 1
-                        if next_aggr_ts_index >= len(aggregation_timestamps):
-                            return result
-
-                    value_sum = 0
-                    time_sum = 0
-
-                # Accumulate the weighted value and time interval to the `*_sum` variables
+        for ts, value in iterator:
+            # The timestamp is after the next aggregation timestamp, finalize the current aggregation timestamp
+            # value
+            if ts >= aggregation_timestamps[next_aggr_ts_index]:
                 if next_aggr_ts_index > 0:
-                    interval_start = aggregation_timestamps[next_aggr_ts_index-1]
-                    value_start = max(last_ts, interval_start)
-                    time_delta_seconds = (ts - value_start).total_seconds()
-                    value_sum += last_value * time_delta_seconds
-                    time_sum += time_delta_seconds
+                    # Add remaining part to the last aggregation interval
+                    aggregator.aggregate(last_ts, aggregation_timestamps[next_aggr_ts_index], last_value)
 
-                last_value = value
-                last_ts = ts
+                    # Add average result entry from accumulated values
+                    result.append((aggregation_timestamps[next_aggr_ts_index-1], aggregator.get()))
 
+                next_aggr_ts_index += 1
+                if next_aggr_ts_index >= len(aggregation_timestamps):
+                    return result
+
+                # Fill up aggregation intervals without entries
+                while ts >= aggregation_timestamps[next_aggr_ts_index]:
+                    result.append((aggregation_timestamps[next_aggr_ts_index-1], last_value))
+                    next_aggr_ts_index += 1
+                    if next_aggr_ts_index >= len(aggregation_timestamps):
+                        return result
+
+                aggregator.reset()
+
+            # Accumulate the weighted value and time interval to the `*_sum` variables
             if next_aggr_ts_index > 0:
-                # Add remaining part to the last aggregation interval
-                remaining_delta_seconds = (aggregation_timestamps[next_aggr_ts_index] - last_ts).total_seconds()
-                value_sum += last_value * remaining_delta_seconds
-                time_sum += remaining_delta_seconds
+                interval_start = aggregation_timestamps[next_aggr_ts_index-1]
+                aggregator.aggregate(max(last_ts, interval_start), ts, last_value)
 
-                # Add average result entry from accumulated values
-                result.append((aggregation_timestamps[next_aggr_ts_index - 1], value_sum / time_sum))
-            return result
+            last_value = value
+            last_ts = ts
 
-        else:
-            raise ValueError("Unsupported aggregation method {}".format(aggregation_method))
+        if next_aggr_ts_index > 0:
+            # Add remaining part to the last aggregation interval
+            aggregator.aggregate(last_ts, aggregation_timestamps[next_aggr_ts_index], last_value)
+
+            # Add average result entry from accumulated values
+            result.append((aggregation_timestamps[next_aggr_ts_index-1], aggregator.get()))
+        return result
 
     async def read(self) -> T:
         value = await self._read_from_log()
@@ -234,3 +197,67 @@ class LoggingWebUIView(WebUIConnector):
         await ws.send_str(json.dumps({'id': id(self),
                                       'v': data},
                                      cls=SHCJsonEncoder))
+
+
+S = TypeVar('S')
+
+
+class AbstractAggregator(Generic[T, S], metaclass=abc.ABCMeta):
+    __slots__ = ()
+
+    def reset(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    def get(self) -> S:
+        pass
+
+    @abc.abstractmethod
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: T) -> None:
+        pass
+
+
+class AverageAggregator(AbstractAggregator[Union[float, int], float]):
+    __slots__ = ('value_sum', 'time_sum')
+    value_sum: float
+    time_sum: float
+
+    def reset(self) -> None:
+        self.value_sum = 0.0
+        self.time_sum = 0.0
+
+    def get(self) -> float:
+        return self.value_sum / self.time_sum
+
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[float, int]) -> None:
+        delta_seconds = (end - start).total_seconds()
+        self.time_sum += delta_seconds
+        self.value_sum += value * delta_seconds
+
+
+class MinAggregator(AbstractAggregator[Union[float, int], float]):
+    __slots__ = ('value',)
+    value: float
+
+    def reset(self) -> None:
+        self.value = float('inf')
+
+    def get(self) -> float:
+        return self.value
+
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[int, float]) -> None:
+        self.value = min(self.value, value)
+
+
+class MaxAggregator(AbstractAggregator[Union[float, int], float]):
+    __slots__ = ('value',)
+    value: float
+
+    def reset(self) -> None:
+        self.value = float('-inf')
+
+    def get(self) -> float:
+        return self.value
+
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[int, float]) -> None:
+        self.value = max(self.value, value)
