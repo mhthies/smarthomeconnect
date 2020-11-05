@@ -78,33 +78,33 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
 
         result: List[Tuple[datetime.datetime, float]] = []
 
+        if not issubclass(self.type, (int, float)):
+            # TODO fix for bool aggregation (on time) analysis
+            raise TypeError("Aggregation is only applicable to int and float type log variables.")
+
+        next_aggr_ts_index = 0
+        # Get first entry and its timestamp for skipping of empty aggregation intervals and initialization of the
+        # first relevant interval
+        data = cast(List[Tuple[datetime.datetime, Union[int, float]]], data_raw)
+        iterator = iter(data)
+        try:
+            last_ts, last_value = next(iterator)
+        except StopIteration:
+            return []
+
+        # Ignore aggregation intervals before the first entry
+        while last_ts >= aggregation_timestamps[next_aggr_ts_index]:
+            next_aggr_ts_index += 1
+            if next_aggr_ts_index >= len(aggregation_timestamps):
+                return []
+
         if aggregation_method in (AggregationMethod.MINIMUM, AggregationMethod.MAXIMUM):
-            if not issubclass(self.type, (int, float)):
-                raise TypeError("MINIMUM and MAXIMUM aggregation is only applicable to int and float type log "
-                                "variables.")
             fn = {
                 AggregationMethod.MINIMUM: min,
                 AggregationMethod.MAXIMUM: max
             }[aggregation_method]
 
-            next_aggr_ts_index = 0
-
-            # Get first entry and its timestamp for skipping of empty aggregation intervals and initialization of the
-            # first relevant interval
-            data = cast(List[Tuple[datetime.datetime, Union[int, float]]], data_raw)
-            iterator = iter(data)
-            try:
-                last_ts, last_value = next(iterator)
-            except StopIteration:
-                return []
-
-            # Ignore aggregation intervals before the first entry
-            while last_ts >= aggregation_timestamps[next_aggr_ts_index]:
-                next_aggr_ts_index += 1
-                if next_aggr_ts_index >= len(aggregation_timestamps):
-                    return []
-
-            aggregated_value = last_value  # type: ignore
+            aggregated_value = last_value
             for ts, value in iterator:
                 # The timestamp is after the next aggregation interval begin, finalize the current aggregation interval
                 # value
@@ -132,24 +132,6 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
             return result
 
         elif aggregation_method == AggregationMethod.AVERAGE:
-            if not issubclass(self.type, (int, float)):
-                raise TypeError("AVERAGE aggregation is only applicable to int and float type log variables.")
-            next_aggr_ts_index = 0
-            # Get first entry and its timestamp for skipping of empty aggregation intervals and initialization of the
-            # first relevant interval
-            data = cast(List[Tuple[datetime.datetime, Union[int, float]]], data_raw)
-            iterator = iter(data)
-            try:
-                last_ts, last_value = next(iterator)
-            except StopIteration:
-                return []
-
-            # Ignore aggregation intervals before the first entry
-            while last_ts >= aggregation_timestamps[next_aggr_ts_index]:
-                next_aggr_ts_index += 1
-                if next_aggr_ts_index >= len(aggregation_timestamps):
-                    return []
-
             value_sum = 0.0
             time_sum = 0.0
 
