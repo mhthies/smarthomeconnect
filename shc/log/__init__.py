@@ -124,9 +124,13 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
                 if next_aggr_ts_index >= len(aggregation_timestamps):
                     return result
 
-                # Fill up aggregation intervals without entries
+                # Do the same for every following empty interval
                 while ts >= aggregation_timestamps[next_aggr_ts_index]:
-                    result.append((aggregation_timestamps[next_aggr_ts_index-1], last_value))
+                    aggregator.reset()
+                    aggregator.aggregate(aggregation_timestamps[next_aggr_ts_index-1],
+                                         aggregation_timestamps[next_aggr_ts_index], last_value)
+                    result.append((aggregation_timestamps[next_aggr_ts_index-1], aggregator.get()))
+
                     next_aggr_ts_index += 1
                     if next_aggr_ts_index >= len(aggregation_timestamps):
                         return result
@@ -261,3 +265,45 @@ class MaxAggregator(AbstractAggregator[Union[float, int], float]):
 
     def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[int, float]) -> None:
         self.value = max(self.value, value)
+
+
+class OnTimeAggregator(AbstractAggregator[Any, datetime.timedelta]):
+    """
+    Aggregator implementation for AggregationMethod.ONTIME. It calculates the aggregated duration of all intervals where
+    the value evaluates to True.
+    """
+    __slots__ = ('value',)
+    value: datetime.timedelta
+
+    def reset(self) -> None:
+        self.value = datetime.timedelta(0)
+
+    def get(self) -> datetime.timedelta:
+        return self.value
+
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: bool) -> None:
+        if value:
+            self.value += end - start
+
+
+class OnTimeRatioAggregator(AbstractAggregator[Any, float]):
+    """
+    # Aggregator implementation for AggregationMethod.ONTIME. It calculates the ratio of all intervals where the value
+    evaluates to True to the total duration of the aggregation interval.
+    """
+    __slots__ = ('value', 'total_time')
+    value: datetime.timedelta
+    total_time: datetime.timedelta
+
+    def reset(self) -> None:
+        self.value = datetime.timedelta(0)
+        self.total_time = datetime.timedelta(0)
+
+    def get(self) -> float:
+        return self.value / self.total_time
+
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Any) -> None:
+        delta = end - start
+        self.total_time += delta
+        if value:
+            self.value += delta
