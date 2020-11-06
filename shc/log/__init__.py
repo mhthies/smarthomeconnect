@@ -67,7 +67,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
     async def retrieve_aggregated_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
                                       aggregation_method: AggregationMethod, aggregation_interval: datetime.timedelta
                                       ) -> List[Tuple[datetime.datetime, float]]:
-        data_raw = await self.retrieve_log(start_time, end_time, include_previous=True)
+        data = await self.retrieve_log(start_time, end_time, include_previous=True)
         aggregation_timestamps = [start_time + i * aggregation_interval
                                   for i in range((end_time - start_time) // aggregation_interval)]
 
@@ -76,24 +76,25 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
         if aggregation_timestamps[-1] < end_time:
             aggregation_timestamps.append(end_time)
 
-        aggregator: AbstractAggregator[Union[int, float], float]
-        if aggregation_method == AggregationMethod.MINIMUM:
-            aggregator = MinAggregator()
-        elif aggregation_method == AggregationMethod.MAXIMUM:
-            aggregator = MaxAggregator()
-        elif aggregation_method == AggregationMethod.AVERAGE:
-            aggregator = AverageAggregator()
-        else:
+        if aggregation_method in (AggregationMethod.MINIMUM, AggregationMethod.MAXIMUM, AggregationMethod.AVERAGE):
+            if not issubclass(self.type, (int, float)):
+                raise TypeError("min/max/avg. aggregation is only applicable to int and float type log variables.")
+
+        elif aggregation_method not in (AggregationMethod.ON_TIME, AggregationMethod.ON_TIME_RATIO):
             raise ValueError("Unsupported aggregation method {}".format(aggregation_method))
 
-        if not issubclass(self.type, (int, float)):
-            # TODO fix for bool aggregation (on time) analysis
-            raise TypeError("Aggregation is only applicable to int and float type log variables.")
+        aggregator_t = {
+            AggregationMethod.MINIMUM: MinAggregator,
+            AggregationMethod.MAXIMUM: MaxAggregator,
+            AggregationMethod.AVERAGE: AverageAggregator,
+            AggregationMethod.ON_TIME: OnTimeAggregator,
+            AggregationMethod.ON_TIME_RATIO: OnTimeRatioAggregator,
+        }[aggregation_method]()  # type: ignore
+        aggregator = cast(AbstractAggregator[T, Any], aggregator_t)  # This is guaranteed by our type checks above
 
         next_aggr_ts_index = 0
         # Get first entry and its timestamp for skipping of empty aggregation intervals and initialization of the
         # first relevant interval
-        data = cast(List[Tuple[datetime.datetime, Union[int, float]]], data_raw)
         iterator = iter(data)
         try:
             last_ts, last_value = next(iterator)
@@ -293,10 +294,10 @@ class MaxAggregator(AbstractAggregator[Union[float, int], float]):
         self.value = max(self.value, value)
 
 
-class OnTimeAggregator(AbstractAggregator[Any, datetime.timedelta]):
+class OnTimeAggregator(AbstractAggregator[Any, float]):
     """
     Aggregator implementation for AggregationMethod.ONTIME. It calculates the aggregated duration of all intervals where
-    the value evaluates to True.
+    the value evaluates to True. The value is returned in seconds.
     """
     __slots__ = ('value',)
     value: datetime.timedelta
@@ -304,8 +305,8 @@ class OnTimeAggregator(AbstractAggregator[Any, datetime.timedelta]):
     def reset(self) -> None:
         self.value = datetime.timedelta(0)
 
-    def get(self) -> datetime.timedelta:
-        return self.value
+    def get(self) -> float:
+        return self.value.total_seconds()
 
     def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: bool) -> None:
         if value:
