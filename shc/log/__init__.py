@@ -207,6 +207,20 @@ S = TypeVar('S')
 
 
 class AbstractAggregator(Generic[T, S], metaclass=abc.ABCMeta):
+    """
+    Abstract base class for Aggregator classes, a special helper class, used to define the actual aggregation logic in
+    :meth:`PersistenceVariable.retrieve_aggregated_log`. For each aggregation method (see :class:`AggregationMethods`),
+    a specialized Aggregator class is available.
+
+    The aggregator defines, how individual values, which lasted for a given time interval, are aggregated into a single
+    value. It is controlled by the `retrieve_aggregated_log()` method via three interface methods:
+    * :meth:`reset` is called at the begin of every aggregation interval to reset the aggregated value
+    * :meth:`aggregate` is called for each value change with the value and the begin and end timestamps of the interval
+        for which the value lasted. These time intervals can be used to calculate the value's weight in a weighted
+        average or the on time of a bool aggregation
+    * :meth:`get` is called at the end of every aggregation interval to retrieve the aggregated value
+
+    """
     __slots__ = ()
 
     def reset(self) -> None:
@@ -222,6 +236,10 @@ class AbstractAggregator(Generic[T, S], metaclass=abc.ABCMeta):
 
 
 class AverageAggregator(AbstractAggregator[Union[float, int], float]):
+    """
+    Aggregator implementation for AggregationMethod.AVERAGE. It calculates an average of the values, weighted by their
+    respective time intervals.
+    """
     __slots__ = ('value_sum', 'time_sum')
     value_sum: float
     time_sum: float
@@ -240,6 +258,10 @@ class AverageAggregator(AbstractAggregator[Union[float, int], float]):
 
 
 class MinAggregator(AbstractAggregator[Union[float, int], float]):
+    """
+    Aggregator implementation for AggregationMethod.MINIMUM. It calculates the minimum of all values in an aggregation
+    interval. The value's begin..end interval is ignored. Thus, even values with 0 duration are taken into account.
+    """
     __slots__ = ('value',)
     value: float
 
@@ -254,6 +276,10 @@ class MinAggregator(AbstractAggregator[Union[float, int], float]):
 
 
 class MaxAggregator(AbstractAggregator[Union[float, int], float]):
+    """
+    Aggregator implementation for AggregationMethod.MAXIMUM. It calculates the maximum of all values in an aggregation
+    interval. The value's begin..end interval is ignored. Thus, even values with 0 duration are taken into account.
+    """
     __slots__ = ('value',)
     value: float
 
