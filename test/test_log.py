@@ -61,7 +61,7 @@ class AbstractLoggingTest(unittest.TestCase):
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
                                                         aggregation_method=shc.log.AggregationMethod.MINIMUM,
                                                         aggregation_interval=datetime.timedelta(seconds=10))
-        self.assertEqual(1, len(result))
+        self.assertEqual(2, len(result))
         self.assertAlmostEqual(20.0, result[0][1])
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2020, 1, 1, 0, 0, 0),
@@ -88,12 +88,13 @@ class AbstractLoggingTest(unittest.TestCase):
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
                                                         aggregation_method=shc.log.AggregationMethod.AVERAGE,
                                                         aggregation_interval=datetime.timedelta(seconds=2.5))
-        self.assertEqual(5, len(result))
-        self.assertAlmostEqual(32.0, result[0][1])
+        self.assertEqual(10, len(result))
+        self.assertAlmostEqual(32.0, result[0][1])  # 25
         self.assertAlmostEqual(40.0, result[1][1])
-        self.assertAlmostEqual(40.0, result[2][1])
+        self.assertAlmostEqual(40.0, result[2][1])  # 30
         self.assertAlmostEqual(40.0, result[3][1])
-        self.assertAlmostEqual(20.0, result[4][1])
+        self.assertAlmostEqual(20.0, result[4][1])  # 35
+        self.assertAlmostEqual(20.0, result[5][1])
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2020, 1, 1, 0, 0, 0),
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 10),
@@ -129,11 +130,12 @@ class AbstractLoggingTest(unittest.TestCase):
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
                                                         aggregation_method=shc.log.AggregationMethod.ON_TIME,
                                                         aggregation_interval=datetime.timedelta(seconds=2.5))
-        self.assertEqual(5, len(result))
+        self.assertEqual(10, len(result))
         self.assertAlmostEqual(1.5, result[0][1])
         self.assertAlmostEqual(2.5, result[1][1])
         self.assertAlmostEqual(2.5, result[2][1])
         self.assertAlmostEqual(2.5, result[3][1])
+        self.assertAlmostEqual(0.0, result[4][1])
         self.assertAlmostEqual(0.0, result[4][1])
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2020, 1, 1, 0, 0, 0),
@@ -160,19 +162,22 @@ class AbstractLoggingTest(unittest.TestCase):
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
                                                         aggregation_method=shc.log.AggregationMethod.MINIMUM,
                                                         aggregation_interval=datetime.timedelta(seconds=2.5))
-        self.assertEqual(0, len(result))
+        self.assertEqual(4, len(result))
+        self.assertEqual(20.0, result[0][1])
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2020, 1, 1, 0, 0, 40),
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
                                                         aggregation_method=shc.log.AggregationMethod.AVERAGE,
                                                         aggregation_interval=datetime.timedelta(seconds=2.5))
-        self.assertEqual(0, len(result))
+        self.assertEqual(4, len(result))
+        self.assertEqual(20.0, result[0][1])
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2020, 1, 1, 0, 0, 40),
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
                                                         aggregation_method=shc.log.AggregationMethod.ON_TIME_RATIO,
                                                         aggregation_interval=datetime.timedelta(seconds=2.5))
-        self.assertEqual(0, len(result))
+        self.assertEqual(4, len(result))
+        self.assertEqual(1.0, result[0][1])
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2019, 1, 1, 0, 0, 40),
                                                         end_time=datetime.datetime(2019, 1, 1, 0, 0, 50),
