@@ -13,7 +13,7 @@ time_series_1 = [
     (datetime.datetime(2020, 1, 1, 0, 0, 0), 20.0),
     (datetime.datetime(2020, 1, 1, 0, 0, 5), 40.0),
     (datetime.datetime(2020, 1, 1, 0, 0, 15), 20.0),
-    (datetime.datetime(2020, 1, 1, 0, 0, 25), 40.0),
+    (datetime.datetime(2020, 1, 1, 0, 0, 26), 40.0),
     (datetime.datetime(2020, 1, 1, 0, 0, 27), 40.0),
     (datetime.datetime(2020, 1, 1, 0, 0, 35), 20.0),
 ]
@@ -21,7 +21,7 @@ time_series_2 = [
     (datetime.datetime(2020, 1, 1, 0, 0, 0), False),
     (datetime.datetime(2020, 1, 1, 0, 0, 5), True),
     (datetime.datetime(2020, 1, 1, 0, 0, 15), False),
-    (datetime.datetime(2020, 1, 1, 0, 0, 25), True),
+    (datetime.datetime(2020, 1, 1, 0, 0, 26), True),
     (datetime.datetime(2020, 1, 1, 0, 0, 27), True),
     (datetime.datetime(2020, 1, 1, 0, 0, 35), False),
 ]
@@ -80,7 +80,7 @@ class AbstractLoggingTest(unittest.TestCase):
                                                         aggregation_interval=datetime.timedelta(seconds=10))
         self.assertEqual(2, len(result))
         self.assertAlmostEqual(30.0, result[0][1])
-        self.assertAlmostEqual(30.0, result[1][1])
+        self.assertAlmostEqual(28.0, result[1][1])
         self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 10), result[0][0])
         self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 20), result[1][0])
 
@@ -89,7 +89,7 @@ class AbstractLoggingTest(unittest.TestCase):
                                                         aggregation_method=shc.log.AggregationMethod.AVERAGE,
                                                         aggregation_interval=datetime.timedelta(seconds=2.5))
         self.assertEqual(5, len(result))
-        self.assertAlmostEqual(40.0, result[0][1])
+        self.assertAlmostEqual(32.0, result[0][1])
         self.assertAlmostEqual(40.0, result[1][1])
         self.assertAlmostEqual(40.0, result[2][1])
         self.assertAlmostEqual(40.0, result[3][1])
@@ -121,7 +121,7 @@ class AbstractLoggingTest(unittest.TestCase):
                                                         aggregation_interval=datetime.timedelta(seconds=10))
         self.assertEqual(2, len(result))
         self.assertAlmostEqual(5.0, result[0][1])
-        self.assertAlmostEqual(5.0, result[1][1])
+        self.assertAlmostEqual(4.0, result[1][1])
         self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 10), result[0][0])
         self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 20), result[1][0])
 
@@ -130,7 +130,7 @@ class AbstractLoggingTest(unittest.TestCase):
                                                         aggregation_method=shc.log.AggregationMethod.ON_TIME,
                                                         aggregation_interval=datetime.timedelta(seconds=2.5))
         self.assertEqual(5, len(result))
-        self.assertAlmostEqual(2.5, result[0][1])
+        self.assertAlmostEqual(1.5, result[0][1])
         self.assertAlmostEqual(2.5, result[1][1])
         self.assertAlmostEqual(2.5, result[2][1])
         self.assertAlmostEqual(2.5, result[3][1])
