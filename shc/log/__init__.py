@@ -184,10 +184,8 @@ class LoggingWebUIView(WebUIConnector):
     A WebUIConnector which is used to retrieve a log/timeseries of a certain log variable for a certain time
     interval via the Webinterface UI websocket and subscribe to updates of that log variable.
     """
-    def __init__(self, variable: PersistenceVariable, interval: datetime.timedelta):
-        # TODO extend with value conversion
-        # TODO extend for past interval
-        # TODO extend for aggregation
+    def __init__(self, variable: PersistenceVariable, interval: datetime.timedelta,
+                 converter: Optional[Callable] = None):
         if not variable.log:
             raise ValueError("Cannot use a PersistenceVariable with log=False for a web logging web ui widget")
         super().__init__()
@@ -195,6 +193,7 @@ class LoggingWebUIView(WebUIConnector):
         variable.subscribed_web_ui_views.append(self)
         self.interval = interval
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
+        self.converter: Callable = converter or (lambda x: x)
 
     async def new_value(self, timestamp: datetime.datetime, value: Any) -> None:
         """
@@ -204,13 +203,19 @@ class LoggingWebUIView(WebUIConnector):
         :param timestamp: Exact timestamp of the new value
         :param value: The new value
         """
-        await self._websocket_publish([timestamp, value])
+        await self._websocket_publish({
+            'init': False,
+            'data': [(timestamp, self.converter(value))]
+        })
 
     async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
         data = await self.variable.retrieve_log(datetime.datetime.now(datetime.timezone.utc) - self.interval,
                                                 datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=5))
         await ws.send_str(json.dumps({'id': id(self),
-                                      'v': data},
+                                      'v': {
+                                          'init': True,
+                                          'data': [(ts, self.converter(v)) for ts, v in data]
+                                      }},
                                      cls=SHCJsonEncoder))
 
 
