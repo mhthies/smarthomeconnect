@@ -14,11 +14,12 @@ import enum
 import json
 import datetime
 import logging
-from typing import Type, Generic, List, Any, Optional, Set, Tuple, Union, cast, TypeVar
 import math
+from typing import Type, Generic, List, Any, Optional, Set, Tuple, Union, cast, TypeVar, Callable
 
 import aiohttp.web
 
+from .. import timer
 from ..base import T, Readable, Writable, UninitializedError
 from ..conversion import SHCJsonEncoder
 from ..web import WebUIConnector
@@ -39,7 +40,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
         self.type = type_
         super().__init__()
         self.log = log
-        self.subscribed_web_ui_views: List[LoggingWebUIView] = []
+        self.subscribed_web_ui_views: List[LoggingRawWebUIView] = []
 
     @abc.abstractmethod
     async def _read_from_log(self) -> Optional[T]:
@@ -179,7 +180,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
             await web_ui_view.new_value(datetime.datetime.now(datetime.timezone.utc), value)
 
 
-class LoggingWebUIView(WebUIConnector):
+class LoggingRawWebUIView(WebUIConnector):
     """
     A WebUIConnector which is used to retrieve a log/timeseries of a certain log variable for a certain time
     interval via the Webinterface UI websocket and subscribe to updates of that log variable.
@@ -217,6 +218,75 @@ class LoggingWebUIView(WebUIConnector):
                                           'data': [(ts, self.converter(v)) for ts, v in data]
                                       }},
                                      cls=SHCJsonEncoder))
+
+
+class LoggingAggregatedWebUIView(WebUIConnector):
+    """
+    A WebUIConnector which is used to retrieve and periodically update aggregated log data of a certain log variable for
+    a certain time interval via the Webinterface UI websocket.
+    """
+    def __init__(self, variable: PersistenceVariable, interval: datetime.timedelta, aggregation: AggregationMethod,
+                 aggregation_interval: datetime.timedelta, converter: Optional[Callable] = None,
+                 align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
+                 update_interval: Optional[datetime.timedelta] = None):
+        # TODO add pre_converter
+        # TODO add PersistenceVariable type check?
+        if not variable.log:
+            raise ValueError("Cannot use a PersistenceVariable with log=False for a web logging web ui widget")
+        super().__init__()
+        self.variable = variable
+        self.interval = interval
+        self.aggregation = aggregation
+        self.aggregation_interval = aggregation_interval
+        self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
+        self.converter = converter or (lambda x: x)
+        self.align_to = align_to
+        update_interval = (update_interval if update_interval is not None
+                           else min(aggregation_interval / 2, datetime.timedelta(minutes=1)))
+        self.last_update = datetime.datetime.fromtimestamp(0).astimezone() + 2 * aggregation_interval
+
+        self.timer = timer.Every(update_interval)
+        self.timer.trigger(self._update)
+
+    async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
+        begin, end = self.calculate_interval(False)
+        data = await self.variable.retrieve_aggregated_log(begin, end, self.aggregation, self.aggregation_interval)
+        # TODO use caching?
+        await ws.send_str(json.dumps({'id': id(self),
+                                      'v': {
+                                          'init': True,
+                                          'data': [(ts, self.converter(v)) for ts, v in data]
+                                      }},
+                                     cls=SHCJsonEncoder))
+
+    def calculate_interval(self, only_latest: bool) -> Tuple[datetime.datetime, datetime.datetime]:
+        """
+        Calculate the begin and end timestamps to be passed to :meth:`PersistenceVariable.retrieve_aggregated_log` based
+        on the configured interval, aggregation_interval, align timestamp.
+
+        :param only_latest: If True, the begin timestamp is chosen in such a way, that only the new and (probably)
+            changed aggregated values since the last update (see self.last_update) are returned.
+        :return: (start_time, end_time) for `retrieve_aggregated_log()`
+        """
+        end = datetime.datetime.now().astimezone()
+        preliminary_begin = end - self.interval
+        if only_latest:
+            preliminary_begin = max(preliminary_begin, self.last_update - self.aggregation_interval)
+        align = self.align_to.astimezone()
+        align_count = (preliminary_begin - align) // self.aggregation_interval
+        begin = align + (align_count + 1) * self.aggregation_interval
+
+        return begin, end
+
+    async def _update(self, _v, _o) -> None:
+        if not self.subscribed_websockets:
+            return
+
+        begin, end = self.calculate_interval(True)
+        data = await self.variable.retrieve_aggregated_log(begin, end, self.aggregation, self.aggregation_interval)
+        await self._websocket_publish({'init': False,
+                                       'data': [(ts, self.converter(v)) for ts, v in data]})
+        self.last_update = end
 
 
 S = TypeVar('S')
