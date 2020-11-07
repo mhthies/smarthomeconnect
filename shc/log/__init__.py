@@ -176,7 +176,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
         logger.debug("%s value %s for %s to log backend", "logging" if self.log else "updating", value, self)
         await self._write_to_log(value)
         for web_ui_view in self.subscribed_web_ui_views:
-            await web_ui_view.new_value(datetime.datetime.now(), value)
+            await web_ui_view.new_value(datetime.datetime.now(datetime.timezone.utc), value)
 
 
 class LoggingWebUIView(WebUIConnector):
@@ -207,10 +207,8 @@ class LoggingWebUIView(WebUIConnector):
         await self._websocket_publish([timestamp, value])
 
     async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
-        # TODO use pagination
-        # TODO somehow handle reconnects properly
-        data = await self.variable.retrieve_log(datetime.datetime.now() - self.interval,
-                                                datetime.datetime.now() + datetime.timedelta(seconds=5))
+        data = await self.variable.retrieve_log(datetime.datetime.now(datetime.timezone.utc) - self.interval,
+                                                datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=5))
         await ws.send_str(json.dumps({'id': id(self),
                                       'v': data},
                                      cls=SHCJsonEncoder))

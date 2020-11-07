@@ -13,10 +13,10 @@ class InMemoryPersistenceVariable(PersistenceVariable, Generic[T]):
 
     async def _write_to_log(self, value: T):
         self.clean_up()
-        self.data.append((datetime.datetime.now(), value))
+        self.data.append((datetime.datetime.now(datetime.timezone.utc), value))
 
     def clean_up(self) -> None:
-        begin = datetime.datetime.now() - self.keep
+        begin = datetime.datetime.now(datetime.timezone.utc) - self.keep
         keep_from: Optional[int] = None
         for i, (ts, _v) in enumerate(self.data):
             if ts > begin:

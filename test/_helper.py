@@ -132,8 +132,8 @@ class ClockMock:
         # Update emulated wall clock to the target sleep time
         self.current_time = target_time
 
-    def now(self) -> datetime.datetime:
-        return self.current_time
+    def now(self, tz=None) -> datetime.datetime:
+        return self.current_time.astimezone(tz)
 
     def today(self) -> datetime.date:
         return self.current_time.date()

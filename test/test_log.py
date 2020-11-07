@@ -227,13 +227,13 @@ class InMemoryTest(unittest.TestCase):
             await var1.write(5, [self])
 
         # Check data retrieval
-        data = await var1.retrieve_log(datetime.datetime(2020, 1, 1, 0, 0, 0, microsecond=500000),
-                                       datetime.datetime(2020, 11, 20, 0, 0, 0))
+        data = await var1.retrieve_log(datetime.datetime(2020, 1, 1, 0, 0, 0, microsecond=500000).astimezone(),
+                                       datetime.datetime(2020, 11, 20, 0, 0, 0).astimezone())
         self.assertEqual(4, len(data))
         self.assertListEqual([2, 3, 4, 5], [v for _ts, v in data])
-        self.assertAlmostEqual(data[0][0], datetime.datetime(2020, 1, 1, 0, 0, 1),
+        self.assertAlmostEqual(data[0][0], datetime.datetime(2020, 1, 1, 0, 0, 1).astimezone(),
                                delta=datetime.timedelta(milliseconds=50))
-        self.assertAlmostEqual(data[-1][0], datetime.datetime(2020, 1, 1, 0, 0, 10, microsecond=500000),
+        self.assertAlmostEqual(data[-1][0], datetime.datetime(2020, 1, 1, 0, 0, 10, microsecond=500000).astimezone(),
                                delta=datetime.timedelta(milliseconds=50))
 
         # Check reading
