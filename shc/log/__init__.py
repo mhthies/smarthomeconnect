@@ -15,6 +15,7 @@ import json
 import datetime
 import logging
 from typing import Type, Generic, List, Any, Optional, Set, Tuple, Union, cast, TypeVar
+import math
 
 import aiohttp.web
 
@@ -69,7 +70,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
                                       ) -> List[Tuple[datetime.datetime, float]]:
         data = await self.retrieve_log(start_time, end_time, include_previous=True)
         aggregation_timestamps = [start_time + i * aggregation_interval
-                                  for i in range((end_time - start_time) // aggregation_interval)]
+                                  for i in range(math.ceil((end_time - start_time) / aggregation_interval))]
 
         # The last aggregation_timestamps is not added to the results, but only used to delimit the last aggregation
         # interval.
