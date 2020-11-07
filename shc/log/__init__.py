@@ -210,8 +210,10 @@ class LoggingRawWebUIView(WebUIConnector):
         })
 
     async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
-        data = await self.variable.retrieve_log(datetime.datetime.now(datetime.timezone.utc) - self.interval,
-                                                datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=5))
+        data = await self.variable.retrieve_log(datetime.datetime.now(datetime.timezone.utc)
+                                                - self.interval,
+                                                datetime.datetime.now(datetime.timezone.utc)
+                                                + datetime.timedelta(seconds=5))
         await ws.send_str(json.dumps({'id': id(self),
                                       'v': {
                                           'init': True,
