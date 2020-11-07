@@ -214,9 +214,7 @@ class InMemoryTest(unittest.TestCase):
 
     @async_test
     async def test_simple(self) -> None:
-        in_memory_log = shc.log.in_memory.InMemoryPersistence(keep=datetime.timedelta(seconds=10))
-
-        var1 = in_memory_log.variable(int)
+        var1 = shc.log.in_memory.InMemoryPersistenceVariable(int, datetime.timedelta(seconds=10))
         with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0)):
             await var1.write(1, [self])
             await asyncio.sleep(1)

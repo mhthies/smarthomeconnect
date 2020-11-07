@@ -5,14 +5,6 @@ from ..base import T
 from . import PersistenceVariable
 
 
-class InMemoryPersistence:
-    def __init__(self, keep: datetime.timedelta):
-        self.keep = keep
-
-    def variable(self, type_: Type) -> "InMemoryPersistenceVariable":
-        return InMemoryPersistenceVariable(type_, self.keep)
-
-
 class InMemoryPersistenceVariable(PersistenceVariable, Generic[T]):
     def __init__(self, type_: Type[T], keep: datetime.timedelta):
         super().__init__(type_, log=True)
