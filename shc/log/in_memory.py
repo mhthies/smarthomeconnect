@@ -30,5 +30,17 @@ class InMemoryPersistenceVariable(PersistenceVariable, Generic[T]):
         return self.data[-1][1]
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
-                           include_previous_entry: bool = False) -> List[Tuple[datetime.datetime, T]]:
-        return [v for v in self.data if start_time <= v[0] < end_time]
+                           include_previous: bool = False) -> List[Tuple[datetime.datetime, T]]:
+        iterator = iter(enumerate(self.data))
+        try:
+            start_index = next(i for i, (ts, _v) in iterator if ts > start_time)
+        except StopIteration:
+            if include_previous and self.data:
+                return self.data[-1:]
+        if include_previous and start_index > 0:
+            start_index -= 1
+        try:
+            end_index = next(i for i, (ts, _v) in iterator if ts > end_time)
+        except StopIteration:
+            return self.data[start_index:]
+        return self.data[start_index:end_index]
