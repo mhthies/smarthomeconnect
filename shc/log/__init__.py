@@ -154,8 +154,10 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
             # Add average result entry from accumulated values
             result.append((aggregation_timestamps[next_aggr_ts_index-1], aggregator.get()))
 
+        next_aggr_ts_index += 1
+
         # Fill remaining aggregation intervals
-        while next_aggr_ts_index < len(aggregation_timestamps) - 1:
+        while next_aggr_ts_index < len(aggregation_timestamps):
             aggregator.reset()
             aggregator.aggregate(aggregation_timestamps[next_aggr_ts_index - 1],
                                  aggregation_timestamps[next_aggr_ts_index], last_value)
