@@ -133,7 +133,10 @@ class ClockMock:
         self.current_time = target_time
 
     def now(self, tz=None) -> datetime.datetime:
-        return self.current_time.astimezone(tz)
+        time_ =  self.current_time
+        if tz is not None:
+            return time_.astimezone(tz)
+        return time_
 
     def today(self) -> datetime.date:
         return self.current_time.date()
