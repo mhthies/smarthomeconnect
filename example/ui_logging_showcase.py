@@ -55,6 +55,18 @@ index_page.add_item(shc.log.widgets.LogListWidget(random_bool_log, datetime.time
 index_page.add_item(shc.log.widgets.LogListWidget(random_bool_log, datetime.timedelta(minutes=5),
                                                   aggregation=AggregationMethod.ON_TIME))
 
+index_page.add_item(shc.log.widgets.LogListWidget(random_float_log, datetime.timedelta(minutes=5)))
+
+index_page.add_item(shc.log.widgets.LogListWidget(random_float_log, datetime.timedelta(minutes=5),
+                                                  aggregation=AggregationMethod.AVERAGE))
+
+index_page.new_segment()
+
+index_page.add_item(shc.log.widgets.ChartWidget(random_float_log, datetime.timedelta(minutes=5)))
+
+index_page.add_item(shc.log.widgets.ChartWidget(random_float_log, datetime.timedelta(minutes=5),
+                                                aggregation=AggregationMethod.AVERAGE))
+
 
 if __name__ == '__main__':
     shc.main()

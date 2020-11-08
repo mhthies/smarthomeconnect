@@ -186,7 +186,7 @@ class LoggingRawWebUIView(WebUIConnector):
     interval via the Webinterface UI websocket and subscribe to updates of that log variable.
     """
     def __init__(self, variable: PersistenceVariable, interval: datetime.timedelta,
-                 converter: Optional[Callable] = None):
+                 converter: Optional[Callable] = None, include_previous: bool = True):
         if not variable.log:
             raise ValueError("Cannot use a PersistenceVariable with log=False for a web logging web ui widget")
         super().__init__()
@@ -195,6 +195,7 @@ class LoggingRawWebUIView(WebUIConnector):
         self.interval = interval
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
         self.converter: Callable = converter or (lambda x: x)
+        self.include_previous = include_previous
 
     async def new_value(self, timestamp: datetime.datetime, value: Any) -> None:
         """
@@ -213,7 +214,7 @@ class LoggingRawWebUIView(WebUIConnector):
         data = await self.variable.retrieve_log(datetime.datetime.now(datetime.timezone.utc)
                                                 - self.interval,
                                                 datetime.datetime.now(datetime.timezone.utc)
-                                                + datetime.timedelta(seconds=5))
+                                                + datetime.timedelta(seconds=5), include_previous=self.include_previous)
         await ws.send_str(json.dumps({'id': id(self),
                                       'v': {
                                           'init': True,

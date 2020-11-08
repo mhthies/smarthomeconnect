@@ -136,12 +136,14 @@ shc.main()
 
 Smart Home Connect is published under the terms of the Apache License 2.0.
 
-It's delivered with multiple third party works:
+It's bundled with multiple third party works:
 
 * [jQuery](https://jquery.com/) (MIT License)
 * [Fomantic UI CSS framework](https://fomantic-ui.com/) (MIT License)
 * [“Prism”](https://www.toptal.com/designers/subtlepatterns/prism/) – Subtle Patterns by Toptal Designers (Creative Commons BY-SA 3.0)
 * [iro.js](https://iro.js.org/) (Mozilla Public License 2.0)
+* [Chart.js](https://www.chartjs.org//) (MIT License)
+* [moment.js](https://momentjs.com/) (MIT License)
 
 See `LICENSE` and `NOTICE` file for further information.
 
