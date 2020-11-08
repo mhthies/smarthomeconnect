@@ -54,10 +54,10 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
             async with conn.cursor() as cur:
                 if self.log:
                     await cur.execute("INSERT INTO `log` (`name`, `ts`, `{}`) VALUES (%s, %s, %s)".format(column_name),
-                                      (self.name, datetime.datetime.now().astimezone(), value))
+                                      (self.name, datetime.datetime.now(datetime.timezone.utc), value))
                 else:
                     await cur.execute("UPDATE `log` SET `ts` = %s, `{}` = %s WHERE `name` = %s".format(column_name),
-                                      (datetime.datetime.now().astimezone(), value, self.name))
+                                      (datetime.datetime.now(datetime.timezone.utc), value, self.name))
             await conn.commit()
 
     async def _read_from_log(self) -> Optional[T]:
@@ -95,7 +95,7 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
                         "ORDER BY `ts` ASC".format(column_name),
                         (self.name, start_time, end_time))
 
-                return [(row[0], self._from_mysql_type(row[1]))
+                return [(row[0].replace(tzinfo=datetime.timezone.utc), self._from_mysql_type(row[1]))
                         for row in await cur.fetchall()]
 
     @classmethod
