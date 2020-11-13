@@ -804,10 +804,10 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         self.subscribed_websockets.add(ws)
         current_value = await self._from_provider()
         if current_value is not None:
-            data = json.dumps({'status': 200, 'action': 'subscribe', 'name': self.name, 'value': current_value,
-                               'handle': handle},
-                              cls=SHCJsonEncoder)
-            await ws.send_str(data)
+            data = {'status': 200, 'action': 'subscribe', 'name': self.name, 'value': current_value, 'handle': handle}
+        else:
+            data = {'status': 204, 'action': 'subscribe', 'name': self.name, 'handle': handle}
+        await ws.send_str(json.dumps(data, cls=SHCJsonEncoder))
 
     def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
         self.subscribed_websockets.discard(ws)
