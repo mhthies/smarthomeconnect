@@ -258,6 +258,7 @@ class InterfaceThreadRunner:
     def __init__(self, interface):
         self.interface = interface
         self._server_started_future = concurrent.futures.Future()
+        self.started = False
 
     def start(self) -> None:
         """
@@ -273,6 +274,7 @@ class InterfaceThreadRunner:
 
     def _run(self) -> None:
         self.loop = asyncio.new_event_loop()
+        self.started = True
         asyncio.set_event_loop(self.loop)
         self.loop.run_until_complete(self._run_coro())
 
@@ -289,6 +291,9 @@ class InterfaceThreadRunner:
         """
         Stop the interface via its stop() coroutine and block until it is fully shutdown.
         """
+        if not self.started:
+            return
+        self.stopped = False
         stop_future = asyncio.run_coroutine_threadsafe(self.interface.stop(), self.loop)
         stop_future.result()
         self.future.result()
