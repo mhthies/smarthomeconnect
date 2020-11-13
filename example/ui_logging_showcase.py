@@ -38,7 +38,7 @@ async def new_float(_v, _o):
 
 @shc.timer.every(datetime.timedelta(seconds=20), random=datetime.timedelta(seconds=19.8))
 @shc.handler()
-async def new_float(_v, _o):
+async def new_bool(_v, _o):
     await random_bool_log.write(bool(random.getrandbits(1)))
 
 
