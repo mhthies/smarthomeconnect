@@ -382,6 +382,7 @@ class WebServer:
             result['error'] = "Internal server error while processing message"
 
         # Finally, send a response
+        logger.debug("Sending websocket response: %s", result)
         await ws.send_str(json.dumps(result, cls=SHCJsonEncoder))
 
     async def _api_get_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:

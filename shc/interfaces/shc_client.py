@@ -117,6 +117,8 @@ class SHCWebClient:
             logger.warning("Websocket message from SHC server is not a valid JSON string: %s", msg.data)
             return
 
+        logger.debug("Incoming message from websocket API: %s", message)
+
         try:
             name = message["name"]
             status = message["status"]
