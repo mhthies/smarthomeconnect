@@ -783,16 +783,22 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
 
     async def http_post(self, value: Any, origin: Any) -> None:
         await self._publish(from_json(self.type, value), [origin])
-        await self._publish_http(value)
+        await self._publish_http(value, origin)
 
-    async def _publish_http(self, value: T) -> None:
+    async def _publish_http(self, value: T, skip_websocket: Optional[object] = None) -> None:
         """
         Publish a new value to all subscribed websockets and waiting long-running poll requests.
+
+        :param skip_websocket: If given and a websocket object (:class:`aiohttp.web.WebSocketResponse`) which is
+            subscribed to this WebApiObject, this websocket is skipped when publishing the new value. This should be
+            used by :meth:`http_post` to prevent reflecting every value posted via the websocket API to its original
+            sender.
         """
         self.future.set_result(value)
         self.future = asyncio.get_event_loop().create_future()
         data = json.dumps({'status': 200, 'name': self.name, 'value': value}, cls=SHCJsonEncoder)
-        await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
+        await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets
+                               if ws is not skip_websocket))
 
     async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse, handle: Any) -> None:
         self.subscribed_websockets.add(ws)
