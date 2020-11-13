@@ -104,7 +104,7 @@ class SHCWebClient:
 
         # If the message has a handle and the handle is associated with a waiting future, set the message as result
         if 'handle' in message:
-            future: asyncio.Future = self._waiting_futures.get(message['handle'])
+            future = self._waiting_futures.get(message['handle'])
             if future is None:
                 logger.info("Received websocket API message with handle, which refers to non-existent future: %s", msg)
             else:
