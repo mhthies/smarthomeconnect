@@ -23,6 +23,7 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
     * KNX bus via KNXD
     * DMX (via Enttec DMX USB Pro and compatible interfaces)
     * HTTP/REST API + websocket API
+    * SHC client (connecting to another SHC instance via websocket API)
 * websocket-based web user interface (using *aiohttp*, *Jinja2* and *Semantic UI*)
     * widgets: buttons, text display, text/number inputs, dropdowns, images with placeable buttons etc., … 
 * configuration of data points/variables and definition of automation rules in plain Python
@@ -36,7 +37,6 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 ### Roadmap
 
 * Log view web widget (line charts, stripe charts, log lists)
-* native HTTP API Client
 * Logging to Influx-DB
 * More web widgets
     * Gauges
