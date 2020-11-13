@@ -784,6 +784,7 @@ class WebSocketAPITest(unittest.TestCase):
     @async_test
     async def test_subscribe(self) -> None:
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        api_object2 = self.server.api(int, "the_other_api_object")
         self.server_runner.start()
         await self.start_websocket()
 
@@ -798,11 +799,23 @@ class WebSocketAPITest(unittest.TestCase):
         self.assertEqual(200, data['status'])
 
         self.ws_callback.reset_mock()
-        asyncio.run_coroutine_threadsafe(api_object.write(56, [self]), self.server_runner.loop)
+        await self.ws.send_json({'action': 'subscribe', 'name': 'the_other_api_object', 'handle': 42})
         await asyncio.sleep(0.05)
 
         self.ws_callback.assert_called_once()
         data = json.loads(self.ws_callback.call_args[0][0])
-        self.assertEqual('the_api_object', data['name'])
+        self.assertEqual('subscribe', data['action'])
+        self.assertEqual('the_other_api_object', data['name'])
+        self.assertEqual(42, data['handle'])
+        self.assertNotIn('value', data)
+
+        self.ws_callback.reset_mock()
+        asyncio.run_coroutine_threadsafe(api_object.write(56, [self]), self.server_runner.loop)
+        asyncio.run_coroutine_threadsafe(api_object2.write(56, [self]), self.server_runner.loop)
+        await asyncio.sleep(0.05)
+
+        self.assertEqual(2, self.ws_callback.call_count)
+        data = json.loads(self.ws_callback.call_args[0][0])
+        self.assertIn(data['name'], ('the_api_object', 'the_other_api_object'))
         self.assertEqual(56, data['value'])
         self.assertEqual(200, data['status'])
