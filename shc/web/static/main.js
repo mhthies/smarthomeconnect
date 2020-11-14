@@ -143,7 +143,7 @@ function TextDisplayWidget(domElement, writeValue) {
     this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
 
     this.update = function(value, for_id) {
-        domElement.textContent = value;
+        domElement.innerHTML = value;
     };
 }
 

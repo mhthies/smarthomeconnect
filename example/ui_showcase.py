@@ -22,6 +22,8 @@ import random
 import enum
 from pathlib import Path
 
+import markupsafe
+
 import shc
 from shc.datatypes import RangeUInt8, RangeFloat1, RGBUInt8
 from shc.web.widgets import *
@@ -113,7 +115,11 @@ index_page.new_segment(same_column=True)
 # For entering numbers or strings, use the TextInput widget
 index_page.add_item(TextInput(int, "Number of yaks", min=0, max=100, step=1, input_suffix="pc.")
                     .connect(number_of_yaks))
+# … and for displaying them the TextDisplay widget
 index_page.add_item(TextDisplay(int, "{} Yaks", "The herd").connect(number_of_yaks))
+# it even allows to HTML-format the value (or use a custom function for formatting):
+index_page.add_item(TextDisplay(int, markupsafe.Markup("<b>{}</b> Yaks"), "The herd (nice)").connect(number_of_yaks))
+index_page.add_item(TextDisplay(int, icon('paw', "{} Yaks"), "The herd (even nicer)").connect(number_of_yaks))
 
 
 #############################################################################################

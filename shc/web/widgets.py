@@ -30,7 +30,7 @@ import itertools
 import json
 import pathlib
 from os import PathLike
-from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Optional
+from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Optional, Callable
 
 import markupsafe
 
@@ -210,20 +210,26 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
     See https://docs.python.org/3/library/string.html#formatstrings for a full reference of valid format strings.
 
     :param type_: The expected value type, used as the `type` attribute of this `Connectable`
-    :param format_string: A Python format string which is used to format the value into a string representation. The
-        formatting is done by calling `format_string.format(value)` for every new value to be displayed.
+    :param format: Either a Python string or safely escpaed HTML markup, which is used to format the value into a string
+        representation using the `format()` method or otherwise a callable which transforms a value to a string or
+        escaped HTML Markup (in form of a :class:`markupsafe.Markup` object).
     :param label: A label to be displayed left of the formatted value. Either a plain string (which is automatically
         escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
     """
-    def __init__(self, type_: Type[T], format_string: str, label: Union[str, markupsafe.Markup]):
+    def __init__(self, type_: Type[T], format: Union[str, markupsafe.Markup,
+                                                     Callable[[T], Union[str, markupsafe.Markup]]],
+                 label: Union[str, markupsafe.Markup]):
         self.type = type_
         super().__init__()
-        self.format_string = format_string
+        self.formatter: Callable[[T], Union[str, markupsafe.Markup]] = (
+            (lambda x: format.format(x))
+            if isinstance(format, (str, markupsafe.Markup))
+            else format)
         self.label = label
 
     def convert_to_ws_value(self, value: T) -> Any:
-        return self.format_string.format(value)
+        return markupsafe.escape(self.formatter(value))
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/textdisplay.htm').render_async(id=id(self), label=self.label)
