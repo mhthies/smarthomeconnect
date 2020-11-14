@@ -149,6 +149,14 @@ body.pushable>.pusher, body:not(.pushable) {
     background-color: #1b1c1d!important;
 }
 
+/* Fix divided lists in divided lists */
+.ui.divided.list .item .divided.list>.item {
+    border-top: 1px solid rgba(34,36,38,.15);
+}
+.ui.divided.list .item .divided.list>.item:first-child {
+    border-top: none;
+}
+
 
 /* ************************** *
  * Widget things              *

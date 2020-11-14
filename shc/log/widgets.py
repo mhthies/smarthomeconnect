@@ -22,8 +22,9 @@ class LogListWidget(WebPageItem):
         server.add_js_file(Path(__file__).parent / 'log.js')
 
     async def render(self) -> str:
-        return '<div data-widget="log.log_list" data-id="{}" data-interval="{}" ' \
-               'style="max-height: 300px; overflow-y: auto;"></div>'\
+        return '<div class="ui secondary segment" style="max-height: 300px; overflow-y: auto;">' \
+               '    <div data-widget="log.log_list" data-id="{}" data-interval="{}" class="ui divided list"></div>' \
+               '</div>'\
             .format(id(self.connector), round(self.interval.total_seconds() * 1000))
 
     def get_connectors(self) -> Iterable[WebUIConnector]:

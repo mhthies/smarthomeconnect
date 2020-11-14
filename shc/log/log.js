@@ -29,18 +29,21 @@ function LogListWidget(domElement, _writeValue) {
     function addRow(timestamp, value) {
         // Create row
         let node = document.createElement("div");
+        node.setAttribute("class", "item");
         node.logTimeStamp = timestamp;
         domElement.prepend(node);
 
-        // Add formatted timestamp
-        node.appendChild(document.createTextNode(dateTimeFormat.format(timestamp)));
-
         // Add value box
         let value_box = document.createElement("div");
-        value_box.classList.add('right');
-        value_box.classList.add('floated');
+        value_box.setAttribute("class", "right floated content the-value");
         value_box.innerText = value;
         node.appendChild(value_box);
+
+        // Add timestamp box
+        let ts_box = document.createElement("div");
+        ts_box.setAttribute("class", "content");
+        ts_box.innerText = dateTimeFormat.format(timestamp);
+        node.appendChild(ts_box);
 
         return node;
     }
@@ -62,7 +65,7 @@ function LogListWidget(domElement, _writeValue) {
                 let timestamp = Date.parse(row[0]);
                 // If timestamp is equal to the last record's timestamp, update that value
                 if (lastRow && timestamp === lastRow.logTimeStamp) {
-                    const last_value_box = lastRow.getElementsByTagName('div')[0];
+                    const last_value_box = lastRow.getElementsByClassName('the-value')[0];
                     last_value_box.innerText = row[1];
 
                 // If the timestamp is newer, add a new row. If the row is older than the last row, we ignore it.
