@@ -33,7 +33,7 @@ class InMemoryPersistenceVariable(PersistenceVariable, Generic[T]):
                            include_previous: bool = False) -> List[Tuple[datetime.datetime, T]]:
         iterator = iter(enumerate(self.data))
         try:
-            start_index = next(i for i, (ts, _v) in iterator if ts > start_time)
+            start_index = next(i for i, (ts, _v) in iterator if ts >= start_time)
         except StopIteration:
             if include_previous and self.data:
                 return self.data[-1:]
