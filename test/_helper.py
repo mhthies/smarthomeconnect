@@ -254,10 +254,12 @@ class InterfaceThreadRunner:
         available after :meth:`start` has successfully completed.
     :ivar interface: The wrapped interface (passed to the constructor).
     """
+    executor = concurrent.futures.ThreadPoolExecutor()
 
     def __init__(self, interface):
         self.interface = interface
         self._server_started_future = concurrent.futures.Future()
+        self.started = False
 
     def start(self) -> None:
         """
@@ -267,16 +269,15 @@ class InterfaceThreadRunner:
         :raises TimeoutError: If the interface does not come up (complete its `start()` coroutine) within 5 seconds.
         :raises Exception: If the interface raised an Exception in its `start()` coroutine.
         """
-        executor = concurrent.futures.ThreadPoolExecutor()
-        self.future = executor.submit(self._run)
+        self.future = self.executor.submit(self._run)
         self._server_started_future.result(timeout=5)
+        self.started = True
 
     def _run(self) -> None:
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-        self.loop.run_until_complete(self._run_coro())
+        asyncio.run(self._run_coro())
 
     async def _run_coro(self) -> None:
+        self.loop = asyncio.get_event_loop()
         try:
             await self.interface.start()
             self._server_started_future.set_result(None)
@@ -289,6 +290,9 @@ class InterfaceThreadRunner:
         """
         Stop the interface via its stop() coroutine and block until it is fully shutdown.
         """
+        if not self.started:
+            return
+        self.started = False
         stop_future = asyncio.run_coroutine_threadsafe(self.interface.stop(), self.loop)
         stop_future.result()
-        self.future.result()
+        self.future.result(timeout=5)
