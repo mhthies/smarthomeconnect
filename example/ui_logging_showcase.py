@@ -14,6 +14,7 @@ import random
 import shc.log.in_memory
 import shc.log.widgets
 from shc.log import AggregationMethod
+from shc.log.widgets import ChartDataSpec
 from shc.web.widgets import icon
 
 random_float_log = shc.log.in_memory.InMemoryPersistenceVariable(float, keep=datetime.timedelta(minutes=10))
@@ -66,10 +67,15 @@ index_page.add_item(shc.log.widgets.LogListWidget(random_float_log, datetime.tim
 
 index_page.new_segment()
 
-index_page.add_item(shc.log.widgets.ChartWidget(random_float_log, datetime.timedelta(minutes=5)))
+index_page.add_item(shc.log.widgets.ChartWidget(datetime.timedelta(minutes=5), [
+    ChartDataSpec(random_float_log, "random float")
+]))
 
-index_page.add_item(shc.log.widgets.ChartWidget(random_float_log, datetime.timedelta(minutes=5),
-                                                aggregation=AggregationMethod.AVERAGE))
+index_page.add_item(shc.log.widgets.ChartWidget(datetime.timedelta(minutes=5), [
+    ChartDataSpec(random_float_log, "avg", aggregation=AggregationMethod.AVERAGE),
+    ChartDataSpec(random_float_log, "min", aggregation=AggregationMethod.MINIMUM),
+    ChartDataSpec(random_float_log, "max", aggregation=AggregationMethod.MAXIMUM),
+]))
 
 
 if __name__ == '__main__':
