@@ -106,6 +106,7 @@ function LineChartWidget(domElement, _writeValue) {
             pointBorderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
             steppedLine: spec.is_aggregated ? undefined : 'before',
             pointRadius: spec.is_aggregated ? 3 : 0,
+            pointHitRadius: 3,
             lineTension: 0.2,
         });
         dataMap.set(spec.id, data);
