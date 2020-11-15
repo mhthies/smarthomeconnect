@@ -33,6 +33,7 @@ from os import PathLike
 from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Optional, Callable
 
 import markupsafe
+from markupsafe import Markup
 
 from . import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer, WebUIConnector, \
     WebPage, WebServer
@@ -55,7 +56,7 @@ __all__ = [
 ]
 
 
-def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
+def icon(icon_name: str, label: str = '') -> Markup:
     """
     Create HTML markup for a Fontawesome/Semantic UI icon, to be used in PageItem labels, button labels, etc.
 
@@ -65,7 +66,7 @@ def icon(icon_name: str, label: str = '') -> markupsafe.Markup:
     :return: (safe) HTML markup to be passed to a Jinja template (of a web page or web widget), e.g. via one of the
         `label` attributes.
     """
-    return markupsafe.Markup('<i class="ui {}{} icon"></i>'.format("" if label else "fitted ", icon_name)) + label
+    return Markup('<i class="ui {}{} icon"></i>'.format("" if label else "fitted ", icon_name)) + label
 
 
 class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
@@ -76,7 +77,7 @@ class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
     initialization, e.g. a :class:`shc.Variable` of bool type.
 
     :param label: The label to be displayed near the switch. Either a plain string (which is automatically escaped for
-        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML, e.g.
+        embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML, e.g.
         produced by :func:`icon`.
     :param color: Background color of the switch, when in 'on' position. The available colors are the same as for
         buttons. See https://fomantic-ui.com/elements/button.html#colored for reference.
@@ -88,7 +89,7 @@ class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
         `[False]`, only switching off must be confirmed. Defaults to `[False, True]`, i.e. every change must be
         confirmed.
     """
-    def __init__(self, label: Union[str, markupsafe.Markup], color: str = '', confirm_message: str = '',
+    def __init__(self, label: Union[str, Markup], color: str = '', confirm_message: str = '',
                  confirm_values: Iterable[bool] = (False, True)):
         self.type = bool
         super().__init__()
@@ -111,14 +112,14 @@ class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic
     a `Readable` object for initialization.
 
     :param options: List of options in the dropdown. Each option is a tuple of (value, label). All values must be of the
-        same type. Each label can either be a plain string or a :class:`markupsafe.Markupsafe` with pre-formatted HTML,
+        same type. Each label can either be a plain string or a :class:`markupsafe.Markup` with pre-formatted HTML,
         e.g. from the :func:`icon` function. Since Semantic UI's JavaScript-based <select>-replacement is used, even
         complex HTML should be rendered properly.
     :param label: The label to be displayed near the dropdown. Either a plain string (which is automatically escaped for
-        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML, e.g.
+        embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML, e.g.
         produced by :func:`icon`.
     """
-    def __init__(self, options: List[Tuple[T, Union[str, markupsafe.Markup]]], label: str = ''):
+    def __init__(self, options: List[Tuple[T, Union[str, Markup]]], label: str = ''):
         self.type = type(options[0][0])
         super().__init__()
         self.options = options
@@ -137,10 +138,10 @@ class EnumSelect(Select):
     :param type_: The enum type. It is used as the `type` attribute for `connecting` and to generate the dropdown
         entries from its enum members.
     :param label: The label to be displayed near the dropdown. Either a plain string (which is automatically escaped for
-        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML, e.g.
+        embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML, e.g.
         produced by :func:`icon`.
     """
-    def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup] = ''):
+    def __init__(self, type_: Type[enum.Enum], label: Union[str, Markup] = ''):
         values = [(entry, entry.name) for entry in type_]
         super().__init__(values, label)
 
@@ -158,7 +159,7 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
     :param type_: The value type to be entered. Used as the `type` for connecting with other Connectables and to
         determine the HTML input type. Must be int, float or str.
     :param label: The label to be displayed near the input. Either a plain string (which is automatically escaped for
-        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML, e.g.
+        embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML, e.g.
         produced by :func:`icon`.
     :param min: The minimal value to be entered (only useful if `type_` is int or float). Used as the HTML `min`
         attribute.
@@ -169,8 +170,8 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
     :param input_suffix: A plain string or HTML markup to be appended to the right of the input field, using Semantic
         UI's `labeled inputs <https://fomantic-ui.com/elements/input.html#labeled>`_.
     """
-    def __init__(self, type_: Type[Ti], label: Union[str, markupsafe.Markup] = '', min: Optional[Ti] = None,
-                 max: Optional[Ti] = None, step: Optional[Ti] = None, input_suffix: Union[str, markupsafe.Markup] = ''):
+    def __init__(self, type_: Type[Ti], label: Union[str, Markup] = '', min: Optional[Ti] = None,
+                 max: Optional[Ti] = None, step: Optional[Ti] = None, input_suffix: Union[str, Markup] = ''):
         self.type = type_
         super().__init__()
         self.label = label
@@ -214,17 +215,16 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
         representation using the `format()` method or otherwise a callable which transforms a value to a string or
         escaped HTML Markup (in form of a :class:`markupsafe.Markup` object).
     :param label: A label to be displayed left of the formatted value. Either a plain string (which is automatically
-        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        escaped for embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
     """
-    def __init__(self, type_: Type[T], format: Union[str, markupsafe.Markup,
-                                                     Callable[[T], Union[str, markupsafe.Markup]]],
-                 label: Union[str, markupsafe.Markup]):
+    def __init__(self, type_: Type[T], format: Union[str, Markup, Callable[[T], Union[str, Markup]]],
+                 label: Union[str, Markup]):
         self.type = type_
         super().__init__()
-        self.formatter: Callable[[T], Union[str, markupsafe.Markup]] = (
+        self.formatter: Callable[[T], Union[str, Markup]] = (
             (lambda x: format.format(x))
-            if isinstance(format, (str, markupsafe.Markup))
+            if isinstance(format, (str, Markup))
             else format)
         self.label = label
 
@@ -244,12 +244,12 @@ class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], 
     can be connected to `Connectable` objects of other default range types, like :class:`shc.datatypes.RangeUInt8`.
 
     :param label: The label to be displayed above the slider (left). Either a plain string (which is automatically
-        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        escaped for embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
     :param color: Background color of the slider and the upper right label showing the current value. Must be one of
         Semantic UI's predefined slider colors: https://fomantic-ui.com/modules/slider.html#colored
     """
-    def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = ''):
+    def __init__(self, label: Union[str, Markup] = '', color: str = ''):
         self.type = RangeFloat1
         super().__init__()
         self.label = label
@@ -275,7 +275,7 @@ class ButtonGroup(WebPageItem):
     :param label: The label to be shown left of the buttons
     :param buttons: List of button descriptors
     """
-    def __init__(self, label: Union[str, markupsafe.Markup], buttons: Iterable["AbstractButton"]):
+    def __init__(self, label: Union[str, Markup], buttons: Iterable["AbstractButton"]):
         super().__init__()
         self.label = label
         self.buttons = buttons
@@ -297,7 +297,7 @@ class AbstractButton(metaclass=abc.ABCMeta):
     for interacting with the button, i.e. they are `Subscriable` and/or `Reading`+`Writable`.
 
     :var label: The label/text content of the button. Either a plain string (which should automatically be escaped for
-        embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet and properly
+        embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet and properly
         escaped HTML code.
     :var color: The color of the button. One of the Semantic UI button colors.
     :var stateful: If True, the button has an on/off state. It should only be shown fully colored, when in 'on' state.
@@ -310,7 +310,7 @@ class AbstractButton(metaclass=abc.ABCMeta):
     :var confirm_message: The message to be shown in the confirm window, when a confirmation is required for an
         interaction with this button.
     """
-    label: Union[str, markupsafe.Markup] = ''
+    label: Union[str, Markup] = ''
     color: str = ''
     stateful: bool = True
     enabled: bool = True
@@ -335,7 +335,7 @@ class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
 
     :param value: The value to be published by this object when the button is clicked by the user
     :param label: The label/text content of the button. Either a plain string (which is automatically
-        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        escaped for embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
     :param color: The color of the button. One of the Semantic UI button colors. See
         https://fomantic-ui.com/elements/button.html#colored for reference. If not specified, the button is shown in the
@@ -348,7 +348,7 @@ class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
     """
     stateful = False
 
-    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = '', confirm_message: str = '',
+    def __init__(self, value: T, label: Union[str, Markup] = '', color: str = '', confirm_message: str = '',
                  outline: bool = False):
         self.type = type(value)
         super().__init__()
@@ -381,7 +381,7 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
     :param value: The value to be published by this object when the button is clicked by the user. Also the value which
         is compared to the `connected` object's current value to determine if the button should be lit up.
     :param label: The label/text content of the button. Either a plain string (which is automatically
-        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        escaped for embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
     :param color: The color of the button when it is lit up (i.e. `conncted` object's current value matches the
         `value`). Must be one of the Semantic UI button colors. See https://fomantic-ui.com/elements/button.html#colored
@@ -391,7 +391,7 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
     :param outline: If True, the button is shown with a colored outline in its configured `color` **when not lit up**,
         instead of its grey-ish default appearance.
     """
-    def __init__(self, value: T, label: Union[str, markupsafe.Markup] = '', color: str = 'blue',
+    def __init__(self, value: T, label: Union[str, Markup] = '', color: str = 'blue',
                  confirm_message: str = '', outline: bool = False):
         self.type = type(value)
         super().__init__()
@@ -422,7 +422,7 @@ class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint
     initialization of the ui – otherwise it will show a spinner animation until the first True/False value is received.
 
     :param label: The label/text content of the button. Either a plain string (which is automatically
-        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        escaped for embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
     :param color: The color of the button when in 'on' state. Must be one of the Semantic UI button colors.
         See https://fomantic-ui.com/elements/button.html#colored for reference. Defaults to 'blue'.
@@ -436,7 +436,7 @@ class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint
     :param outline: If True, the button is shown with a colored outline in its configured `color` **in 'off' state**,
         instead of its grey-ish default appearance.
     """
-    def __init__(self, label: Union[str, markupsafe.Markup] = '', color: str = 'blue', confirm_message: str = '',
+    def __init__(self, label: Union[str, Markup] = '', color: str = 'blue', confirm_message: str = '',
                  confirm_values: Iterable[bool] = (False, True), outline: bool = False):
         self.type = bool
         super().__init__()
@@ -463,7 +463,7 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
     :param value: The value which is compared to the `connected` object's current value to determine if the button
         should be lit up. Defaults to `True`, resulting in a behaviour of a disabled :class:`ToggleButton`.
     :param label: The label/text content of the button. Either a plain string (which is automatically
-        escaped for embedding in HTML) or a :class:`markupsafe.Markupsafe` object, which may contain pre-formattet HTML,
+        escaped for embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
     :param color: The color of the button when in 'on' state. Must be one of the Semantic UI button colors.
         See https://fomantic-ui.com/elements/button.html#colored for reference. Defaults to 'blue'.
@@ -472,7 +472,7 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
     """
     enabled = False
 
-    def __init__(self, value: T = True,  label: Union[str, markupsafe.Markup] = '',  # type: ignore
+    def __init__(self, value: T = True,  label: Union[str, Markup] = '',  # type: ignore
                  color: str = 'blue', outline: bool = False):
         self.type = type(value)
         super().__init__()
@@ -499,7 +499,7 @@ class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
     :param color: A common `color` for all buttons
     :param confirm_message: A common `confirm_message` for all buttons
     """
-    def __init__(self, values: List[Tuple[T, Union[str, markupsafe.Markup]]], label: Union[str, markupsafe.Markup],
+    def __init__(self, values: List[Tuple[T, Union[str, Markup]]], label: Union[str, Markup],
                  color: str = 'blue', confirm_message: str = ''):
         buttons = [ValueButton(value=v[0], label=v[1], color=color, confirm_message=confirm_message) for v in values]
         super().__init__(label, buttons)
@@ -524,7 +524,7 @@ class EnumButtonGroup(ValueListButtonGroup):
     :param color: A common `color` for all buttons
     :param confirm_message: A common `confirm_message` for all buttons
     """
-    def __init__(self, type_: Type[enum.Enum], label: Union[str, markupsafe.Markup], color: str = 'blue',
+    def __init__(self, type_: Type[enum.Enum], label: Union[str, Markup], color: str = 'blue',
                  confirm_message: str = ''):
         values = [(entry, entry.name) for entry in type_]
         super().__init__(values, label, color, confirm_message)
@@ -542,7 +542,7 @@ class HideRowBox(WebPageItem):
 
 
 class HideRow(WebDisplayDatapoint[bool], WebConnectorContainer):
-    def __init__(self, label: Union[str, markupsafe.Markup], button: Optional[AbstractButton] = None,
+    def __init__(self, label: Union[str, Markup], button: Optional[AbstractButton] = None,
                  color: str = 'blue',):
         self.type = bool
         super().__init__()
