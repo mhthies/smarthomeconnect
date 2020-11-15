@@ -170,8 +170,12 @@ function LineChartWidget(domElement, _writeValue) {
         let now = new Date();
         let timeout = new Date(now.getTime() - interval);
 
-        let currentData = theChart.data.datasets[0].data;
-        if (currentData.length) {
+        let splicedDatasets = 0;
+        for (let dataset of theChart.data.datasets) {
+            let currentData = dataset.data;
+            if (!currentData.length)
+                continue;
+
             let i = 0;
             for (;i < currentData.length; i++) {
                 if (currentData[i].x >= timeout)
@@ -179,12 +183,14 @@ function LineChartWidget(domElement, _writeValue) {
             }
             let begin = Math.max(0, i-1);
             if (begin > 0) {
-                theChart.data.datasets[0].data = currentData.slice(begin);
-                // Do an chart update without animation. Otherwise we do a little unwanted animation party due to the
-                // shift in the datapoint indices.
-                theChart.update(0);
+                currentData.splice(0, begin);
+                splicedDatasets++;
             }
         }
+        // If we deleted points, do a chart update without animation. Otherwise we do a little unwanted animation party
+        // due to the shift in the datapoint indices.
+        if (splicedDatasets)
+            theChart.update(0);
     }
     setInterval(function() {
         cleanUp();
@@ -206,19 +212,23 @@ function LineChartWidget(domElement, _writeValue) {
 
         // Incremental update
         } else {
-            let lastRow = data.length ? data[data.length - 1] : null;
+            let lastEntry = data.length ? data[data.length - 1] : null;
             for (let row of value['data']) {
                 let timestamp = Date.parse(row[0]);
                 // If timestamp is equal to the last record's timestamp, update that value
-                if (lastRow && timestamp === lastRow.x) {
-                    lastRow.y = row[1];
+                if (lastEntry && timestamp === lastEntry.x) {
+                    console.debug(`Updating last value of dataset with ${row}`);
+                    lastEntry.y = row[1];
 
                 // If the timestamp is newer, add a new row. If the row is older than the last row, we ignore it.
-                } else if (!(lastRow && timestamp < lastRow.x)) {
+                } else if (!(lastEntry && timestamp < lastEntry.x)) {
+                    console.debug(`Adding entry ${row} to chart`);
                     data.push({
                         x: timestamp,
                         y: row[1]
                     });
+                } else {
+                    console.warn(`chart update ${row} ignored, since it is older than the current last row`);
                 }
             }
         }
