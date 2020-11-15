@@ -35,6 +35,9 @@ class LogListWidget(WebPageItem, Generic[T]):
                                                           formatter))
 
     def register_with_server(self, page: WebPage, server: WebServer) -> None:
+        # Chart.js is not required for this widget, but we need to load it before 'log.js', in case, it is required for
+        # a ChartWidget.
+        server.add_js_file(Path(__file__).parent / 'Chart.min.js')
         server.add_js_file(Path(__file__).parent / 'log.js')
 
     async def render(self) -> str:
@@ -62,7 +65,6 @@ class ChartWidget(WebPageItem):
                                                           align_to=self.align_ticks_to))
 
     def register_with_server(self, page: WebPage, server: WebServer) -> None:
-        server.add_js_file(Path(__file__).parent / 'moment.min.js')
         server.add_js_file(Path(__file__).parent / 'Chart.min.js')
         server.add_js_file(Path(__file__).parent / 'log.js')
 

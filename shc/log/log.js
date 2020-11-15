@@ -226,16 +226,17 @@ function LineChartWidget(domElement, _writeValue) {
     };
 }
 
+const second = 1000; const minute = 60000; const hour = 3600000; const day = 86400000;
+const tickIntervals = [
+    25, 50, 100, 250, 500,
+    second, 2*second, 5*second, 10*second, 20*second, 30*second,
+    minute, 2*minute, 5*minute, 10*minute, 20*minute, 30*minute,
+    hour, 2*hour, 3*hour, 6*hour, 12*hour,
+    day, 2*day, 5*day, 10*day, 20*day, 30*day, 60*day, 90*day, 120*day, 365*day,
+    2*365*day, 3*365*day, 5*365*day, 10*365*day
+]
+
 function chartTickInterval(interval, maxTicks) {
-    const second = 1000; const minute = 60000; const hour = 3600000; const day = 86400000;
-    const tickIntervals = [
-        25, 50, 100, 250, 500,
-        second, 2*second, 5*second, 10*second, 20*second, 30*second,
-        minute, 2*minute, 5*minute, 10*minute, 20*minute, 30*minute,
-        hour, 2*hour, 3*hour, 6*hour, 12*hour,
-        day, 2*day, 5*day, 10*day, 20*day, 30*day, 60*day, 90*day, 120*day, 365*day,
-        2*365*day, 3*365*day, 5*365*day, 10*365*day
-    ]
     for (let int of tickIntervals) {
         if (interval / int < maxTicks) {
             return int;
@@ -245,3 +246,61 @@ function chartTickInterval(interval, maxTicks) {
 }
 
 WIDGET_TYPES.set('log.line_chart', LineChartWidget);
+
+/**
+ * This is a minimal datetime adapter for Chart.js which does not need an external library, but does not provide `add`,
+ * `startOf`, `endOf` methods. It uses Intl.DateTimeFormat for date formatting.
+ *
+ * This is fine, since we define our bounds and tick interval manually, so we only need the
+ * adapter for date formatting.
+ */
+Chart._adapters._date.override({
+	_id: 'minimal-intl',
+
+	formats: function() {
+		return  {
+            datetime: new Intl.DateTimeFormat(undefined, {
+                year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric',
+                second: 'numeric'}),
+            millisecond: new Intl.DateTimeFormat(undefined, {
+                hour: 'numeric', minute: 'numeric', second: 'numeric'}),
+            second: new Intl.DateTimeFormat(undefined, {
+                hour: 'numeric', minute: 'numeric', second: 'numeric'}),
+            minute: new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: 'numeric'}),
+            hour: new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: 'numeric'}),
+            day: new Intl.DateTimeFormat(undefined, {month: 'numeric', day: 'numeric'}),
+            week: new Intl.DateTimeFormat(undefined, {month: 'numeric', day: 'numeric'}),
+            month: new Intl.DateTimeFormat(undefined, {year: 'numeric', month: 'numeric'}),
+            quater: new Intl.DateTimeFormat(undefined, {year: 'numeric', month: 'numeric'}),
+            year: new Intl.DateTimeFormat(undefined, {year: 'numeric'})
+        };
+	},
+
+	parse: function(value, fmt) {
+		return value;
+	},
+
+	format: function(time, fmt) {
+		return fmt.format(time);
+	},
+
+	add: undefined,
+
+	diff: function(max, min, unit) {
+		switch (unit) {
+            case 'millisecond': return (max-min);
+            case 'second': return (max-min)/second;
+            case 'minute': return (max-min)/minute;
+            case 'hour': return (max-min)/hour;
+            case 'day': return (max-min)/day;
+            case 'week': return (max-min)/day/7;
+            case 'month': return (max-min)/day/30;
+            case 'quarter': return (max-min)/7884000000;
+            case 'year': return (max-min)/day/365;
+            default: return 0;
+		}
+	},
+
+	startOf: undefined,
+	endOf: undefined
+});
