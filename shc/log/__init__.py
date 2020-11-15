@@ -232,7 +232,7 @@ class LoggingAggregatedWebUIView(WebUIConnector):
                  aggregation_interval: datetime.timedelta, converter: Optional[Callable] = None,
                  align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
                  update_interval: Optional[datetime.timedelta] = None):
-        # TODO add pre_converter
+        # TODO add pre_converter (e.g. for scaling or getting a single value out of Namespaces)
         # TODO add PersistenceVariable type check?
         if not variable.log:
             raise ValueError("Cannot use a PersistenceVariable with log=False for a web logging web ui widget")

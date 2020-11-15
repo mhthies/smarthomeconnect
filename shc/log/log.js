@@ -36,7 +36,7 @@ function LogListWidget(domElement, _writeValue) {
         // Add value box
         let value_box = document.createElement("div");
         value_box.setAttribute("class", "right floated content the-value");
-        value_box.innerText = value;
+        value_box.innerHTML = value;
         node.appendChild(value_box);
 
         // Add timestamp box
@@ -66,7 +66,7 @@ function LogListWidget(domElement, _writeValue) {
                 // If timestamp is equal to the last record's timestamp, update that value
                 if (lastRow && timestamp === lastRow.logTimeStamp) {
                     const last_value_box = lastRow.getElementsByClassName('the-value')[0];
-                    last_value_box.innerText = row[1];
+                    last_value_box.innerHTML = row[1];
 
                 // If the timestamp is newer, add a new row. If the row is older than the last row, we ignore it.
                 } else if (!(lastRow && timestamp < lastRow.logTimeStamp)) {

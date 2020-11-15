@@ -1,22 +1,31 @@
 import datetime
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Generic, Union, Callable
+
+from markupsafe import Markup
 
 from . import PersistenceVariable, LoggingRawWebUIView, AggregationMethod, LoggingAggregatedWebUIView
+from ..base import T
 from ..web import WebServer, WebPage, WebPageItem, WebUIConnector
 
 
-class LogListWidget(WebPageItem):
-    def __init__(self, variable: PersistenceVariable, interval: datetime.timedelta,
+class LogListWidget(WebPageItem, Generic[T]):
+    def __init__(self, variable: PersistenceVariable[T], interval: datetime.timedelta,
+                 format: Union[str, Markup, Callable[[Union[T, float]], Union[str, Markup]]] = "{}",
                  aggregation: Optional[AggregationMethod] = None,
                  aggregation_interval: Optional[datetime.timedelta] = None):
-        # TODO add formatting
         # TODO allow multiple variables
         self.interval = interval
+        formatter: Callable[[T], Union[str, Markup]] = (
+            (lambda x: format.format(x))
+            if isinstance(format, (str, Markup))
+            else format)
         if aggregation_interval is None:
             aggregation_interval = interval / 10
-        self.connector = (LoggingRawWebUIView(variable, interval, include_previous=False) if aggregation is None
-                          else LoggingAggregatedWebUIView(variable, interval, aggregation, aggregation_interval))
+        self.connector = (LoggingRawWebUIView(variable, interval, formatter, include_previous=False)
+                          if aggregation is None
+                          else LoggingAggregatedWebUIView(variable, interval, aggregation, aggregation_interval,
+                                                          formatter))
 
     def register_with_server(self, page: WebPage, server: WebServer) -> None:
         server.add_js_file(Path(__file__).parent / 'log.js')
