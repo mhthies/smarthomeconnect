@@ -2,11 +2,18 @@ import datetime
 from pathlib import Path
 from typing import Iterable, Optional, Generic, Union, Callable
 
+import jinja2
+from jinja2.filters import do_tojson
 from markupsafe import Markup
 
 from . import PersistenceVariable, LoggingRawWebUIView, AggregationMethod, LoggingAggregatedWebUIView
 from ..base import T
-from ..web import WebServer, WebPage, WebPageItem, WebUIConnector
+from ..web import WebServer, WebPage, WebPageItem, WebUIConnector, jinja_env
+
+
+jinja_env = jinja_env.overlay(
+    loader=jinja2.PackageLoader('shc.log', 'templates'),
+)
 
 
 class LogListWidget(WebPageItem, Generic[T]):
@@ -31,10 +38,8 @@ class LogListWidget(WebPageItem, Generic[T]):
         server.add_js_file(Path(__file__).parent / 'log.js')
 
     async def render(self) -> str:
-        return '<div class="ui secondary segment" style="max-height: 300px; overflow-y: auto;">' \
-               '    <div data-widget="log.log_list" data-id="{}" data-interval="{}" class="ui divided list"></div>' \
-               '</div>'\
-            .format(id(self.connector), round(self.interval.total_seconds() * 1000))
+        return await jinja_env.get_template('log/loglist.htm').render_async(
+            id=id(self.connector), interval=round(self.interval.total_seconds() * 1000))
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         return [self.connector]
@@ -62,10 +67,15 @@ class ChartWidget(WebPageItem):
         server.add_js_file(Path(__file__).parent / 'log.js')
 
     async def render(self) -> str:
-        return '<canvas data-widget="log.line_chart" data-id="{}" data-interval="{}" data-align-ticks-to="{}" ' \
-               'data-aggregated="{}"></canvas>'\
-            .format(id(self.connector), round(self.interval.total_seconds() * 1000),
-                    self.align_ticks_to.timestamp() * 1000, self.is_aggregated)
+        spec = [
+            {'id': id(self.connector),
+             'is_aggregated': self.is_aggregated,
+             'color': [0, 127, 178],
+             'label': "my dataset"}
+        ]
+        return await jinja_env.get_template('log/chart.htm').render_async(
+            spec=spec, interval=round(self.interval.total_seconds() * 1000),
+            align_ticks_to=self.align_ticks_to.timestamp() * 1000)
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         return [self.connector]

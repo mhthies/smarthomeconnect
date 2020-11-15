@@ -82,32 +82,46 @@ WIDGET_TYPES.set('log.log_list', LogListWidget);
 
 function LineChartWidget(domElement, _writeValue) {
     const id = parseInt(domElement.getAttribute('data-id'));
+    const seriesSpec = JSON.parse(domElement.getAttribute('data-spec'));
     const interval = parseInt(domElement.getAttribute('data-interval')); // in milliseconds
     const is_aggregated = domElement.getAttribute('data-aggregated') === "True";
     const alignTicksTo = parseInt(domElement.getAttribute('data-align-ticks-to'));
-    const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
-        month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric'});
-    this.subscribeIds = [id];
 
-    let lastRow = null;
+    this.subscribeIds = [];  // filled in the dataset initialization below
+
     let tickInterval = chartTickInterval(interval, 8);  // TODO: let it depend on diagram width
+
+    // datasets (and subscribeIds)
+    let datasets = [];
+    let dataMap = new Map();  // maps the Python datapoint/object id to the associated chart dataset's data list
+    for (const spec of seriesSpec) {
+        this.subscribeIds.push(spec.id);
+        let data = [];
+        datasets.push({
+            data: data,
+            label: spec.label,
+            backgroundColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.1)`,
+            borderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, .5)`,
+            pointBackgroundColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
+            pointBorderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
+            steppedLine: spec.is_aggregated ? undefined : 'before',
+            pointRadius: spec.is_aggregated ? 3 : 0,
+            lineTension: 0.2,
+        });
+        dataMap.set(spec.id, data);
+    }
 
     // Initialize chart
     let ctx = domElement.getContext('2d');
     let theChart = new Chart(ctx, {
         type: 'line',
         data: {
-            datasets: [{
-                data: [],
-                steppedLine: is_aggregated ? undefined : 'before',
-                pointRadius: is_aggregated ? 3 : 0,
-                lineTension: 0.2,
-            }],
+            datasets: datasets,
             labels: []
         },
         options: {
             legend: {
-                display: false
+                display: (datasets.length > 1)
             },
             scales: {
                 xAxes: [{
@@ -178,7 +192,7 @@ function LineChartWidget(domElement, _writeValue) {
     }, 5000);
 
     this.update = function(value, for_id) {
-        let data = theChart.data.datasets[0].data;
+        let data = dataMap.get(for_id);
 
         // Full initialization after (re)connect
         if (value['init']) {
