@@ -15,23 +15,34 @@ jinja_env = jinja_env.overlay(
 )
 
 
+class LogListDataSpec(NamedTuple):
+    variable: PersistenceVariable
+    format: Union[str, Markup, Callable[[Union[T, float]], Union[str, Markup]]] = "{}"
+    color: str = ''
+    aggregation: Optional[AggregationMethod] = None
+    aggregation_interval: Optional[datetime.timedelta] = None
+
+
 class LogListWidget(WebPageItem, Generic[T]):
-    def __init__(self, variable: PersistenceVariable[T], interval: datetime.timedelta,
-                 format: Union[str, Markup, Callable[[Union[T, float]], Union[str, Markup]]] = "{}",
-                 aggregation: Optional[AggregationMethod] = None,
-                 aggregation_interval: Optional[datetime.timedelta] = None):
-        # TODO allow multiple variables
+    def __init__(self, interval: datetime.timedelta, data_spec: List[LogListDataSpec]):
         self.interval = interval
-        formatter: Callable[[T], Union[str, Markup]] = (
-            (lambda x: format.format(x))
-            if isinstance(format, (str, Markup))
-            else format)
-        if aggregation_interval is None:
-            aggregation_interval = interval / 10
-        self.connector = (LoggingRawWebUIView(variable, interval, formatter, include_previous=False)
-                          if aggregation is None
-                          else LoggingAggregatedWebUIView(variable, interval, aggregation, aggregation_interval,
-                                                          formatter))
+
+        self.specs = []
+        self.connectors = []
+
+        for spec in data_spec:
+            formatter: Callable[[T], Union[str, Markup]] = (
+                (lambda x: spec.format.format(x))  # type: ignore
+                if isinstance(spec.format, (str, Markup))
+                else spec.format)
+            aggregation_interval = spec.aggregation_interval if spec.aggregation_interval is not None else interval / 10
+            connector = (LoggingRawWebUIView(spec.variable, interval, formatter, include_previous=False)
+                         if spec.aggregation is None
+                         else LoggingAggregatedWebUIView(spec.variable, interval, spec.aggregation,
+                                                         aggregation_interval, formatter))
+            self.connectors.append(connector)
+            self.specs.append({'id': id(connector),
+                               'color': spec.color})
 
     def register_with_server(self, page: WebPage, server: WebServer) -> None:
         # Chart.js is not required for this widget, but we need to load it before 'log.js', in case, it is required for
@@ -41,10 +52,10 @@ class LogListWidget(WebPageItem, Generic[T]):
 
     async def render(self) -> str:
         return await jinja_env.get_template('log/loglist.htm').render_async(
-            id=id(self.connector), interval=round(self.interval.total_seconds() * 1000))
+            spec=self.specs, interval=round(self.interval.total_seconds() * 1000))
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
-        return [self.connector]
+        return self.connectors
 
 
 class ChartDataSpec(NamedTuple):

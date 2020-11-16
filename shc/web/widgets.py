@@ -223,7 +223,7 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
         self.type = type_
         super().__init__()
         self.formatter: Callable[[T], Union[str, Markup]] = (
-            (lambda x: format.format(x))
+            (lambda x: format.format(x))  # type: ignore
             if isinstance(format, (str, Markup))
             else format)
         self.label = label

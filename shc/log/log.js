@@ -1,13 +1,19 @@
 
 
 function LogListWidget(domElement, _writeValue) {
-    const id = parseInt(domElement.getAttribute('data-id'));
     const interval = parseInt(domElement.getAttribute('data-interval')); // in milliseconds
     const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
         month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric'});
-    this.subscribeIds = [id];
+    const objectSpecs = JSON.parse(domElement.getAttribute('data-spec'));
 
-    let lastRow = null;
+    this.subscribeIds = [];  // filled in the loop below
+    let lastRowMap = new Map();  // maps Python object id to the last visible entry of that object in the log list
+    let colorMap = new Map();  // maps the Python object id to the color class to be added to rows of that object
+
+    for (const spec of objectSpecs) {
+        this.subscribeIds.push(spec.id);
+        colorMap.set(spec.id, spec.color);
+    }
 
     /// Called regularly to remove old entries (older than `interval` milliseconds`)
     function cleanUp() {
@@ -18,6 +24,8 @@ function LogListWidget(domElement, _writeValue) {
         for (let child of children_reversed) {
             if (child.logTimeStamp < timeout) {
                 child.remove();
+                if (lastRowMap.get(child.logObjectId) === child)
+                    lastRowMap.delete(child.logObjectId);
             } else {
                 // rows are ordered, so we can break when finding the first one still in range.
                 break;
@@ -26,12 +34,26 @@ function LogListWidget(domElement, _writeValue) {
     }
     setInterval(cleanUp, 5000);
 
-    function addRow(timestamp, value) {
+    function addRow(timestamp, value, objectId) {
         // Create row
         let node = document.createElement("div");
-        node.setAttribute("class", "item");
+        node.setAttribute("class", "item " + colorMap.get(objectId));
         node.logTimeStamp = timestamp;
-        domElement.prepend(node);
+        node.logObjectId = objectId;
+
+        // Search correct position to insert
+        let nextRow = null;
+        for (let someRow of domElement.childNodes) {
+            if (someRow.logTimeStamp <= timestamp) {
+                break;
+            }
+            nextRow = someRow;
+        }
+        if (nextRow) {
+            nextRow.after(node);
+        } else {
+            domElement.prepend(node);
+        }
 
         // Add value box
         let value_box = document.createElement("div");
@@ -52,15 +74,21 @@ function LogListWidget(domElement, _writeValue) {
 
         // Full initialization after (re)connect
         if (value['init']) {
-            domElement.innerHTML = '';
+            for (let rowElement of domElement.childNodes) {
+                if (rowElement.logObjectId === for_id) {
+                    rowElement.remove();
+                }
+            }
             for (let row of value['data']) {
                 // parse the timestamp
                 let timestamp = Date.parse(row[0]);
-                lastRow = addRow(timestamp, row[1]);
+                let rowElement = addRow(timestamp, row[1]);
+                lastRowMap.set(for_id, rowElement);
             }
 
         // Incremental update
         } else {
+            let lastRow = lastRowMap.get(for_id);
             for (let row of value['data']) {
                 let timestamp = Date.parse(row[0]);
                 // If timestamp is equal to the last record's timestamp, update that value
@@ -70,7 +98,8 @@ function LogListWidget(domElement, _writeValue) {
 
                 // If the timestamp is newer, add a new row. If the row is older than the last row, we ignore it.
                 } else if (!(lastRow && timestamp < lastRow.logTimeStamp)) {
-                    lastRow = addRow(timestamp, row[1]);
+                    let rowElement = addRow(timestamp, row[1]);
+                    lastRowMap.set(for_id, rowElement);
                 }
             }
         }
@@ -81,10 +110,8 @@ WIDGET_TYPES.set('log.log_list', LogListWidget);
 
 
 function LineChartWidget(domElement, _writeValue) {
-    const id = parseInt(domElement.getAttribute('data-id'));
     const seriesSpec = JSON.parse(domElement.getAttribute('data-spec'));
     const interval = parseInt(domElement.getAttribute('data-interval')); // in milliseconds
-    const is_aggregated = domElement.getAttribute('data-aggregated') === "True";
     const alignTicksTo = parseInt(domElement.getAttribute('data-align-ticks-to'));
 
     this.subscribeIds = [];  // filled in the dataset initialization below
