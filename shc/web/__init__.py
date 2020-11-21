@@ -853,6 +853,3 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
             return True, value, str(id(self.future))
         except (asyncio.TimeoutError, asyncio.CancelledError):
             return False, None, str(id(self.future))
-
-
-from . import widgets  # noqa: E402

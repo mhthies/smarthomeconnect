@@ -13,15 +13,10 @@ from . import base
 from . import supervisor
 
 from . import variables
-from . import expressions
 from . import datatypes
 from . import conversion
 
 from . import timer
-from . import misc
-from . import web
-from . import log
-from . import interfaces
 
 from .base import handler, blocking_handler
 from .variables import Variable
