@@ -2,7 +2,7 @@ import datetime
 from typing import Optional, Type, Generic, List, Tuple
 
 from ..base import T
-from . import PersistenceVariable
+from .generic import PersistenceVariable
 
 
 class InMemoryPersistenceVariable(PersistenceVariable, Generic[T]):

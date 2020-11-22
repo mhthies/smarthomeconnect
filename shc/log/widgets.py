@@ -5,9 +5,9 @@ from typing import Iterable, Optional, Generic, Union, Callable, NamedTuple, Tup
 import jinja2
 from markupsafe import Markup
 
-from . import PersistenceVariable, LoggingRawWebUIView, AggregationMethod, LoggingAggregatedWebUIView
+from .generic import PersistenceVariable, LoggingRawWebUIView, AggregationMethod, LoggingAggregatedWebUIView
 from ..base import T
-from ..web import WebServer, WebPage, WebPageItem, WebUIConnector, jinja_env
+from ..web.interface import WebServer, WebPage, WebPageItem, WebUIConnector, jinja_env
 
 
 jinja_env = jinja_env.overlay(

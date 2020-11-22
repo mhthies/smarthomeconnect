@@ -3,8 +3,8 @@ import datetime
 import unittest
 from typing import List, Tuple, Optional, Generic
 
+import shc.log.generic
 import shc.log.in_memory
-import shc.log
 from shc.base import T
 from ._helper import async_test, ClockMock
 
@@ -27,7 +27,7 @@ time_series_2 = [
 ]
 
 
-class ExampleLogVariable(shc.log.PersistenceVariable[T], Generic[T]):
+class ExampleLogVariable(shc.log.generic.PersistenceVariable[T], Generic[T]):
     async def _read_from_log(self) -> Optional[T]:
         raise NotImplementedError
 

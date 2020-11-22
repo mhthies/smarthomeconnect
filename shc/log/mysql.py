@@ -2,14 +2,18 @@ import asyncio
 import datetime
 import enum
 import json
+import logging
 from typing import Optional, Type, Generic, List, Tuple, Any
 
 import aiomysql  # type: ignore
 
 from ..base import T
 from ..conversion import SHCJsonEncoder, from_json
-from . import logger, PersistenceVariable
+from .generic import PersistenceVariable
 from ..supervisor import register_interface
+
+
+logger = logging.getLogger(__name__)
 
 
 class MySQLPersistence:
