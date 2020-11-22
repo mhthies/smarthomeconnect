@@ -2,9 +2,9 @@ import abc
 import asyncio
 import logging
 import threading
-from typing import List, Any, Tuple, Dict
+from typing import List, Any, Tuple, Dict, Optional
 
-import mido
+import mido  # type: ignore
 
 from ..base import Subscribable, Writable, T
 from ..datatypes import RangeUInt8
@@ -20,8 +20,8 @@ class MidiInterface:
         self.output_port_name = output_port_name
         self.send_channel = send_channel
 
-        self.output_queue = asyncio.Queue()
-        self._input_queue = asyncio.Queue()
+        self.output_queue: asyncio.Queue[Optional[mido.Message]] = asyncio.Queue()
+        self._input_queue: asyncio.Queue[mido.Message] = asyncio.Queue()
         self._send_thread_stopped = asyncio.Event()
         self._send_thread_stopped.set()
 
@@ -134,10 +134,10 @@ class NoteVelocityVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abstr
         self.note = note
 
     async def _write(self, value: RangeUInt8, origin: List[Any]) -> None:
-        value = value//2
-        await self.interface.output_queue.put(mido.Message('note_off' if value == 0 else 'note_on',
+        midi_value = value//2
+        await self.interface.output_queue.put(mido.Message('note_off' if midi_value == 0 else 'note_on',
                                                            channel=self.interface.send_channel, note=self.note,
-                                                           velocity=value))
+                                                           velocity=midi_value))
 
     async def _incoming_message(self, message: mido.Message) -> None:
         value = message.velocity
