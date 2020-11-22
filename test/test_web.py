@@ -213,7 +213,8 @@ class WebWidgetsTest(AbstractWebTest):
             b4_publish.assert_called_once_with(42, unittest.mock.ANY)
 
     def test_button_confirm(self) -> None:
-        button = shc.web.widgets.ToggleButton(label="B1", color='yellow', confirm_message="Sure?", confirm_values=(True,))
+        button = shc.web.widgets.ToggleButton(label="B1", color='yellow', confirm_message="Sure?",
+                                              confirm_values=(True,))
 
         page = self.server.page('index')
         page.add_item(shc.web.widgets.ButtonGroup("My button group", [button]))
@@ -306,7 +307,8 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_input_string(self) -> None:
         page = self.server.page('index')
-        input_widget = shc.web.widgets.TextInput(str, "Message of the Day").connect(ExampleReadable(str, "Hello, World!"))
+        input_widget = shc.web.widgets.TextInput(str, "Message of the Day")\
+            .connect(ExampleReadable(str, "Hello, World!"))
         page.add_item(input_widget)
 
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
@@ -570,7 +572,7 @@ class TestAPI(unittest.TestCase):
 
         async def scheduled_update(value):
             await asyncio.sleep(0.2)
-            await api_object.write(value, self)
+            await api_object.write(value, [self])
 
         tic = time.time()
         asyncio.run_coroutine_threadsafe(scheduled_update(56), self.server_runner.loop)
@@ -600,7 +602,7 @@ class TestAPI(unittest.TestCase):
 
         async def scheduled_update(value):
             await asyncio.sleep(0.2)
-            await api_object.write(value, self)
+            await api_object.write(value, [self])
 
         # A GET request with matching ETag and wait parameter. It should wait for the next value
         tic = time.time()
