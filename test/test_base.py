@@ -353,9 +353,41 @@ class TestConnecting(unittest.TestCase):
             mock_subscribe.assert_called_once_with(b, convert=True)
             mock_set_provider.assert_called_once_with(a, convert=True)
 
+    def test_explict_conversion(self) -> None:
+        a = DummyIntReadSubscribable()
+        b = DummyFloatReadingWritable()
+
+        def a2b(x: int) -> float:
+            return float(x/255)
+
+        def b2a(x: float) -> int:
+            return round(x*255)
+
+        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe,\
+                unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
+            a.connect(b, convert=(a2b, b2a))
+            mock_subscribe.assert_called_once_with(b, convert=a2b)
+            mock_set_provider.assert_called_once_with(a, convert=a2b)
+
+            mock_subscribe.reset_mock()
+            mock_set_provider.reset_mock()
+            b.connect(a, convert=(b2a, a2b))
+            mock_subscribe.assert_called_once_with(b, convert=a2b)
+            mock_set_provider.assert_called_once_with(a, convert=a2b)
+
     def test_connectable_wrapper(self) -> None:
         a = DummyIntReadSubscribable()
         b = DummyIntWrapper()
 
+        def a2b(x: int) -> int:
+            return x*2
+
+        def b2a(x: int) -> int:
+            return x//2
+
         a.connect(b, read=False, provide=True, convert=True)
         b.connect.assert_called_once_with(a, send=None, receive=None, read=True, provide=False, convert=True)
+
+        b.connect.reset_mock()
+        a.connect(b, send=False, receive=True, convert=(a2b, b2a))
+        b.connect.assert_called_once_with(a, send=True, receive=False, read=None, provide=None, convert=(b2a, a2b))
