@@ -18,7 +18,8 @@ from selenium.webdriver.common.alert import Alert  # type: ignore
 from selenium.webdriver.common.keys import Keys  # type: ignore
 from selenium.webdriver import ActionChains  # type: ignore
 
-from shc import web
+import shc.web
+import shc.web.widgets
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
 from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
 
@@ -28,7 +29,7 @@ class AbstractWebTest(unittest.TestCase):
     driver: webdriver.Firefox
 
     def setUp(self) -> None:
-        self.server = web.WebServer("localhost", 42080, 'index')
+        self.server = shc.web.WebServer("localhost", 42080, 'index')
         self.server_runner = InterfaceThreadRunner(self.server)
 
     @classmethod
@@ -52,12 +53,12 @@ class SimpleWebTest(AbstractWebTest):
 
     def test_page(self) -> None:
         page = self.server.page('index', 'Home Page')
-        page.add_item(web.widgets.ButtonGroup("My button group", [
-            web.widgets.StatelessButton(42, "Foobar")
+        page.add_item(shc.web.widgets.ButtonGroup("My button group", [
+            shc.web.widgets.StatelessButton(42, "Foobar")
         ]))
         page.new_segment("Another segment", full_width=True)
-        page.add_item(web.widgets.ButtonGroup("Another button group", [
-            web.widgets.StatelessButton(42, "Bar")
+        page.add_item(shc.web.widgets.ButtonGroup("Another button group", [
+            shc.web.widgets.StatelessButton(42, "Bar")
         ]))
 
         self.server_runner.start()
@@ -99,7 +100,7 @@ class SimpleWebTest(AbstractWebTest):
 class WebWidgetsTest(AbstractWebTest):
     def test_switch(self) -> None:
         page = self.server.page('index')
-        switch_widget = web.widgets.Switch("Main Power").connect(ExampleReadable(bool, True))
+        switch_widget = shc.web.widgets.Switch("Main Power").connect(ExampleReadable(bool, True))
         page.add_item(switch_widget)
 
         with unittest.mock.patch.object(switch_widget, '_publish', new_callable=AsyncMock) as publish_mock:
@@ -121,7 +122,7 @@ class WebWidgetsTest(AbstractWebTest):
             publish_mock.assert_called_once_with(True, unittest.mock.ANY)
 
     def test_switch_confirm(self) -> None:
-        switch = web.widgets.Switch("Some Switch", confirm_values=(True,), confirm_message="My text")\
+        switch = shc.web.widgets.Switch("Some Switch", confirm_values=(True,), confirm_message="My text")\
             .connect(ExampleReadable(bool, False))
 
         page = self.server.page('index')
@@ -151,16 +152,16 @@ class WebWidgetsTest(AbstractWebTest):
             publish_mock.assert_called_once_with(False, unittest.mock.ANY)
 
     def test_buttons(self) -> None:
-        b1 = web.widgets.ToggleButton(label="B1", color='yellow')
-        b2: web.widgets.DisplayButton[bool] = web.widgets.DisplayButton(label="B2", color='blue')
-        b3 = web.widgets.StatelessButton(42, "B3")
-        b4 = web.widgets.ValueButton(42, "B4", color="red")
+        b1 = shc.web.widgets.ToggleButton(label="B1", color='yellow')
+        b2: shc.web.widgets.DisplayButton[bool] = shc.web.widgets.DisplayButton(label="B2", color='blue')
+        b3 = shc.web.widgets.StatelessButton(42, "B3")
+        b4 = shc.web.widgets.ValueButton(42, "B4", color="red")
         ExampleReadable(bool, True).connect(b1)
         ExampleReadable(bool, True).connect(b2)
         ExampleReadable(int, 42).connect(b4)
 
         page = self.server.page('index')
-        page.add_item(web.widgets.ButtonGroup("My button group", [b1, b2, b3, b4]))
+        page.add_item(shc.web.widgets.ButtonGroup("My button group", [b1, b2, b3, b4]))
 
         with unittest.mock.patch.object(b1, '_publish', new_callable=AsyncMock) as b1_publish,\
                 unittest.mock.patch.object(b3, '_publish', new_callable=AsyncMock) as b3_publish,\
@@ -212,10 +213,10 @@ class WebWidgetsTest(AbstractWebTest):
             b4_publish.assert_called_once_with(42, unittest.mock.ANY)
 
     def test_button_confirm(self) -> None:
-        button = web.widgets.ToggleButton(label="B1", color='yellow', confirm_message="Sure?", confirm_values=(True,))
+        button = shc.web.widgets.ToggleButton(label="B1", color='yellow', confirm_message="Sure?", confirm_values=(True,))
 
         page = self.server.page('index')
-        page.add_item(web.widgets.ButtonGroup("My button group", [button]))
+        page.add_item(shc.web.widgets.ButtonGroup("My button group", [button]))
 
         with unittest.mock.patch.object(button, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
@@ -256,7 +257,7 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_display(self) -> None:
         page = self.server.page('index')
-        text_widget = web.widgets.TextDisplay(int, "{} lux", "Brightness").connect(ExampleReadable(int, 42))
+        text_widget = shc.web.widgets.TextDisplay(int, "{} lux", "Brightness").connect(ExampleReadable(int, 42))
         page.add_item(text_widget)
 
         self.server_runner.start()
@@ -271,7 +272,7 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_input_int(self) -> None:
         page = self.server.page('index')
-        input_widget = web.widgets.TextInput(int, "Brightness").connect(ExampleReadable(int, 42))
+        input_widget = shc.web.widgets.TextInput(int, "Brightness").connect(ExampleReadable(int, 42))
         page.add_item(input_widget)
 
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
@@ -305,7 +306,7 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_input_string(self) -> None:
         page = self.server.page('index')
-        input_widget = web.widgets.TextInput(str, "Message of the Day").connect(ExampleReadable(str, "Hello, World!"))
+        input_widget = shc.web.widgets.TextInput(str, "Message of the Day").connect(ExampleReadable(str, "Hello, World!"))
         page.add_item(input_widget)
 
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
@@ -329,7 +330,7 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_slider(self) -> None:
         page = self.server.page('index')
-        input_widget = web.widgets.Slider("Amount of Foo").connect(ExampleReadable(RangeFloat1, RangeFloat1(0.3)))
+        input_widget = shc.web.widgets.Slider("Amount of Foo").connect(ExampleReadable(RangeFloat1, RangeFloat1(0.3)))
         page.add_item(input_widget)
 
         with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
@@ -363,11 +364,11 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_hiderow(self) -> None:
         page = self.server.page('index')
-        foo_button = web.widgets.StatelessButton(True, web.widgets.icon('power off'))
-        foo_row = web.widgets.HideRow("Foo", foo_button, 'red').connect(ExampleReadable(bool, True))
-        bar_row = web.widgets.HideRow("Bar").connect(ExampleReadable(bool, True))
-        foobar_row = web.widgets.HideRow("Foobar", color='yellow').connect(ExampleReadable(bool, False))
-        page.add_item(web.widgets.HideRowBox([foo_row, bar_row, foobar_row]))
+        foo_button = shc.web.widgets.StatelessButton(True, shc.web.widgets.icon('power off'))
+        foo_row = shc.web.widgets.HideRow("Foo", foo_button, 'red').connect(ExampleReadable(bool, True))
+        bar_row = shc.web.widgets.HideRow("Bar").connect(ExampleReadable(bool, True))
+        foobar_row = shc.web.widgets.HideRow("Foobar", color='yellow').connect(ExampleReadable(bool, False))
+        page.add_item(shc.web.widgets.HideRowBox([foo_row, bar_row, foobar_row]))
 
         with unittest.mock.patch.object(foo_button, '_publish', new_callable=AsyncMock) as publish_mock:
             self.server_runner.start()
@@ -404,7 +405,7 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_colorchoser(self) -> None:
         page = self.server.page('index')
-        input_widget = web.widgets.ColorChoser()\
+        input_widget = shc.web.widgets.ColorChoser()\
             .connect(ExampleReadable(RGBUInt8, RGBUInt8(RangeUInt8(127), RangeUInt8(127), RangeUInt8(127))))
         page.add_item(input_widget)
 
@@ -461,7 +462,7 @@ class WebWidgetsTest(AbstractWebTest):
             YET_ANOTHER_VALUE = 2
 
         page = self.server.page('index')
-        input_widget = web.widgets.EnumSelect(ExampleEnum, "Select the Foo")\
+        input_widget = shc.web.widgets.EnumSelect(ExampleEnum, "Select the Foo")\
             .connect(ExampleReadable(ExampleEnum, ExampleEnum.SOME_OTHER_VALUE))
         page.add_item(input_widget)
 
@@ -491,10 +492,10 @@ class WebWidgetsTest(AbstractWebTest):
 
     def test_image_map(self) -> None:
         page = self.server.page('index')
-        b1 = web.widgets.ToggleButton(label="B1", color='yellow').connect(ExampleReadable(bool, True))
-        l2 = web.widgets.ImageMapLabel(float, color='red').connect(ExampleReadable(float, 15.3))
+        b1 = shc.web.widgets.ToggleButton(label="B1", color='yellow').connect(ExampleReadable(bool, True))
+        l2 = shc.web.widgets.ImageMapLabel(float, color='red').connect(ExampleReadable(float, 15.3))
 
-        page.add_item(web.widgets.ImageMap((Path(__file__)).parent / 'assets' / 'example_image.jpg', [
+        page.add_item(shc.web.widgets.ImageMap((Path(__file__)).parent / 'assets' / 'example_image.jpg', [
             (0.3, 0.3, b1),
             (0.9, 0.55, l2)
         ]))
@@ -536,7 +537,7 @@ class TestAPI(unittest.TestCase):
     # another HTTP implementation and have a more realistic control flow/timing (with different threads instead of one
     # AsyncIO event loop)
     def setUp(self) -> None:
-        self.server = web.WebServer("localhost", 42080, 'index')
+        self.server = shc.web.WebServer("localhost", 42080, 'index')
         self.server_runner = InterfaceThreadRunner(self.server)
 
     def tearDown(self) -> None:
@@ -662,7 +663,7 @@ class TestAPI(unittest.TestCase):
 
 class WebSocketAPITest(unittest.TestCase):
     def setUp(self) -> None:
-        self.server = web.WebServer("localhost", 42080, 'index')
+        self.server = shc.web.WebServer("localhost", 42080, 'index')
         self.server_runner = InterfaceThreadRunner(self.server)
 
         self.closing = False
