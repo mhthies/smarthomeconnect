@@ -40,19 +40,20 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: bool = False) -> C:
+                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> C:
         if isinstance(other, ConnectableWrapper):
             # If other object is not connectable itself but wraps one or more connectable objects (like, for example, a
             # `web.widgets.ValueButtonGroup`), let it use its special implementation of `connect()`.
-            other.connect(self, send=receive, receive=send, read=provide, provide=read, convert=convert)
+            other.connect(self, send=receive, receive=send, read=provide, provide=read,
+                          convert=((convert[1], convert[0]) if isinstance(convert, tuple) else convert))
         else:
-            self._connect_with(self, other, send, provide, convert)
-            self._connect_with(other, self, receive, read, convert)
+            self._connect_with(self, other, send, provide, convert[0] if isinstance(convert, tuple) else convert)
+            self._connect_with(other, self, receive, read, convert[1] if isinstance(convert, tuple) else convert)
         return self
 
     @staticmethod
     def _connect_with(source: "Connectable", target: "Connectable", send: Optional[bool], provide: Optional[bool],
-                      convert: bool):
+                      convert: Union[bool, Callable]):
         if isinstance(source, Subscribable) and isinstance(target, Writable) and (send or send is None):
             source.subscribe(target, convert=convert)
         elif send and not isinstance(source, Subscribable):
@@ -79,7 +80,7 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: bool = False) -> C:
+                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> C:
         pass
 
 
