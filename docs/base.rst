@@ -109,7 +109,8 @@ In many cases, you'll still want to connect those objects and make sure, the val
 For this purpose, the *connect*, *subscribe* and *set_provider* methods provide an optional argument ``convert``.
 
 If ``convert=True`` is specified, the :mod:`shc.conversion` module is searched for a default conversion function for the relevant value types (using :func:`shc.conversion.get_converter`).
-In case there is not default conversion for the relevant types or you want to convert values in a different way, *subscribe* and *set_provider* allow to pass a callable to the ``convert`` argument (e.g. a lambda function or function reference), which is used to convert the values exchanged via this particular subscription/Reading object.
+In case there is not default conversion for the relevant types or you want to convert values in a different way, *subscribe*, *set_provider* and *connect* allow to pass callables to the ``convert`` argument (e.g. a lambda function or function reference), which are used to convert the values exchanged via this particular subscription/Reading object.
+Since *connect* can establish a connection between two objects in both directions, its ``convert`` parameter takes a tuple of two callables: ``a.connect(b, convert=(a2b, b2a))``, where ``a2b()`` is a function to convert *a*'s type to *b*'s type and ``b2a()`` a function for the other direction.
 
 .. admonition:: Example
 
@@ -131,6 +132,12 @@ In case there is not default conversion for the relevant types or you want to co
         var2 = shc.Variable(float)
         var1.subscribe(var2, convert=True)
         var2.subscribe(var1, convert=lambda x: ceil(x))
+
+    We can shorten this by using the ``connect`` method::
+
+        var1 = shc.Variable(int)
+        var2 = shc.Variable(float)
+        var1.connect(var2, convert=(lambda x: x, lambda x: ceil(x))
 
 
 .. _base.logic-handlers:
