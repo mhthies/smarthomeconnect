@@ -12,7 +12,7 @@ They allow to keep track of the current state of some dynamic value (allowing to
 Thus, they are typically used as a "central connection point" for a certain value, to which all other *Connectable* objects for that value are *connected*, as in the following example::
 
     ceiling_lights = shc.Variable(bool, "ceiling lights")
-    ceiling_lights.connect(knx_connection.group(shc.knx.KNXGAD(1, 2, 3), dpt="1", init=True))
+    ceiling_lights.connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 3), dpt="1", init=True))
 
     web_switch = shc.web.widgets.Switch("Ceiling Lights")\
         .connect(ceiling_lights)
@@ -22,8 +22,8 @@ Thus, they are typically used as a "central connection point" for a certain valu
     However, *Variables* are not absolutely necessary to interconnect datapoints of different interfaces with SHC.
     Especially, when dealing with stateless events (i.e. values which are used to trigger some action instead of representing a change in state), it is more appropriate to *connect* the relevant objects directly::
 
-        some_button = shc.web.widgets.StatelessButton(shc.knx.KNXUpDown.DOWN, "down")
-        some_button.connect(knx_connection.group(shc.knx.KNXGAD(3, 2, 1), dpt="1.008"))
+        some_button = shc.web.widgets.StatelessButton(shc.interfaces.knx.KNXUpDown.DOWN, "down")
+        some_button.connect(knx_connection.group(shc.interfaces.knx.KNXGAD(3, 2, 1), dpt="1.008"))
 
     In such cases, it is even harmful to use a variable as a middle link, since it only publishes **changes** in value and suppresses updates of an unchanged value.
 
@@ -53,8 +53,8 @@ These objects are *Connectable* (taking their ``type`` attribute from the NamedT
     var1 = shc.Variable(Coordinate, initial_value=Coordinate(0.0, 0.0))
     # `var1` automatically gains two attributes 'x' and 'y' to access the value's 'x' and 'y' fields.
     # They are Connectables of `float` type, so we can connect them to a KNX GroupVariable with DPT 9:
-    var1.x.connect(knx_connection.group(shc.knx.KNXGAD(1, 2, 0), dpt="9"))
-    var1.y.connect(knx_connection.group(shc.knx.KNXGAD(1, 2, 1), dpt="9"))
+    var1.x.connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 0), dpt="9"))
+    var1.y.connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 1), dpt="9"))
 
     @var1.trigger
     @shc.handler()

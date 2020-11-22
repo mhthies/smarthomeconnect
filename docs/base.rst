@@ -54,11 +54,11 @@ The default behaviour can be customized via the ``send``/``receive`` arguments (
     Connecting a switch widget in the web UI to a KNX Group Address via a *Variable* object for caching the value manually would look like this::
 
         import shc
-        knx_connection = shc.knx.KNXConnector()
+        knx_connection = shc.interfaces.knx.KNXConnector()
         web_interface = shc.web.WebServer("localhost", 8080, "index")
 
         variable = shc.Variable(bool, "variable's name")
-        knx_group_address = knx_connection.group(shc.knx.KNXGAD(1, 2, 3), dpt="1")
+        knx_group_address = knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 3), dpt="1")
         variable.subscribe(knx_group_address)
         knx_group_address.subscribe(variable)
 
@@ -70,11 +70,11 @@ The default behaviour can be customized via the ``send``/``receive`` arguments (
     Using the ``connect()`` method, it can be shortened to::
 
         import shc
-        knx_connection = shc.knx.KNXConnector()
+        knx_connection = shc.interfaces.knx.KNXConnector()
         web_interface = shc.web.WebServer("localhost", 8080, "index")
 
         variable = shc.Variable(bool, "variable's name")\
-            .connect(knx_connection.group(shc.knx.KNXGAD(1, 2, 3), dpt="1"))
+            .connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 3), dpt="1"))
         switch_widget = shc.web.widgets.Switch("Switch Label")\
             .connect(variable)
 
@@ -102,7 +102,7 @@ Connectable objects are statically typed.
 This means, each object is supposed to handle (receive/publish/provide/read) only values of a defined Python type.
 The object's type is indicated by its ``type`` attribute, which may be a class attribute (if the *Connectable* class specifies a fixed value type) or an instance attribute (for generic *Connectable* classes like :class:`shc.Variable`, where each instance may handle values of a different type).
 
-The instance-specific ``type`` of generic *Connectable* classes may either be given to each object explicitly (as an argument to its *__init__* method as for :class:`shc.Variable`) or derived from other properties of the object (like the KNX Datapoint Type of :class:`shc.knxKNXGroupVar` objects).
+The instance-specific ``type`` of generic *Connectable* classes may either be given to each object explicitly (as an argument to its *__init__* method as for :class:`shc.Variable`) or derived from other properties of the object (like the KNX Datapoint Type of :class:`shc.interfaces.knx.KNXGroupVar` objects).
 
 When connecting two *Connectable* objects using :meth:`Connectable.conect`, :meth:`Subscribable.subscribe` or :meth:`Reading.set_provider`, the consistency of the two objects' ``type`` attributes are checked and a *TypeError* is raised if they don't match.
 In many cases, you'll still want to connect those objects and make sure, the value is adequately converted when being written to/read from the other object.
@@ -164,7 +164,7 @@ Putting it all together, a logic handler may look as follows::
 
     timer = shc.timer.Every(datetime.timedelta(minutes=5))
     some_variable = shc.Variable(int)
-    some_knx_object = knx_interface.group(shc.knx.KNXGAD(1, 2, 3), dpt="5")
+    some_knx_object = knx_interface.group(shc.interfaces.knx.KNXGAD(1, 2, 3), dpt="5")
 
     @timer.trigger
     @some_variable.trigger
