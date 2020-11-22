@@ -8,3 +8,5 @@ __pycache__/
 /.coverage
 /htmlcov/
 /docs/_build/
+
+/geckodriver.log
