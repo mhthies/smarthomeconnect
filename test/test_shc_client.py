@@ -16,7 +16,7 @@ from typing import NamedTuple
 
 import aiohttp
 
-import shc
+import shc.web
 import shc.interfaces.shc_client
 from test._helper import ExampleReadable, InterfaceThreadRunner, ExampleWritable, ExampleSubscribable, async_test
 
