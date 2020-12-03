@@ -56,6 +56,9 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
    ```bash
    pip3 install smarthomeconnect
    ```
+   It will be only install smarthomeconnect and the dependencies of its core features.
+   Additional depdencies are required for certain interface modules and can be installed via pip's/setuptool's 'extras' feature.
+   See [Depdencies section](#Dependencies) of this readme for a complete list.
 
 2. Create a Python script (let's call it `my_home_automation.py`) which imports and starts Smart Home Connect:
    ```python
@@ -145,13 +148,23 @@ It's bundled with multiple third party works:
 
 See `LICENSE` and `NOTICE` file for further information.
 
+
+## Dependencies
+
 SHC depends on the following Python packages:
 
 * `aiohttp` and its dependencies (Apache License 2.0, MIT License, Python Software Foundation License, LGPL 2.1, 3-Clause BSD License)
-* `aiomysql` and `PyMySQL` (MIT License)
 * `jinja2` and `MarkupSafe` (BSD-3-Clause License)
-* `knxdclient` (Apache License 2.0)
-* `pyserial-asyncio` & `pySerial` (BSD-3-Clause License)
+
+Additional dependencies are required for some of SHC's interfaces.
+They can be installed automatically via pip, by specifying the relevant 'extras' flag, e.g. `pip install smarthomeconnect[mysql]` for mysql logging support. 
+ 
+* Logging via MySQL `[mysql]`:
+    * `aiomysql` and `PyMySQL` (MIT License)
+* KNX interface `[knx]`:
+    * `knxdclient` (Apache License 2.0)
+* DMX interface `[dmx]`:
+    * `pyserial-asyncio` & `pySerial` (BSD-3-Clause License)
 
 
 ## Development
@@ -162,7 +175,8 @@ Please, consult the [documentation](https://smarthomeconnect.readthedocs.io/en/l
 If you want to help with the development of *Smart Home Connect*, your Pull Requests are always appreciated.
 
 Setting up a dev environment for SHC is simple:
-Clone the git repository and install the development dependencies, listed in `requirements.txt`:
+Clone the git repository and install the development dependencies, listed in `requirements.txt`.
+These include all dependencies of smarthomeconnect with all extras:
 ```bash
 git clone https://github.com/mhthies/smarthomeconnect
 cd smarthomeconnect
