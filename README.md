@@ -45,8 +45,6 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 
 ## Getting started
 
-**Warning: This project is still under rapid development. Interfaces may change without individual warnings/notifications, even in non-backwards-compatible ways.** 
-
 0. (Optional) Create a virtual environment to keep your Python package repositories clean:
    ```bash
    python3 -m virtualenv -p python3 venv
