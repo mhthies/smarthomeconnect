@@ -12,9 +12,9 @@ import datetime
 import random
 
 import shc.log.in_memory
-import shc.log.widgets
+import shc.web.log_widgets
 from shc.log import AggregationMethod
-from shc.log.widgets import ChartDataSpec, LogListDataSpec
+from shc.web.log_widgets import ChartDataSpec, LogListDataSpec
 from shc.web.widgets import icon
 
 random_float_log = shc.log.in_memory.InMemoryPersistenceVariable(float, keep=datetime.timedelta(minutes=10))
@@ -52,17 +52,17 @@ index_page = web_server.page('index', 'Home', menu_entry=True, menu_icon='home')
 #############################################################################################
 # Log list widget                                                                           #
 #############################################################################################
-index_page.add_item(shc.log.widgets.LogListWidget(datetime.timedelta(minutes=5), [
+index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes=5), [
     LogListDataSpec(random_bool_log, format=lambda x: "on" if x else "off"),
     LogListDataSpec(random_float_log),
 ]))
 
 
-index_page.add_item(shc.log.widgets.LogListWidget(datetime.timedelta(minutes=5), [
+index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes=5), [
     LogListDataSpec(random_bool_log, format="{:.2f} s", aggregation=AggregationMethod.ON_TIME)
 ]))
 
-index_page.add_item(shc.log.widgets.LogListWidget(datetime.timedelta(minutes=5), [
+index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes=5), [
     LogListDataSpec(random_float_log,
                     format=icon('thermometer', "{:.2f} °C"),
                     aggregation=AggregationMethod.AVERAGE)
@@ -70,11 +70,11 @@ index_page.add_item(shc.log.widgets.LogListWidget(datetime.timedelta(minutes=5),
 
 index_page.new_segment()
 
-index_page.add_item(shc.log.widgets.ChartWidget(datetime.timedelta(minutes=5), [
+index_page.add_item(shc.web.log_widgets.ChartWidget(datetime.timedelta(minutes=5), [
     ChartDataSpec(random_float_log, "random float")
 ]))
 
-index_page.add_item(shc.log.widgets.ChartWidget(datetime.timedelta(minutes=5), [
+index_page.add_item(shc.web.log_widgets.ChartWidget(datetime.timedelta(minutes=5), [
     ChartDataSpec(random_float_log, "avg", aggregation=AggregationMethod.AVERAGE),
     ChartDataSpec(random_float_log, "min", aggregation=AggregationMethod.MINIMUM),
     ChartDataSpec(random_float_log, "max", aggregation=AggregationMethod.MAXIMUM),

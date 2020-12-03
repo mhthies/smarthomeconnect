@@ -5,14 +5,9 @@ from typing import Iterable, Optional, Generic, Union, Callable, NamedTuple, Tup
 import jinja2
 from markupsafe import Markup
 
-from .generic import PersistenceVariable, LoggingRawWebUIView, AggregationMethod, LoggingAggregatedWebUIView
+from ..log.generic import PersistenceVariable, LoggingRawWebUIView, AggregationMethod, LoggingAggregatedWebUIView
 from ..base import T
-from ..web.interface import WebServer, WebPage, WebPageItem, WebUIConnector, jinja_env
-
-
-jinja_env = jinja_env.overlay(
-    loader=jinja2.PackageLoader('shc.log', 'templates'),
-)
+from .interface import WebPageItem, WebUIConnector, jinja_env
 
 
 class LogListDataSpec(NamedTuple):
@@ -43,12 +38,6 @@ class LogListWidget(WebPageItem, Generic[T]):
             self.connectors.append(connector)
             self.specs.append({'id': id(connector),
                                'color': spec.color})
-
-    def register_with_server(self, page: WebPage, server: WebServer) -> None:
-        # Chart.js is not required for this widget, but we need to load it before 'log.js', in case, it is required for
-        # a ChartWidget.
-        server.add_js_file(Path(__file__).parent / 'Chart.min.js')
-        server.add_js_file(Path(__file__).parent / 'log.js')
 
     async def render(self) -> str:
         return await jinja_env.get_template('log/loglist.htm').render_async(
@@ -95,10 +84,6 @@ class ChartWidget(WebPageItem):
                                    'is_aggregated': is_aggregated,
                                    'color': spec.color if spec.color is not None else self.COLORS[i % len(self.COLORS)],
                                    'label': spec.label})
-
-    def register_with_server(self, page: WebPage, server: WebServer) -> None:
-        server.add_js_file(Path(__file__).parent / 'Chart.min.js')
-        server.add_js_file(Path(__file__).parent / 'log.js')
 
     async def render(self) -> str:
         return await jinja_env.get_template('log/chart.htm').render_async(
