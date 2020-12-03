@@ -1,3 +1,13 @@
+# Copyright 2020 Michael Thies <mail@mhthies.de>
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations under the License.
 import abc
 import asyncio
 import logging
@@ -48,7 +58,7 @@ class MidiInterface:
 
     async def stop(self) -> None:
         logger.debug('Stopping MIDI interface. First, closing down mido input_port ...')
-        self.input_port.close()  # FIXME closing ports can be blocking (mutex and blocking IO)
+        await asyncio.get_event_loop().run_in_executor(None, self.input_port.close)
         logger.debug('Cancelling receive_task ...')
         self.receive_task.cancel()
         await self.receive_task
@@ -99,20 +109,32 @@ class MidiInterface:
 
     def note_on_off(self, note: int, emulate_toggle: bool = False,
                     off_output_velocity: int = 0, on_output_velocity: int = 127) -> "NoteOnOffVariable":
-        # TODO detect/allow duplicate variables
+        existing_variable = self._variable_map[('note_on', note)]
+        if existing_variable and isinstance(existing_variable, NoteOnOffVariable):
+            return existing_variable
+        elif existing_variable:
+            raise ValueError("A variable for MIDI note {} is already existing but with a different variable type."
+                             .format(note))
         variable = NoteOnOffVariable(self, note, emulate_toggle, off_output_velocity, on_output_velocity)
         self._variable_map[('note_on', note)] = variable
         self._variable_map[('note_off', note)] = variable
         return variable
 
     def control_change(self, control_channel: int) -> "ControlChangeVariable":
-        # TODO detect/allow duplicate variables
+        existing_variable = self._variable_map[('control_change', control_channel)]
+        if existing_variable:
+            return existing_variable
         variable = ControlChangeVariable(self, control_channel=control_channel)
         self._variable_map[('control_change', control_channel)] = variable
         return variable
 
     def note_velocity(self, note: int) -> "NoteVelocityVariable":
-        # TODO detect/allow duplicate variables
+        existing_variable = self._variable_map[('note_on', note)]
+        if existing_variable and isinstance(existing_variable, NoteVelocityVariable):
+            return existing_variable
+        elif existing_variable:
+            raise ValueError("A variable for MIDI note {} is already existing but with a different variable type."
+                             .format(note))
         variable = NoteVelocityVariable(self, note=note)
         self._variable_map[('note_on', note)] = variable
         self._variable_map[('note_off', note)] = variable
