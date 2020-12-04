@@ -26,6 +26,7 @@ setup(
         'mysql': ['aiohttp>=3.6,<4'],
         'knx': ['knxdclient==0.2.1'],
         'dmx': ['pyserial-asyncio==0.3'],
+        'midi': ['mido>=1.2.9,<2', 'python-rtmidi>=1.4.6,<2'],
     },
     classifiers=[
         'Development Status :: 3 - Alpha',

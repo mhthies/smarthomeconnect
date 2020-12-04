@@ -165,6 +165,9 @@ They can be installed automatically via pip, by specifying the relevant 'extras'
     * `knxdclient` (Apache License 2.0)
 * DMX interface `[dmx]`:
     * `pyserial-asyncio` & `pySerial` (BSD-3-Clause License)
+* MIDI interface `[midi]`:
+    * `mido` (MIT License)
+    * `python-rtmidi` (MIT License) incl. RTMidi (modified MIT License)
 
 
 ## Development
