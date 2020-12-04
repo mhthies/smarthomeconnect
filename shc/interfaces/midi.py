@@ -134,7 +134,7 @@ class MidiInterface:
 
     def note_on_off(self, note: int, emulate_toggle: bool = False,
                     off_output_velocity: int = 0, on_output_velocity: int = 127) -> "NoteOnOffVariable":
-        existing_variable = self._variable_map[('note_on', note)]
+        existing_variable = self._variable_map.get(('note_on', note))
         if existing_variable and isinstance(existing_variable, NoteOnOffVariable):
             return existing_variable
         elif existing_variable:
@@ -146,7 +146,7 @@ class MidiInterface:
         return variable
 
     def control_change(self, control_channel: int) -> "ControlChangeVariable":
-        existing_variable = self._variable_map[('control_change', control_channel)]
+        existing_variable = self._variable_map.get(('control_change', control_channel))
         if existing_variable:
             assert isinstance(existing_variable, ControlChangeVariable)
             return existing_variable
@@ -155,7 +155,7 @@ class MidiInterface:
         return variable
 
     def note_velocity(self, note: int) -> "NoteVelocityVariable":
-        existing_variable = self._variable_map[('note_on', note)]
+        existing_variable = self._variable_map.get(('note_on', note))
         if existing_variable and isinstance(existing_variable, NoteVelocityVariable):
             return existing_variable
         elif existing_variable:
