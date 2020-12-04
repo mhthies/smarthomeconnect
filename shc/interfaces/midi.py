@@ -36,10 +36,8 @@ class MidiInterface:
         self.send_channel = send_channel
         self.receive_channel = receive_channel
 
-        self.output_queue: asyncio.Queue[Optional[mido.Message]] = asyncio.Queue()
-        self._input_queue: asyncio.Queue[mido.Message] = asyncio.Queue()
-        self._send_thread_stopped = asyncio.Event()
-        self._send_thread_stopped.set()
+        self.output_queue: asyncio.Queue[Optional[mido.Message]]
+        self._input_queue: asyncio.Queue[mido.Message]
 
         self._variable_map: Dict[Tuple[str, int], AbstractMidiVariable] = {}
 
@@ -47,6 +45,10 @@ class MidiInterface:
 
     async def start(self) -> None:
         loop = asyncio.get_event_loop()
+        self.output_queue = asyncio.Queue()
+        self._input_queue = asyncio.Queue()
+        self._send_thread_stopped = asyncio.Event()
+        self._send_thread_stopped.set()
 
         if self.output_port_name:
             send_thread = threading.Thread(target=self._send_thread, name="shc.midi.send_thread", args=(loop,))
