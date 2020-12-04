@@ -24,9 +24,13 @@ logger = logging.getLogger(__name__)
 
 
 class MidiInterface:
-    def __init__(self, input_port_name: str, output_port_name: str, send_channel: int = 0,
+    def __init__(self, input_port_name: Optional[str] = None,
+                 output_port_name: Optional[str] = None,
+                 send_channel: int = 0,
                  receive_channel: Union[None, int, Iterable[int]] = None) -> None:
-        # TODO make ports optional to allow oneway interface
+        if not input_port_name and not output_port_name:
+            raise ValueError("Either MIDI input port name or output port name must be specified.")
+
         self.input_port_name = input_port_name
         self.output_port_name = output_port_name
         self.send_channel = send_channel
@@ -44,30 +48,38 @@ class MidiInterface:
     async def start(self) -> None:
         loop = asyncio.get_event_loop()
 
-        send_thread = threading.Thread(target=self._send_thread, name="shc.midi.send_thread", args=(loop,))
-        send_thread.start()
-        self._send_thread_stopped.clear()
-        self.receive_task = loop.create_task(self._receive_task())
+        if self.output_port_name:
+            send_thread = threading.Thread(target=self._send_thread, name="shc.midi.send_thread", args=(loop,))
+            send_thread.start()
+            self._send_thread_stopped.clear()
 
         def incoming_message_callback(message):
             loop.call_soon_threadsafe(self._input_queue.put_nowait, message)
 
-        self.input_port = mido.open_input(self.input_port_name, callback=incoming_message_callback)
+        if self.input_port_name:
+            self.receive_task = loop.create_task(self._receive_task())
+            self.input_port = mido.open_input(self.input_port_name, callback=incoming_message_callback)
 
     async def wait(self) -> None:
-        await self.receive_task
-        await self._send_thread_stopped.wait()
+        if self.input_port_name:
+            await self.receive_task
+        if self.output_port_name:
+            await self._send_thread_stopped.wait()
 
     async def stop(self) -> None:
-        logger.debug('Stopping MIDI interface. First, closing down mido input_port ...')
-        await asyncio.get_event_loop().run_in_executor(None, self.input_port.close)
-        logger.debug('Cancelling receive_task ...')
-        self.receive_task.cancel()
-        await self.receive_task
+        logger.info('Stopping MIDI interface.')
 
-        logger.debug('Sending None value to _send_thread() to shut it down ...')
-        await self.output_queue.put(None)
-        await self._send_thread_stopped.wait()
+        if self.input_port_name:
+            logger.debug('First, closing down mido input_port ...')
+            await asyncio.get_event_loop().run_in_executor(None, self.input_port.close)
+            logger.debug('Cancelling receive_task ...')
+            self.receive_task.cancel()
+            await self.receive_task
+
+        if self.output_port_name:
+            logger.debug('Sending None value to _send_thread() to shut it down ...')
+            await self.output_queue.put(None)
+            await self._send_thread_stopped.wait()
         logger.debug('MIDI interface shutdown finished.')
 
     async def _receive_task(self) -> None:
