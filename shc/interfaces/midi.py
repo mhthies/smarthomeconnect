@@ -12,7 +12,7 @@ import abc
 import asyncio
 import logging
 import threading
-from typing import List, Any, Tuple, Dict, Optional
+from typing import List, Any, Tuple, Dict, Optional, Union, Iterable
 
 import mido  # type: ignore
 
@@ -24,11 +24,13 @@ logger = logging.getLogger(__name__)
 
 
 class MidiInterface:
-    def __init__(self, input_port_name: str, output_port_name: str, send_channel: int = 0) -> None:
+    def __init__(self, input_port_name: str, output_port_name: str, send_channel: int = 0,
+                 receive_channel: Union[None, int, Iterable[int]] = None) -> None:
         # TODO make ports optional to allow oneway interface
         self.input_port_name = input_port_name
         self.output_port_name = output_port_name
         self.send_channel = send_channel
+        self.receive_channel = receive_channel
 
         self.output_queue: asyncio.Queue[Optional[mido.Message]] = asyncio.Queue()
         self._input_queue: asyncio.Queue[mido.Message] = asyncio.Queue()
@@ -78,9 +80,18 @@ class MidiInterface:
 
             logger.debug('Received MIDI message: %s', message)
             msg_type = message.type
+            channel = message.channel
             if msg_type not in ('note_on', 'note_off', 'control_change'):
                 logger.debug('Unsupported MIDI message type %s', msg_type)
                 continue
+            if isinstance(self.receive_channel, int):
+                if channel != self.receive_channel:
+                    logger.debug('Ignoring message from wrong input channel %s', channel)
+                    continue
+            elif self.receive_channel is not None and channel not in self.receive_channel:
+                logger.debug('Ignoring message from wrong input channel %s', channel)
+                continue
+
             key = message.control if msg_type == 'control_change' else message.note
             variable = self._variable_map.get((msg_type, key))
             if variable is None:
