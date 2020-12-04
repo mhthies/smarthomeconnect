@@ -30,6 +30,11 @@ class BasicTest(unittest.TestCase):
         import example.server_client.client  # type: ignore
         shc.main()
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        shc.supervisor._REGISTERED_INTERFACES.clear()
+        shc.timer.timer_supervisor.supervised_timers.clear()
+
     def tearDown(self) -> None:
         shc.supervisor._REGISTERED_INTERFACES.clear()
         shc.timer.timer_supervisor.supervised_timers.clear()
