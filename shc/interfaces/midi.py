@@ -123,6 +123,7 @@ class MidiInterface:
     def control_change(self, control_channel: int) -> "ControlChangeVariable":
         existing_variable = self._variable_map[('control_change', control_channel)]
         if existing_variable:
+            assert isinstance(existing_variable, ControlChangeVariable)
             return existing_variable
         variable = ControlChangeVariable(self, control_channel=control_channel)
         self._variable_map[('control_change', control_channel)] = variable
