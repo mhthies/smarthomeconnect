@@ -35,9 +35,10 @@ class MIDITest(unittest.TestCase):
 @unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
 class MIDIInputTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.dummy_port = mido.open_output('TestPort1234', virtual=True)
+        self.port_name = 'TestOutPort' + self.id().split('.')[-1]
+        self.dummy_port = mido.open_output(self.port_name, virtual=True)
 
-        self.interface = shc.interfaces.midi.MidiInterface("TestPort1234", None)
+        self.interface = shc.interfaces.midi.MidiInterface(self.port_name, None)
         self.interface_runner = InterfaceThreadRunner(self.interface)
 
     def tearDown(self) -> None:
@@ -102,10 +103,11 @@ class MIDIInputTest(unittest.TestCase):
 @unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
 class MIDIOutputTest(unittest.TestCase):
     def setUp(self) -> None:
+        self.port_name = 'TestInPort' + self.id().split('.')[-1]
         self.callback = unittest.mock.Mock()
-        self.dummy_port = mido.open_input('TestPort456', virtual=True, callback=self.callback)
+        self.dummy_port = mido.open_input(self.port_name, virtual=True, callback=self.callback)
 
-        self.interface = shc.interfaces.midi.MidiInterface(None, "TestPort456", send_channel=9)
+        self.interface = shc.interfaces.midi.MidiInterface(None, self.port_name, send_channel=9)
         self.interface_runner = InterfaceThreadRunner(self.interface)
 
     def tearDown(self) -> None:
