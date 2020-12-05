@@ -97,7 +97,44 @@ class MIDIInputTest(unittest.TestCase):
             publish_mock2.assert_not_called()
             publish_mock3.assert_called_once_with(RangeUInt8(84), unittest.mock.ANY)
 
-    # TODO add test for emulated toggle
+    def test_emulated_toggle(self) -> None:
+        var1 = self.interface.note_on_off(5, emulate_toggle=True)
+
+        with unittest.mock.patch.object(var1, '_publish', new_callable=AsyncMock) as publish_mock:
+
+            self.interface_runner.start()
+            time.sleep(0.05)
+
+            # Toggle on
+            self.dummy_port.send(mido.Message('note_on', channel=0, note=5, velocity=127))
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(True, unittest.mock.ANY)
+
+            publish_mock.reset_mock()
+            self.dummy_port.send(mido.Message('note_off', channel=0, note=5, velocity=0))
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(True, unittest.mock.ANY)
+
+            # TODO test button feedback
+
+            # Toggle off
+            publish_mock.reset_mock()
+            self.dummy_port.send(mido.Message('note_on', channel=0, note=5, velocity=127))
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(False, unittest.mock.ANY)
+
+            publish_mock.reset_mock()
+            self.dummy_port.send(mido.Message('note_off', channel=0, note=5, velocity=0))
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(False, unittest.mock.ANY)
+
+            asyncio.run_coroutine_threadsafe(var1.write(True, [self]), self.interface_runner.loop)
+
+            # Toggle off again
+            publish_mock.reset_mock()
+            self.dummy_port.send(mido.Message('note_on', channel=0, note=5, velocity=127))
+            time.sleep(0.05)
+            publish_mock.assert_called_once_with(False, unittest.mock.ANY)
 
 
 @unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
