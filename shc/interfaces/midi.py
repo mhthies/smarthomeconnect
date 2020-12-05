@@ -36,7 +36,7 @@ class MidiInterface:
         self.send_channel = send_channel
         self.receive_channel = receive_channel
 
-        self.output_queue: asyncio.Queue[Optional[mido.Message]]
+        self._output_queue: asyncio.Queue[Optional[mido.Message]]
         self._input_queue: asyncio.Queue[mido.Message]
 
         self._variable_map: Dict[Tuple[str, int], AbstractMidiVariable] = {}
@@ -45,7 +45,7 @@ class MidiInterface:
 
     async def start(self) -> None:
         loop = asyncio.get_event_loop()
-        self.output_queue = asyncio.Queue()
+        self._output_queue = asyncio.Queue()
         self._input_queue = asyncio.Queue()
         self._send_thread_stopped = asyncio.Event()
         self._send_thread_stopped.set()
@@ -80,7 +80,7 @@ class MidiInterface:
 
         if self.output_port_name:
             logger.debug('Sending None value to _send_thread() to shut it down ...')
-            await self.output_queue.put(None)
+            await self._output_queue.put(None)
             await self._send_thread_stopped.wait()
         logger.debug('MIDI interface shutdown finished.')
 
@@ -119,7 +119,7 @@ class MidiInterface:
             output_port = mido.open_output(self.output_port_name)
             logger.debug("Output port to %s opened.", self.output_port_name)
             while True:
-                message: mido.Message = asyncio.run_coroutine_threadsafe(self.output_queue.get(), loop).result()
+                message: mido.Message = asyncio.run_coroutine_threadsafe(self._output_queue.get(), loop).result()
                 if message is None:
                     logger.debug("_send_thread got None value. Exiting send loop.")
                     break
@@ -131,6 +131,16 @@ class MidiInterface:
             logger.debug('_send_thread() done.')
         finally:
             loop.call_soon_threadsafe(self._send_thread_stopped.set)
+
+    def _send_message(self, message: mido.Message) -> None:
+        """
+        Internal method used by the Variable objects to send a MIDI message to the output port via the output queue.
+
+        This method takes care of dropping the messages if this interface works in input-only mode.
+        :param message: The MIDI message to send to the output port
+        """
+        if self.output_port_name:
+            self._output_queue.put_nowait(message)
 
     def note_on_off(self, note: int, emulate_toggle: bool = False,
                     off_output_velocity: int = 0, on_output_velocity: int = 127) -> "NoteOnOffVariable":
@@ -183,9 +193,9 @@ class NoteVelocityVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abstr
 
     async def _write(self, value: RangeUInt8, origin: List[Any]) -> None:
         midi_value = value//2
-        await self.interface.output_queue.put(mido.Message('note_off' if midi_value == 0 else 'note_on',
-                                                           channel=self.interface.send_channel, note=self.note,
-                                                           velocity=midi_value))
+        self.interface._send_message(mido.Message('note_off' if midi_value == 0 else 'note_on',
+                                                  channel=self.interface.send_channel, note=self.note,
+                                                  velocity=midi_value))
 
     async def _incoming_message(self, message: mido.Message) -> None:
         value = message.velocity
@@ -202,8 +212,8 @@ class ControlChangeVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abst
         self.control_channel = control_channel
 
     async def _write(self, value: RangeUInt8, origin: List[Any]) -> None:
-        await self.interface.output_queue.put(mido.Message('control_change', channel=self.interface.send_channel,
-                                                           control=self.control_channel, value=value//2))
+        self.interface._send_message(mido.Message('control_change', channel=self.interface.send_channel,
+                                                  control=self.control_channel, value=value//2))
 
     async def _incoming_message(self, message: mido.Message) -> None:
         value = message.value
@@ -231,9 +241,9 @@ class NoteOnOffVariable(Subscribable[bool], Writable[bool], AbstractMidiVariable
         await self._to_midi(value)
 
     async def _to_midi(self, value) -> None:
-        await self.interface.output_queue.put(mido.Message('note_on' if value else 'note_off',
-                                                           channel=self.interface.send_channel, note=self.note,
-                                                           velocity=self.on_velocity if value else self.off_velocity))
+        self.interface._send_message(mido.Message('note_on' if value else 'note_off',
+                                                  channel=self.interface.send_channel, note=self.note,
+                                                  velocity=self.on_velocity if value else self.off_velocity))
 
     async def _incoming_message(self, message: mido.Message) -> None:
         on = message.type == 'note_on' and message.velocity > 0
