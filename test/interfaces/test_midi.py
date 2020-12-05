@@ -2,13 +2,21 @@ import asyncio
 import time
 import unittest
 import unittest.mock
-import logging
 
 import mido  # type: ignore
 import shc.interfaces.midi
 from shc.datatypes import RangeUInt8
 
-from .._helper import async_test, InterfaceThreadRunner, AsyncMock
+from .._helper import InterfaceThreadRunner, AsyncMock
+
+
+try:
+    mido.backend.load()
+    mido_backend_available = True
+    mido_backend_error = ""
+except Exception as e:
+    mido_backend_available = False
+    mido_backend_error = str(e)
 
 
 class MIDITest(unittest.TestCase):
@@ -23,7 +31,7 @@ class MIDITest(unittest.TestCase):
         with self.assertRaises(ValueError):
             interface.note_velocity(42)
 
-
+@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
 class MIDIInputTest(unittest.TestCase):
     def setUp(self) -> None:
         self.dummy_port = mido.open_output('TestPort1234', virtual=True)
@@ -90,6 +98,7 @@ class MIDIInputTest(unittest.TestCase):
     # TODO add test for emulated toggle
 
 
+@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
 class MIDIOutputTest(unittest.TestCase):
     def setUp(self) -> None:
         self.callback = unittest.mock.Mock()

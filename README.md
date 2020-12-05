@@ -178,12 +178,13 @@ Please, consult the [documentation](https://smarthomeconnect.readthedocs.io/en/l
 If you want to help with the development of *Smart Home Connect*, your Pull Requests are always appreciated.
 
 Setting up a dev environment for SHC is simple:
-Clone the git repository and install the development dependencies, listed in `requirements.txt`.
+Clone the git repository and install the development dependencies, listed in `requirements.txt` (+ the `python-rtmidi` module if you want to run the MIDI tests).
 These include all dependencies of smarthomeconnect with all extras:
 ```bash
 git clone https://github.com/mhthies/smarthomeconnect
 cd smarthomeconnect
 pip3 install -r requirements.txt
+pip3 install python-rtmidi
 ```
 You may want to use a virtual environment to avoid messing up your Python packages.
 
