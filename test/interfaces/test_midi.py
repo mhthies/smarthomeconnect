@@ -31,6 +31,7 @@ class MIDITest(unittest.TestCase):
         with self.assertRaises(ValueError):
             interface.note_velocity(42)
 
+
 @unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
 class MIDIInputTest(unittest.TestCase):
     def setUp(self) -> None:
