@@ -24,6 +24,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install coverage codecov
         pip install -r requirements.txt
+        pip install python-rtmidi
     - name: Test with coverage + unittest
       run: |
         coverage run --source=shc,example -m unittest
