@@ -2,6 +2,9 @@
 Welcome to Smart Home Connect's documentation!
 ==============================================
 
+TODO getting started
+
+
 .. toctree::
     :maxdepth: 2
     :caption: Contents:
@@ -11,6 +14,7 @@ Welcome to Smart Home Connect's documentation!
     datatypes
     timer
     web
+    log
     interfaces
 
 

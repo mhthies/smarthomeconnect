@@ -17,7 +17,7 @@ TODO creating a page (:meth:`WebServer.page`)
 
 TODO page segments (:meth:`WebPage.new_segment`)
 
-See :ref:`web.widgets` for a reference of the pre-defined ui widget types.
+See :ref:`web.widgets` and :ref:`web.log_widgets` for a reference of the pre-defined ui widget types.
 
 
 
@@ -28,6 +28,7 @@ TODO filling the navigation bar
    :hidden:
 
    web/widgets
+   web/log_widgets
 
 
 
