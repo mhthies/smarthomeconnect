@@ -38,7 +38,7 @@ class SHCWebClient:
     objects.
 
     :param server: Base URL of the remote SHC webserver instance without trailing slash, e.g. 'https://example.com/shc'.
-        The path of the API websocket (`/api/v1/ws') is appended internally.
+        The path of the API websocket ('/api/v1/ws') is appended internally.
     """
     def __init__(self, server: str) -> None:
         self.server = server
