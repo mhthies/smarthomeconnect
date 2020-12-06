@@ -2,6 +2,8 @@
 Variables and Expressions
 =========================
 
+.. _variables:
+
 Variables
 ---------
 
@@ -36,6 +38,7 @@ Optionally, a name and and initial value can be provided:
 
 .. automethod:: shc.variables.Variable.__init__
 
+.. _variables.tuple_field_access:
 
 Tuple Field Access
 ^^^^^^^^^^^^^^^^^^

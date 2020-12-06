@@ -8,6 +8,29 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
+"""
+This module provides SHC interface implementations to control DMX lighting equipment from SHC.
+
+Simple usage example::
+
+    import shc
+    import shc.interfaces.dmx
+    from shc.datatypes import RangeUInt8, RGBFloat1
+
+    dmx_interface = shc.interfaces.dmx.EnttecDMXUSBProConnector(serial_url="/dev/ttyUSB3",
+                                                                universe_size=10)  # improves transmission speed
+
+    dimmer_1 = shc.Variable(RangeUInt8, "dimmer 1").connect(dmx_interface.address(1))
+    dimmer_2 = shc.Variable(RangeUInt8, "dimmer 2").connect(dmx_interface.address(2))
+    # ...
+
+    rgb_par = shc.Variable(RGBUInt8, "LED PAR")
+    rgb_par.red.connect(dmx_interface.address(7))
+    rgb_par.green.connect(dmx_interface.address(8))
+    rgb_par.blue.connect(dmx_interface.address(9))
+
+(see :ref:`variables.tuple_field_access` for an explanation why accessing the RGB colors works this way.)
+"""
 
 import abc
 import enum
@@ -26,6 +49,15 @@ logger = logging.getLogger(__name__)
 
 
 class AbstractDMXConnector(metaclass=abc.ABCMeta):
+    """
+    Abstract base class for DMX output interfaces.
+
+    Concrete implementations, included with SHC, for specific protocols are:
+
+    * :class:`EnttecDMXUSBProConnector`
+
+    Instances of these classes provide a method :meth:`address` to create a `writable` object for a given DMX channel.
+    """
     def __init__(self, universe_size: int = 512):
         self.universe = [0] * universe_size
 
@@ -42,10 +74,24 @@ class AbstractDMXConnector(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def transmit(self) -> None:
+        """
+        Abstract coroutine to trigger the transmission of the cached DMX universe to the DMX interface.
+
+        This method is automatically called by :meth:`DMXAddress.write`.
+
+        Concrete implementations of this method should make sure to await the successful transmission of the current
+        universe state to the hardware interface. This might include waiting for the flushing of the serial buffer.
+        """
         pass
 
 
 class DMXAddress(Writable[RangeUInt8]):
+    """
+    `Writable` object of type :class:`RangeUInt8`, representing a single DMX channel of a :class:`AbstractDMXConnector`.
+
+    Writing a value to a `DMXAddress` object sets the corresponding channel in the cached DMX universe to that value and
+    triggers transmission of the universe to the hardware DMX interface.
+    """
     type = RangeUInt8
 
     def __init__(self, connector: AbstractDMXConnector, address: int) -> None:
@@ -87,12 +133,14 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
 
     @staticmethod
     def _universe_to_enttec(universe: List[int]) -> "EnttecMessage":
+        """ Helper method to serialize a DMX universe (as List[int]) into an EnttacMessage to be sent to the DMX
+        interface """
         DMX_LIGHTNING_DATA_START_CODE = 0
         data = bytes([DMX_LIGHTNING_DATA_START_CODE] + universe + [0] * (24 - len(universe)))
         return EnttecMessage(EntTecMessageLabel.OUTPUT_ONLY_SEND_DMX_PACKET, data)
 
     async def transmit(self) -> None:
-        # In case, ther is no running _transmit call, create a new one
+        # In case, there is no running _transmit call, create a new one
         if not self.running_transmit or self.running_transmit.done():
             logger.debug("Immediately transmitting DMX data to interface ...")
             self.running_transmit = asyncio.create_task(self._transmit())
@@ -124,6 +172,11 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
             await self.next_transmit
 
     async def _transmit(self) -> None:
+        """
+        Internal helper coroutine to perform the actual transmission of the DMX universe to the DMX interface.
+
+        This method converts the current state of the DMX universe to an EnttecMessage, writes it to the serial buffer
+        and awaits the flush of the serial buffer to the interface."""
         self._writer.write(self._universe_to_enttec(self.universe).encode())
         await self._writer.drain()
 
