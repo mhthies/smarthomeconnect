@@ -93,6 +93,15 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         classes should override *_write* instead of this method to keep profiting from the value type checking and
         magic context-based origin passing features.
 
+        This method typically awaits the complete transmission of the new value to all targets. Depending in the
+        internal functionality of the `Writable` this might include awaiting the `write` coroutine of multiple other
+        `Writable` objects, which, in turn, might even await a successful network transmission of the value, and so on.
+
+        This way, you can be sure that the value has been delivered to the target system (as far as SHC can track it)
+        when the `write` coroutine returns. On the other hand, to keep your control flow independent from (probably
+        lagging) transmission of values, you should call `write` in a new :class:`asyncio.Task`. For `writing` a value
+        to multiple objects in parallel, you might consider :func:`asyncio.gather`.
+
         :param value: The new value
         :param origin: The origin / trace of the value update event, i.e. the list of objects/functions which have been
             publishing to/calling one another to cause this value update. It is used to avoid recursive feedback loops
@@ -116,7 +125,7 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         Abstract internal method containing the actual implementation-specific write-logic.
 
         It must be overridden by classes inheriting from :class:`Writable` to be updated with new values. The *_write*
-        implementation does not need to check the new value's type
+        implementation does not need to check the new value's type.
 
         :param value: The new value to update this object with
         :param origin: The origin / trace of the value update event. Should be passed to :meth:`Subscribable._publish`
@@ -155,6 +164,18 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
 
     async def _publish(self, value: T, origin: List[Any]):
+        """
+        Coroutine to publish a new value to all subscribers and trigger all registered logic handlers.
+
+        All logic handlers and :meth:`Writable.write` methods are called in parallel asyncio tasks. However, this
+        method awaits the return of *all* them. Thus, when implementing an external interface, which should be capable
+        of processing multiple incoming values in parallel, you should `_publish()` each incoming new value in a
+        seperate asyncio Task. See also :meth:`Writable.write`.
+
+        :param value: The new value to be published by this object. Must be an instance of this object's `type`.
+        :param origin: The origin list of the new value, **excluding** this object. See :ref:`base.event-origin` for
+            more details.`self` is appended automatically before calling the registered subscribers and logic handlers.
+        """
         await asyncio.gather(
             *(self.__publish_write(subscriber, converter, value, origin)
               for subscriber, converter in self._subscribers
