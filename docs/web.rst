@@ -2,7 +2,7 @@
 The SHC HTTP Server and Web User Interface
 ==========================================
 
-.. py:currentmodule:: shc.web
+.. py:currentmodule:: shc.web.interface
 
 Each instance of :class:`WebServer` creates an HTTP server, listening on a specified local TCP port and providing two different services:
 
