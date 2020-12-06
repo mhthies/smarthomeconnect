@@ -81,6 +81,8 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 ```python
 import datetime
 import shc
+import shc.web
+import shc.interfaces.knx
 
 # Configure interfaces
 knx_connection = shc.interfaces.knx.KNXConnector()
