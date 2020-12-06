@@ -17,10 +17,6 @@ This product bundles Chart.js 2.9.3 in shc/log/Chart.min.js,
 which is available under the MIT License
 from https://www.chartjs.org/.
 
-This product bundles moment.js 2.29.1 in shc/log/moment.min.js,
-which is available under the MIT License
-from https://momentjs.com/.
-
 The “Prism” background pattern in shc/web/static/prism.png
 is part of the “Subtle Patterns” suite by Toptal Designers
 and is available as Creative Commons BY-SA 3.0
