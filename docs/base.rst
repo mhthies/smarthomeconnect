@@ -8,6 +8,8 @@ Instead, Smart Home Connect is a framework for building smart home applications 
 It works as a library, providing the building blocks for your application, like interfaces for different communication protocols, timers to trigger your logic/automation functions and a web user interface with many components.
 
 
+.. _base.connectable_objects:
+
 Connectable Objects
 -------------------
 
