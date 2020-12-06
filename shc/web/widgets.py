@@ -10,7 +10,7 @@
 # specific language governing permissions and limitations under the License.
 """
 This module contains all the predefined user interface widget (:class:`shc.web.WebPageItem`) classes, which can be
-instantiated and added to :class:`WebPage`s in order to compose the web user interface.
+instantiated and added to :class:`WebPage` s in order to compose the web user interface.
 
 In addition, there are descriptor classes, like the button classes (e.g. :class:`ToggleButton`) and the
 :class:`ImageMapLabel`. Instances of these classes are used to create an interactive element within another widget.

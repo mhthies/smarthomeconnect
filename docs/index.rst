@@ -19,7 +19,7 @@ TODO getting started
 
 
 
-Indices and tables
+Indices and Tables
 ==================
 
 * :ref:`genindex`
