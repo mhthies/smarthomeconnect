@@ -1,6 +1,6 @@
 
-Interfaces for Connecting with SHC
-==================================
+Interfaces
+==========
 
 .. toctree::
     :glob:

@@ -1,6 +1,6 @@
 
-The SHC HTTP Server and Web User Interface
-==========================================
+HTTP Server and Web User Interface
+==================================
 
 .. py:currentmodule:: shc.web.interface
 

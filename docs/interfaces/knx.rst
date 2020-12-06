@@ -1,5 +1,5 @@
 
-The SHC KNX Interface
-=====================
+KNX Interface
+=============
 
 TODO
