@@ -2,4 +2,7 @@
 KNX Interface
 =============
 
-TODO
+.. automodule:: shc.interfaces.knx
+    :members:
+
+    .. autoclass:: KNXGAD

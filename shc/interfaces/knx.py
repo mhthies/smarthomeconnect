@@ -75,6 +75,23 @@ KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
 
 
 class KNXConnector:
+    """
+    SHC interface for connecting with a KNX home automation bus via KNX deamon (KNXD).
+
+    The interface allows to interact bidirectional with KNX group addresses (i.e. send and receive KNX *group write*
+    telegrams). For this purpose a *Connectable* object can be created for each group address, using the :meth:`group`
+    method.
+
+    The connection to the KNX bus is established by using KNXDs native client protocol (not via KNX over UDP protocol),
+    either via TCP port or via UNIX domain socket. Thus, KNXD must be started with either the `-i` or `-u` option
+    (or be run by systemd with an appropriate config for taking care of this). By default, the `KNXConnector` tries to
+    connect to KNXDs default TCP port 6720 at localhost. The parameters ``host``, ``port``, and ``sock`` can be used to
+    specify another host/port or connect via a local UNIX domain socket instead.
+
+    :param host: Hostname for connecting to KNXD via TCP. Defaults to 'localhost'
+    :param port: TCP port where KNXD is listening for client connections at the specified `host`. Defaults to 6720.
+    :param sock: Path to the KNXD UNIX domain socket. If given, it is used instead of the TCP connection to host/port.
+    """
     def __init__(self, host: str = 'localhost', port: int = 6720, sock: Optional[str] = None):
         self.host = host
         self.port = port
@@ -99,6 +116,75 @@ class KNXConnector:
         await self.knx.stop()
 
     def group(self, addr: KNXGAD, dpt: str, init: bool = False) -> "KNXGroupVar":
+        """
+        Create a *Connectable* object for sending and receiving KNX telegrams for a given group address.
+
+        The returned object is *Subscribable* for receiving updates (group write and group response telegrams) from the
+        KNX system and *Writable* to send a new value to the KNX system. It is also optionally *Reading*. If a
+        `default_provider` is set (e.g. via the read/provide parameter of
+        :meth:`connect <shc.base.Connectable.connect>`), this `KNXConnector` actively responds to *group read* telegrams
+        from the KNX system by sending a *group response* with the read value.
+
+        To ensure correct data encoding, the KNX datapoint type of the group address must be specified. It **must** be
+        equal to the datapoint type of other KNX devices' datapoints which are connected to this group address. The
+        returned *Connectable's* `type` is derived from the KNX datapoint type. The following KNX datapoint types (DPT)
+        are supported:
+
+        +----------+---------------------------------------+
+        | KNX DPT  | Python `type`                         |
+        +==========+=======================================+
+        | '1'      | :class:`bool`                         |
+        +----------+---------------------------------------+
+        | '1.008'  | :class:`KNXUpDown`                    |
+        +----------+---------------------------------------+
+        | '4'      | :class:`str`                          |
+        +----------+---------------------------------------+
+        | '5'      | :class:`int`                          |
+        +----------+---------------------------------------+
+        | '5.001'  | :class:`shc.datatypes.RangeUInt8`     |
+        +----------+---------------------------------------+
+        | '5.003'  | :class:`shc.datatypes.AngleUInt8`     |
+        +----------+---------------------------------------+
+        | '5.004'  | :class:`shc.datatypes.RangeInt0To100` |
+        +----------+---------------------------------------+
+        | '6'      | :class:`int`                          |
+        +----------+---------------------------------------+
+        | '7'      | :class:`int`                          |
+        +----------+---------------------------------------+
+        | '8'      | :class:`int`                          |
+        +----------+---------------------------------------+
+        | '9'      | :class:`float`                        |
+        +----------+---------------------------------------+
+        | '10'     | :class:`knxdclient.KNXTime`           |
+        +----------+---------------------------------------+
+        | '11'     | :class:`datetime.date`                |
+        +----------+---------------------------------------+
+        | '12'     | :class:`int`                          |
+        +----------+---------------------------------------+
+        | '13'     | :class:`int`                          |
+        +----------+---------------------------------------+
+        | '14'     | :class:`float`                        |
+        +----------+---------------------------------------+
+        | '16'     | :class:`str`                          |
+        +----------+---------------------------------------+
+        | '17'     | :class:`int`                          |
+        +----------+---------------------------------------+
+        | '19'     | :class:`datetime.datetime`            |
+        +----------+---------------------------------------+
+        | '20.102' | :class:`KNXHVACMode`                  |
+        +----------+---------------------------------------+
+
+        TODO multiple calls for same group address
+        TODO local feedback
+
+        :param addr: The KNX group address to connect to, represented as a :class:`KNXGAD` object
+        :param dpt: The KNX datapoint type (DPT) number as string according to the table above
+        :param init: If True, the interface will send a *group read* telegram to this group address after SHC's startup.
+            This can be used to initialize subscribed SHC variables with the current value from the KNX system, if
+            there's a KNX device responding to read requests for this group address (i.e. which has the *read* flag set
+            on the relevant datapoint).
+        :return: The *Connectable* object representing the group address
+        """
         if addr in self.groups:
             group_var = self.groups[addr]
             if group_var.dpt != dpt:
