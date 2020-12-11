@@ -28,6 +28,12 @@ logger = logging.getLogger(__name__)
 
 
 class KNXHVACMode(enum.Enum):
+    """
+    Python enum representation of the KNX datapoint type 20.102 "DPT_HVACMode", a 8-bit enum of heating/ventilation/AC
+    operating modes.
+
+    The value mapping corresponds to KNX' native value encoding of this datatype.
+    """
     AUTO = 0
     COMFORT = 1
     STANDBY = 2
@@ -36,6 +42,11 @@ class KNXHVACMode(enum.Enum):
 
 
 class KNXUpDown(enum.Enum):
+    """
+    Python enum representation of the KNX datapoint type 1.008 "DPT_UpDown", a 1-bit value for controlling blinds etc.
+
+    Values of this type can also be used as bool values, using the native KNX value mapping (to datapoint type 1.001).
+    """
     UP = False
     DOWN = True
 
@@ -174,8 +185,16 @@ class KNXConnector:
         | '20.102' | :class:`KNXHVACMode`                  |
         +----------+---------------------------------------+
 
-        TODO multiple calls for same group address
-        TODO local feedback
+        When `group` is called multiple times with the same group address, a reference to the **same** *Connectable*
+        object is returned. This ensures, that dispatching of incoming messages and local feedback (see below) always
+        work correctly and checks on the `origin` of a new value don't behave unexpectedly. However, the datapoint type
+        given in all calls for the same group address must match. Otherwise, a `ValueError` is raised.
+
+        The *Connectable* object for each group address features an internal local feedback. This means, that every
+        new value *written* to the object is being published to all other local subscribers, **after** being transmitted
+        to the KNX system. Thus, the KNX group address behaves "bus-like", for the connected objects within SHC: When
+        one connected object sends a new value to the KNX bus, its received by all KNX devices and all other connected
+        objects as well, which is important for central functions etc.
 
         :param addr: The KNX group address to connect to, represented as a :class:`KNXGAD` object
         :param dpt: The KNX datapoint type (DPT) number as string according to the table above
@@ -184,6 +203,7 @@ class KNXConnector:
             there's a KNX device responding to read requests for this group address (i.e. which has the *read* flag set
             on the relevant datapoint).
         :return: The *Connectable* object representing the group address
+        :raise ValueError: If `group` has been called before with the same group address but a different datapoint type
         """
         if addr in self.groups:
             group_var = self.groups[addr]
