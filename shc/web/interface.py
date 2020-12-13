@@ -44,18 +44,17 @@ jinja_env.filters['id'] = id
 class WebServer:
     """
     A SHC interface to provide the web user interface and a REST+websocket API for interacting with Connectable objects.
+
+    :param host: The listening host. Use "" to listen on all interfaces or "localhost" to listen only on the
+        loopback interface.
+    :param port: The port to listen on
+    :param index_name: Name of the `WebPage`, the root URL redirects to. If None, the root URL returns an HTTP 404.
+    :param root_url: The base URL, at witch the user will reach this server. Used to construct internal links. May
+        be an absolute URI (like "https://myhost:8080/shc/") or an absolute-path reference (like "/shc/"). Defaults
+        to "/". Note: This does not affect the routes of this HTTP server. It is only relevant, if you use an HTTP
+        reverse proxy in front of this application, which serves the application in a sub path.
     """
     def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "/"):
-        """
-        :param host: The listening host. Use "" to listen on all interfaces or "localhost" to listen only on the
-            loopback interface.
-        :param port: The port to listen on
-        :param index_name: Name of the `WebPage`, the root URL redirects to. If None, the root URL returns an HTTP 404.
-        :param root_url: The base URL, at witch the user will reach this server. Used to construct internal links. May
-            be an absolute URI (like "https://myhost:8080/shc/") or an absolute-path reference (like "/shc/"). Defaults
-            to "/". Note: This does not affect the routes of this HTTP server. It is only relevant, if you use an HTTP
-            reverse proxy in front of this application, which serves the application in a sub path.
-        """
         self.host = host
         self.port = port
         self.index_name = index_name

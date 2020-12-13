@@ -26,17 +26,17 @@ async def read_initialize_variables() -> None:
 
 
 class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]):
-    def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None):
-        """
-        Create/initialize a new Variable object
+    """
+    A Variable object for caching and distributing values of a certain type.
 
-        :param type_: The Variable's value type (used for its ``.type`` attribute, i.e. for the *Connectable* type
-            checking mechanism)
-        :param name: An optional name of the variable. Used for logging and future displaying purposes.
-        :param initial_value: An optional initial value for the Variable. If not provided and no default provider is
-            set via :meth:`set_provider`, the Variable is initialized with a None value and any :meth:`read` request
-            will raise an :exc:`shc.base.UninitializedError` until the first value update is received.
-        """
+    :param type_: The Variable's value type (used for its ``.type`` attribute, i.e. for the *Connectable* type
+        checking mechanism)
+    :param name: An optional name of the variable. Used for logging and future displaying purposes.
+    :param initial_value: An optional initial value for the Variable. If not provided and no default provider is
+        set via :meth:`set_provider`, the Variable is initialized with a None value and any :meth:`read` request
+        will raise an :exc:`shc.base.UninitializedError` until the first value update is received.
+    """
+    def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
         self.name = name
