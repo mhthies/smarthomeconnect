@@ -49,14 +49,14 @@ class WebServer:
     :param port: The port to listen on
     :param index_name: Name of the `WebPage`, the root URL redirects to. If None, the root URL returns an HTTP 404.
     :param root_url: The base URL, at witch the user will reach this server. Used to construct internal links. May
-        be an absolute URI (like "https://myhost:8080/shc/") or an absolute-path reference (like "/shc/"). Defaults
-        to "/". Note: This does not affect the routes of this HTTP server. It is only relevant, if you use an HTTP
+        be an absolute URI (like "https://myhost:8080/shc") or an absolute-path reference (like "/shc"). Defaults
+        to "". Note: This does not affect the routes of this HTTP server. It is only relevant, if you use an HTTP
         reverse proxy in front of this application, which serves the application in a sub path.
     :param title_formatter: A format string or format function to create the full HTML title, typically shown as browser
         tab title, from a web page's title. If it is a string, it should have one positional format placeholder
         (``{}``)
     """
-    def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "/",
+    def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "",
                  title_formatter: Union[str, Callable[[str], str]] = "{} | SHC"):
         self.host = host
         self.port = port
@@ -234,7 +234,7 @@ class WebServer:
     async def _index_handler(self, _request: aiohttp.web.Request) -> aiohttp.web.Response:
         if not self.index_name:
             raise aiohttp.web.HTTPNotFound()
-        raise aiohttp.web.HTTPFound(self._app.router['show_page'].url_for(name=self.index_name))
+        raise aiohttp.web.HTTPFound(self.root_url + str(self._app.router['show_page'].url_for(name=self.index_name)))
 
     async def _page_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
