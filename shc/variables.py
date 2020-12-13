@@ -97,7 +97,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self.field: str = field
         self._variable_fields: List["VariableField"] = []
 
-        # Create VariableFields for each typeannotated field of the type if it is typing.NamedTuple-based.
+        # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
         if issubclass(type_, tuple) and type_.__annotations__:
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)

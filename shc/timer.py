@@ -562,9 +562,9 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
 
     A `TimerSwitch` is basically a bool Variable with a fancy constructor to let some timers set the variable to True or
     False. Additionally, a `duration` mode is built in, which allows to specify a duration after which the `TimerSwitch`
-    switches off (is set to False) automatically – similar to the :class:`TPulse` timer (but with retriggerability).
+    switches off (is set to False) automatically – similar to the :class:`TPulse` timer (but with re-trigger-ability).
 
-    A simple usage example for switching on at 8:00 and off at 13:37, but 9:00 and 15:00 on weekens may look like::
+    A simple usage example for switching on at 8:00 and off at 13:37, but 9:00 and 15:00 on weekends may look like::
 
         timer_switch = TimerSwitch(on=[At(weekday=[1,2,3,4,5], hour=8),
                                        At(weekday=[6,7], hour=9),
