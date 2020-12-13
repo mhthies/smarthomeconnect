@@ -18,12 +18,12 @@ setup(
     include_package_data=True,
     python_requires='~=3.7',
     install_requires=[
-        'aiomysql==0.0.20',
+        'aiohttp>=3.6,<4',
         'jinja2>=2.11,<3',
         'MarkupSafe>=1.1,<2',
     ],
     extras_require={
-        'mysql': ['aiohttp>=3.6,<4'],
+        'mysql': ['aiomysql==0.0.20'],
         'knx': ['knxdclient==0.2.1'],
         'dmx': ['pyserial-asyncio==0.3'],
         'midi': ['mido>=1.2.9,<2', 'python-rtmidi>=1.4.6,<2'],
