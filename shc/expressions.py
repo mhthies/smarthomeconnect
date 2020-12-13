@@ -16,7 +16,7 @@ import operator
 from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple
 
 from . import conversion
-from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler
+from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler, UninitializedError
 from .datatypes import RangeFloat1, RangeUInt8, HSVFloat1, RGBFloat1, RGBUInt8
 
 
@@ -266,7 +266,10 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
         pass
 
     async def on_change(self, _value, origin):
-        await self._publish(await self.evaluate(), origin)
+        try:
+            await self._publish(await self.evaluate(), origin)
+        except UninitializedError:
+            pass
 
     async def read(self) -> T:
         return await self.evaluate()
