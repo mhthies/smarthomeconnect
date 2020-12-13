@@ -51,12 +51,12 @@ class ClockMock:
     """
     A mock/patch for the wall clock.
 
-    When used as context managers, objects of this class patch the :meth:`datetime.datetime.now` and
-    :meth:`datetime.date.today` to return the mocked time instead of the real wall clock time, was well as the
-    :func:`time.sleep` and :func:`asyncio.sleep` functions to enhance the mocked time instead of actually sleeping.
-    Optionally, the patched sleep methods can actually sleep for a predefined time to allow concurrent things to happen
-    in the mean time (which would normally happen during the sleep). This also allows to let the ClockMock synchronize
-    multiple threads or AsyncIO coroutines, sleeping for different times in parallel.
+    When used as context managers, objects of this class patch the :meth:`datetime.datetime.now`,
+    :meth:`datetime.date.today` and :meth:`time.time` to return the mocked time instead of the real wall clock time, was
+    well as the :func:`time.sleep` and :func:`asyncio.sleep` functions to enhance the mocked time instead of actually
+    sleeping. Optionally, the patched sleep methods can actually sleep for a predefined time to allow concurrent things
+    to happen in the mean time (which would normally happen during the sleep). This also allows to let the ClockMock
+    synchronize multiple threads or AsyncIO coroutines, sleeping for different times in parallel.
 
     Before using `ClockMock`s, the :meth:`enable` class method must be called once to make the `date` and `datetime`
     classes patchable.
@@ -138,6 +138,9 @@ class ClockMock:
             return time_.astimezone(tz)
         return time_
 
+    def time(self) -> float:
+        return self.current_time.timestamp()
+
     def today(self) -> datetime.date:
         return self.current_time.date()
 
@@ -146,6 +149,7 @@ class ClockMock:
             unittest.mock.patch('time.sleep', new=self.sleep),
             unittest.mock.patch('asyncio.sleep', new=self.async_sleep),
             unittest.mock.patch('datetime.datetime.now', new=self.now),
+            unittest.mock.patch('time.time', new=self.time),
             unittest.mock.patch('datetime.date.today', new=self.today),
         )
         for p in self.patches:
