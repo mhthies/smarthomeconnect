@@ -15,6 +15,7 @@ import datetime
 import logging
 import math
 import random
+import time
 import weakref
 from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic
 
@@ -634,3 +635,41 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
     @property
     def EX(self) -> ExpressionWrapper:
         return ExpressionWrapper(self)
+
+
+class RateLimitedSubscription(Subscribable[T], Generic[T]):
+    """
+    A transparent wrapper for `Subscribable` objects, that delays and drops values to make sure that a given maximum
+    rate of new values is not exceeded.
+
+    :param wrapped: The Subscribable object to be wrapped
+    :param min_interval: The minimal allowed interval between published values in seconds
+    """
+    def __init__(self, wrapped: Subscribable[T], min_interval: float):
+        self.type = wrapped.type
+        super().__init__()
+        wrapped.trigger(self._new_value)
+        self.min_interval = min_interval
+        self._last_publish = 0.0
+        self._delay_task: Optional[asyncio.Task] = None
+        self._latest_value: T
+        self._latest_origin: List[Any]
+
+    async def _new_value(self, value: T, origin: List[Any]) -> None:
+        next_allowed_publish = self._last_publish + self.min_interval
+        now = time.time()
+        if now >= next_allowed_publish:
+            self._last_publish = now
+            await self._publish(value, origin)
+        else:
+            self._latest_value = value
+            self._latest_origin = origin
+            if not self._delay_task:
+                self._delay_task = asyncio.create_task(self._delayed_publish(next_allowed_publish - now))
+                timer_supervisor.add_temporary_task(self._delay_task)
+
+    async def _delayed_publish(self, delay: float):
+        await asyncio.sleep(delay)
+        self._last_publish = time.time()
+        self._delay_task = None
+        await self._publish(self._latest_value, self._latest_origin)

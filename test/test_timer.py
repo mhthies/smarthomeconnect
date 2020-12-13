@@ -526,3 +526,53 @@ class TimerSwitchTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             timer.TimerSwitch([pub_on1], [pub_off1], datetime.timedelta(seconds=42))
+
+
+class RateLimitedSubscriptionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        ClockMock.enable()
+
+    @async_test
+    async def test_simple(self) -> None:
+        begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
+        call_times = []
+
+        def save_time(*args):
+            call_times.append(datetime.datetime.now())
+
+        base = ExampleSubscribable(int)
+        rate_limiter = timer.RateLimitedSubscription(base, 1.0)
+
+        self.assertIs(rate_limiter.type, int)
+
+        with unittest.mock.patch.object(rate_limiter, "_publish", new=AsyncMock(side_effect=save_time)) as publish_mock:
+            with ClockMock(begin, actual_sleep=0.05) as clock:
+                # First value should be forwarded immediately
+                await base.publish(42, [self])
+                await asyncio.sleep(0.1)
+                publish_mock.assert_called_once_with(42, unittest.mock.ANY)
+                publish_mock.reset_mock()
+                await asyncio.sleep(0.4)
+
+                # Second value within min_interval should be hold back for remaining interval time (1-0.1-0.4 = 0.5)
+                # and be superseded by third value
+                await base.publish(56, [self])
+                await asyncio.sleep(0.1)
+                publish_mock.assert_not_called()
+
+                await base.publish(21, [unittest.mock.sentinel, self])
+                await asyncio.sleep(0.5)
+                publish_mock.assert_called_once_with(21, unittest.mock.ANY)
+                self.assertEqual(21, publish_mock.call_args[0][0])
+                self.assertIs(publish_mock.call_args[0][1][0], unittest.mock.sentinel)
+
+                # After longer period of time there should not be new calls
+                await asyncio.sleep(5)
+                publish_mock.assert_called_once()
+
+                # A new value should now be forwarded immediately, again
+                publish_mock.reset_mock()
+                await base.publish(42, [self])
+                await asyncio.sleep(0.1)
+                publish_mock.assert_called_once_with(42, unittest.mock.ANY)
