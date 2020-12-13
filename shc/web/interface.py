@@ -18,11 +18,10 @@ import os
 import pathlib
 import weakref
 from json import JSONDecodeError
-from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple, Generic, Type
+from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple, Generic, Type, Callable
 
 import aiohttp.web
 import jinja2
-import markupsafe
 from aiohttp import WSCloseCode
 
 from ..base import Reading, T, Writable, Subscribable
@@ -53,12 +52,19 @@ class WebServer:
         be an absolute URI (like "https://myhost:8080/shc/") or an absolute-path reference (like "/shc/"). Defaults
         to "/". Note: This does not affect the routes of this HTTP server. It is only relevant, if you use an HTTP
         reverse proxy in front of this application, which serves the application in a sub path.
+    :param title_formatter: A format string or format function to create the full HTML title, typically shown as browser
+        tab title, from a web page's title. If it is a string, it should have one positional format placeholder
+        (``{}``)
     """
-    def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "/"):
+    def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "/",
+                 title_formatter: Union[str, Callable[[str], str]] = "{} | SHC"):
         self.host = host
         self.port = port
         self.index_name = index_name
         self.root_url = root_url
+        self.title_formatter = (title_formatter
+                                if callable(title_formatter)
+                                else lambda x: title_formatter.format(x))
 
         # a dict of all `WebPage`s by their `name` for rendering them in the `_page_handler`
         self._pages: Dict[str, WebPage] = {}
@@ -236,10 +242,11 @@ class WebServer:
         except KeyError:
             raise aiohttp.web.HTTPNotFound()
 
+        html_title = self.title_formatter(page.title)
         template = jinja_env.get_template('page.htm')
         body = await template.render_async(title=page.title, segments=page.segments, menu=self.ui_menu_entries,
                                            root_url=self.root_url, js_files=self._js_files, css_files=self._css_files,
-                                           server_token=id(self))
+                                           server_token=id(self), html_title=html_title)
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
     async def _ui_websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
