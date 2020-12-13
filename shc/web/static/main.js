@@ -299,7 +299,7 @@ const WIDGET_TYPES = new Map([
 
     function openWebsocket() {
         console.info("Opening websocket ...");
-        ws = new WebSocket(ws_path(shcRootURL + 'ws'));
+        ws = new WebSocket(ws_path(shcRootURL + '/ws'));
         ws.onopen = subscribe;
         ws.onmessage = dispatch_message;
         ws.onclose = function (e) {
