@@ -64,7 +64,7 @@ class WebServer:
         self.root_url = root_url
         self.title_formatter = (title_formatter
                                 if callable(title_formatter)
-                                else lambda x: title_formatter.format(x))
+                                else lambda x: title_formatter.format(x))  # type: ignore
 
         # a dict of all `WebPage`s by their `name` for rendering them in the `_page_handler`
         self._pages: Dict[str, WebPage] = {}
