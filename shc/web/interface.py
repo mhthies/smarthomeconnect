@@ -471,7 +471,7 @@ class WebServer:
         :meth:`WebPageItem.register_with_server` method.
 
         :param path: The path of the local file to be served as a static file
-        :return: The URL of the static file, as a path, relative to the server's root URL, without leading slash. For
+        :return: The URL of the static file, as a path, relative to the server's root URL, with leading slash. For
             using it within the web UI's HTML code, the server's `root_url` must be prepended.
         """
         path = path.absolute()
@@ -481,13 +481,13 @@ class WebServer:
         i = 0
         while final_file_name in self.static_files:
             final_file_name = "{}_{:04d}.{}".format(path.stem, i, path.suffix)
-        final_path = 'addon/{}'.format(final_file_name)
+        final_path = '/addon/{}'.format(final_file_name)
         self.static_files[path] = final_path
 
         # Unfortunately, aiohttp.web.static can only serve directories. We want to serve a single file here.
         async def send_file(_request):
             return aiohttp.web.FileResponse(path)
-        self._app.add_routes([aiohttp.web.get("/" + final_path, send_file)])
+        self._app.add_routes([aiohttp.web.get(final_path, send_file)])
 
         return final_path
 
