@@ -89,7 +89,7 @@ However, there are two caveats with this approach:
 * Using the ``=`` assignment operator does not work like this, as it would simply override the *Variable* object in the `fan_state` variable.
   But, we can make the result of that expression a *Connectable* object, so it can be connected with the result variable.
 
-* `Overloading the operators <https://en.wikipedia.org/wiki/Operator_overloading>`_ like this may have unwanted side effects in the Python code, especially for the boolean operators like ``and``.
+* `Overloading the operators <https://en.wikipedia.org/wiki/Operator_overloading>`_ like this may have unwanted side effects in the Python code, especially for the comparison operators like ``==``.
   Thus, we use a wrapper (:class:`ExpressionWrapper`) for the *Connectable* objects which provides the overloaded operators to use them in expressions.
   For convenience, *Variables* provide this wrapper as a property ``.EX``.
 
@@ -99,14 +99,13 @@ With those two fixes, the expression from above looks as follows::
     fan_switch = shc.Variable(bool)
     temperature = shc.Variable(float)
 
-    # WARNING: This will not work! Read on before copy&pasting …
-    fan_state.connect(fan_switch.EX and temperature.EX > 25)
+    fan_state.connect(fan_switch.EX.and_(temperature.EX > 25))
 
 There are still limitations to this expression syntax:
 
-* In contrast to ``and`` and ``or``, Python does not allow to override the ``not`` operator.
-  As a workaround, `Expressions` and `ExpressionWrappers` provide a ``.not()`` method.
-  Additionally, there's the :func:`_not` function, which applies `not` in a functional style.
+* Python does not allow to override the ``and``, ``or``, and ``not`` operators.
+  As a workaround, `Expressions` and `ExpressionWrappers` provide methods ``.and_(other)`` ``.or_(other)`` ``.not_(other)`` .
+  Additionally, there are :func:`and_`, :func:`or_`, :func:`not_` functions, which apply the boolean operators in a functional style.
 
 * To ensure the :ref:`static type checking mechanism <base.typing>` for *Connectable* objects, we need to infer the type of an expression based on the operands' value types.
   Since there is no generic type inference mechanism in Python at runtime, the :mod:`shc.expression` module contains a dict of type mapping rules for each supported operator.
@@ -122,5 +121,7 @@ There are still limitations to this expression syntax:
 .. autoclass:: ExpressionWrapper
 .. autoclass:: ExpressionHandler
 .. autoclass:: IfThenElse
+.. autofunction:: and_
+.. autofunction:: or_
 .. autofunction:: not_
 

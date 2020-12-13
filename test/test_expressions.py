@@ -3,7 +3,7 @@ import unittest
 import unittest.mock
 
 from shc import variables
-from shc.expressions import not_
+from shc.expressions import not_, or_, and_
 from test._helper import async_test, ExampleWritable
 
 
@@ -33,7 +33,7 @@ class TestExpressions(unittest.TestCase):
         expression = (var2.EX * 10) // (var1.EX - 7)
         expression2 = expression > 5
         expression3 = not_(var1.EX < 10)
-        expression4 = expression2 and expression3
+        expression4 = expression2.and_(expression3)
 
         self.assertEqual(7, await expression.read())
         self.assertEqual(True, await expression2.read())
@@ -44,10 +44,10 @@ class TestExpressions(unittest.TestCase):
     async def test_expression_3(self):
         var1 = variables.Variable(bool, initial_value=True)
         var2 = variables.Variable(int, initial_value=42)
-        expression = False or var1.EX
+        expression = or_(False, var1.EX)
         expression2 = 10 * var2.EX / 2
         expression3 = 320 / (10 - var2.EX)
-        expression4 = True and (8 + var2.EX == 50)
+        expression4 = and_(True, (8 + var2.EX == 50))
 
         self.assertEqual(True, await expression.read())
         self.assertEqual(210, await expression2.read())

@@ -48,8 +48,6 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
     * ``<=`` (le)
     * ``>`` (gt)
     * ``>=`` (ge)
-    * ``and``
-    * ``or``
 
     Additionally, the following methods are provided:
 
@@ -212,17 +210,11 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
         else:
             return NotImplemented
 
-    def __and__(self, other) -> "BinaryCastExpressionHandler":
+    def and_(self, other) -> "BinaryCastExpressionHandler":
         return BinaryCastExpressionHandler(bool, self, other, operator.and_)
 
-    def __rand__(self, other) -> "BinaryCastExpressionHandler":
-        return BinaryCastExpressionHandler(bool, other, self, operator.and_)
-
-    def __or__(self, other) -> "BinaryCastExpressionHandler":
+    def or_(self, other) -> "BinaryCastExpressionHandler":
         return BinaryCastExpressionHandler(bool, self, other, operator.or_)
-
-    def __ror__(self, other) -> "BinaryCastExpressionHandler":
-        return BinaryCastExpressionHandler(bool, other, self, operator.or_)
 
     def not_(self) -> "UnaryExpressionHandler":
         return UnaryCastExpressionHandler(bool, self, operator.not_)
@@ -359,7 +351,7 @@ class IfThenElse(ExpressionHandler, Generic[T]):
         return (await self.then.read()) if (await self.condition.read()) else (await self.otherwise.read())
 
 
-def not_(a):
+def not_(a) -> Union[bool, UnaryCastExpressionHandler[bool]]:
     """
     Create a :class:`ExpressionHandler` that wraps a *Connectable* or static value and evaluates to ``not x`` for the
     value `x`.
@@ -369,6 +361,32 @@ def not_(a):
     if isinstance(a, Readable) and isinstance(a, Subscribable):
         return UnaryCastExpressionHandler(bool, a, operator.not_)
     return not a
+
+
+def and_(a, b) -> Union[bool, BinaryCastExpressionHandler[bool]]:
+    """
+    Create a :class:`ExpressionHandler` that wraps two *Connectables* or static values a,b and evaluates to
+    ``a and b``.
+
+    This is the workaround for Python's limitations on overriding the ``and`` operator.
+    """
+    if (not (isinstance(a, Readable) and isinstance(a, Subscribable))
+            and not (isinstance(b, Readable) and isinstance(b, Subscribable))):
+        return bool(a and b)
+    return BinaryCastExpressionHandler(bool, a, b, operator.and_)
+
+
+def or_(a, b) -> Union[bool, BinaryCastExpressionHandler[bool]]:
+    """
+    Create a :class:`ExpressionHandler` that wraps two *Connectables* or static values a,b and evaluates to
+    ``a or b``.
+
+    This is the workaround for Python's limitations on overriding the ``or`` operator.
+    """
+    if (not (isinstance(a, Readable) and isinstance(a, Subscribable))
+            and not (isinstance(b, Readable) and isinstance(b, Subscribable))):
+        return bool(a or b)
+    return BinaryCastExpressionHandler(bool, a, b, operator.or_)
 
 
 # #################### #
