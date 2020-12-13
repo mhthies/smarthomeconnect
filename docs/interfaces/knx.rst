@@ -30,12 +30,28 @@ The following example demonstrates a minimal configuration for connecting an SHC
     # Start SHC event loop
     shc.main()
 
+
+Group Read Telegrams
+^^^^^^^^^^^^^^^^^^^^
+
 If you have a device in your KNX system, which responds to *group read* telegrams (i.e. (R)EAD flag is set), you can initialize the value of the variable with the current state from the KNX system by using the ``init`` parameter of :meth:`KNXConnector.group`::
 
     my_group_address = knx_connection.group(KNXGAD(1,2,4), '1', init=True)
 
 It tells the `KNXConnector` to send a *group read* telegram to this group address upon startup of SHC.
 The response telegram will be consumed by SHC in the same way as usual *group write* telegrams.
+
+SHC can respond to *group read* telegrams from other KNX devices itself by sending the current value of a *Readable* object.
+To enable this functionality, simply provide a *default provider* (see :ref:`base.connectable_objects`) to the group address object, for example using the `read` and `provide` parameters of :meth:`shc.base.Connectable.connect`::
+
+    my_group_address = knx_connection.group(KNXGAD(1,2,4), '1')
+
+    my_variable = shc.Variable(bool, "my cool variable")\
+        .connect(my_group_address, provide=True)
+
+
+Datapoint Types
+^^^^^^^^^^^^^^^
 
 If the KNX group address represents a blind control (UP/DOWN), it is typically represented as KNX datapoint type '1.008' (DPT_UpDown).
 This is only a special interpretation of a dpt '1.xxx', so it is binary-compatible to this type.
