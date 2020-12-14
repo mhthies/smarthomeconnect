@@ -96,7 +96,7 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
                 if include_previous:
                     await cur.execute(
                         "SELECT `ts`, `{0}` from `log` WHERE `name` = %s AND `ts` <= %s "
-                        "ORDER BY `ts` DESC, LIMIT 1 "
+                        "ORDER BY `ts` DESC LIMIT 1 "
                         "UNION SELECT `ts`, `{0}` from `log` WHERE `name` = %s AND `ts` > %s AND `ts` < %s "
                         "ORDER BY `ts` ASC".format(column_name),
                         (self.name, start_time, self.name, start_time, end_time))
