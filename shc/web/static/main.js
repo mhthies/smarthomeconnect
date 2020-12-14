@@ -66,9 +66,13 @@ function SwitchWidget(domElement, writeValue) {
     };
 
     domElement.addEventListener('change', function (event) {
-        if (confirm_values.indexOf(1 * event.target.checked) !== -1
-                && !window.confirm(confirm_message || "Are you sure?")) {
-            return;
+        if (confirm_values.indexOf(1 * event.target.checked) !== -1) {
+            event.target.checked = !event.target.checked;
+            if (window.confirm(confirm_message || "Are you sure?")) {
+                event.target.checked = !event.target.checked;
+            } else {
+                return;
+            }
         }
         writeValue(widget.subscribeIds[0], event.target.checked);
     });
