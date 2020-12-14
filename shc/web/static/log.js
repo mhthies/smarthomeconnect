@@ -223,7 +223,7 @@ function LineChartWidget(domElement, _writeValue) {
     setInterval(function() {
         cleanUp();
         shiftAndUpdate();
-    }, 5000);
+    }, Math.max(interval / 500, 5000));
 
     this.update = function(value, for_id) {
         let data = dataMap.get(for_id);
