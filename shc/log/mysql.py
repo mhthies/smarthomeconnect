@@ -3,7 +3,7 @@ import datetime
 import enum
 import json
 import logging
-from typing import Optional, Type, Generic, List, Tuple, Any
+from typing import Optional, Type, Generic, List, Tuple, Any, Dict
 
 import aiomysql  # type: ignore
 
@@ -22,6 +22,7 @@ class MySQLPersistence:
         self.connect_args = kwargs
         self.pool: Optional[aiomysql.Pool] = None
         self.pool_ready = asyncio.Event()
+        self.variables: Dict[str, MySQLPersistenceVariable] = {}
         register_interface(self)
 
     async def start(self) -> None:
@@ -39,6 +40,12 @@ class MySQLPersistence:
             await self.pool.wait_closed()
 
     def variable(self, type_: Type, name: str, log: bool = True) -> "MySQLPersistenceVariable":
+        if name in self.variables:
+            variable = self.variables[name]
+            if variable.type is not type_:
+                raise ValueError("MySQL persistence variable with name {} has already been defined with type {}"
+                                 .format(name, variable.type.__name__))
+            return variable
         return MySQLPersistenceVariable(self, type_, name, log)
 
 
