@@ -296,7 +296,7 @@ Chart._adapters._date.override({
 	_id: 'minimal-intl',
 
 	formats: function() {
-		return  {
+		let result = {
             datetime: new Intl.DateTimeFormat(undefined, {
                 year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric',
                 second: 'numeric'}),
@@ -311,7 +311,19 @@ Chart._adapters._date.override({
             month: new Intl.DateTimeFormat(undefined, {year: 'numeric', month: 'numeric'}),
             quater: new Intl.DateTimeFormat(undefined, {year: 'numeric', month: 'numeric'}),
             year: new Intl.DateTimeFormat(undefined, {year: 'numeric'})
-        };
+        }
+        // A dirty hack to fix Chart.js' magic `merge` function (or more precisely: the `clone` function) for the
+        // DateTimeFormat objects on browers which do not yet have correct @@toStringTags for the Intl library
+        // (see https://caniuse.com/mdn-javascript_builtins_intl_--tostringtag):
+        // We simply add an intermediate object in the prototype chain of our DateTimeFormat objects, which injects the
+        // correct @@toStringTag
+        let DTFProto = {};
+        DTFProto[Symbol.toStringTag] = "Intl.DateTimeFormat";
+        DTFProto.__proto__ = Intl.DateTimeFormat.prototype;
+        for (const key in result) {
+            result[key].__proto__ = DTFProto;
+        }
+        return result;
 	},
 
 	parse: function(value, fmt) {
