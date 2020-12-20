@@ -13,7 +13,7 @@ import asyncio
 import datetime
 import enum
 import logging
-from typing import List, Any, Dict, Tuple, Optional, Set
+from typing import List, Any, Dict, Tuple, Optional, Set, Generic
 
 import knxdclient
 
@@ -239,7 +239,7 @@ class KNXConnector:
         await self.knx.group_write(addr, knxdclient.KNXDAPDUType.WRITE, encoded_data)
 
 
-class KNXGroupVar(Subscribable, Writable, Reading):
+class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
     def __init__(self, connector: KNXConnector, addr: KNXGAD, dpt: str):
         if dpt not in KNXDPTs:
             raise ValueError("KNX Datapoint Type {} is not supported".format(dpt))
@@ -251,7 +251,9 @@ class KNXGroupVar(Subscribable, Writable, Reading):
         self.addr = addr
 
     async def update_from_bus(self, data: knxdclient.EncodedData, origin: List[Any]) -> None:
-        value = self.type(knxdclient.decode_value(data, self.knx_major_dpt))
+        value: T = knxdclient.decode_value(data, self.knx_major_dpt)  # type: ignore
+        if type(value) is not self.type:
+            value = self.type(value)  # type: ignore
         logger.debug("Got new value %s for KNX Group variable %s from bus", value, self.addr)
         await self._publish(value, origin)
 
