@@ -68,7 +68,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     async def read(self) -> T:
         if self._value is None:
-            raise UninitializedError("Variable {} is not initialized yet.", repr(self))
+            raise UninitializedError("Variable {} is not initialized yet.".format(repr(self)))
         return self._value
 
     async def _init_from_provider(self) -> None:
