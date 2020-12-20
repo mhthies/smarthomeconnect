@@ -24,7 +24,7 @@ setup(
     ],
     extras_require={
         'mysql': ['aiomysql==0.0.20'],
-        'knx': ['knxdclient==0.2.1'],
+        'knx': ['knxdclient~=0.3.0'],
         'dmx': ['pyserial-asyncio==0.3'],
         'midi': ['mido>=1.2.9,<2', 'python-rtmidi>=1.4.6,<2'],
     },

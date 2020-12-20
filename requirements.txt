@@ -2,7 +2,7 @@ aiohttp>=3.6,<4
 aiomysql==0.0.20
 jinja2>=2.11,<3
 MarkupSafe>=1.1,<2
-knxdclient==0.2.1
+knxdclient~=0.3.0
 sphinx>=3.2,<4
 sphinx-rtd-theme==0.5.0
 pyserial-asyncio==0.3
