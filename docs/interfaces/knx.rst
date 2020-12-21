@@ -65,9 +65,106 @@ To satisfy SHC's type checking, we must only connect it to other *Connectable* o
 
 For a full list of supported KNX datapoint types and the corresponding SHC Python types, see :meth:`KNXConnector.group`.
 
-.. note::
+.. warning::
     For KNX group addresses, that represent events or commands (like Up/Down) instead of state (like On/Off), you typically don't want to use SHC Variables!
-    See :ref:`variables`.
+    Please read the following section for more information.
+
+
+Stateless Group Objects
+^^^^^^^^^^^^^^^^^^^^^^^
+
+In its modular publish-subscribe-based structure, SHC is inherently capable of dealing with stateless group addresses, i.e. group addresses that represent events or commands (like Up/Down) instead of state (like On/Off).
+However, :ref:`as noted in the ‘Variables’ section <variables.stateless>` you *must not* use :class:`shc.variables.Variable` to connect such group addresses to other SHC *Connectable* objects, like Buttons in the web user interface:
+*Variable* only forwards value updates to all its subscribers *if the value changes*.
+Thus, moving your blinds in the same direction twice from a web UI button, for example, will not work with a *Variable* between the button and the KNX group address.
+
+On the other hand, you also *don't need* a variable in such cases, because there *is* no state to be cached and you will only use *Connectable* objects that do not need to *read* the current state (e.g. :class:`shc.web.widgets.StatelessButton` instead of :class:`shc.web.widgets.ToggleButton`).
+So you can simply connect the objects *immediately* to forward events between them.
+For example, to move your blind's down via UI button::
+
+    some_button = shc.web.widgets.StatelessButton(shc.interfaces.knx.KNXUpDown.DOWN, "down")
+    my_blind_group_address = knx_connection.group(KNXGAD(1,2,6), '1.008')
+
+    some_button.connect(my_blind_group_address)
+
+… or, to react to an incoming telegram on that group address::
+
+    my_blind_group_address = knx_connection.group(KNXGAD(1,2,6), '1.008')
+
+    @my_blind_group_address.trigger
+    @shc.handler()
+    async def on_blinds_move(direction, origin):
+        if direction is shc.interfaces.knx.KNXUpDown.DOWN:
+            print("Blinds are moving down")
+
+
+Central Functions and Status Feedback
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The modular structure of SHC also allows us to connect a Variable (or other *Connectable* objects) to multiple KNX group addresses.
+This is required for central functions and status-feedback addresses in KNX systems.
+In doing so, though, you have to be careful not to create any undesired effects, like feedback loops or unwanted central switching telegrams.
+This is where the ``send``/``receive`` parameters of the :ref:`connect method <base.connect>` method and—in more complicated cases—the :class:`shc.misc.TwoWayPipe` will become handy.
+
+Let's assume that you have two **central group addresses**, one to switch (off) all lights on the ground floor and one for *all* lights::
+
+    central_lights_ground_floor = knx_connection.group(KNXGAD(0,0,5), '1')
+    central_lights_all = knx_connection.group(KNXGAD(0,0,1), '1')
+
+    group_light_kitchen = knx_connection.group(KNXGAD(1,2,1), '1')
+    group_light_living_room = knx_connection.group(KNXGAD(1,3,1), '1')
+    ...
+
+In the parameterization of the KNX application programs of your switching actuators and wall-mounted switches, you will use the individual lights' group addresses as primary (send) group address and add the two *central* group addresses as multiple listening addresses.
+This way, the switching actuators of each light react to all three addresses and the wall-mounted switches will update their internal state and status LEDs correctly when one of the central functions is used.
+
+In SHC, we can connect to group addresses in the same way, using ``send=False`` (resp. ``receive=False``) to turn off forwarding values to KNX group address objects where undesired.
+But watch out, this simple approach will probably not yet do, what you expect::
+
+
+    # WARNING! This will probably not do, what you want
+    light_kitchen = shc.Variable(bool)\
+        .connect(group_light_kitchen)\
+        .connect(central_lights_ground_floor, send=False)\
+        .connect(central_lights_all, send=False)
+
+The problem with this approach is that SHC will route value updates from one of the group addresses to the others, in this case from `central_lights_ground_floor` and `central_lights_all` to `group_light_kitchen`:
+When a telegram is received by `central_lights_all`, the variable `light_kitchen` is updated with that value and publishes the new value to all subscribers, including `group_light_kitchen`, which will send the value as a new telegram the KNX bus.
+This is not required (because all relevant devices on the KNX bus are configured to listen to the central group address, anyway) and may even be harmful in some situations.
+While SHC :ref:`does actually not send value updates back to their origin <base.event-origin>` to prevent internal feedback loops, in this case the two group address objects are considered to be separate objects, so forwarding the value update is not suppressed.
+This is not considered a bug, as in other scenarios, you might actually want to reach this behaviour.
+
+To prevent the undesired "cross-talk" between the connected group addresses, we can use a :class:`shc.misc.TwoWayPipe`:
+It connects a number of *Connectable* objects to its left end with objects at its right end, **without** connecting the objects at either side among themselves.
+In our case, we want to connect the `Variable` object to all the group address objects without establishing connections between them::
+
+    light_kitchen = shc.Variable(bool)\
+        .connect(shc.misc.TwoWayPipe(bool)
+                 .connect_right(group_light_kitchen)
+                 .connect_right(central_lights_ground_floor, send=False)
+                 .connect_right(central_lights_all, send=False)
+                 )
+
+The usual internal feedback prevention of SHC will now ensure that value updates from the variable will only be send to the KNX bus if they did not pass the `TwoWayPipe` before, i.e. if they did not originate from the KNX bus.
+
+The same trick can be used for **status-feedback group addresses**:
+Let's say, you have a dimmer actuator that has two KNX datapoints: a boolean on/off state and a integer/range variable for the current dimming value.
+The two datapoints are internally linked, such that sending a `false` value to the boolean datapoint will set the float datapoint to `0` and so on.
+The dimmer actor will probably provide additional status-feedback datapoints, which can transmit the current state of both datapoints to separate group addresses when the state changed internally.
+Let's further assume that we connected the datapoints to the four group addresses `1/4/1` (on/off), `2/4/1` (on/off state-feedback), `1/4/2` (value), `2/4/2` (value state-feedback).
+Then we can connect these group addresses to SHC variables in the following way::
+
+    dimmer_hallway_onoff = shc.Variable(bool)\
+        .connect(shc.misc.TwoWayPipe(bool)
+                 .connect_right(knx_connection.group(KNXGAD(1,4,1), '1'))              # on/off send
+                 .connect_right(knx_connection.group(KNXGAD(2,4,1), '1'), send=False)  # on/off state-feedback
+                 .connect_right(central_lights_ground_floor, send=False)               # on/off central function (as seen above)
+                 )
+    dimmer_hallway_value = shc.Variable(shc.datatypes.RangeUInt8)\
+        .connect(shc.misc.TwoWayPipe(shc.datatypes.RangeUInt8)
+                 .connect_right(knx_connection.group(KNXGAD(1,4,2), '5.001'))              # value send
+                 .connect_right(knx_connection.group(KNXGAD(2,4,2), '5.001'), send=False)  # value state-feedback
+                 )
 
 
 ``interfaces.knx`` Module Reference

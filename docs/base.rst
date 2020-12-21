@@ -38,6 +38,8 @@ It may implement one or more of the following traits (i.e. inherit from these cl
     To cache the latest received value and make it *Readable*, the object must be combined with a :class:`shc.Variable` object.
 
 
+.. _base.connect:
+
 The ``connect`` Method
 ----------------------
 

@@ -19,6 +19,8 @@ Thus, they are typically used as a "central connection point" for a certain valu
     web_switch = shc.web.widgets.Switch("Ceiling Lights")\
         .connect(ceiling_lights)
 
+.. _variables.stateless:
+
 .. note::
 
     However, *Variables* are not absolutely necessary to interconnect datapoints of different interfaces with SHC.
