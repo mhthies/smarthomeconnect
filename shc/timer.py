@@ -571,9 +571,14 @@ class TPulse(_DelayedBool):
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
     :param delay: The pulse length. E.g. `datetime.timedelta(seconds=5)`
     """
+    def __init__(self, wrapped: Subscribable[bool], delay: datetime.timedelta):
+        super().__init__(wrapped, delay)
+        self._prev_value = False
+
     async def _update(self, value: bool, origin: List[Any]):
-        # FIXME Multiple pulses are created for multiple consecutive True values
-        if value and not self._value:
+        rising_edge = value and not self._prev_value
+        self._prev_value = value
+        if rising_edge and not self._value:
             self._change_task = asyncio.create_task(self._set_delayed(False, origin))
             self._value = True
             await self._publish(True, origin)

@@ -414,29 +414,42 @@ class BoolTimerTest(unittest.TestCase):
                 self.assertAlmostEqual(begin + datetime.timedelta(seconds=42.01), call_times[-1],
                                        delta=datetime.timedelta(seconds=.01))
 
-                # Pulse should not be stoppable with False
+                # Pulse should not be stoppable with False or extendable with a second rising edge
                 publish_mock.reset_mock()
+                await base.publish(False, [self])
+                await asyncio.sleep(0.01)
+                publish_mock.assert_not_called()
                 start = clock.now()
                 await base.publish(True, [self])
                 await asyncio.sleep(0.01)
                 publish_mock.assert_called_with(True, unittest.mock.ANY)
+                # second pulse after 20s
                 await asyncio.sleep(20)
                 await base.publish(False, [self])
                 await asyncio.sleep(0.01)
                 self.assertEqual(1, publish_mock.call_count)
-                await asyncio.sleep(45)
+                await asyncio.sleep(20)
+                await base.publish(True, [self])
+                await asyncio.sleep(0.01)
+                self.assertEqual(1, publish_mock.call_count)
+                # Wait 25s more
+                await asyncio.sleep(25)
                 self.assertEqual(2, publish_mock.call_count)
                 publish_mock.assert_called_with(False, unittest.mock.ANY)
                 self.assertAlmostEqual(start + datetime.timedelta(seconds=42.01), call_times[-1],
                                        delta=datetime.timedelta(seconds=.01))
 
-                # ... or extendable with True
+                # And a two consecutive True values should not trigger a second pulse
                 publish_mock.reset_mock()
-                start = clock.now()
                 await base.publish(True, [self])
-                await asyncio.sleep(0.01)
-                publish_mock.assert_called_with(True, unittest.mock.ANY)
-                await asyncio.sleep(20)
+                await asyncio.sleep(0.2)
+                publish_mock.assert_not_called()
+
+                # ... but a False -> True edge should
+                await base.publish(False, [self])
+                await asyncio.sleep(0.2)
+                publish_mock.assert_not_called()
+                start = clock.now()
                 await base.publish(True, [self])
                 await asyncio.sleep(0.01)
                 self.assertEqual(1, publish_mock.call_count)
