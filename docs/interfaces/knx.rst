@@ -74,8 +74,8 @@ Stateless Group Objects
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 In its modular publish-subscribe-based structure, SHC is inherently capable of dealing with stateless group addresses, i.e. group addresses that represent events or commands (like Up/Down) instead of state (like On/Off).
-However, :ref:`as noted in the ‘Variables’ section <variables.stateless>` you *must not* use :class:`shc.variables.Variable` to connect such group addresses to other SHC *Connectable* objects, like Buttons in the web user interface:
-*Variable* only forwards value updates to all its subscribers *if the value changes*.
+However, :ref:`as noted in the ‘Variables’ section <variables.stateless>` you **must not** use :class:`shc.variables.Variable` objects to connect such group addresses to other SHC *Connectable* objects, like Buttons in the web user interface:
+A *Variable* only forwards value updates to all its subscribers *if the value changes*.
 Thus, moving your blinds in the same direction twice from a web UI button, for example, will not work with a *Variable* between the button and the KNX group address.
 
 On the other hand, you also *don't need* a variable in such cases, because there *is* no state to be cached and you will only use *Connectable* objects that do not need to *read* the current state (e.g. :class:`shc.web.widgets.StatelessButton` instead of :class:`shc.web.widgets.ToggleButton`).
