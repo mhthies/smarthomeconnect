@@ -118,6 +118,23 @@ There are still limitations to this expression syntax:
   For a full list of supported types, see :ref:`datatypes.supported_types`.
 
 
+Classes for Building Expressions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following classes are useful for building SHC Expressions.
+They are *Readable* and *Subscribable* objects, some of them already inheriting from :class:`ExpressionBuilder` for operator support.
+In addition, if they *subscribe* to other objects to evaluate their value, these objects are given as constructor arguments, allowing to construct the SHC Expression in a single-line Python expression.
+
+* :class:`shc.variables.Variable` (expression support through :attr:`.EX <shc.variables.Variable.EX>` property)
+* :class:`IfThenElse`: SHC Expression version of a Python inline-if (``a if condition else b``)
+* :class:`shc.misc.Hysteresis`: Fixed threshold evaluation with hysteresis (expression support through  :attr:`.EX <shc.misc.Hysteresis.EX>` property)
+* :class:`shc.timer.TOn`: Power-up delay of bool value (expression support through :attr:`.EX <shc.timer.TOn.EX>` property)
+* :class:`shc.timer.TOff`: Turn-off delay of bool value (expression support through :attr:`.EX <shc.timer.TOff.EX>` property)
+* :class:`shc.timer.TOnOff`: Resettable boolean delay (expression support through :attr:`.EX <shc.timer.TOnOff.EX>` property)
+* :class:`shc.timer.TPulse`: Fixed-lenght Pulse generator from bool value (expression support through :attr:`.EX <shc.timer.TPulse.EX>` property)
+* :class:`shc.timer.Delay`: Universal value delay (expression support through :attr:`.EX <shc.timer.Delay.EX>` property)
+
+
 ``shc.expressions`` Module Reference
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
