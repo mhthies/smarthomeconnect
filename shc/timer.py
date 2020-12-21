@@ -648,9 +648,9 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
 
     To enable or disable the `TimerSwitch`, you may want to take a look at the :class:`shc.misc.BreakableSubscription`.
 
-    :param on: A list of timers which should trigger a 'switch on' action (i.e. set the `TimerSwitch`\ 's value to True
+    :param on: A list of timers which should trigger a 'switch on' action (i.e. set the `TimerSwitch`'s value to True
         when triggering)
-    :param off: A list of timers which should trigger a 'switch off' action (i.e. set the `TimerSwitch`\ 's value to
+    :param off: A list of timers which should trigger a 'switch off' action (i.e. set the `TimerSwitch`'s value to
         False when triggering). Either this parameter or the `duration` (but not both) must be specified.
     :param duration: Period of time, after which the `TimerSwitch` will be switched off automatically after each
         'switch on' event. Must be used as an alternative to the `off` parameter.
