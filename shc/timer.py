@@ -485,7 +485,7 @@ class TOn(_DelayedBool):
     `True` at all.
 
     The `TOn` object is *Subscribable* and *Readable* for publishing and providing the delayed value. Thus, it can be
-    used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you can use the :meth:`EX`
+    used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you can use the :attr:`EX`
     property, which wraps the `TOn` object in a :class:`shc.expressions.ExpressionWrapper`.
 
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
@@ -513,7 +513,7 @@ class TOff(_DelayedBool):
     continuously.
 
     The `TOff` object is *Subscribable* and *Readable* for publishing and providing the delayed value. Thus, it can be
-    used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you can use the :meth:`EX`
+    used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you can use the :attr:`EX`
     property, which wraps the `TOff` object in a :class:`shc.expressions.ExpressionWrapper`.
 
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
@@ -543,7 +543,7 @@ class TOnOff(_DelayedBool):
 
     Like all delay timers, the `TOnOff` object is *Subscribable* and *Readable* for publishing and providing the delayed
     value. Thus, it can be used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you
-    can use the :meth:`EX` property, which wraps the `TOnOff` object in a :class:`shc.expressions.ExpressionWrapper`.
+    can use the :attr:`EX` property, which wraps the `TOnOff` object in a :class:`shc.expressions.ExpressionWrapper`.
 
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
     :param delay: The delay time. E.g. `datetime.timedelta(seconds=5)`
@@ -566,7 +566,7 @@ class TPulse(_DelayedBool):
 
     Like all delay timers, the `TPulse` object is *Subscribable* and *Readable* for publishing and providing the pulse
     signal. Thus, it can be used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you
-    can use the :meth:`EX` property, which wraps the `TPulse` object in a :class:`shc.expressions.ExpressionWrapper`.
+    can use the :attr:`EX` property, which wraps the `TPulse` object in a :class:`shc.expressions.ExpressionWrapper`.
 
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
     :param delay: The pulse length. E.g. `datetime.timedelta(seconds=5)`
