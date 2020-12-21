@@ -42,4 +42,17 @@ Convenience Timer Decorators
 Delay Timers
 ------------
 
-TODO
+.. autoclass:: TOn
+.. autoclass:: TOff
+.. autoclass:: TOnOff
+.. autoclass:: TPulse
+.. autoclass:: Delay
+
+
+.. _timer.helpers:
+
+Helper Classes
+--------------
+
+.. autoclass:: TimerSwitch
+.. autoclass:: RateLimitedSubscription

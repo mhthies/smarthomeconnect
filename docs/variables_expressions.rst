@@ -71,6 +71,8 @@ These objects are *Connectable* (taking their ``type`` attribute from the NamedT
             print("Value is in lower right half of the coordinate plane")
 
 
+.. _expressions:
+
 Expressions
 -----------
 

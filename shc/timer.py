@@ -476,6 +476,21 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
 
 
 class TOn(_DelayedBool):
+    """
+    Power-up delay for bool-type *Subscribable* objects
+
+    This object wraps a *Subscribable* bool object and applies a power-up / turn-on delay to its value. I.e., a `False`
+    value is re-published immediately, a `True` value is delayed for the configured time period. If a `False` is
+    received during the turn-on delay period, the `True` value is superseded and the `TOn`'s value does not change to
+    `True` at all.
+
+    The `TOn` object is *Subscribable* and *Readable* for publishing and providing the delayed value. Thus, it can be
+    used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you can use the :meth:`EX`
+    property, which wraps the `TOn` object in a :class:`shc.expressions.ExpressionWrapper`.
+
+    :param wrapped: The *Subscribable* object to be wrapped for delaying its value
+    :param delay: The power-up delay time. E.g. `datetime.timedelta(seconds=5)`
+    """
     async def _update(self, value: bool, origin: List[Any]):
         if value and self._change_task is None:
             self._change_task = asyncio.create_task(self._set_delayed(True, origin))
@@ -489,6 +504,21 @@ class TOn(_DelayedBool):
 
 
 class TOff(_DelayedBool):
+    """
+    Turn-off delay for bool-type *Subscribable* objects
+
+    This object wraps a *Subscribable* bool object and applies a turn-off delay to its value. I.e., a `True`
+    value is re-published immediately, a `False` value is delayed for the configured time period. If a `True` is
+    received during the turn-off delay period, the `False` value is superseded and the `TOff`'s value does stay `True`
+    continuously.
+
+    The `TOff` object is *Subscribable* and *Readable* for publishing and providing the delayed value. Thus, it can be
+    used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you can use the :meth:`EX`
+    property, which wraps the `TOff` object in a :class:`shc.expressions.ExpressionWrapper`.
+
+    :param wrapped: The *Subscribable* object to be wrapped for delaying its value
+    :param delay: The turn-off delay time. E.g. `datetime.timedelta(seconds=5)`
+    """
     async def _update(self, value: bool, origin: List[Any]):
         if not value and self._change_task is None:
             self._change_task = asyncio.create_task(self._set_delayed(False, origin))
@@ -502,6 +532,22 @@ class TOff(_DelayedBool):
 
 
 class TOnOff(_DelayedBool):
+    """
+    Resettable boolean-delay for *Subscribable* objects
+
+    This object wraps a *Subscribable* bool object and applies a delay to its value. It behaves like a series of a
+    :class:`TOn` and a :class:`TOff` timer with the same delay time: All value updates of the wrapped object will be
+    delayed. Albeit, in contrast to a :class:`Delay` timer, a value update can be aborted by sending the
+    contrary value during the delay period. Thus, short pulses in either direction (fast False→True→False or
+    True→False→True toggling) is suppressed in the `TOnOff`'s value.
+
+    Like all delay timers, the `TOnOff` object is *Subscribable* and *Readable* for publishing and providing the delayed
+    value. Thus, it can be used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you
+    can use the :meth:`EX` property, which wraps the `TOnOff` object in a :class:`shc.expressions.ExpressionWrapper`.
+
+    :param wrapped: The *Subscribable* object to be wrapped for delaying its value
+    :param delay: The delay time. E.g. `datetime.timedelta(seconds=5)`
+    """
     async def _update(self, value: bool, origin: List[Any]):
         if value == self._value and self._change_task is None:
             return
@@ -511,7 +557,22 @@ class TOnOff(_DelayedBool):
 
 
 class TPulse(_DelayedBool):
+    """
+    Non-retriggerable pulse generator for bool-typed *Subscribable* objects
+
+    This object wraps a *Subscribable* bool object and creates a fixed length pulse (`True` period) on each rising edge
+    (False→True) change of its value. The pulse is not retriggerable, i.e. it is not prolonged when a second raising
+    edge occurs during the pulse.
+
+    Like all delay timers, the `TPulse` object is *Subscribable* and *Readable* for publishing and providing the pulse
+    signal. Thus, it can be used like an :ref:`SHC Expression <expressions>`. To actually use it in an Expression, you
+    can use the :meth:`EX` property, which wraps the `TPulse` object in a :class:`shc.expressions.ExpressionWrapper`.
+
+    :param wrapped: The *Subscribable* object to be wrapped for delaying its value
+    :param delay: The pulse length. E.g. `datetime.timedelta(seconds=5)`
+    """
     async def _update(self, value: bool, origin: List[Any]):
+        # FIXME Multiple pulses are created for multiple consecutive True values
         if value and not self._value:
             self._change_task = asyncio.create_task(self._set_delayed(False, origin))
             self._value = True
@@ -521,7 +582,14 @@ class TPulse(_DelayedBool):
 class Delay(Subscribable[T], Readable[T], Generic[T]):
     """
     A *Readable* and *Subscribable* object which wraps another Subscribable object and re-publishes its updates after
-    the time interval specified by ``delay``. It also *provides* its state/value from ``delay`` time ago.
+    the time interval specified by ``delay``. It also *provides* the state/value from ``delay`` time ago via ``read()``
+    calls.
+
+    :param wrapped: The *Subscribable* object to be wrapped for delaying its value
+    :param delay: The delay time. E.g. `datetime.timedelta(seconds=5)`
+    :param initial_value: If given, the value which is returned by :meth:`read` before a value has been received from
+        the `wrapped` object (and passed the delay period). If not given, :meth:`read` raises an
+        :class:`shc.base.UninitializedError` in this case.
     """
     def __init__(self, wrapped: Subscribable[T], delay: datetime.timedelta, initial_value: Optional[T] = None):
         self.type = wrapped.type
@@ -575,15 +643,15 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
 
     To enable or disable the `TimerSwitch`, you may want to take a look at the :class:`shc.misc.BreakableSubscription`.
 
-    :param on: A list of timers which should trigger a 'switch on' action (i.e. set the `TimerSwitch`s value to True
+    :param on: A list of timers which should trigger a 'switch on' action (i.e. set the `TimerSwitch`\ 's value to True
         when triggering)
-    :param off: A list of timers which should trigger a 'switch off' action (i.e. set the `TimerSwitch`s value to False
-        when triggering). Either this parameter or the `duration` (but not both) must be specified.
+    :param off: A list of timers which should trigger a 'switch off' action (i.e. set the `TimerSwitch`\ 's value to
+        False when triggering). Either this parameter or the `duration` (but not both) must be specified.
     :param duration: Period of time, after which the `TimerSwitch` will be switched off automatically after each
         'switch on' event. Must be used as an alternative to the `off` parameter.
     :param duration_random: An optional (maximum) offset to add to or substract from the `duration` period. If
-        `duration` is used, a random timedelta between -`random` and +`random` will be added to each individual 'on'
-        period.
+        `duration` is used, a random timedelta between ``-duration_random`` and ``+duration_random`` will be added to
+        each individual 'on' period.
     """
     type = bool
 
