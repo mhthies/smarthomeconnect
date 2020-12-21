@@ -26,6 +26,10 @@ class PeriodicReader(Readable[T], Subscribable[T], Generic[T]):
     """
     Wraps a :class:`Readable` object to turn it into :class:`Subscribable` object by periodically reading and publishing
     its value.
+
+    :param wrapped: The *Readable* object, which shall be wrapped and read periodically
+    :param interval: The interval in which the object's `.read()` coroutine is called and the result is published, e.g.
+        ``datetime.timedelta(seconds=15)``.
     """
     def __init__(self, wrapped: Readable[T], interval: datetime.timedelta):
         self.type = wrapped.type
@@ -58,10 +62,13 @@ class TwoWayPipe(ConnectableWrapper[T], Generic[T]):
     The following example demonstrates, how to connect two interface connectors to a Variable, such that the Variable
     will interact with both of them, without forwarding events/values from one connector to the other::
 
-        shc.Variable(bool)\
+        shc.Variable(bool)\\
             .connect(TwoWayPipe(bool)
                 .connect_right(some_interface.connector(1))
                 .connect_right(some_interface.connector(2)))
+
+    :param type_: The `type` of the values to be forwarded. This is used as the `type` of the two pipe-end *connectable*
+        objects.
     """
     def __init__(self, type_: Type[T]):
         self.type = type_
