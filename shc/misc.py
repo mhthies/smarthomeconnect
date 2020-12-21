@@ -180,7 +180,7 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
                  initial_value: bool = False):
         super().__init__()
         wrapped.trigger(self._new_value)
-        self.value = initial_value  #: Current output value (uninverted)
+        self._value = initial_value  #: Current output value (uninverted)
         if not isinstance(lower, wrapped.type) or not isinstance(upper, wrapped.type):
             raise TypeError("'lower' and 'upper' must be instances of the wrapped Subscribable's type, which is {}"
                             .format(wrapped.type.__name__))
@@ -191,16 +191,16 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
         self.inverted = inverted
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
-        old_value = self.value
+        old_value = self._value
         if value < self.lower:  # type: ignore
-            self.value = False
+            self._value = False
         elif value > self.upper:  # type: ignore
-            self.value = True
-        if self.value != old_value:
-            await self._publish(self.value != self.inverted, origin)
+            self._value = True
+        if self._value != old_value:
+            await self._publish(self._value != self.inverted, origin)
 
     async def read(self) -> bool:
-        return self.value != self.inverted
+        return self._value != self.inverted
 
     @property
     def EX(self) -> ExpressionWrapper[bool]:
