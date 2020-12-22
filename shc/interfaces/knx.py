@@ -116,7 +116,7 @@ class KNXConnector:
 
     async def start(self):
         await self.knx.connect(self.host, self.port, self.sock)
-        self.knx_run_task = asyncio.create_task(self.run())
+        self.knx_run_task = asyncio.create_task(self._run())
         await self.knx.open_group_socket()
         await self._send_init_requests()
 
