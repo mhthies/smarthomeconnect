@@ -20,7 +20,7 @@ import knxdclient
 from .. import datatypes
 from ..base import Writable, Subscribable, Reading, T
 from ..conversion import register_converter
-from ..supervisor import register_interface
+from ..supervisor import register_interface, stop
 
 KNXGAD = knxdclient.GroupAddress
 
@@ -116,15 +116,24 @@ class KNXConnector:
 
     async def start(self):
         await self.knx.connect(self.host, self.port, self.sock)
-        self.knx_run_task = asyncio.create_task(self.knx.run())
+        self.knx_run_task = asyncio.create_task(self.run())
         await self.knx.open_group_socket()
         await self._send_init_requests()
 
-    async def wait(self):
-        await self.knx_run_task
+    async def _run(self):
+        """
+        Entry point for the run task, which runs the knxdclient run() couroutine (for receiving messages from KNXD)
+        and tries to reconnect on connection errors.
+        """
+        try:
+            await self.knx.run()
+        except Exception as e:
+            logger.critical("Exception in KNX interface run task. Shutting down SHC ...", exc_info=e)
+            asyncio.create_task(stop())
 
     async def stop(self):
         await self.knx.stop()
+        await self.knx_run_task
 
     def group(self, addr: KNXGAD, dpt: str, init: bool = False) -> "KNXGroupVar":
         """

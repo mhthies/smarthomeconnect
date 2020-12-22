@@ -19,7 +19,7 @@ import aiohttp
 
 from ..base import T, Subscribable, Writable, Readable, UninitializedError
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import register_interface
+from ..supervisor import register_interface, stop
 
 logger = logging.getLogger(__name__)
 
@@ -88,9 +88,6 @@ class SHCWebClient:
             raise WebSocketAPIError("Failed to subscribe SHC API object '{}' with status {}: {}"
                                     .format(name, result['status'], result.get('error')))
 
-    async def wait(self):
-        await self._run_task
-
     async def stop(self):
         logger.info("Closing SHC web client to %s ...", self.server)
         self._stopping = True
@@ -104,11 +101,14 @@ class SHCWebClient:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 await self._websocket_dispatch(msg)
             elif msg.type == aiohttp.WSMsgType.ERROR:
-                raise RuntimeError('SHC API websocket connection closed with exception {}'
-                                   .format(self._ws.exception()))
+                logger.critical('SHC API websocket connection closed with exception %s', self._ws.exception())
+                asyncio.create_task(stop())
+                return
+
         logger.debug('SHC API websocket connection closed')
         if not self._stopping:
-            raise RuntimeError('SHC API websocket was unexpectedly closed')
+            logger.critical('SHC API websocket was unexpectedly closed')
+            asyncio.create_task(stop())
 
     async def _websocket_dispatch(self, msg: aiohttp.WSMessage) -> None:
         try:

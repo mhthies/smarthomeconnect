@@ -98,12 +98,6 @@ class MidiInterface:
             self.receive_task = loop.create_task(self._receive_task())
             self.input_port = mido.open_input(self.input_port_name, callback=incoming_message_callback)
 
-    async def wait(self) -> None:
-        if self.input_port_name:
-            await self.receive_task
-        if self.output_port_name:
-            await self._send_thread_stopped.wait()
-
     async def stop(self) -> None:
         logger.info('Stopping MIDI interface.')
 

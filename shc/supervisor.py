@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 _REGISTERED_INTERFACES = set()
 
 event_loop = asyncio.get_event_loop()
+_SHC_STOPPED = asyncio.Event(loop=event_loop)
+_SHC_STOPPED.set()
 
 
 def register_interface(interface):
@@ -29,6 +31,7 @@ def register_interface(interface):
 
 
 async def run():
+    _SHC_STOPPED.clear()
     logger.info("Starting up interfaces ...")
     await asyncio.gather(*(interface.start() for interface in _REGISTERED_INTERFACES))
     logger.info("All interfaces started successfully. Initializing variables ...")
@@ -36,12 +39,15 @@ async def run():
     logger.info("Variables initialized successfully. Starting timers ...")
     await timer_supervisor.start()
     logger.info("Timers initialized successfully. SHC startup finished.")
-    await asyncio.gather(*(interface.wait() for interface in _REGISTERED_INTERFACES), timer_supervisor.wait())
+    # Now, keep this task awaiting until SHC is stopped via stop()
+    await _SHC_STOPPED.wait()
 
 
 async def stop():
     logger.info("Shutting down interfaces ...")
-    await asyncio.gather(*(interface.stop() for interface in _REGISTERED_INTERFACES), timer_supervisor.stop())
+    await asyncio.gather(*(interface.stop() for interface in _REGISTERED_INTERFACES), timer_supervisor.stop(),
+                         return_exceptions=True)
+    _SHC_STOPPED.set()
 
 
 def handle_signal(sig: int, loop: asyncio.AbstractEventLoop):

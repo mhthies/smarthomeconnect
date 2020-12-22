@@ -127,12 +127,6 @@ class WebServer:
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
         await site.start()
-        # aiohttp's Runner or Site do not provide a good method to await the stopping of the server. Thus we use our own
-        # Event for that purpose.
-        self._stopped = asyncio.Event()
-
-    async def wait(self) -> None:
-        await self._stopped.wait()
 
     async def stop(self) -> None:
         logger.info("Closing open websockets ...")
@@ -142,7 +136,6 @@ class WebServer:
             task.cancel()
         logger.info("Cleaning up AppRunner ...")
         await self._runner.cleanup()
-        self._stopped.set()
 
     def page(self, name: str, title: Optional[str] = None, menu_entry: Union[bool, str] = False,
              menu_icon: Optional[str] = None, menu_sub_label: Optional[str] = None, menu_sub_icon: Optional[str] = None

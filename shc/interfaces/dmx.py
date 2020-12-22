@@ -123,9 +123,6 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         self._reader, self._writer = await serial_asyncio.open_serial_connection(url=self.serial_url)
         await self._transmit()
 
-    async def wait(self):
-        await self._writer.wait_closed()
-
     async def stop(self):
         logger.info("Closing serial port %s ...", self.serial_url)
         self._writer.close()
@@ -177,6 +174,7 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
 
         This method converts the current state of the DMX universe to an EnttecMessage, writes it to the serial buffer
         and awaits the flush of the serial buffer to the interface."""
+        # TODO catch connection errors
         self._writer.write(self._universe_to_enttec(self.universe).encode())
         await self._writer.drain()
 
