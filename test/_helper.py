@@ -275,20 +275,22 @@ class InterfaceThreadRunner:
         """
         self.future = self.executor.submit(self._run)
         self._server_started_future.result(timeout=5)
-        self.started = True
 
     def _run(self) -> None:
         asyncio.run(self._run_coro())
 
     async def _run_coro(self) -> None:
         self.loop = asyncio.get_event_loop()
+        self._stopped_event = asyncio.Event()
+        self.started = True
         try:
             await self.interface.start()
             self._server_started_future.set_result(None)
         except Exception as e:
             self._server_started_future.set_exception(e)
             return
-        await self.interface.wait()
+        # Keep the event loop running until explicitly stopped
+        await self._stopped_event.wait()
 
     def stop(self) -> None:
         """
@@ -299,4 +301,5 @@ class InterfaceThreadRunner:
         self.started = False
         stop_future = asyncio.run_coroutine_threadsafe(self.interface.stop(), self.loop)
         stop_future.result()
+        self.loop.call_soon_threadsafe(lambda: self._stopped_event.set())
         self.future.result(timeout=5)
