@@ -18,7 +18,7 @@ import mido  # type: ignore
 
 from ..base import Subscribable, Writable, T
 from ..datatypes import RangeUInt8
-from ..supervisor import register_interface
+from ..supervisor import register_interface, stop
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,10 @@ class MidiInterface:
                 continue
 
             # Dispatch new value in a new asyncio Task
-            asyncio.create_task(variable._incoming_message(message))
+            try:
+                asyncio.create_task(variable._incoming_message(message))
+            except Exception as e:
+                logger.error("Error while dispatching incoming MIDI message %s", message, exc_info=e)
 
     def _send_thread(self, loop: asyncio.AbstractEventLoop) -> None:
         """
@@ -171,6 +174,9 @@ class MidiInterface:
             logger.info('Closing mido output_port ...')
             output_port.close()
             logger.debug('_send_thread() done.')
+        except Exception as e:
+            logger.critical("Exception in MIDI send thread. Shutting down SHC ...", exc_info=e)
+            asyncio.run_coroutine_threadsafe(stop(), loop)
         finally:
             loop.call_soon_threadsafe(self._send_thread_stopped.set)
 
