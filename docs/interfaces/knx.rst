@@ -9,7 +9,25 @@ Actually, it has initially been built for providing a web interface and addition
 For connecting to a KNX system, it requires the ``knxdclient`` Python library and a running KNXD (KNX deamon, formerly known as EIBD).
 ``knxdclient`` is an asynchronous Python implementation of KNXD's native client protocol (or at least relevant parts of it) and was originally developed as part of SHC.
 
-TODO setting up KNXD
+Setting up KNXD
+---------------
+
+KNXD is curently only available for unixoid operating systems (esp. Linux).
+However, you don't have to run the KNXD on the same machine as SHC, as the knxdclient library can connect to KNXD via a TCP network port.
+The installation instructions for KNXD depend on the specific OS and distribution:
+
+On modern Debian and Ubuntu systems (≥ Debian 10 buster, including Raspbian, or Ubuntu 20.04 focal), KNXD is packaged in the official software repositories and can be installed with a simple::
+
+    sudo apt install knxd
+
+For other systems, head over to https://github.com/knxd/knxd, select the git branch for your specific distribution and follow the instructions in the *Building* section of the `README.md` file.
+
+Afterwards, KNXD must be configured to be started as a service with the correct command line arguments to connect to your KNX bus via some interface (typically IP or USB) and provide a "local-listener" on a TCP port or UNIX socket for SHC to connect to.
+A reference of all available arguments can be found at https://github.com/knxd/knxd/wiki/Command-line-parameters.
+The Debian and Ubuntu packages already include a systemd unit to run KNXD as a service with a local listener at TCP port 6720 and `/run/knx`.
+Additional commandline arguments for KNXD (e.g. for specifying the bus interface) can be configured in the `/etc/default/knxd` on these Linux distributions.
+
+
 
 Configuration Examples
 ----------------------
