@@ -4,7 +4,7 @@
 Timers
 ======
 
-.. py:currentmodule:: shc.timer
+.. py:module:: shc.timer
 
 
 The :mod:`shc.timer` module provides two different kinds of timer objects to be used in SHC configuration:

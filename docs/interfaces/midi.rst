@@ -2,7 +2,7 @@
 MIDI Interface
 ==============
 
-.. py:currentmodule:: shc.interfaces.midi
+.. py:module:: shc.interfaces.midi
 
 .. autoclass:: MidiInterface
     :members:

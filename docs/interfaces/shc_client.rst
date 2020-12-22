@@ -2,7 +2,7 @@
 SHC Client Interface
 ====================
 
-.. py:currentmodule:: shc.interfaces.shc_client
+.. py:module:: shc.interfaces.shc_client
 
 
 .. autoclass:: SHCWebClient

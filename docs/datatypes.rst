@@ -78,7 +78,7 @@ TODO
 ``shc.conversion`` Module Reference
 -----------------------------------
 
-.. py:currentmodule:: shc.conversion
+.. py:module:: shc.conversion
 
 .. autofunction:: get_converter
 

@@ -13,7 +13,7 @@ It works as a library, providing the building blocks for your application, like 
 Connectable Objects
 -------------------
 
-.. py:currentmodule:: shc.base
+.. py:module:: shc.base
 
 The core concept of building up a home automation application with SHC is connecting *Connectable* objects.
 A *Connectable* object is a Python object that produces, consumes or stores values of a certain type.

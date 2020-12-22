@@ -208,7 +208,7 @@ Then we can connect these group addresses to SHC variables in the following way:
 Relevant classes from ``knxdclient``
 ------------------------------------
 
-.. py:currentmodule:: knxdclient
+.. py:module:: knxdclient
 
 .. autoclass:: KNXTime
 

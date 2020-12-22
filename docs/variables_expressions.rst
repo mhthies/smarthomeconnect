@@ -7,7 +7,7 @@ Variables and Expressions
 Variables
 ---------
 
-.. py:currentmodule:: shc.variables
+.. py:module:: shc.variables
 
 Variables are the most important *Connectable* objects in an SHC application.
 They allow to keep track of the current state of some dynamic value (allowing to *read* it at any time), receive updates for that state and re-publish state changes to other connected objects.
@@ -76,7 +76,7 @@ These objects are *Connectable* (taking their ``type`` attribute from the NamedT
 Expressions
 -----------
 
-.. py:currentmodule:: shc.expressions
+.. py:module:: shc.expressions
 
 Wouldn't it be cool, if we could define logical-arithmetical relations between *Variables* (or other *Connectables*) as simple Python expressions, which would be evaluated for every value update?
 Example::
