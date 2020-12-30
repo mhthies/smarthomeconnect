@@ -13,7 +13,7 @@ import json
 import logging
 import weakref
 from json import JSONDecodeError
-from typing import Type, Dict, Generic, List, Any
+from typing import Type, Dict, Generic, List, Any, Optional
 
 import aiohttp
 
@@ -39,34 +39,57 @@ class SHCWebClient:
 
     :param server: Base URL of the remote SHC webserver instance without trailing slash, e.g. 'https://example.com/shc'.
         The path of the API websocket ('/api/v1/ws') is appended internally.
+    :param auto_reconnect: If True (default), the API client tries to reconnect automatically on connection errors with
+        exponential backoff (1 * 1.25^n seconds sleep). Otherwise, the complete SHC system is shut down, when a
+        connection error occurs.
+    :param failsafe_start: If True and auto_reconnect is True, the API client allows SHC to start up, even if the API
+        connection can not be established in the first try. The connection is retried in background with exponential
+        backoff (see `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not
+        retried and will shutdown the SHC application on failure, even if `auto_reconnect` is True.
     """
-    def __init__(self, server: str, auto_reconnect: bool = True) -> None:
+    def __init__(self, server: str, auto_reconnect: bool = True, failsafe_start: bool = False) -> None:
         self.server = server
         self.auto_reconnect = auto_reconnect
+        self.failsafe_start = failsafe_start and auto_reconnect
         self._api_objects: Dict[str, WebApiClientObject] = {}
         register_interface(self)
 
         self._session: aiohttp.ClientSession
-        self._ws: aiohttp.ClientWebSocketResponse
-        self._run_task: asyncio.Task
+        self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
+        self._run_task: Optional[asyncio.Task] = None
+        self._reconnect_task: Optional[asyncio.Task] = None
+        #: Event to inform the run Task that the websocket is ready (again). This is required for the _try_reconnect()
+        #  task to await the subscription responses **after** the run task re-entered the receive loop.
+        self._connected_event: asyncio.Event
         self._stopping = False
         self._waiting_futures: weakref.WeakValueDictionary[int, asyncio.Future] = weakref.WeakValueDictionary()
 
     async def start(self):
         logger.info("Connecting SHC web client interface to %s ...", self.server)
+        self._connected_event = asyncio.Event()
         self._session = aiohttp.ClientSession()
+        self._run_task = asyncio.create_task(self.run())
         try:
+            # TODO timeout
             self._ws = await self._session.ws_connect(self.server + '/api/v1/ws')
+            self._connected_event.set()
+
             try:
-                self._run_task = asyncio.create_task(self.run())
                 await asyncio.gather(*(self._subscribe_and_wait(name) for name in self._api_objects))
                 # TODO gather results and give a better error description
-            except Exception:
-                await self._ws.close()
-                raise
-        except Exception:
-            await self._session.close()
-            raise
+            except Exception as e:
+                if self.failsafe_start:
+                    logger.error("Error while subscribing to SHC API objects after reconnect: %s", e)
+                    await self._ws.close()  # Connection will be retried automatically (by run task)
+                else:
+                    raise
+        except Exception as e:
+            if self.failsafe_start:
+                logger.error("Failed to connect to SHC API: %s", e)
+                self._reconnect_task = asyncio.create_task(self._try_reconnect())
+            else:
+                await self.stop()
+                raise  # TODO use stop/interface_failure instead
 
     async def _subscribe_and_wait(self, name: str) -> None:
         """
@@ -95,52 +118,99 @@ class SHCWebClient:
 
         Should be called by the run() task when an error occurs and auto_reconnect is True
         """
-        sleep_time = 5  # Start with five seconds and increase exponentially with factor 1.25
+        sleep_time = 1  # Start with one second and increase exponentially with factor 1.25
         while True:
-            await asyncio.sleep(sleep_time)
+            # Sleep
+            logger.debug("Waiting for %.1f seconds until next reconnect to SHC API at %s", sleep_time, self.server)
+            try:
+                await asyncio.sleep(sleep_time)
+            except asyncio.CancelledError:
+                return
             sleep_time *= 1.25
+
+            # Reconnect websocket
             logger.info("Trying to reconnected to SHC API at %s", self.server)
             try:
+                # TODO change timeout: https://docs.aiohttp.org/en/stable/client_quickstart.html#timeouts
                 self._ws = await self._session.ws_connect(self.server + '/api/v1/ws')
+                self._connected_event.set()
+            except asyncio.CancelledError:
+                return
             except Exception as e:
                 logger.error("Failed to reconnect to SHC API: %s", e)
                 continue
+
+            # Subscribe and wait for subscription responses
             try:
-                self._run_task = asyncio.create_task(self.run())
                 await asyncio.gather(*(self._subscribe_and_wait(name) for name in self._api_objects))
                 # TODO gather results and give a better error description
                 logger.info("Reconnected to SHC API at %s successfully", self.server)
+            except asyncio.CancelledError:
+                return
             except Exception as e:
                 logger.error("Error while subscribing to SHC API objects after reconnect: %s", e)
                 await self._ws.close()
+        self._reconnect_task = None
 
     async def stop(self):
         logger.info("Closing SHC web client to %s ...", self.server)
         self._stopping = True
-        await self._ws.close()
-        await self._run_task
+        if self._reconnect_task is not None:
+            self._reconnect_task.cancel()
+            await self._reconnect_task
+        if self._connected_event.is_set():
+            await self._ws.close()
+        if self._run_task is not None:
+            self._run_task.cancel()
+            await self._run_task
         await self._session.close()
 
     async def run(self) -> None:
-        while True:  # Loop for reconnecting after error
-            msg: aiohttp.WSMessage
-            async for msg in self._ws:
-                if msg.type == aiohttp.WSMsgType.TEXT:
-                    await self._websocket_dispatch(msg)
-                elif msg.type == aiohttp.WSMsgType.ERROR:
-                    logger.critical('SHC API websocket connection closed with exception %s', self._ws.exception())
-                    if not self.auto_reconnect:
-                        asyncio.create_task(stop())
-                        return
+        """
+        Entrypoint for the async "run" Task for receiving Websocket messages
 
-            logger.debug('SHC API websocket connection closed')
-            if self._stopping:
-                return
-            logger.critical('SHC API websocket was unexpectedly closed')
-            if not self.auto_reconnect:
-                asyncio.create_task(stop())
-                return
-            await self._try_reconnect()
+        This task handles errors that occur during operation:
+            * When the websocket is unexpectedly closed and self.auto_reconnect, it starts _try_reconnect in a new task
+              and enters the receive loop again as soon as the websocket is ready (via :attr:`_connected_event`).
+            * When the websocket is unexpectedly closed and not self.auto_reconnect, it shuts down SHC
+            * When the task is cancelled during waiting for something, it returns quietly
+            * When another Exception is raised, SHC is shut down
+        """
+        try:
+            while True:  # Loop for initiating and waiting for reconnect after connection error
+                await self._connected_event.wait()
+                assert self._ws is not None  # This is ensured by waiting for _connected_event
+
+                # Receive websocket messages until websocket is closed
+                msg: aiohttp.WSMessage
+                async for msg in self._ws:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        await self._websocket_dispatch(msg)
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        logger.error('SHC API websocket failed with %s', self._ws.exception())
+
+                # Handle connection loss (either an intentional close or an error, which shall cause SHC shutdown or
+                # reconnect)
+                self._ws = None  # So stop() tries to cancel the task instead of closing the socket at this point
+                logger.debug('SHC API websocket connection closed')
+                if self._stopping:
+                    return
+                logger.critical('SHC API websocket was unexpectedly closed')
+                if not self.auto_reconnect and not self._stopping:
+                    asyncio.create_task(stop())  # TODO
+                    return
+
+                # Reconnect
+                self._connected_event.clear()
+                if not self._reconnect_task:
+                    self._reconnect_task = asyncio.create_task(self._try_reconnect())
+
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            logger.critical("Unexpected Exception in SHC client Task for server %s:", self.server, exc_info=e)
+            if not self._stopping:
+                asyncio.create_task(stop())  # TODO
 
     async def _websocket_dispatch(self, msg: aiohttp.WSMessage) -> None:
         try:
