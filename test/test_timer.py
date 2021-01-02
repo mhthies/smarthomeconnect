@@ -9,10 +9,6 @@ from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock, Exam
 
 
 class LogarithmicSleepTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        ClockMock.enable()
-
     @async_test
     async def test_long_sleep(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 0, 0)) as clock:
@@ -41,9 +37,6 @@ class LogarithmicSleepTest(unittest.TestCase):
 
 
 class AbstractTimerTest(unittest.TestCase):
-    def setUp(self):
-        ClockMock.enable()
-
     class TestTimer(timer._AbstractScheduleTimer):
         def __init__(self, times: List[datetime.datetime]):
             super().__init__()
@@ -274,10 +267,6 @@ class AtTimerTest(unittest.TestCase):
 
 
 class BoolTimerTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        ClockMock.enable()
-
     @async_test
     async def test_ton(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
@@ -461,10 +450,6 @@ class BoolTimerTest(unittest.TestCase):
 
 
 class TimerSwitchTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        ClockMock.enable()
-
     @async_test
     async def test_simple(self) -> None:
         pub_on1 = ExampleSubscribable(type(None))
@@ -542,10 +527,6 @@ class TimerSwitchTest(unittest.TestCase):
 
 
 class RateLimitedSubscriptionTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        ClockMock.enable()
-
     @async_test
     async def test_simple(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)

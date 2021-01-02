@@ -30,10 +30,6 @@ class ExampleType(NamedTuple):
 
 
 class SHCWebsocketClientTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        ClockMock.enable()
-
     def setUp(self) -> None:
         self.server = shc.web.WebServer("localhost", 42080)
         self.client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')

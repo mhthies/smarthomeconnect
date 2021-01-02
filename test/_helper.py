@@ -58,9 +58,17 @@ class ClockMock:
     to happen in the mean time (which would normally happen during the sleep). This also allows to let the ClockMock
     synchronize multiple threads or AsyncIO coroutines, sleeping for different times in parallel.
 
-    Before using `ClockMock`s, the :meth:`enable` class method must be called once to make the `date` and `datetime`
-    classes patchable.
+    For the purpose of patching `datetime.date.today` and `datetime.datetime.now`, these builtin classes need to be
+    replaced by normal Python classes. For this purpose, the classes :class:`NewDate` and :class:`NewDateTime` are used,
+    which inherit from their original pendants. To avoid failing type checks in other tests, the replacement is reverted
+    when exiting the patch context.
     """
+    class NewDate(datetime.date):
+        pass
+
+    class NewDateTime(datetime.datetime):
+        pass
+
     def __init__(self, start_time: datetime.datetime, overshoot: datetime.timedelta = datetime.timedelta(),
                  actual_sleep: float = 0.0):
         self.current_time = start_time
@@ -68,6 +76,8 @@ class ClockMock:
         self.actual_sleep = actual_sleep
         self.original_sleep = time.sleep
         self.original_async_sleep = asyncio.sleep
+        self.original_date = datetime.date
+        self.original_datetime = datetime.datetime
         # A Mutex to make the the `queue` of sleeping Threads/Coroutines thread-safe
         self.mutex = threading.RLock()
         # Priority queue (heapq) of waiting Threads/Coroutines ordered by their wakeup time
@@ -145,6 +155,10 @@ class ClockMock:
         return self.current_time.date()
 
     def __enter__(self) -> "ClockMock":
+        import datetime
+        datetime.date = self.NewDate  # type: ignore
+        datetime.datetime = self.NewDateTime  # type: ignore
+
         self.patches = (
             unittest.mock.patch('time.sleep', new=self.sleep),
             unittest.mock.patch('asyncio.sleep', new=self.async_sleep),
@@ -160,24 +174,8 @@ class ClockMock:
         for p in self.patches:
             p.__exit__(exc_type, exc_val, exc_tb)
 
-    @staticmethod
-    def enable() -> None:
-        """
-        Monkey-patch the datetime module with custom `date` and `datetime` classes to allow patching their methods. The
-        new classes don't change any behaviour by theirselves, but enable `ClockMock` to do so.
-
-        This classmethod must be called once, before using a ClockMock, e.g. in a TestCase's
-        :meth:`unittest.TestCase.setUp` method.
-        """
-        import datetime
-
-        class NewDate(datetime.date):
-            pass
-        datetime.date = NewDate  # type: ignore
-
-        class NewDateTime(datetime.datetime):
-            pass
-        datetime.datetime = NewDateTime  # type: ignore
+        datetime.datetime = self.original_datetime
+        datetime.date = self.original_date
 
 
 # ###########################
