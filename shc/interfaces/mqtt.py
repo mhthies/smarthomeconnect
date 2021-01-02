@@ -11,14 +11,14 @@
 import asyncio
 import json
 import logging
-from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Tuple
+from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Tuple, Union
 
 from paho.mqtt.client import MQTTMessage, MQTTv311  # type: ignore
 from asyncio_mqtt import Client, MqttError  # type: ignore
 from paho.mqtt.matcher import MQTTMatcher  # type: ignore
 
 from ._helper import SupervisedClientInterface
-from ..base import Writable, Subscribable, T
+from ..base import Writable, Subscribable, T, S
 from ..conversion import SHCJsonEncoder, from_json
 
 logger = logging.getLogger(__name__)
@@ -43,9 +43,12 @@ class MQTTClientInterface(SupervisedClientInterface):
         await self.client.connect()
 
     async def _subscribe(self) -> None:
-        logger.info("Subscribing to MQTT topics ...")
-        logger.debug("Topics: %s", self.subscribe_topics)
-        await self.client.subscribe(self.subscribe_topics)
+        if self.subscribe_topics:
+            logger.info("Subscribing to MQTT topics ...")
+            logger.debug("Topics: %s", self.subscribe_topics)
+            await self.client.subscribe(self.subscribe_topics)
+        else:
+            logger.info("No MQTT topics need to be subscribed")
 
     async def _disconnect(self) -> None:
         logger.info("Disconnecting MQTT client interface ...")
@@ -53,30 +56,21 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     def topic_raw(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False) \
             -> "RawMQTTTopicVariable":
-        var = RawMQTTTopicVariable(self, topic, qos, retain)
         if subscribe_topics is None:
             subscribe_topics = topic
-        self.subscribe_topics.append((subscribe_topics, qos))
-        self.register_filtered_receiver(subscribe_topics, var._new_value_from_mqtt)
-        return var
+        return RawMQTTTopicVariable(self, topic, subscribe_topics, qos, retain)
 
     def topic_string(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False) \
             -> "StringMQTTTopicVariable":
-        var = StringMQTTTopicVariable(self, topic, qos, retain)
         if subscribe_topics is None:
             subscribe_topics = topic
-        self.subscribe_topics.append((subscribe_topics, qos))
-        self.register_filtered_receiver(subscribe_topics, var._new_value_from_mqtt)
-        return var
+        return StringMQTTTopicVariable(self, topic, subscribe_topics, qos, retain)
 
     def topic_json(self, type_: Type[T], topic: str, subscribe_topics: Optional[str] = None, qos: int = 0,
                    retain: bool = False) -> "JSONMQTTTopicVariable[T]":
-        var = JSONMQTTTopicVariable(type_, self, topic, qos, retain)
         if subscribe_topics is None:
             subscribe_topics = topic
-        self.subscribe_topics.append((subscribe_topics, qos))
-        self.register_filtered_receiver(subscribe_topics, var._new_value_from_mqtt)
-        return var
+        return JSONMQTTTopicVariable(type_, self, topic, subscribe_topics, qos, retain)
 
     async def publish_message(self, topic: str, payload: bytes, qos: int = 0, retain: bool = False) -> None:
         logger.debug("Sending MQTT message t: %s p: %s q: %s r: %s", topic, payload, qos, retain)
@@ -103,15 +97,24 @@ class MQTTClientInterface(SupervisedClientInterface):
 class RawMQTTTopicVariable(Writable[bytes], Subscribable[bytes]):
     type = bytes
 
-    def __init__(self, interface: MQTTClientInterface, topic: str, qos: int, retain: bool) -> None:
+    def __init__(self, interface: MQTTClientInterface, publish_topic: str, subscribe_topics: str, qos: int,
+                 retain: bool) -> None:
         super().__init__()
         self.interface = interface
-        self.topic = topic
+        self.publish_topic = publish_topic
+        self.subscribe_topics = subscribe_topics
         self.qos = qos
         self.retain = retain
+        self._receiver_registered = False
+
+    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[bytes], S], bool] = False) -> None:
+        super().subscribe(subscriber, convert)
+        if not self._receiver_registered:
+            self.interface.register_filtered_receiver(self.subscribe_topics, self._new_value_from_mqtt)
+            self._receiver_registered = True
 
     async def _write(self, value: bytes, origin: List[Any]) -> None:
-        await self.interface.publish_message(self.topic, value, self.qos, self.retain)
+        await self.interface.publish_message(self.publish_topic, value, self.qos, self.retain)
 
     async def _new_value_from_mqtt(self, message: MQTTMessage) -> None:
         await self._publish(message.payload, [])
@@ -120,32 +123,50 @@ class RawMQTTTopicVariable(Writable[bytes], Subscribable[bytes]):
 class StringMQTTTopicVariable(Writable[str], Subscribable[str]):
     type = str
 
-    def __init__(self, interface: MQTTClientInterface, topic: str, qos: int, retain: bool) -> None:
+    def __init__(self, interface: MQTTClientInterface, publish_topic: str, subscribe_topics: str, qos: int,
+                 retain: bool) -> None:
         super().__init__()
         self.interface = interface
-        self.topic = topic
+        self.publish_topic = publish_topic
+        self.subscribe_topics = subscribe_topics
         self.qos = qos
         self.retain = retain
+        self._receiver_registered = False
+
+    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[str], S], bool] = False) -> None:
+        super().subscribe(subscriber, convert)
+        if not self._receiver_registered:
+            self.interface.register_filtered_receiver(self.subscribe_topics, self._new_value_from_mqtt)
+            self._receiver_registered = True
 
     async def _write(self, value: str, origin: List[Any]) -> None:
-        await self.interface.publish_message(self.topic, value.encode('utf-8'), self.qos, self.retain)
+        await self.interface.publish_message(self.publish_topic, value.encode('utf-8'), self.qos, self.retain)
 
     async def _new_value_from_mqtt(self, message: MQTTMessage) -> None:
         await self._publish(message.payload.decode('utf-8-sig'), [])
 
 
 class JSONMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T]):
-    def __init__(self, type_: Type[T], interface: MQTTClientInterface, topic: str, qos: int, retain: bool) -> None:
+    def __init__(self, type_: Type[T], interface: MQTTClientInterface, publish_topic: str, subscribe_topics: str,
+                 qos: int, retain: bool) -> None:
         self.type = type_
         super().__init__()
         self.interface = interface
-        self.topic = topic
+        self.publish_topic = publish_topic
+        self.subscribe_topics = subscribe_topics
         self.qos = qos
         self.retain = retain
+        self._receiver_registered = False
+
+    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[str], S], bool] = False) -> None:
+        super().subscribe(subscriber, convert)
+        if not self._receiver_registered:
+            self.interface.register_filtered_receiver(self.subscribe_topics, self._new_value_from_mqtt)
+            self._receiver_registered = True
 
     async def _write(self, value: T, origin: List[Any]) -> None:
-        await self.interface.publish_message(self.topic, json.dumps(value, cls=SHCJsonEncoder).encode('utf-8'),
+        await self.interface.publish_message(self.publish_topic, json.dumps(value, cls=SHCJsonEncoder).encode('utf-8'),
                                              self.qos, self.retain)
 
     async def _new_value_from_mqtt(self, message: MQTTMessage) -> None:
-        await self._publish(from_json(self.type, message.payload.decode('utf-8-sig')), [])
+        await self._publish(from_json(self.type, json.loads(message.payload.decode('utf-8-sig'))), [])
