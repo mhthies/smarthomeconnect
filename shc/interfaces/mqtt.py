@@ -17,45 +17,39 @@ from paho.mqtt.client import MQTTMessage, MQTTv311  # type: ignore
 from asyncio_mqtt import Client, MqttError  # type: ignore
 from paho.mqtt.matcher import MQTTMatcher  # type: ignore
 
+from ._helper import SupervisedClientInterface
 from ..base import Writable, Subscribable, T
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import register_interface
 
 logger = logging.getLogger(__name__)
 
 
-class MQTTClientInterface:
+class MQTTClientInterface(SupervisedClientInterface):
     """
     TODO
     """
     def __init__(self, hostname: str = 'localhost', port: int = 1883, username: Optional[str] = None,
-                 password: Optional[str] = None, client_id: Optional[str] = None, protocol: int = MQTTv311) -> None:
-        register_interface(self)
+                 password: Optional[str] = None, client_id: Optional[str] = None, protocol: int = MQTTv311,
+                 auto_reconnect: bool = True, failsafe_start: bool = False) -> None:
+        super().__init__(auto_reconnect, failsafe_start)
         self.client = Client(hostname, port, username=username, password=password, client_id=client_id,
                              protocol=protocol)
         self.matcher = MQTTMatcher()
         self.subscribe_topics: List[Tuple[str, int]] = []  #: List of (topic, qos) tuples for subscribing
         self.run_task: Optional[asyncio.Task] = None
 
-    async def start(self) -> None:
+    async def _connect(self) -> None:
         logger.info("Connecting MQTT client interface ...")
         await self.client.connect()
-        self.run_task = asyncio.create_task(self.run())
+
+    async def _subscribe(self) -> None:
         logger.info("Subscribing to MQTT topics ...")
         logger.debug("Topics: %s", self.subscribe_topics)
         await self.client.subscribe(self.subscribe_topics)
-        # TODO error handling: MqttError on connection error or subscription failure
 
-    async def stop(self) -> None:
-        logger.info("Stopping MQTT client interface ...")
+    async def _disconnect(self) -> None:
+        logger.info("Disconnecting MQTT client interface ...")
         await self.client.disconnect()
-        if self.run_task:
-            self.run_task.cancel()
-            try:
-                await self.run_task
-            except asyncio.CancelledError:
-                pass
-        logger.info("MQTT client interface stopped")
 
     def topic_raw(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False) \
             -> "RawMQTTTopicVariable":
@@ -93,8 +87,9 @@ class MQTTClientInterface:
         self.subscribe_topics.append((topic_filter, subscription_qos))
         self.matcher[topic_filter] = receiver
 
-    async def run(self) -> None:
+    async def _run(self) -> None:
         async with self.client.unfiltered_messages() as messages:
+            self._running.set()
             async for message in messages:
                 logger.debug("Incoming MQTT message: %s", message)
                 try:
@@ -103,8 +98,6 @@ class MQTTClientInterface:
                     logger.info("Topic %s of incoming message does not match any receiver filter")
                     continue
                 asyncio.create_task(receiver(message))
-
-        # TODO error handling: MqttError when disconnected
 
 
 class RawMQTTTopicVariable(Writable[bytes], Subscribable[bytes]):
