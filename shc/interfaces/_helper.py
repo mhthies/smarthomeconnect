@@ -34,7 +34,7 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         """
         self.auto_reconnect = auto_reconnect
         self.failsafe_start = failsafe_start and auto_reconnect
-        self.backoff_base = 1  #: First wait interval for exponential backoff in seconds
+        self.backoff_base = 1.0  #: First wait interval for exponential backoff in seconds
         self.backoff_exponent = 1.25  #: Multiplier for wait intervals for exponential backoff
         self._supervise_task: Optional[asyncio.Task] = None
         self._started: asyncio.Future
@@ -163,10 +163,11 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
                         await self._disconnect()
                         await run_task
                     raise RuntimeError("Run task stopped before _subscribe task finished")
-                if subscribe_task.exception():
+                subscribe_exception = subscribe_task.exception()
+                if subscribe_exception is not None:
                     await self._disconnect()
                     await run_task
-                    raise subscribe_task.exception()
+                    raise subscribe_exception
 
                 logger.debug("Starting up interface %s completed", self)
                 if not self._started.done():
