@@ -8,25 +8,68 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
-
+import abc
 import asyncio
+import enum
 import functools
 import logging
 import signal
+from typing import Set, NamedTuple, Dict, Any
 
 from .timer import timer_supervisor
 from .variables import read_initialize_variables
 
 logger = logging.getLogger(__name__)
 
-_REGISTERED_INTERFACES = set()
+_REGISTERED_INTERFACES: Set["AbstractInterface"] = set()
 
 event_loop = asyncio.get_event_loop()
 _SHC_STOPPED = asyncio.Event(loop=event_loop)
 _SHC_STOPPED.set()
 
 
-def register_interface(interface):
+class AbstractInterface(metaclass=abc.ABCMeta):
+    def __init__(self):
+        register_interface(self)
+
+    @abc.abstractmethod
+    async def start(self) -> None:
+        """
+        TODO
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    async def stop(self) -> None:
+        """
+        TODO
+        :return:
+        """
+        pass
+
+    async def get_status(self) -> "InterfaceStatus":
+        """
+        TODO
+        :return:
+        """
+        return InterfaceStatus()
+
+
+class Status(enum.Enum):
+    OK = 0
+    WARNING = 1
+    CRITICAL = 2
+    UNKNOWN = 3
+
+
+class InterfaceStatus(NamedTuple):
+    status: Status = Status.OK
+    message: str = ""
+    indicators: Dict[str, Any] = {}
+
+
+def register_interface(interface: AbstractInterface):
     _REGISTERED_INTERFACES.add(interface)
 
 
