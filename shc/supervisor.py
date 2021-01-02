@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 _REGISTERED_INTERFACES: Set["AbstractInterface"] = set()
 
 event_loop = asyncio.get_event_loop()
+_EXIT_CODE = 0
 _SHC_STOPPED = asyncio.Event(loop=event_loop)
 _SHC_STOPPED.set()
 
@@ -73,6 +74,21 @@ def register_interface(interface: AbstractInterface):
     _REGISTERED_INTERFACES.add(interface)
 
 
+async def interface_failure(interface_name: str = "n/a") -> None:
+    """
+    Shut down the SHC application due to a critical error in an interface
+
+    This coroutine shall be called from an interface's background Task on a critical failure.
+    It will shut down the SHC system gracefully and lets the Python process return with exit code 1.
+
+    :param interface_name: String identifying the interface which caused the shutdown.
+    """
+    logger.warning("Shutting down SHC due to error in interface %s", interface_name)
+    global _EXIT_CODE
+    _EXIT_CODE = 1
+    asyncio.create_task(stop())
+
+
 async def run():
     _SHC_STOPPED.clear()
     logger.info("Starting up interfaces ...")
@@ -98,7 +114,28 @@ def handle_signal(sig: int, loop: asyncio.AbstractEventLoop):
     loop.create_task(stop())
 
 
-def main():
+def main() -> int:
+    """
+    Main entry point for running an SHC application
+
+    This function starts an asyncio event loop to run the timers and interfaces. It registers signal handlers for
+    SIGINT, SIGTERM, and SIGHUP to shut down all interfaces gracefully when such a signal is received. The `main`
+    function blocks until shutdown is completed and returns the exit code. Thus, it should be used with
+    :func:`sys.exit`::
+
+        import sys
+        import shc
+
+        # setup interfaces, connect objects, etc.
+
+        sys.exit(shc.main())
+
+    A shutdown can also be triggered by a critical error in an interface (indicated via :func:`interface_failure`), in
+    which case the the exit code will be != 0.
+
+    :return: application exit code to be passed to sys.exit()
+    """
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         event_loop.add_signal_handler(sig, functools.partial(handle_signal, sig, event_loop))
     event_loop.run_until_complete(run())
+    return _EXIT_CODE
