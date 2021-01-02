@@ -95,10 +95,10 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
 
     async def _supervise(self) -> None:
         sleep_interval = self.backoff_base
-        wait_stopping = asyncio.create_task(self._stopping.wait())
 
         while True:
             exception = None
+            wait_stopping = asyncio.create_task(self._stopping.wait())
             try:
                 # Connect
                 logger.debug("Running _connect for interface %s ...", self)
@@ -118,10 +118,10 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
                 logger.debug("Waiting for interface %s to report it is running ...", self)
                 done, _ = await asyncio.wait((wait_running, run_task), return_when=asyncio.FIRST_COMPLETED)
                 if wait_running not in done:
+                    wait_running.cancel()
                     if run_task not in done:
                         await self._disconnect()
                         await run_task
-                    wait_running.cancel()
                     raise RuntimeError("Run task stopped before _running has been set")
 
                 # Subscribe
@@ -149,6 +149,8 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
             except Exception as e:
                 exception = e
                 pass
+            finally:
+                wait_stopping.cancel()
             self._running.clear()
 
             # If we have not been started successfully yet, report startup as finished (if failsafe) or report startup
@@ -184,9 +186,12 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
 
             # Sleep before reconnect
             logger.debug("Waiting %s seconds before reconnect of interface %s ...", sleep_interval, self)
+            wait_stopping = asyncio.create_task(self._stopping.wait())
             done, _ = await asyncio.wait((wait_stopping,), timeout=sleep_interval)
             if wait_stopping in done:
                 logger.debug("Stopped interface %s while waiting for reconnect", self)
                 return
+            else:
+                wait_stopping.cancel()
             sleep_interval *= self.backoff_exponent
             logger.info("Attempting reconnect of interface %s ...", self)
