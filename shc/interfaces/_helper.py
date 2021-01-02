@@ -203,12 +203,12 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
                 return
 
             if exception:
-                logger.error("Error in interface %s. Attempting reconnect ...", exc_info=exception)
+                logger.error("Error in interface %s. Attempting reconnect ...", self, exc_info=exception)
             else:
                 logger.error("Unexpected shutdown of interface %s. Attempting reconnect ...", self)
 
             # Sleep before reconnect
-            logger.debug("Waiting %s seconds before reconnect of interface %s ...", sleep_interval, self)
+            logger.info("Waiting %s seconds before reconnect of interface %s ...", sleep_interval, self)
             wait_stopping = asyncio.create_task(self._stopping.wait())
             done, _ = await asyncio.wait((wait_stopping,), timeout=sleep_interval)
             if wait_stopping in done:
