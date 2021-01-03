@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import Set, Optional
 
-from ..supervisor import AbstractInterface, interface_failure
+from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, Status
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         self._started: asyncio.Future
         self._stopping: asyncio.Event
         self._running: asyncio.Event
+        self._last_error: str = "Interface has not been started yet"
 
     async def start(self) -> None:
         loop = asyncio.get_event_loop()
@@ -58,6 +59,11 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         await self._disconnect()
         if self._supervise_task is not None:
             await self._supervise_task
+
+    async def get_status(self) -> InterfaceStatus:
+        return InterfaceStatus(Status.OK if self._running.is_set() else Status.CRITICAL,
+                               self._last_error if not self._running.is_set() else "",
+                               {})
 
     @abc.abstractmethod
     async def _run(self) -> None:
@@ -204,8 +210,10 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
 
             if exception:
                 logger.error("Error in interface %s. Attempting reconnect ...", self, exc_info=exception)
+                self._last_error = str(exception)
             else:
                 logger.error("Unexpected shutdown of interface %s. Attempting reconnect ...", self)
+                self._last_error = "Unexpected shutdown of interface"
 
             # Sleep before reconnect
             logger.info("Waiting %s seconds before reconnect of interface %s ...", sleep_interval, self)
