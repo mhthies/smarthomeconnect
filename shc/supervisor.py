@@ -78,12 +78,12 @@ class AbstractInterface(metaclass=abc.ABCMeta):
 
         This is especially required for interfaces that do not shut down the SHC application via
         :func:`interface_failure` on every disruption, but instead keep trying to recover operation. In the meantime,
-        Status.CRITICAL shall be reported via this method.
+        ServiceStatus.CRITICAL shall be reported via this method.
         """
         return InterfaceStatus()
 
 
-class Status(enum.Enum):
+class ServiceStatus(enum.Enum):
     OK = 0
     WARNING = 1
     CRITICAL = 2
@@ -91,8 +91,8 @@ class Status(enum.Enum):
 
 
 class InterfaceStatus(NamedTuple):
-    status: Status = Status.OK  #: Overall status of the interface.
-    message: str = ""  #: A textual description of the error. E.g. an error message, if status != Status.OK
+    status: ServiceStatus = ServiceStatus.OK  #: Overall status of the interface.
+    message: str = ""  #: A textual description of the error. E.g. an error message, if status != ServiceStatus.OK
     #: Additional monitoring indicators like performance values, identified by a unique string.
     indicators: Dict[str, Union[bool, int, float, str]] = {}
 

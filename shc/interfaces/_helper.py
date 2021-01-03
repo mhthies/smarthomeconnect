@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import Set, Optional
 
-from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, Status
+from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
             await self._supervise_task
 
     async def get_status(self) -> InterfaceStatus:
-        return InterfaceStatus(Status.OK if self._running.is_set() else Status.CRITICAL,
+        return InterfaceStatus(ServiceStatus.OK if self._running.is_set() else ServiceStatus.CRITICAL,
                                self._last_error if not self._running.is_set() else "",
                                {})
 
