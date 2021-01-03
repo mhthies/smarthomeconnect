@@ -14,7 +14,7 @@ import enum
 import functools
 import logging
 import signal
-from typing import Set, NamedTuple, Dict, Any
+from typing import Set, NamedTuple, Dict, Any, Union
 
 from .timer import timer_supervisor
 from .variables import read_initialize_variables
@@ -30,29 +30,55 @@ _SHC_STOPPED.set()
 
 
 class AbstractInterface(metaclass=abc.ABCMeta):
+    """
+    Abstract base class for all SHC interface implementations
+
+    An interface is an object that is 'started' at SHC startup. This is typically used to run interfaces to the outside
+    world, using network connections (or serial device connections) and background asyncio Tasks for handling incoming
+    messages and forwarding them to *Subscribable* objects.
+
+    If an interface inherits from this base class, it is automatically registered for startup via :func:`main`.
+    """
     def __init__(self):
         register_interface(self)
 
     @abc.abstractmethod
     async def start(self) -> None:
         """
-        TODO
-        :return:
+        This coroutine is called once on each interface when the SHC application is started via :func:`main`.
+
+        It may be used to initialize network connections and start background Tasks for message handling and event
+        generation. The `start` coroutines of all interfaces are started in parallel. Timers and Variable's are only
+        initialized when *all* `start` coroutines have returned successfully.
+
+        The method should await the completion of the interface startup, i.e. only return when the interface is fully
+        functional. In case of an error, this method may raise and exception or call :func:`interface_failure` to
+        terminate the SHC application.
         """
         pass
 
     @abc.abstractmethod
     async def stop(self) -> None:
         """
-        TODO
-        :return:
+        This coroutine is called once on each interface to shut down the SHC application.
+
+        This may happen when a SIGTERM (or similar) is received or when a critical error in an interface is reported
+        (via :func:`interface_failure` or an exception raised by an interface's :meth:`start` method). Thus, the `stop`
+        method may even be called while :meth:`start` is still running. It shall be able to handle that situation and
+        stop the half-started interface.
+
+        In any case, the `stop` method shall cause the termination of all pending background task of the interface
+        within a few seconds and only return when all tasks have terminated.
         """
         pass
 
     async def get_status(self) -> "InterfaceStatus":
         """
-        TODO
-        :return:
+        Get the current status of the interface for monitoring purposes.
+
+        This is especially required for interfaces that do not shut down the SHC application via
+        :func:`interface_failure` on every disruption, but instead keep trying to recover operation. In the meantime,
+        Status.CRITICAL shall be reported via this method.
         """
         return InterfaceStatus()
 
@@ -65,9 +91,10 @@ class Status(enum.Enum):
 
 
 class InterfaceStatus(NamedTuple):
-    status: Status = Status.OK
-    message: str = ""
-    indicators: Dict[str, Any] = {}
+    status: Status = Status.OK  #: Overall status of the interface.
+    message: str = ""  #: A textual description of the error. E.g. an error message, if status != Status.OK
+    #: Additional monitoring indicators like performance values, identified by a unique string.
+    indicators: Dict[str, Union[bool, int, float, str]] = {}
 
 
 def register_interface(interface: AbstractInterface):
@@ -92,6 +119,7 @@ async def interface_failure(interface_name: str = "n/a") -> None:
 async def run():
     _SHC_STOPPED.clear()
     logger.info("Starting up interfaces ...")
+    # TODO catch errors and stop() in case of an exception
     await asyncio.gather(*(interface.start() for interface in _REGISTERED_INTERFACES))
     logger.info("All interfaces started successfully. Initializing variables ...")
     await read_initialize_variables()
