@@ -1,4 +1,4 @@
-
+import asyncio
 import unittest
 import unittest.mock
 from typing import NamedTuple
@@ -188,3 +188,30 @@ class VariableFieldsTest(unittest.TestCase):
         self.assertEqual(42, await wrapper.read())
         await var.a.write(21, [self])
         subscriber._write.assert_called_with(21, [self, var.a, var.a])
+
+
+class ConnectedVariablesTest(unittest.TestCase):
+    @async_test
+    async def test_simple_concurrent_update(self) -> None:
+        var1 = variables.Variable(int)
+        var2 = variables.Variable(int).connect(var1)
+
+        await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        self.assertEqual(await var1.read(), await var2.read())
+
+    @async_test
+    async def test_concurrent_field_update_publishing(self) -> None:
+        var1 = variables.Variable(ExampleTupleType)
+        var2 = variables.Variable(ExampleTupleType).connect(var1)
+        var3 = variables.Variable(int).connect(var2.a)
+
+        writable1 = ExampleWritable(int).connect(var1.a)  # TODO add different delays
+        writable3 = ExampleWritable(int).connect(var3)
+
+        await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
+        self.assertEqual(await var1.a.read(), await var3.read())
+
+        self.assertEqual(2, writable1._write.call_count)
+        self.assertEqual(2, writable3._write.call_count)
+        # 1st arg of 2nd call shall be equal
+        self.assertEqual(writable1._write.call_args[1][0][0], writable3._write.call_args[1][0][0])
