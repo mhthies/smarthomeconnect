@@ -26,7 +26,7 @@ from aiohttp import WSCloseCode
 
 from ..base import Reading, T, Writable, Subscribable
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import register_interface
+from ..supervisor import register_interface, get_interfaces
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +113,7 @@ class WebServer:
             aiohttp.web.get("/api/v1/ws", self._api_websocket_handler),
             aiohttp.web.get("/api/v1/object/{name}", self._api_get_handler),
             aiohttp.web.post("/api/v1/object/{name}", self._api_post_handler),
+            aiohttp.web.get("/monitoring", self._monitoring_handler),
         ])
 
         register_interface(self)
@@ -451,6 +452,65 @@ class WebServer:
             raise aiohttp.web.HTTPUnprocessableEntity(reason="Could not use provided value to update API object: {}"
                                                       .format(e))
         raise aiohttp.web.HTTPNoContent()
+
+    async def _monitoring_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
+        accept_map = {'text/*': 'text/plain',
+                      'application/*': 'application/json',
+                      '*/*': 'application/json',
+                      'text/plain': 'text/plain',
+                      'text/html': 'text/html',
+                      'application/json': 'application/json',
+                      }
+        accept_list = request.headers.get("Accept", "application/json").split(", ")
+        content_type: Optional[str] = None
+        for mime_type in accept_list:
+            mime_type = mime_type.split(";")[0]
+            if mime_type in accept_map:
+                content_type = accept_map[mime_type]
+                break
+        if content_type is None:
+            raise aiohttp.web.HTTPNotAcceptable()
+
+        # Fetch interface data
+        interfaces_data = {}
+        overall_status = 0
+        for iface in get_interfaces():
+            status = await iface.get_status()
+            interfaces_data[repr(iface)] = {
+                'status': status.status.value,
+                'message': status.message,
+                'indicators': status.indicators,
+            }
+            overall_status = max(overall_status, min(status.status.value, 2) - 2 + iface.criticality.value)
+
+        # Calculate HTTP status code
+        status = {0: 200,
+                  1: 213,
+                  2: 513}.get(overall_status)
+
+        if content_type == "application/json":
+            data = {
+                'status': overall_status,
+                'interfaces': interfaces_data,
+            }
+            return aiohttp.web.Response(status=status,
+                                        body=json.dumps(data),
+                                        content_type="application/json",
+                                        charset='utf-8')
+        elif content_type == "text/plain":
+            # TODO format text
+            body = ""
+            return aiohttp.web.Response(status=status,
+                                        body=body,
+                                        content_type="text/plain",
+                                        charset='utf-8')
+        elif content_type == "text/html":
+            # TODO render template
+            body = ""
+            return aiohttp.web.Response(status=status,
+                                        body=body,
+                                        content_type="text/html",
+                                        charset='utf-8')
 
     def serve_static_file(self, path: pathlib.Path) -> str:
         """

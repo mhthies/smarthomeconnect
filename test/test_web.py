@@ -822,3 +822,5 @@ class WebSocketAPITest(unittest.TestCase):
         self.assertIn(data['name'], ('the_api_object', 'the_other_api_object'))
         self.assertEqual(56, data['value'])
         self.assertEqual(200, data['status'])
+
+# TODO test monitoring endpoint
