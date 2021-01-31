@@ -26,7 +26,7 @@ from aiohttp import WSCloseCode
 
 from ..base import Reading, T, Writable, Subscribable
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import register_interface, get_interfaces
+from ..supervisor import get_interfaces, AbstractInterface
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ jinja_env = jinja2.Environment(
 jinja_env.filters['id'] = id
 
 
-class WebServer:
+class WebServer(AbstractInterface):
     """
     A SHC interface to provide the web user interface and a REST+websocket API for interacting with Connectable objects.
 
@@ -115,8 +115,6 @@ class WebServer:
             aiohttp.web.post("/api/v1/object/{name}", self._api_post_handler),
             aiohttp.web.get("/monitoring", self._monitoring_handler),
         ])
-
-        register_interface(self)
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
