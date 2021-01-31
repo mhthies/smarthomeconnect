@@ -6,38 +6,47 @@ import logging
 from typing import Optional, Type, Generic, List, Tuple, Any, Dict
 
 import aiomysql  # type: ignore
+import pymysql
 
 from ..base import T
 from ..conversion import SHCJsonEncoder, from_json
 from .generic import PersistenceVariable
-from ..supervisor import register_interface
-
+from ..supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
 
-class MySQLPersistence:
+class MySQLPersistence(AbstractInterface):
     def __init__(self, **kwargs):
+        super().__init__()
         # see https://aiomysql.readthedocs.io/en/latest/connection.html#connection for valid parameters
         self.connect_args = kwargs
         self.pool: Optional[aiomysql.Pool] = None
         self.pool_ready = asyncio.Event()
         self.variables: Dict[str, MySQLPersistenceVariable] = {}
-        register_interface(self)
 
     async def start(self) -> None:
         logger.info("Creating MySQL connection pool ...")
         self.pool = await aiomysql.create_pool(**self.connect_args)
         self.pool_ready.set()
 
-    async def wait(self) -> None:
-        pass
-
     async def stop(self) -> None:
         if self.pool is not None:
             logger.info("Closing all MySQL connections ...")
             self.pool.close()
             await self.pool.wait_closed()
+
+    async def get_status(self) -> "InterfaceStatus":
+        if not self.pool_ready.is_set():
+            return InterfaceStatus(ServiceStatus.CRITICAL, "Interface not started yet")
+        free_connections = self.pool.freesize
+        try:
+            async with self.interface.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute("SELECT * from `log` WHERE FALSE")
+        except pymysql.err.MySQLError as e:
+            return InterfaceStatus(ServiceStatus.CRITICAL, str(e), {'free_connections': free_connections})
+        return InterfaceStatus(ServiceStatus.OK, "", {'free_connections': free_connections})
 
     def variable(self, type_: Type, name: str, log: bool = True) -> "MySQLPersistenceVariable":
         if name in self.variables:
