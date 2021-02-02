@@ -14,7 +14,7 @@ import asyncio
 import contextvars
 import functools
 import logging
-from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union
+from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Set
 
 from . import conversion
 
@@ -27,6 +27,42 @@ logger = logging.getLogger(__name__)
 magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_origin')
 
 C = TypeVar('C', bound="Connectable")
+
+
+class SharedLock:
+    def __init__(self):
+        self._shared_with: Set["SharedMutex"] = {self}
+        self._lock: Optional[asyncio.Lock] = None
+
+    async def acquire(self) -> bool:
+        if self._lock is None:
+            return
+        return await self._lock.acquire()
+
+    def release(self) -> None:
+        if self._lock is None:
+            return
+        self._lock.release()
+
+    async def __aenter__(self) -> bool:
+        return await self.acquire()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self.release()
+
+    def share_with(self, other: "SharedMutex") -> None:
+        if self._lock is None and other._lock is not None:
+            other.share_with(self)
+        else:
+            old_set = other._shared_with
+            self._shared_with.update(old_set)
+            for s in old_set:
+                s._shared_with = self._shared_with
+                s._lock = self._lock
+
+    def ensure_lock(self) -> None:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
 
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
@@ -85,6 +121,10 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
 
 class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
+    def __init__(self):
+        super().__init__()
+        self.shared_lock = SharedLock()
+
     async def write(self, value: T, origin: Optional[List[Any]] = None) -> None:
         """
         Asynchronous coroutine to update the object with a new value
@@ -184,6 +224,10 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
               for target in self._triggers)
         )
 
+    def _share_locks(self, subscriber: Writable) -> None:
+        if isinstance(self, Writable):
+            self.shared_lock.share_with(subscriber.shared_lock)
+
     def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False) -> None:
         """
         Subscribe a writable object to this object to be updated, when this object publishes a new value.
@@ -211,6 +255,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
                             .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
         self._subscribers.append((subscriber, converter))
+        self._share_locks(subscriber)
 
     def trigger(self, target: LogicHandler) -> LogicHandler:
         """

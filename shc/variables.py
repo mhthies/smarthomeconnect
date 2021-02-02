@@ -39,6 +39,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
     def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
+        self.shared_lock.ensure_lock()
         self.name = name
         self._value: Optional[T] = initial_value
         self._variable_fields: List["VariableField"] = []
@@ -54,17 +55,18 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         old_value = self._value
-        self._value = value
         if old_value != value:  # if a single field is different, the full value will also be different
-            tasks = []
-            logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
-            tasks.append(self._publish(value, origin))
-            tasks.extend(field._recursive_publish(getattr(value, field.field),
-                                                  None if old_value is None else getattr(old_value, field.field),
-                                                  origin)
-                         for field in self._variable_fields)
-            if tasks:
-                await asyncio.gather(*tasks)
+            async with self.shared_lock:
+                self._value = value
+                tasks = []
+                logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
+                tasks.append(self._publish(value, origin))
+                tasks.extend(field._recursive_publish(getattr(value, field.field),
+                                                      None if old_value is None else getattr(old_value, field.field),
+                                                      origin)
+                             for field in self._variable_fields)
+                if tasks:
+                    await asyncio.gather(*tasks)
 
     async def read(self) -> T:
         if self._value is None:
@@ -92,6 +94,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     def __init__(self, parent: Union[Variable, "VariableField"], field: str, type_: Type[T]):
         self.type = type_
         super().__init__()
+        self.shared_lock.share_with(parent.shared_lock)
         self.parent = parent
         self.variable: Variable = parent.variable if hasattr(parent, 'variable') else parent  # type: ignore
         self.field: str = field
