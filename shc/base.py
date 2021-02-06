@@ -29,20 +29,57 @@ magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_
 C = TypeVar('C', bound="Connectable")
 
 
-class _SharedLockInner:
-    def __init__(self) -> None:
-        self.lock: Optional[asyncio.Lock] = None
-        self.shared_with: Set["SharedLock"] = set()
-        self.locked_by: object = None
-
-
 class SharedLock:
+    """
+    Mutex mechanism for serializing value updates of *connected* stateful objects.
+
+    Each :class:`Writable` object should contain a `SharedLock` object, which is *shared* with other Writable objects
+    (and other "value update forwarding" objects) it is subscribed to. This is typically ensured by
+    :meth:`Subscribable.subscribe`, which uses :meth:`share_with` to share the locks. Sharing means, that the
+    `SharedLocks` use the same :class:`_SharedLockInner` instance, i.e. they interlock against each other by acquiring
+    the same internal Lock/mutex.
+
+    For performance reasons, a Lock object is only created if required: All writable objects need a SharedLock to ensure
+    consistent handling, but only "networks" of interconnected objects which comprise stateful objects actually need
+    a lock. Thus, stateful objects shall call :meth:`ensure_lock` on their `SharedLock` instance in their init
+    method. This enables locking for all SharedLocks which share the same inner lock.
+
+    To avoid deadlocks, the `SharedLock` stores a reference to the object currently locking the mutex. For this purpose,
+    the `Writable` object owning the `SharedLock` needs to be passed as `parent` object to the init method. When
+    acquiring the lock, a list of objects to ignore as lockers can be passed. If the object which currently hodls the
+    lock is in this list, the :meth:`acquire` method returns without actually acquiring the lock. Typically, the
+    `origin` list should be passed.
+
+    :param parent: The object owning this SharedLock instance. When the lock is aquired via this SharedLock nstance, it
+        is stored as the current locker, such that other SharedLock instances can find it in the `exclusion` list.
+    """
+
+    class _SharedLockInner:
+        def __init__(self) -> None:
+            self.lock: Optional[asyncio.Lock] = None
+            self.shared_with: Set["SharedLock"] = set()
+            self.locked_by: object = None
+
     def __init__(self, parent: object):
-        self._inner = _SharedLockInner()
+        self._inner = self._SharedLockInner()
         self._inner.shared_with.add(self)
         self.parent = parent
 
-    async def acquire(self, exclusion: Iterable[object]) -> bool:
+    async def acquire(self, exclusion: Iterable[object] = ()) -> bool:
+        """
+        Acquires the lock, if
+           * the SharedLock actually contains a Lock object (i.e. :meth:`ensure_lock` has been called on any
+              SharedLock instance the inner mutex is ahred with) and
+           * the lock is not locked by an object contained in `exclusion`
+        otherweise returns immediately.
+
+        If the lock is currently locked by an object, other than those in the `exclusion` list, this method awaits the
+        release of the lock by the other Task.
+
+        :param exclusion: A list of objects
+        :return: True, if the lock has acutally been required, False if it has been ignored for any of the reasons
+            mentioned above.
+        """
         if self._inner.lock is None:
             return False
         if self._inner.lock.locked() and self._inner.locked_by in exclusion:
@@ -52,6 +89,9 @@ class SharedLock:
         return res
 
     def release(self) -> None:
+        """
+        Release the lock if it is acquired by the current task.
+        """
         if self._inner.lock is None:
             return
         try:
@@ -59,7 +99,18 @@ class SharedLock:
         except RuntimeError:
             pass
 
-    def share_with(self, other: "SharedMutex") -> None:
+    def share_with(self, other: "SharedLock") -> None:
+        """
+        Share the inner lock with another SharedLock instance.
+
+        This method shares the :class:`_SharedLockInner` instance of this `SharedLock`, including the actual mutex, with
+        the `other` instance. The inner mutex of the `other` instance is dropped. If the `other` instance has already
+        been shared with more `SharedLock` instances, the reference to the `_SharedLockInner` object is also copied to
+        all of these instances, such that all of them share the same mutex, independent from the order and direction of
+        `share_with` calls.
+
+        :param other: The other `SharedLock` instance to share the internal mutex with.
+        """
         if self._inner.lock is None and other._inner.lock is not None:
             other.share_with(self)
         else:
@@ -69,6 +120,12 @@ class SharedLock:
                 s._inner = self._inner
 
     def ensure_lock(self) -> None:
+        """
+        Create an actual Lock object for this `SharedLock` instance and all instances, it shares its lock with
+
+        Until this method has been called at least once on any SharedLock instance shared with this one, the no actual
+        Lock is created an :meth:`acquire`/:meth:`release` do nothing.
+        """
         if self._inner.lock is None:
             self._inner.lock = asyncio.Lock()
 
