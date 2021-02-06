@@ -39,7 +39,6 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
     def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
-        self.shared_lock.ensure_lock()
         self.name = name
         self._value: Optional[T] = initial_value
         self._variable_fields: List["VariableField"] = []

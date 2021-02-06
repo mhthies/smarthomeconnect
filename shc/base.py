@@ -39,11 +39,6 @@ class SharedLock:
     `SharedLocks` use the same :class:`_SharedLockInner` instance, i.e. they interlock against each other by acquiring
     the same internal Lock/mutex.
 
-    For performance reasons, a Lock object is only created if required: All writable objects need a SharedLock to ensure
-    consistent handling, but only "networks" of interconnected objects which comprise stateful objects actually need
-    a lock. Thus, stateful objects shall call :meth:`ensure_lock` on their `SharedLock` instance in their init
-    method. This enables locking for all SharedLocks which share the same inner lock.
-
     To avoid deadlocks, the `SharedLock` stores a reference to the object currently locking the mutex. For this purpose,
     the `Writable` object owning the `SharedLock` needs to be passed as `parent` object to the init method. When
     acquiring the lock, a list of objects to ignore as lockers can be passed. If the object which currently hodls the
@@ -56,7 +51,7 @@ class SharedLock:
 
     class _SharedLockInner:
         def __init__(self) -> None:
-            self.lock: Optional[asyncio.Lock] = None
+            self.lock = asyncio.Lock()
             self.shared_with: Set["SharedLock"] = set()
             self.locked_by: object = None
 
@@ -67,21 +62,16 @@ class SharedLock:
 
     async def acquire(self, exclusion: Iterable[object] = ()) -> bool:
         """
-        Acquires the lock, if
-           * the SharedLock actually contains a Lock object (i.e. :meth:`ensure_lock` has been called on any
-              SharedLock instance the inner mutex is ahred with) and
-           * the lock is not locked by an object contained in `exclusion`
-        otherweise returns immediately.
+        Acquires the lock, if the lock is not locked by an object contained in `exclusion`.
 
         If the lock is currently locked by an object, other than those in the `exclusion` list, this method awaits the
-        release of the lock by the other Task.
+        release of the lock by the other Task. If the Lock is locked/acquired by an object contained in `exclusion`, the
+        method returns immediately.
 
         :param exclusion: A list of objects
-        :return: True, if the lock has acutally been required, False if it has been ignored for any of the reasons
-            mentioned above.
+        :return: True, if the lock has acutally been required, False if it has been ignored, esp. if currently locked
+            by one of the objects in `exclusion`
         """
-        if self._inner.lock is None:
-            return False
         if self._inner.lock.locked() and self._inner.locked_by in exclusion:
             return False
         res = await self._inner.lock.acquire()
@@ -92,8 +82,6 @@ class SharedLock:
         """
         Release the lock if it is acquired by the current task.
         """
-        if self._inner.lock is None:
-            return
         try:
             self._inner.lock.release()
         except RuntimeError:
@@ -111,23 +99,10 @@ class SharedLock:
 
         :param other: The other `SharedLock` instance to share the internal mutex with.
         """
-        if self._inner.lock is None and other._inner.lock is not None:
-            other.share_with(self)
-        else:
-            old_set = other._inner.shared_with
-            self._inner.shared_with.update(old_set)
-            for s in old_set:
-                s._inner = self._inner
-
-    def ensure_lock(self) -> None:
-        """
-        Create an actual Lock object for this `SharedLock` instance and all instances, it shares its lock with
-
-        Until this method has been called at least once on any SharedLock instance shared with this one, the no actual
-        Lock is created an :meth:`acquire`/:meth:`release` do nothing.
-        """
-        if self._inner.lock is None:
-            self._inner.lock = asyncio.Lock()
+        old_set = other._inner.shared_with
+        self._inner.shared_with.update(old_set)
+        for s in old_set:
+            s._inner = self._inner
 
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
