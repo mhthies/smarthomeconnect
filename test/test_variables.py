@@ -214,4 +214,4 @@ class ConnectedVariablesTest(unittest.TestCase):
         self.assertEqual(2, writable1._write.call_count)
         self.assertEqual(2, writable3._write.call_count)
         # 1st arg of 2nd call shall be equal
-        self.assertEqual(writable1._write.call_args[1][0][0], writable3._write.call_args[1][0][0])
+        self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])
