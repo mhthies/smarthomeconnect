@@ -203,13 +203,13 @@ class ConnectedVariablesTest(unittest.TestCase):
     async def test_concurrent_field_update_publishing(self) -> None:
         var1 = variables.Variable(ExampleTupleType)
         var2 = variables.Variable(ExampleTupleType).connect(var1)
-        var3 = variables.Variable(int).connect(var2.a)
+        var3 = variables.Variable(int).connect(var2.a)  # type: ignore
 
-        writable1 = ExampleWritable(int).connect(var1.a)  # TODO add different delays
+        writable1 = ExampleWritable(int).connect(var1.a)  # type: ignore # TODO add different delays
         writable3 = ExampleWritable(int).connect(var3)
 
         await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
-        self.assertEqual(await var1.a.read(), await var3.read())
+        self.assertEqual(await var1.a.read(), await var3.read())  # type: ignore
 
         self.assertEqual(2, writable1._write.call_count)
         self.assertEqual(2, writable3._write.call_count)
