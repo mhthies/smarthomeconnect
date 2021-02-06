@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 import unittest.mock
 
@@ -29,6 +30,15 @@ class MiscTests(unittest.TestCase):
         await pub_right.publish(36.0, [self])
         sub_left._write.assert_called_once_with(36.0, [self, pub_right, pipe.left])
         sub_right._write.assert_not_called()
+
+    @async_test
+    async def test_two_way_pipe_concurrent_update(self) -> None:
+        var1 = shc.Variable(int)
+        pipe = shc.misc.TwoWayPipe(int).connect_left(var1)
+        var2 = shc.Variable(int).connect(pipe.right)
+
+        await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        self.assertEqual(await var1.read(), await var2.read())
 
     @async_test
     async def test_breakable_subscription_simple(self) -> None:
