@@ -14,7 +14,7 @@ import asyncio
 import contextvars
 import functools
 import logging
-from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Set
+from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Set, Iterable
 
 from . import conversion
 
@@ -29,40 +29,48 @@ magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_
 C = TypeVar('C', bound="Connectable")
 
 
-class SharedLock:
-    def __init__(self):
-        self._shared_with: Set["SharedMutex"] = {self}
-        self._lock: Optional[asyncio.Lock] = None
+class _SharedLockInner:
+    def __init__(self) -> None:
+        self.lock: Optional[asyncio.Lock] = None
+        self.shared_with: Set["SharedLock"] = set()
+        self.locked_by: object = None
 
-    async def acquire(self) -> bool:
-        if self._lock is None:
-            return
-        return await self._lock.acquire()
+
+class SharedLock:
+    def __init__(self, parent: object):
+        self._inner = _SharedLockInner()
+        self._inner.shared_with.add(self)
+        self.parent = parent
+
+    async def acquire(self, exclusion: Iterable[object]) -> bool:
+        if self._inner.lock is None:
+            return False
+        if self._inner.lock.locked() and self._inner.locked_by in exclusion:
+            return False
+        res = await self._inner.lock.acquire()
+        self._inner.locked_by = self.parent
+        return res
 
     def release(self) -> None:
-        if self._lock is None:
+        if self._inner.lock is None:
             return
-        self._lock.release()
-
-    async def __aenter__(self) -> bool:
-        return await self.acquire()
-
-    async def __aexit__(self, exc_type, exc, tb):
-        self.release()
+        try:
+            self._inner.lock.release()
+        except RuntimeError:
+            pass
 
     def share_with(self, other: "SharedMutex") -> None:
-        if self._lock is None and other._lock is not None:
+        if self._inner.lock is None and other._inner.lock is not None:
             other.share_with(self)
         else:
-            old_set = other._shared_with
-            self._shared_with.update(old_set)
+            old_set = other._inner.shared_with
+            self._inner.shared_with.update(old_set)
             for s in old_set:
-                s._shared_with = self._shared_with
-                s._lock = self._lock
+                s._inner = self._inner
 
     def ensure_lock(self) -> None:
-        if self._lock is None:
-            self._lock = asyncio.Lock()
+        if self._inner.lock is None:
+            self._inner.lock = asyncio.Lock()
 
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
@@ -123,7 +131,7 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self):
         super().__init__()
-        self.shared_lock = SharedLock()
+        self.shared_lock = SharedLock(self)
 
     async def write(self, value: T, origin: Optional[List[Any]] = None) -> None:
         """
