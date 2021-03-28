@@ -237,11 +237,11 @@ class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     async def read(self) -> T:
         return await self.wrapped.read()  # type: ignore
 
-    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False):
-        return self.wrapped.subscribe(subscriber, convert)
+    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False, sync=True):
+        return self.wrapped.subscribe(subscriber, convert, sync)
 
-    def trigger(self, target: LogicHandler) -> LogicHandler:
-        return self.wrapped.trigger(target)
+    def trigger(self, target: LogicHandler, sync=False) -> LogicHandler:
+        return self.wrapped.trigger(target, sync)
 
 
 class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic[T], metaclass=abc.ABCMeta):
@@ -260,7 +260,7 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
         self.operands = operands
         for operand in operands:
             if isinstance(operand, Subscribable):
-                operand.trigger(self.on_change)
+                operand.trigger(self.on_change, sync=True)
 
     @abc.abstractmethod
     async def evaluate(self) -> T:

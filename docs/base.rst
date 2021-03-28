@@ -254,3 +254,7 @@ Putting it all together, a logic handler may look as follows::
 .. autodecorator:: shc.handler
 
 .. autodecorator:: shc.blocking_handler
+
+.. autoclass:: UninitializedError
+
+.. autoclass:: PublishError

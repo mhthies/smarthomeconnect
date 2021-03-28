@@ -135,9 +135,9 @@ class BreakableSubscription(Subscribable[T], Generic[T]):
         super().__init__()
         self.wrapped = wrapped
         self.control = control
-        wrapped.trigger(self._new_value)
+        wrapped.trigger(self._new_value, sync=True)
         if isinstance(control, Subscribable) and isinstance(wrapped, Readable):
-            control.trigger(self._connection_change)
+            control.trigger(self._connection_change, sync=True)
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
         try:
@@ -188,7 +188,7 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
                  initial_value: bool = False):
         super().__init__()
         self.wrapped = wrapped
-        wrapped.trigger(self._new_value)
+        wrapped.trigger(self._new_value, sync=True)
         self._value = initial_value  #: Current output value (uninverted)
         if not isinstance(lower, wrapped.type) or not isinstance(upper, wrapped.type):
             raise TypeError("'lower' and 'upper' must be instances of the wrapped Subscribable's type, which is {}"

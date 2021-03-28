@@ -589,3 +589,5 @@ class RateLimitedSubscriptionTest(unittest.TestCase):
                 await base.publish(42, [self])
                 await asyncio.sleep(0.1)
                 publish_mock.assert_called_once_with(42, unittest.mock.ANY)
+
+    # TODO test sync parameter

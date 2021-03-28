@@ -10,10 +10,11 @@
 # specific language governing permissions and limitations under the License.
 
 import asyncio
+import itertools
 import logging
 from typing import Generic, Type, Optional, List, Any, Union
 
-from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading, HasSharedLock
+from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading, HasSharedLock, PublishError
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,10 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], HasSharedL
                                                       origin)
                              for field in self._variable_fields)
                 if tasks:
-                    await asyncio.gather(*tasks)
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    exceptions: List[PublishError] = [res for res in results if isinstance(res, PublishError)]
+                    if exceptions:
+                        raise PublishError(errors=list(itertools.chain.from_iterable((e.errors for e in exceptions))))
             finally:
                 self.release_lock()
 
@@ -116,7 +120,10 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], HasSharedLock, Ge
         tasks.extend(field._recursive_publish(getattr(new_value, field.field),
                                               None if old_value is None else getattr(old_value, field.field), origin)
                      for field in self._variable_fields)
-        await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        exceptions: List[PublishError] = [res for res in results if isinstance(res, PublishError)]
+        if exceptions:
+            raise PublishError(errors=list(itertools.chain.from_iterable((e.errors for e in exceptions))))
 
     @property
     def _value(self):
