@@ -29,7 +29,7 @@ It may implement one or more of the following traits (i.e. inherit from these cl
   A subscriber is a *Writable* object, that has been registered via the *Subscribable* object's :meth:`Subscribable.subscribe` method.
 * :class:`Reading`:
   The object needs to *read* a value in certain situations.
-  This may be an optional additional feature of the object (e.g. a KNX GroupAddress object answering to GroupRead telegrams) or mandatory for the object's functionality (e.g. a web UI widget which needs to get the current value, when a new client connects). This is denoted by the `is_reading_optional` attribute of the object (class or instance attribute).
+  This may be an optional additional feature of the object (e.g. a KNX GroupAddress object answering to GroupRead telegrams) or mandatory for the object's functionality (e.g. a web UI widget which needs to get the current value, when a new client connects). This difference is denoted by the `is_reading_optional` attribute of the object (class or instance attribute).
   In any case, the object tries to *read* the value of it's *default provider* in such situations, which is a *Readable* object, registered via the :meth:`Reading.set_provider` method.
 
 .. note::
@@ -223,6 +223,92 @@ Putting it all together, a logic handler may look as follows::
             # Unfortunately, no .write() or .read() possible here.
 
 
+.. _base.synchronous_subscriptions:
+
+Synchronous vs. Asynchrounous Subscriptions
+-------------------------------------------
+
+By default, all subscriptions to *Subscribable* objects are *synchronous*.
+This means, the publishing a value (via :meth:`_publish <Subscribable._publish>`) awaits the completion of *writing* the value to all subscribers.
+Since *writing* a value to *Writable*+*Subscribable* objects (like :class:`Variables <shc.variables.Variable>`) typically awaits the successful value publishing to the object's own subscribers, the chain of subscriptions is synchronous as a whole.
+
+.. admonition:: Example
+
+    Take the following example of a variable, which is connected to two KNX group addresses, one directly, one to an :ref:`Expression <expressions>` for the variable's value plus 5::
+
+        knx = shc.interfaces.knx.KNXConnector()
+
+        var = shc.Variable(int)
+        var.connect(knx.group(shc.interfaces.knx.KNXGAD(0,0,1), "7")
+        var_plus_five = var.EX + 5
+        knx.group(shc.interfaces.knx.KNXGAD(0,0,2), "7").subscribe(var_plus_five)
+
+    In this example, *writing* a new value to the variable via ``await var.write(7, origin)`` will await the sending of KNX telegrams for both group addresses to the KNX bus.
+    Publishing the variable's value to the first KNX group address and publishing it to the expression (and thus to the second KNX group address) is done in parallel, but the *_publish()* method (and thus the *write()* method) will wait for both to complete.
+    If an exception occurs in one or more of the publishing "paths", it is indicated by raising a :class:`PublishError`.
+
+In general, this is not a problem, even when forwarding a value to an external interface takes some time, because SHC can process multiple value updates in parallel if the originating interface publishes each value in a new asyncio Task.
+However, Variables (and other objects) include a :ref:`locking mechanism <base.locking>` to serialize value updates, such that only one value update of that variable can be published at a time.
+I.e., if a variable has multiple subscribers and one of them takes some time to complete *writing* a value, closely following value updates can be delayed.
+
+To avoid this effect, subscriptions can be configured to be *asynchronous*, using the ``sync`` parameter of :meth:`Subscribable.subscribe`::
+
+    some_variable.subscribe(some_unimportant_interface_object, sync=False)
+
+Asynchronous subscriptions will not raise Exceptions up to the publishing object!
+However, Exceptions occurring while publishing a value update are still logged via the Python logging facilities.
+
+Similar to subscriptions, the **triggering of logic handler functions** can be configured to be synchronous or asynchronous.
+Triggering functions from Subscribable objects is *asynchronous* by default, but can be manually configured to be synchronous via the ``sync`` parameter of :meth:`Subscribable.trigger`.
+Unfortunately, this is not possible when using `trigger` as a decorator.
+It also requires special caution when *writing* or synchronously *publishing* to another object from within the logic handler to avoid deadlocks.
+
+
+.. _base.locking:
+
+Shared Locking Mechanism
+------------------------
+
+One problem with with (pseudo-)parallel processing of multiple value updates is consistency of values stored in multiple connected variables and published to external interfaces:
+When multiple value updates arrive at the same time from different interfaces, they may "cross over" each other somewhere in the subscriptions within SHC.
+Thus, the order of values published to external interfaces would differ and multiple connected variables would store different values.
+
+To solve this issue, :class:`Variables <shc.Variable>` use a "shared lock" by inheriting from :class:`HasSharedLock` (other *Connectable* objects can do this as well).
+The shared lock is a mutex, that is locked by each Variable while updating the stored value and publishing the value update to synchronous subscribers.
+Thus, only one value update can processed at a time, effectively serializing the value updates.
+The mutex is shared across each group of synchronously connected Variables/objects, such that only one value update can processed at a time in this whole group.
+
+It's really important that the mutex is shared across all synchronously connected objects.
+Otherwise, two crossing-over value updates of two connected Variables would result in a deadlock, where each Variable waits for the acquiring the other's mutex before releasing their own.
+
+To share the lock of a *Subscribable* object with a subscriber, which is :class:`HasSharedLock`, the :meth:`Subscribable.share_lock_with_subscriber` method is called.
+**This is automatically done** by :meth:`Subscribable.subscribe` for synchronous subscriptions.
+So, typically, you don't need to worry about this locking mechanism, when using SHC to build your smart home application.
+Just make sure to avoid using asynchronous subscriptions when *connecting* multiple variables (e.g. for the purpose of type conversion) – it would disable the lock sharing, so the consistency is not guaranteed.
+
+.. warning::
+
+    :meth:`Subscribable.share_lock_with_subscriber` is **not** automatically called when *triggering* a :ref:`Logic Handler <base.logic-handlers>` synchronously from a Subscribable object.
+    If you use a **synchronously** triggered logic handler to synchronously *write* a value to another :class:`HasSharedLock` object (e.g. a Variable), you **must** make sure to manually share the locks of the Subscribable object and the Writable object::
+
+        some_variable = shc.Variable(int)
+        another_variable = shc.Variable(int)
+
+        @shc.handler()
+        async def my_handler(value, _origin) -> None:
+            await another_variable.write(value + 1)  # synchronously write to another_variable. It HasSharedLock.
+
+        some_variable.trigger(my_handler, sync=True)  # my_handler is triggered synchronously by some_variable
+        some_variable.share_lock_with_subscriber(another_variable)  # <-- this is important!
+
+    Otherwise a (direct or indirect) subscription in the other direction can eventually result in a deadlock, which will be really ugly to debug in practice.
+
+.. warning::
+
+    Additional precautions are necessary, when you design a custom object, that republishes value updates of other Subscribable objects (like :ref:`variables`, :ref:`expressions`, :class:`shc.misc.Hysteresis`, :class:`shc.misc.BreakableSubscription`, etc.).
+    Please read the documentation of :meth:`Subscribable.share_lock_with_subscriber` for further information.
+
+
 ``shc.base`` Module Reference
 -----------------------------
 
@@ -258,3 +344,9 @@ Putting it all together, a logic handler may look as follows::
 .. autoclass:: UninitializedError
 
 .. autoclass:: PublishError
+
+.. autoclass:: HasSharedLock
+
+    .. automethod:: acquire_lock
+    .. automethod:: release_lock
+    .. automethod:: _share_lock_with
