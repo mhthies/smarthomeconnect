@@ -87,13 +87,13 @@ class HasSharedLock:
 
     def _share_lock_with(self, other: "HasSharedLock") -> None:
         """
-        Share the inner lock with another SharedLock instance.
+        Share the inner lock with another HasSharedLock object.
 
-        This method shares the :class:`_SharedLockInner` instance of this `SharedLock`, including the actual mutex, with
-        the `other` instance. The inner mutex of the `other` instance is dropped. If the `other` instance has already
+        This method shares the :class:`_SharedLockInner` instance of this object, including the actual mutex, with
+        `other`. The inner mutex of `other` is dropped. If `other` has already
         been shared with more `SharedLock` instances, the reference to the `_SharedLockInner` object is also copied to
         all of these instances, such that all of them share the same mutex, independent from the order and direction of
-        `share_lock_with` calls.
+        `_share_lock_with` calls.
 
         :param other: The other `SharedLock` instance to share the internal mutex with.
         """
