@@ -142,6 +142,23 @@ class VariableFieldsTest(unittest.TestCase):
         field_subscriber._write.assert_not_called()
 
     @async_test
+    async def test_recursive_error_handling(self):
+        var = variables.Variable(ExampleRecursiveTupleType)
+        field_subscriber = ExampleWritable(int)
+        var.a.a.subscribe(field_subscriber)
+
+        my_error = RuntimeError("Totally unexpected exception")
+        field_subscriber._write.side_effect = my_error
+
+        with self.assertRaises(base.PublishError) as ctx:
+            await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 3.1416), 7), [self])
+        ex = ctx.exception
+        self.assertEqual(1, len(ex.errors))
+        self.assertIs(ex.errors[0][0], my_error)
+        self.assertIs(ex.errors[0][1], var.a.a)
+        self.assertIs(ex.errors[0][2], field_subscriber)
+
+    @async_test
     async def test_recursive_field_writing(self):
         var = variables.Variable(ExampleRecursiveTupleType)
         subscriber = ExampleWritable(ExampleRecursiveTupleType)

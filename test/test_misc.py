@@ -85,6 +85,22 @@ class MiscTests(unittest.TestCase):
         sub._write.assert_called_once_with(56.0, [self, control, unittest.mock.ANY])
 
     @async_test
+    async def test_breakable_subscription_concurrent_update(self) -> None:
+        control = shc.Variable(bool, initial_value=True)
+        var1 = shc.Variable(int)
+        var2 = shc.Variable(int).connect(shc.misc.BreakableSubscription(var1, control))
+        var1.connect(shc.misc.BreakableSubscription(var2, control))
+
+        await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        self.assertEqual(await var1.read(), await var2.read())
+
+        await control.write(False, [])
+        await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        self.assertNotEqual(await var1.read(), await var2.read())
+        await control.write(True, [])
+        self.assertEqual(await var1.read(), await var2.read())
+
+    @async_test
     async def test_hysteresis(self) -> None:
         pub = ExampleSubscribable(float)
         hystersis = shc.misc.Hysteresis(pub, 42.0, 56.0)
@@ -131,3 +147,12 @@ class MiscTests(unittest.TestCase):
         await pub.publish(41.4, [self])
         sub._write.assert_called_once_with(False, [self, pub, hystersis])
         self.assertEqual(False, await hystersis.read())
+
+    @async_test
+    async def test_hysteresis_concurrent_update(self) -> None:
+        var1 = shc.Variable(int)
+        var2 = shc.Variable(bool).connect(shc.misc.Hysteresis(var1, 5, 10))
+        var2.subscribe(var1, convert=lambda x: 12 if x else 4)
+
+        await asyncio.gather(var1.write(15, []), var2.write(False, []))
+        self.assertEqual(await var1.read() > 10, await var2.read())
