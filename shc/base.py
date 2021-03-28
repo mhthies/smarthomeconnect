@@ -42,8 +42,8 @@ class HasSharedLock:
 
     To avoid deadlocks, the shared `_SharedLockInner` object stores a reference to the `HasSharedLock` object currently
     locking the mutex. When acquiring the lock, a list of objects to ignore as lockers can be passed. If the object
-    which currently hodls the lock is in this list, the :meth:`acquire_lock` method returns without actually acquiring the
-    lock. Typically, the `origin` list should be passed.
+    which currently holds the lock is in this list, the :meth:`acquire_lock` method returns without actually acquiring
+    the lock. Typically, the `origin` list should be passed.
     """
 
     class _SharedLockInner:
@@ -158,7 +158,9 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> C:
+                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False,
+                send_sync: bool = True,
+                receive_sync: bool = True) -> C:
         pass
 
 
