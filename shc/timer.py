@@ -19,7 +19,7 @@ import time
 import weakref
 from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic
 
-from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError
+from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError, HasSharedLock
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
@@ -722,6 +722,7 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
         self.type = wrapped.type
         super().__init__()
         wrapped.trigger(self._new_value)
+        self.wrapped = wrapped
         self.min_interval = min_interval
         self._last_publish = 0.0
         self._delay_task: Optional[asyncio.Task] = None
@@ -746,3 +747,6 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
         self._last_publish = time.time()
         self._delay_task = None
         await self._publish(self._latest_value, self._latest_origin)
+
+    def share_lock_with_subscriber(self, subscriber: HasSharedLock) -> None:
+        self.wrapped.share_lock_with_subscriber(subscriber)

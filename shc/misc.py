@@ -12,7 +12,7 @@
 import datetime
 from typing import Generic, Type, List, Any
 
-from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError
+from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError, HasSharedLock
 from shc.expressions import ExpressionWrapper
 from shc.timer import Every
 
@@ -90,11 +90,14 @@ class TwoWayPipe(ConnectableWrapper[T], Generic[T]):
         return self
 
 
-class _PipeEnd(Subscribable[T], Writable[T], Generic[T]):
+class _PipeEnd(Subscribable[T], Writable[T], HasSharedLock, Generic[T]):
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
         self.other_end: "_PipeEnd" = None  # type: ignore
+
+    def share_lock_with_subscriber(self, subscriber: HasSharedLock) -> None:
+        self.other_end._share_lock_with(subscriber)
 
     async def _write(self, value: T, origin: List[Any]):
         await self.other_end._publish(value, origin)
@@ -153,6 +156,11 @@ class BreakableSubscription(Subscribable[T], Generic[T]):
         except UninitializedError:
             pass
 
+    def share_lock_with_subscriber(self, subscriber: HasSharedLock):
+        self.wrapped.share_lock_with_subscriber(subscriber)
+        if isinstance(self.control, Subscribable) and isinstance(self.wrapped, Readable):
+            self.control.share_lock_with_subscriber(subscriber)
+
 
 class Hysteresis(Subscribable[bool], Readable[bool]):
     """
@@ -179,6 +187,7 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
     def __init__(self, wrapped: Subscribable[T], lower: T, upper: T, inverted: bool = False,
                  initial_value: bool = False):
         super().__init__()
+        self.wrapped = wrapped
         wrapped.trigger(self._new_value)
         self._value = initial_value  #: Current output value (uninverted)
         if not isinstance(lower, wrapped.type) or not isinstance(upper, wrapped.type):
@@ -189,6 +198,9 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
         if lower > upper:  # type: ignore  # To defined that T is comparable, we need to use Protocols from Python 3.8
             raise ValueError('Lower bound of hysteresis must be lower than upper bound.')
         self.inverted = inverted
+
+    def share_lock_with_subscriber(self, subscriber: HasSharedLock) -> None:
+        self.wrapped.share_lock_with_subscriber(subscriber)
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
         old_value = self._value

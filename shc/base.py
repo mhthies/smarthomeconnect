@@ -29,38 +29,34 @@ magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_
 C = TypeVar('C', bound="Connectable")
 
 
-class SharedLock:
+class HasSharedLock:
     """
     Mutex mechanism for serializing value updates of *connected* stateful objects.
 
-    Each :class:`Writable` object should contain a `SharedLock` object, which is *shared* with other Writable objects
-    (and other "value update forwarding" objects) it is subscribed to. This is typically ensured by
-    :meth:`Subscribable.subscribe`, which uses :meth:`share_with` to share the locks. Sharing means, that the
-    `SharedLocks` use the same :class:`_SharedLockInner` instance, i.e. they interlock against each other by acquiring
-    the same internal Lock/mutex.
+    Each `Writable` object which requires a mutex for serializing value updates, should inherit from this mixin class,
+    providing an inner Lock, which is *shared* with other `HasSharedLock` objects it is subscribed to. The sharing of
+    of the locks is typically ensured by :meth:`Subscribable.subscribe`, which uses :meth:`share_lock_with` to share the
+    locks. Sharing means, that the `HasSharedLock` objects use the same :class:`_SharedLockInner` instance, i.e. they
+    interlock against each other by acquiring the same internal Lock/mutex.
 
-    To avoid deadlocks, the `SharedLock` stores a reference to the object currently locking the mutex. For this purpose,
-    the `Writable` object owning the `SharedLock` needs to be passed as `parent` object to the init method. When
-    acquiring the lock, a list of objects to ignore as lockers can be passed. If the object which currently hodls the
-    lock is in this list, the :meth:`acquire` method returns without actually acquiring the lock. Typically, the
-    `origin` list should be passed.
-
-    :param parent: The object owning this SharedLock instance. When the lock is aquired via this SharedLock nstance, it
-        is stored as the current locker, such that other SharedLock instances can find it in the `exclusion` list.
+    To avoid deadlocks, the shared `_SharedLockInner` object stores a reference to the `HasSharedLock` object currently
+    locking the mutex. When acquiring the lock, a list of objects to ignore as lockers can be passed. If the object
+    which currently hodls the lock is in this list, the :meth:`acquire_lock` method returns without actually acquiring the
+    lock. Typically, the `origin` list should be passed.
     """
 
     class _SharedLockInner:
         def __init__(self) -> None:
             self.lock = asyncio.Lock()
-            self.shared_with: Set["SharedLock"] = set()
+            self.shared_with: Set["HasSharedLock"] = set()
             self.locked_by: object = None
 
-    def __init__(self, parent: object):
-        self._inner = self._SharedLockInner()
-        self._inner.shared_with.add(self)
-        self.parent = parent
+    def __init__(self):
+        super().__init__()
+        self._shared_lock = self._SharedLockInner()
+        self._shared_lock.shared_with.add(self)
 
-    async def acquire(self, exclusion: Iterable[object] = ()) -> bool:
+    async def acquire_lock(self, exclusion: Iterable[object] = ()) -> bool:
         """
         Acquires the lock, if the lock is not locked by an object contained in `exclusion`.
 
@@ -72,22 +68,23 @@ class SharedLock:
         :return: True, if the lock has acutally been required, False if it has been ignored, esp. if currently locked
             by one of the objects in `exclusion`
         """
-        if self._inner.lock.locked() and self._inner.locked_by in exclusion:
+        if self._shared_lock.lock.locked() and self._shared_lock.locked_by in exclusion:
             return False
-        res = await self._inner.lock.acquire()
-        self._inner.locked_by = self.parent
+        res = await self._shared_lock.lock.acquire()
+        self._shared_lock.locked_by = self
         return res
 
-    def release(self) -> None:
+    def release_lock(self) -> None:
         """
         Release the lock if it is acquired by the current task.
         """
         try:
-            self._inner.lock.release()
+            if self._shared_lock.locked_by is self:
+                self._shared_lock.lock.release()
         except RuntimeError:
             pass
 
-    def share_with(self, other: "SharedLock") -> None:
+    def _share_lock_with(self, other: "HasSharedLock") -> None:
         """
         Share the inner lock with another SharedLock instance.
 
@@ -95,14 +92,14 @@ class SharedLock:
         the `other` instance. The inner mutex of the `other` instance is dropped. If the `other` instance has already
         been shared with more `SharedLock` instances, the reference to the `_SharedLockInner` object is also copied to
         all of these instances, such that all of them share the same mutex, independent from the order and direction of
-        `share_with` calls.
+        `share_lock_with` calls.
 
         :param other: The other `SharedLock` instance to share the internal mutex with.
         """
-        old_set = other._inner.shared_with
-        self._inner.shared_with.update(old_set)
+        old_set = other._shared_lock.shared_with
+        self._shared_lock.shared_with.update(old_set)
         for s in old_set:
-            s._inner = self._inner
+            s._shared_lock = self._shared_lock
 
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
@@ -116,22 +113,26 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> C:
+                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False,
+                send_sync: bool = True,
+                receive_sync: bool = True) -> C:
         if isinstance(other, ConnectableWrapper):
             # If other object is not connectable itself but wraps one or more connectable objects (like, for example, a
             # `web.widgets.ValueButtonGroup`), let it use its special implementation of `connect()`.
             other.connect(self, send=receive, receive=send, read=provide, provide=read,
                           convert=((convert[1], convert[0]) if isinstance(convert, tuple) else convert))
         else:
-            self._connect_with(self, other, send, provide, convert[0] if isinstance(convert, tuple) else convert)
-            self._connect_with(other, self, receive, read, convert[1] if isinstance(convert, tuple) else convert)
+            self._connect_with(self, other, send, provide, convert[0] if isinstance(convert, tuple) else convert,
+                               send_sync)
+            self._connect_with(other, self, receive, read, convert[1] if isinstance(convert, tuple) else convert,
+                               receive_sync)
         return self
 
     @staticmethod
     def _connect_with(source: "Connectable", target: "Connectable", send: Optional[bool], provide: Optional[bool],
-                      convert: Union[bool, Callable]):
+                      convert: Union[bool, Callable], send_sync: bool):
         if isinstance(source, Subscribable) and isinstance(target, Writable) and (send or send is None):
-            source.subscribe(target, convert=convert)
+            source.subscribe(target, convert=convert, sync=send_sync)
         elif send and not isinstance(source, Subscribable):
             raise TypeError("Cannot subscribe {} to {}, since the latter is not Subscribable".format(target, source))
         elif send and not isinstance(target, Writable):
@@ -163,7 +164,6 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self):
         super().__init__()
-        self.shared_lock = SharedLock(self)
 
     async def write(self, value: T, origin: Optional[List[Any]] = None) -> None:
         """
@@ -268,6 +268,31 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         if isinstance(self, Writable):
             self.shared_lock.share_with(subscriber.shared_lock)
 
+    def share_lock_with_subscriber(self, subscriber: HasSharedLock) -> None:
+        """
+        Connect/Share the shared locking mechanism of this Subscribable object (if it has one) with the one of the given
+        subscriber (which is required to have one).
+
+        This is mandatory for all synchronous subscriptions to ensure that each "network" of synchronously connected
+        are locked mutually, such that race conditions and deadlocks are avoided. Thus, this method is automatically
+        called by :meth:`subscribe` for synchronous subscriptions of subscribers, which have a shared lock, i.e. inherit
+        from :class:`HasSharedLock`. When using :meth:`trigger` to synchronously call a locking method of a
+        `HasSharedLock` object, you **must** call `share_lock_with_subscriber()` manually for this object.
+
+        Subscribable objects that synchronously republish value updates from other Subscribable objects need to make
+        sure that all subscribers (also) share their locks with those objects. This can be achieved by either
+
+          * inheriting from :class:`HasSharedLock` and subscribing to those objects (or calling
+            ``share_lock_with_subscriber(self)`` on them) or
+          * overriding `share_lock_with_subscriber()` such that it calls ``share_lock_with_subscriber(subscriber)`` on
+            all of those objects.
+
+        :param subscriber: The subscriber which shall share its lock with this object. Must be inheriting from
+            `HasSharedLock`.
+        """
+        if isinstance(self, HasSharedLock):
+            self._share_lock_with(subscriber)
+
     def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False) -> None:
         """
         Subscribe a writable object to this object to be updated, when this object publishes a new value.
@@ -295,7 +320,8 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
                             .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
         self._subscribers.append((subscriber, converter))
-        self._share_locks(subscriber)
+        if isinstance(subscriber, HasSharedLock):
+            self.share_lock_with_subscriber(subscriber)
 
     def trigger(self, target: LogicHandler) -> LogicHandler:
         """

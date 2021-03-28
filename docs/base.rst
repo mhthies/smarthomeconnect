@@ -244,6 +244,7 @@ Putting it all together, a logic handler may look as follows::
     .. automethod:: subscribe
     .. automethod:: trigger
     .. automethod:: _publish
+    .. automethod:: share_lock_with_subscriber
 
 .. autoclass:: Reading
 

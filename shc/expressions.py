@@ -16,7 +16,7 @@ import operator
 from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple
 
 from . import conversion
-from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler, UninitializedError
+from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler, UninitializedError, HasSharedLock
 from .datatypes import RangeFloat1, RangeUInt8, HSVFloat1, RGBFloat1, RGBUInt8
 
 
@@ -257,6 +257,7 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     def __init__(self, type_: Type[T], operands: Iterable[object]):
         super().__init__()
         self.type = type_
+        self.operands = operands
         for operand in operands:
             if isinstance(operand, Subscribable):
                 operand.trigger(self.on_change)
@@ -273,6 +274,11 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
 
     async def read(self) -> T:
         return await self.evaluate()
+
+    def share_lock_with_subscriber(self, subscriber: HasSharedLock) -> None:
+        for operand in self.operands:
+            if isinstance(operand, Subscribable):
+                operand.share_lock_with_subscriber(subscriber)
 
     @staticmethod
     def _wrap_static_value(val: Union[S, Readable[S]]) -> Readable[S]:
