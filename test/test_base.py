@@ -100,8 +100,8 @@ class TestSubscribe(unittest.TestCase):
         sub = ExampleWritable(int)
         a.subscribe(b, sync=True)
         a.subscribe(sub)
-        b.subscribe(blocking_sub, sub, sync=True)
-        b.subscribe(another_blocking_sub, sub, sync=False)
+        b.subscribe(blocking_sub, sync=True)
+        b.subscribe(another_blocking_sub, sync=False)
         self.assertIs(a._shared_lock.lock, b._shared_lock.lock)
 
         asyncio.create_task(a.write(42, [self]))
