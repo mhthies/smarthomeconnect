@@ -240,11 +240,15 @@ class ExampleReading(base.Reading[T], Generic[T]):
         return await self._from_provider()
 
 
-class SimpleIntRepublisher(base.Writable, base.Subscribable):
+class LockedIntRepublisher(base.Writable[int], base.Subscribable[int], base.HasSharedLock):
     type = int
 
-    async def _write(self, value: T, origin: List[Any]):
-        await self._publish(value, origin)
+    async def _write(self, value: int, origin: List[Any]) -> None:
+        await self.acquire_lock(origin)
+        try:
+            await self._publish(value, origin)
+        finally:
+            self.release_lock()
 
 
 class InterfaceThreadRunner:

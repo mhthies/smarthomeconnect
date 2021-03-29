@@ -7,7 +7,7 @@ from typing import List, Any
 
 from shc.base import PublishError
 from ._helper import async_test, AsyncMock, ExampleReadable, ExampleSubscribable, ExampleWritable, ExampleReading, \
-    SimpleIntRepublisher
+    LockedIntRepublisher
 from shc import base
 
 
@@ -79,8 +79,75 @@ class TestSubscribe(unittest.TestCase):
         converter.assert_called_once_with(TOTALLY_RANDOM_NUMBER)
         b._write.assert_called_once_with(56.5, unittest.mock.ANY)
 
-    # TODO add test for lock sharing
-    # TODO add test for asynchronous subscriptions
+    @async_test
+    async def test_lock_sharing_and_asynchronous_subscribe(self) -> None:
+        class BlockingWritable(base.Writable[int]):
+            type = int
+
+            def __init__(self):
+                super().__init__()
+                self.event = asyncio.Event()
+
+            async def _write(self, _value: int, _origin: List[Any]) -> None:
+                await self.event.wait()
+                self.event.clear()
+
+        # Let's test the lock sharing between synchronously connected HasSharedLock objects
+        a = LockedIntRepublisher()
+        b = LockedIntRepublisher()
+        blocking_sub = BlockingWritable()
+        another_blocking_sub = BlockingWritable()
+        sub = ExampleWritable(int)
+        a.subscribe(b, sync=True)
+        a.subscribe(sub)
+        b.subscribe(blocking_sub, sub, sync=True)
+        b.subscribe(another_blocking_sub, sub, sync=False)
+        self.assertIs(a._shared_lock.lock, b._shared_lock.lock)
+
+        asyncio.create_task(a.write(42, [self]))
+        await asyncio.sleep(0.05)
+        asyncio.create_task(a.write(56, [self]))
+        await asyncio.sleep(0.05)
+        # The second value update should be blocked by the first (incomplete) value update, so only one call to
+        # sub.write by now
+        sub._write.assert_called_once_with(42, unittest.mock.ANY)
+        sub._write.reset_mock()
+        # Releasing the first value update should allow the second value update to pass through
+        # The asynchronously subscribed blocking sub should not be a problem ...
+        blocking_sub.event.set()
+        await asyncio.sleep(0.05)
+        sub._write.assert_called_once_with(56, unittest.mock.ANY)
+        # Clean up pending tasks
+        blocking_sub.event.set()
+        another_blocking_sub.event.set()
+        await asyncio.sleep(0.05)
+        another_blocking_sub.event.set()
+
+        # Now, let's test asynchronous subscriptions
+        a2 = LockedIntRepublisher()
+        b2 = LockedIntRepublisher()
+        sub2 = ExampleWritable(int)
+        blocking_sub2 = BlockingWritable()
+        a2.connect(b2, send_sync=False, receive=False)
+        a2.subscribe(sub2)
+        b2.subscribe(blocking_sub2, sync=True)
+        self.assertIsNot(a2._shared_lock.lock, b2._shared_lock.lock)
+
+        # With a2 and b2 connected asynchronously, the blocking synchronous subscriber at b2 should not be a problem
+        asyncio.create_task(a2.write(42, [self]))
+        await asyncio.sleep(0.05)
+        asyncio.create_task(a2.write(56, [self]))
+        await asyncio.sleep(0.05)
+        self.assertEqual(2, sub2._write.call_count)
+        # Clean up pending tasks
+        blocking_sub2.event.set()
+        await asyncio.sleep(0.05)
+        blocking_sub2.event.set()
+        await asyncio.sleep(0.05)
+
+        # The cases of a not being HasSharedLock or b not being HasSharedLock are already covered by many other tests
+
+    # TODO add test for PublishError propagation (incl. subscribe and trigger)
 
 
 class TestHandler(unittest.TestCase):
@@ -125,7 +192,7 @@ class TestHandler(unittest.TestCase):
 
     @async_test
     async def test_no_recursion(self) -> None:
-        a = SimpleIntRepublisher()
+        a = LockedIntRepublisher()  # locking is irrelevant here since we use async triggering
         self.call_counter = 0
 
         @a.trigger
@@ -141,7 +208,7 @@ class TestHandler(unittest.TestCase):
 
     @async_test
     async def test_allow_recursion(self) -> None:
-        a = SimpleIntRepublisher()
+        a = LockedIntRepublisher()  # locking is irrelevant here since we use async triggering
         self.call_counter = 0
 
         @a.trigger
