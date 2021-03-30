@@ -147,7 +147,42 @@ class TestSubscribe(unittest.TestCase):
 
         # The cases of a not being HasSharedLock or b not being HasSharedLock are already covered by many other tests
 
-    # TODO add test for PublishError propagation (incl. subscribe and trigger)
+    @async_test
+    async def test_publish_error_propagation(self) -> None:
+        async def some_handler(_v: int, _o: List[Any]) -> None:
+            raise RuntimeError("Some error from handler")
+
+        sub = ExampleWritable(int)
+        sub._write.side_effect = RuntimeError("Some error from Writable")
+
+        a = LockedIntRepublisher()
+        a.subscribe(sub)
+        b = LockedIntRepublisher()\
+            .connect(a)
+        b.trigger(some_handler, sync=True)
+
+        with self.assertRaises(PublishError) as ctx:
+            await a.write(42, [self])
+        exception = ctx.exception
+        self.assertEqual(2, len(exception.errors))
+        handler_error_index = 0 if exception.errors[0][2] is some_handler else 1
+        sub_error_index = 1 - handler_error_index
+        self.assertIsInstance(exception.errors[handler_error_index][0], RuntimeError)
+        self.assertIn("from handler", str(exception.errors[handler_error_index][0]))
+        self.assertIs(exception.errors[handler_error_index][1], b)
+        self.assertIs(exception.errors[handler_error_index][2], some_handler)
+        self.assertIsInstance(exception.errors[sub_error_index][0], RuntimeError)
+        self.assertIn("from Writable", str(exception.errors[sub_error_index][0]))
+        self.assertIs(exception.errors[sub_error_index][1], a)
+        self.assertIs(exception.errors[sub_error_index][2], sub)
+
+        # Asynchronous subscribing/triggering should not propagate exception
+        # Logging is already tested in test_error_handling()
+        c = LockedIntRepublisher()
+        c.trigger(some_handler, sync=False)
+        c.subscribe(sub, sync=False)
+        await c.write(56, [self])
+        await asyncio.sleep(0.05)
 
 
 class TestHandler(unittest.TestCase):
