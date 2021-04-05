@@ -191,10 +191,14 @@ class KNXConnector:
         given in all calls for the same group address must match. Otherwise, a `ValueError` is raised.
 
         The *Connectable* object for each group address features an internal local feedback. This means, that every
-        new value *written* to the object is being published to all other local subscribers, **after** being transmitted
+        new value *written* to the object is being published to **all** local subscribers, **after** being transmitted
         to the KNX system. Thus, the KNX group address behaves "bus-like", for the connected objects within SHC: When
-        one connected object sends a new value to the KNX bus, its received by all KNX devices and all other connected
+        one connected object sends a new value to the KNX bus, its received by all KNX devices and all connected
         objects as well, which is important for central functions etc.
+
+        In the published feedback value update, the `origin` parameter is cleared, such that the value update is even
+        returned to the objects it originated from. This behaviour ensures consistency with other interfaces (such as
+        MQTT) and avoids inconsistent states upon concurrent conflicting value updates from SHC and KNX side.
 
         :param addr: The KNX group address to connect to, represented as a :class:`KNXGAD` object
         :param dpt: The KNX datapoint type (DPT) number as string according to the table above
@@ -266,7 +270,7 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         encoded_data = knxdclient.encode_value(value, self.knx_major_dpt)
         await self.connector.send(self.addr, encoded_data)
-        await self._publish(value, origin)
+        await self._publish(value, [], force_async=True, raise_exceptions=False)
 
     def __repr__(self) -> str:
         return "{}(GAD={})".format(self.__class__.__name__, self.addr)

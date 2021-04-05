@@ -1,4 +1,4 @@
-
+import asyncio
 import unittest
 import unittest.mock
 from typing import NamedTuple
@@ -142,6 +142,23 @@ class VariableFieldsTest(unittest.TestCase):
         field_subscriber._write.assert_not_called()
 
     @async_test
+    async def test_recursive_error_handling(self):
+        var = variables.Variable(ExampleRecursiveTupleType)
+        field_subscriber = ExampleWritable(int)
+        var.a.a.subscribe(field_subscriber)
+
+        my_error = RuntimeError("Totally unexpected exception")
+        field_subscriber._write.side_effect = my_error
+
+        with self.assertRaises(base.PublishError) as ctx:
+            await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 3.1416), 7), [self])
+        ex = ctx.exception
+        self.assertEqual(1, len(ex.errors))
+        self.assertIs(ex.errors[0][0], my_error)
+        self.assertIs(ex.errors[0][1], var.a.a)
+        self.assertIs(ex.errors[0][2], field_subscriber)
+
+    @async_test
     async def test_recursive_field_writing(self):
         var = variables.Variable(ExampleRecursiveTupleType)
         subscriber = ExampleWritable(ExampleRecursiveTupleType)
@@ -188,3 +205,30 @@ class VariableFieldsTest(unittest.TestCase):
         self.assertEqual(42, await wrapper.read())
         await var.a.write(21, [self])
         subscriber._write.assert_called_with(21, [self, var.a, var.a])
+
+
+class ConnectedVariablesTest(unittest.TestCase):
+    @async_test
+    async def test_simple_concurrent_update(self) -> None:
+        var1 = variables.Variable(int)
+        var2 = variables.Variable(int).connect(var1)
+
+        await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        self.assertEqual(await var1.read(), await var2.read())
+
+    @async_test
+    async def test_concurrent_field_update_publishing(self) -> None:
+        var1 = variables.Variable(ExampleTupleType)
+        var2 = variables.Variable(ExampleTupleType).connect(var1)
+        var3 = variables.Variable(int).connect(var2.a)  # type: ignore
+
+        writable1 = ExampleWritable(int).connect(var1.a)  # type: ignore # TODO add different delays
+        writable3 = ExampleWritable(int).connect(var3)
+
+        await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
+        self.assertEqual(await var1.a.read(), await var3.read())  # type: ignore
+
+        self.assertEqual(2, writable1._write.call_count)
+        self.assertEqual(2, writable3._write.call_count)
+        # 1st arg of 2nd call shall be equal
+        self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])

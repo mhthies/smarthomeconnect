@@ -1,11 +1,13 @@
+import asyncio
 import logging
 import threading
 import unittest
 import unittest.mock
 from typing import List, Any
 
+from shc.base import PublishError
 from ._helper import async_test, AsyncMock, ExampleReadable, ExampleSubscribable, ExampleWritable, ExampleReading, \
-    SimpleIntRepublisher
+    LockedIntRepublisher
 from shc import base
 
 
@@ -38,8 +40,15 @@ class TestSubscribe(unittest.TestCase):
         b._write.side_effect = RuntimeError("Really unexpected error in _write")
         a.subscribe(b)
         with self.assertLogs(level=logging.ERROR) as ctx:
-            await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+            with self.assertRaises(PublishError) as ctx2:
+                await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         self.assertIn("unexpected error in _write", "\n".join(ctx.output))
+        exception = ctx2.exception
+        self.assertEqual(1, len(exception.errors))
+        self.assertIsInstance(exception.errors[0][0], RuntimeError)
+        self.assertIn("unexpected error in _write", str(exception.errors[0][0]))
+        self.assertIs(a, exception.errors[0][1])
+        self.assertIs(b, exception.errors[0][2])
 
     @async_test
     async def test_type_conversion(self) -> None:
@@ -70,6 +79,111 @@ class TestSubscribe(unittest.TestCase):
         converter.assert_called_once_with(TOTALLY_RANDOM_NUMBER)
         b._write.assert_called_once_with(56.5, unittest.mock.ANY)
 
+    @async_test
+    async def test_lock_sharing_and_asynchronous_subscribe(self) -> None:
+        class BlockingWritable(base.Writable[int]):
+            type = int
+
+            def __init__(self):
+                super().__init__()
+                self.event = asyncio.Event()
+
+            async def _write(self, _value: int, _origin: List[Any]) -> None:
+                await self.event.wait()
+                self.event.clear()
+
+        # Let's test the lock sharing between synchronously connected HasSharedLock objects
+        a = LockedIntRepublisher()
+        b = LockedIntRepublisher()
+        blocking_sub = BlockingWritable()
+        another_blocking_sub = BlockingWritable()
+        sub = ExampleWritable(int)
+        a.subscribe(b, sync=True)
+        a.subscribe(sub)
+        b.subscribe(blocking_sub, sync=True)
+        b.subscribe(another_blocking_sub, sync=False)
+        self.assertIs(a._shared_lock.lock, b._shared_lock.lock)
+
+        asyncio.create_task(a.write(42, [self]))
+        await asyncio.sleep(0.05)
+        asyncio.create_task(a.write(56, [self]))
+        await asyncio.sleep(0.05)
+        # The second value update should be blocked by the first (incomplete) value update, so only one call to
+        # sub.write by now
+        sub._write.assert_called_once_with(42, unittest.mock.ANY)
+        sub._write.reset_mock()
+        # Releasing the first value update should allow the second value update to pass through
+        # The asynchronously subscribed blocking sub should not be a problem ...
+        blocking_sub.event.set()
+        await asyncio.sleep(0.05)
+        sub._write.assert_called_once_with(56, unittest.mock.ANY)
+        # Clean up pending tasks
+        blocking_sub.event.set()
+        another_blocking_sub.event.set()
+        await asyncio.sleep(0.05)
+        another_blocking_sub.event.set()
+
+        # Now, let's test asynchronous subscriptions
+        a2 = LockedIntRepublisher()
+        b2 = LockedIntRepublisher()
+        sub2 = ExampleWritable(int)
+        blocking_sub2 = BlockingWritable()
+        a2.connect(b2, send_sync=False, receive=False)
+        a2.subscribe(sub2)
+        b2.subscribe(blocking_sub2, sync=True)
+        self.assertIsNot(a2._shared_lock.lock, b2._shared_lock.lock)
+
+        # With a2 and b2 connected asynchronously, the blocking synchronous subscriber at b2 should not be a problem
+        asyncio.create_task(a2.write(42, [self]))
+        await asyncio.sleep(0.05)
+        asyncio.create_task(a2.write(56, [self]))
+        await asyncio.sleep(0.05)
+        self.assertEqual(2, sub2._write.call_count)
+        # Clean up pending tasks
+        blocking_sub2.event.set()
+        await asyncio.sleep(0.05)
+        blocking_sub2.event.set()
+        await asyncio.sleep(0.05)
+
+        # The cases of a not being HasSharedLock or b not being HasSharedLock are already covered by many other tests
+
+    @async_test
+    async def test_publish_error_propagation(self) -> None:
+        async def some_handler(_v: int, _o: List[Any]) -> None:
+            raise RuntimeError("Some error from handler")
+
+        sub = ExampleWritable(int)
+        sub._write.side_effect = RuntimeError("Some error from Writable")
+
+        a = LockedIntRepublisher()
+        a.subscribe(sub)
+        b = LockedIntRepublisher()\
+            .connect(a)
+        b.trigger(some_handler, sync=True)
+
+        with self.assertRaises(PublishError) as ctx:
+            await a.write(42, [self])
+        exception = ctx.exception
+        self.assertEqual(2, len(exception.errors))
+        handler_error_index = 0 if exception.errors[0][2] is some_handler else 1
+        sub_error_index = 1 - handler_error_index
+        self.assertIsInstance(exception.errors[handler_error_index][0], RuntimeError)
+        self.assertIn("from handler", str(exception.errors[handler_error_index][0]))
+        self.assertIs(exception.errors[handler_error_index][1], b)
+        self.assertIs(exception.errors[handler_error_index][2], some_handler)
+        self.assertIsInstance(exception.errors[sub_error_index][0], RuntimeError)
+        self.assertIn("from Writable", str(exception.errors[sub_error_index][0]))
+        self.assertIs(exception.errors[sub_error_index][1], a)
+        self.assertIs(exception.errors[sub_error_index][2], sub)
+
+        # Asynchronous subscribing/triggering should not propagate exception
+        # Logging is already tested in test_error_handling()
+        c = LockedIntRepublisher()
+        c.trigger(some_handler, sync=False)
+        c.subscribe(sub, sync=False)
+        await c.write(56, [self])
+        await asyncio.sleep(0.05)
+
 
 class TestHandler(unittest.TestCase):
     @async_test
@@ -80,6 +194,7 @@ class TestHandler(unittest.TestCase):
         wrapped_handler = base.handler()(handler)  # type: ignore
         a.trigger(wrapped_handler)
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.05)
         handler.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
 
     @async_test
@@ -93,6 +208,7 @@ class TestHandler(unittest.TestCase):
             await b.write(value)
 
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.05)
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
 
     @async_test
@@ -106,11 +222,12 @@ class TestHandler(unittest.TestCase):
             await b.write(value)
 
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.05)
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [test_handler])
 
     @async_test
     async def test_no_recursion(self) -> None:
-        a = SimpleIntRepublisher()
+        a = LockedIntRepublisher()  # locking is irrelevant here since we use async triggering
         self.call_counter = 0
 
         @a.trigger
@@ -126,7 +243,7 @@ class TestHandler(unittest.TestCase):
 
     @async_test
     async def test_allow_recursion(self) -> None:
-        a = SimpleIntRepublisher()
+        a = LockedIntRepublisher()  # locking is irrelevant here since we use async triggering
         self.call_counter = 0
 
         @a.trigger
@@ -138,6 +255,7 @@ class TestHandler(unittest.TestCase):
             await a.write(value + 1)
 
         await another_test_handler(TOTALLY_RANDOM_NUMBER, [])
+        await asyncio.sleep(0.05)
         self.assertEqual(2, self.call_counter)
 
     @async_test
@@ -152,7 +270,10 @@ class TestHandler(unittest.TestCase):
 
         with self.assertLogs(level=logging.ERROR) as ctx:
             await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+            await asyncio.sleep(0.05)
         self.assertIn("unexpected error in _write", "\n".join(ctx.output))
+
+    # TODO add test for synchronous triggers
 
 
 class TestBlockingHandler(unittest.TestCase):
@@ -169,6 +290,7 @@ class TestBlockingHandler(unittest.TestCase):
         wrapped_handler = base.blocking_handler()(handler)  # type: ignore
         a.trigger(wrapped_handler)
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.05)
         handler.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
         self.assertIsInstance(thread_id_container[0], int)
         self.assertNotEqual(thread_id_container[0], threading.get_ident())
@@ -188,6 +310,7 @@ class TestBlockingHandler(unittest.TestCase):
             mock(value, _origin)
 
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.05)
         mock.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
 
 
@@ -268,11 +391,11 @@ class TestConnecting(unittest.TestCase):
 
         with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe:
             a.connect(b, receive=False)  # `read` should not have an effect here
-            mock_subscribe.assert_called_once_with(b, convert=False)
+            mock_subscribe.assert_called_once_with(b, convert=False, sync=unittest.mock.ANY)
 
             mock_subscribe.reset_mock()
             b.connect(a, send=False)  # `provide` should not have an effect here
-            mock_subscribe.assert_called_once_with(b, convert=False)
+            mock_subscribe.assert_called_once_with(b, convert=False, sync=unittest.mock.ANY)
 
             # Explicit override
             mock_subscribe.reset_mock()
@@ -344,13 +467,13 @@ class TestConnecting(unittest.TestCase):
         with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe,\
                 unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
             a.connect(b, convert=True)
-            mock_subscribe.assert_called_once_with(b, convert=True)
+            mock_subscribe.assert_called_once_with(b, convert=True, sync=unittest.mock.ANY)
             mock_set_provider.assert_called_once_with(a, convert=True)
 
             mock_subscribe.reset_mock()
             mock_set_provider.reset_mock()
             b.connect(a, convert=True)
-            mock_subscribe.assert_called_once_with(b, convert=True)
+            mock_subscribe.assert_called_once_with(b, convert=True, sync=unittest.mock.ANY)
             mock_set_provider.assert_called_once_with(a, convert=True)
 
     def test_explict_conversion(self) -> None:
@@ -366,13 +489,13 @@ class TestConnecting(unittest.TestCase):
         with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe,\
                 unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
             a.connect(b, convert=(a2b, b2a))
-            mock_subscribe.assert_called_once_with(b, convert=a2b)
+            mock_subscribe.assert_called_once_with(b, convert=a2b, sync=unittest.mock.ANY)
             mock_set_provider.assert_called_once_with(a, convert=a2b)
 
             mock_subscribe.reset_mock()
             mock_set_provider.reset_mock()
             b.connect(a, convert=(b2a, a2b))
-            mock_subscribe.assert_called_once_with(b, convert=a2b)
+            mock_subscribe.assert_called_once_with(b, convert=a2b, sync=unittest.mock.ANY)
             mock_set_provider.assert_called_once_with(a, convert=a2b)
 
     def test_connectable_wrapper(self) -> None:

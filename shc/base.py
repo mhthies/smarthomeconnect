@@ -13,8 +13,9 @@ import abc
 import asyncio
 import contextvars
 import functools
+import itertools
 import logging
-from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union
+from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Set, Iterable
 
 from . import conversion
 
@@ -29,6 +30,79 @@ magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_
 C = TypeVar('C', bound="Connectable")
 
 
+class HasSharedLock:
+    """
+    Mutex mechanism for serializing value updates of *connected* stateful objects.
+
+    Each `Writable` object which requires a mutex for serializing value updates, should inherit from this mixin class,
+    providing an inner Lock, which is *shared* with other `HasSharedLock` objects it is subscribed to. The sharing of
+    of the locks is typically ensured by :meth:`Subscribable.subscribe`, which uses :meth:`share_lock_with` to share the
+    locks. Sharing means, that the `HasSharedLock` objects use the same :class:`_SharedLockInner` instance, i.e. they
+    interlock against each other by acquiring the same internal Lock/mutex.
+
+    To avoid deadlocks, the shared `_SharedLockInner` object stores a reference to the `HasSharedLock` object currently
+    locking the mutex. When acquiring the lock, a list of objects to ignore as lockers can be passed. If the object
+    which currently holds the lock is in this list, the :meth:`acquire_lock` method returns without actually acquiring
+    the lock. Typically, the `origin` list should be passed.
+    """
+
+    class _SharedLockInner:
+        def __init__(self) -> None:
+            self.lock = asyncio.Lock()
+            self.shared_with: Set["HasSharedLock"] = set()
+            self.locked_by: object = None
+
+    def __init__(self):
+        super().__init__()
+        self._shared_lock = self._SharedLockInner()
+        self._shared_lock.shared_with.add(self)
+
+    async def acquire_lock(self, exclusion: Iterable[object] = ()) -> bool:
+        """
+        Acquires the lock, if the lock is not locked by an object contained in `exclusion`.
+
+        If the lock is currently locked by an object, other than those in the `exclusion` list, this method awaits the
+        release of the lock by the other Task. If the Lock is locked/acquired by an object contained in `exclusion`, the
+        method returns immediately.
+
+        :param exclusion: A list of objects
+        :return: True, if the lock has acutally been required, False if it has been ignored, esp. if currently locked
+            by one of the objects in `exclusion`
+        """
+        if self._shared_lock.lock.locked() and self._shared_lock.locked_by in exclusion:
+            return False
+        res = await self._shared_lock.lock.acquire()
+        self._shared_lock.locked_by = self
+        return res
+
+    def release_lock(self) -> None:
+        """
+        Release the lock if it is acquired by the current task.
+        """
+        try:
+            if self._shared_lock.locked_by is self:
+                self._shared_lock.lock.release()
+        except RuntimeError:
+            pass
+
+    def _share_lock_with(self, other: "HasSharedLock") -> None:
+        """
+        Share the inner lock with another HasSharedLock object.
+
+        This method shares the :class:`_SharedLockInner` instance of this object, including the actual mutex, with
+        `other`. The inner mutex of `other` is dropped. If `other` has already
+        been shared with more `SharedLock` instances, the reference to the `_SharedLockInner` object is also copied to
+        all of these instances, such that all of them share the same mutex, independent from the order and direction of
+        `_share_lock_with` calls.
+
+        :param other: The other `SharedLock` instance to share the internal mutex with.
+        """
+        old_set = other._shared_lock.shared_with
+        self._shared_lock.shared_with.update(old_set)
+        for s in old_set:
+            s._shared_lock = self._shared_lock
+
+
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
     """
     :cvar type: The type of the values, this object is supposed to handle
@@ -40,22 +114,26 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> C:
+                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False,
+                send_sync: bool = True,
+                receive_sync: bool = True) -> C:
         if isinstance(other, ConnectableWrapper):
             # If other object is not connectable itself but wraps one or more connectable objects (like, for example, a
             # `web.widgets.ValueButtonGroup`), let it use its special implementation of `connect()`.
             other.connect(self, send=receive, receive=send, read=provide, provide=read,
                           convert=((convert[1], convert[0]) if isinstance(convert, tuple) else convert))
         else:
-            self._connect_with(self, other, send, provide, convert[0] if isinstance(convert, tuple) else convert)
-            self._connect_with(other, self, receive, read, convert[1] if isinstance(convert, tuple) else convert)
+            self._connect_with(self, other, send, provide, convert[0] if isinstance(convert, tuple) else convert,
+                               send_sync)
+            self._connect_with(other, self, receive, read, convert[1] if isinstance(convert, tuple) else convert,
+                               receive_sync)
         return self
 
     @staticmethod
     def _connect_with(source: "Connectable", target: "Connectable", send: Optional[bool], provide: Optional[bool],
-                      convert: Union[bool, Callable]):
+                      convert: Union[bool, Callable], send_sync: bool):
         if isinstance(source, Subscribable) and isinstance(target, Writable) and (send or send is None):
-            source.subscribe(target, convert=convert)
+            source.subscribe(target, convert=convert, sync=send_sync)
         elif send and not isinstance(source, Subscribable):
             raise TypeError("Cannot subscribe {} to {}, since the latter is not Subscribable".format(target, source))
         elif send and not isinstance(target, Writable):
@@ -80,11 +158,16 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> C:
+                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False,
+                send_sync: bool = True,
+                receive_sync: bool = True) -> C:
         pass
 
 
 class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
+    def __init__(self):
+        super().__init__()
+
     async def write(self, value: T, origin: Optional[List[Any]] = None) -> None:
         """
         Asynchronous coroutine to update the object with a new value
@@ -95,10 +178,12 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
         This method typically awaits the complete transmission of the new value to all targets. Depending in the
         internal functionality of the `Writable` this might include awaiting the `write` coroutine of multiple other
+        (synchronously subscribed)
         `Writable` objects, which, in turn, might even await a successful network transmission of the value, and so on.
 
         This way, you can be sure that the value has been delivered to the target system (as far as SHC can track it)
-        when the `write` coroutine returns. On the other hand, to keep your control flow independent from (probably
+        when the `write` coroutine returns, as long as all relevant subscriptions are synchronous (see
+        :ref:`base.synchronous_subscriptions`). On the other hand, to keep your control flow independent from (probably
         lagging) transmission of values, you should call `write` in a new :class:`asyncio.Task`. For `writing` a value
         to multiple objects in parallel, you might consider :func:`asyncio.gather`.
 
@@ -144,47 +229,142 @@ class UninitializedError(RuntimeError):
     pass
 
 
+class PublishError(RuntimeError):
+    """
+    Exception which is raised by :meth:`Subscribable._publish` when one or more Exceptions occurred while publishing the
+    value update to synchronous subscribers and logic handlers.
+
+    The original exceptions are collected in the ``errors`` attribute. This includes Exceptions from subsequent
+    recursive synchronous publishing calls (e.g. when *writing* to a variable, which in turn publishes to an external
+    interface, which raises an Exception). To determine the original source of the Exception(s), the source and target
+    object where they occured is stored in the ``errors`` attribute along with the Exception.
+
+    :ivar errors: A list of all Exceptions that occurred during the publishing. Each entry is a tuple
+        (exception, source, target), where `source` is the *Subscribable* object which published to the `target`
+        (*Writable* object or logic Handler function), when the Exception occured.
+    """
+    def __init__(self, message: str = '',
+                 errors: List[Tuple[Exception, "Subscribable", Union["Writable", "LogicHandler"]]] = None):
+        super().__init__(message)
+        self.errors = errors or []
+
+    def __str__(self) -> str:
+        return super().__str__() + ', '.join(f"({source} -> {target}: {str(e)})"
+                                             for e, source, target in self.errors)
+
+
 class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._subscribers: List[Tuple[Writable[S], Optional[Callable[[T], S]]]] = []
-        self._triggers: List[LogicHandler] = []
+        self._subscribers: List[Tuple[Writable[S], Optional[Callable[[T], S]], bool]] = []
+        self._triggers: List[Tuple[LogicHandler, bool]] = []
 
     async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T], S]], value: T,
-                              origin: List[Any]):
+                              origin: List[Any], raise_exc: bool):
         try:
-            await subscriber.write(converter(value) if converter else value, origin + [self])  # type: ignore
+            await subscriber.write(converter(value) if converter else value, origin)  # type: ignore
+        except PublishError as e:
+            if raise_exc:
+                raise
+            else:
+                # We expect the error to be logged already (see below)
+                logger.info("Publishing error is being dropped while publishing from %s to %s", subscriber, self,
+                            exc_info=e)
         except Exception as e:
             logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
+            if raise_exc:
+                raise PublishError(errors=[(e, self, subscriber)]) from e
 
-    async def __publish_trigger(self, target: LogicHandler, value: T, origin: List[Any]):
+    async def __publish_trigger(self, target: LogicHandler, value: T, origin: List[Any], raise_exc: bool):
         try:
-            await target(value, origin + [self])
+            await target(value, origin)
+        except PublishError as e:
+            if raise_exc:
+                raise
+            else:
+                # We expect the error to be logged already (see below)
+                logger.info("Publishing error is being dropped while triggering from %s to %s", target, self,
+                            exc_info=e)
         except Exception as e:
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
+            if raise_exc:
+                raise PublishError(errors=[(e, self, target)]) from e
 
-    async def _publish(self, value: T, origin: List[Any]):
+    async def _publish(self, value: T, origin: List[Any], force_async: bool = False, raise_exceptions: bool = True):
         """
         Coroutine to publish a new value to all subscribers and trigger all registered logic handlers.
 
         All logic handlers and :meth:`Writable.write` methods are called in parallel asyncio tasks. However, this
-        method awaits the return of *all* them. Thus, when implementing an external interface, which should be capable
+        method awaits the return of all *synchronous* subscribers/triggers (see :ref:`base.synchronous_subscriptions`).
+        Thus, when implementing an external interface, which should be capable
         of processing multiple incoming values in parallel, you should `_publish()` each incoming new value in a
-        seperate asyncio Task. See also :meth:`Writable.write`.
+        separate asyncio Task. See also :meth:`Writable.write`.
 
         :param value: The new value to be published by this object. Must be an instance of this object's `type`.
         :param origin: The origin list of the new value, **excluding** this object. See :ref:`base.event-origin` for
             more details.`self` is appended automatically before calling the registered subscribers and logic handlers.
+        :param force_async: If True, the value is published asynchronously to all subscribers and logic handlers, such
+            that the method returns immediately. Exceptions are not caught and raised. This option SHOULD not be used
+            and is only meant for special corner cases (e.g. simulated value feedback from interfaces).
+        :param raise_exceptions: If True (default), exceptions from synchronous subscribers and logic handlers are
+            raised as a `PublishError`. Otherwise exceptions are only logged.
+        :raises PublishError: If an Exception occurred while publishing the value to any of the synchronous subscribers
+            or triggering any of the synchronously triggered logic handlers and `raise_exceptions` is True.
         """
-        await asyncio.gather(
-            *(self.__publish_write(subscriber, converter, value, origin)
-              for subscriber, converter in self._subscribers
-              if not any(subscriber is s for s in origin)),
-            *(self.__publish_trigger(target, value, origin)
-              for target in self._triggers)
-        )
+        if not self._subscribers and not self._triggers:
+            return
+        coro_sync = []
+        coro_async = []
+        new_origin = origin + [self]
+        for subscriber, converter, sync in self._subscribers:
+            if not any(subscriber is s for s in origin):
+                if sync and not force_async:
+                    coro_sync.append(self.__publish_write(subscriber, converter, value, new_origin, raise_exceptions))
+                else:
+                    coro_async.append(self.__publish_write(subscriber, converter, value, new_origin, False))
+        for target, sync in self._triggers:
+            if sync and not force_async:
+                coro_sync.append(self.__publish_trigger(target, value, new_origin, raise_exceptions))
+            else:
+                coro_async.append(self.__publish_trigger(target, value, new_origin, False))
 
-    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False) -> None:
+        for coro in coro_async:
+            asyncio.create_task(coro)
+
+        if len(coro_sync) == 1:
+            await coro_sync[0]
+        else:
+            results = await asyncio.gather(*coro_sync, return_exceptions=True)
+            exceptions: List[PublishError] = [res for res in results if isinstance(res, PublishError)]
+            if exceptions and raise_exceptions:
+                raise PublishError(errors=list(itertools.chain.from_iterable((e.errors for e in exceptions))))
+
+    def share_lock_with_subscriber(self, subscriber: HasSharedLock) -> None:
+        """
+        Connect/Share the shared locking mechanism of this Subscribable object (if it has one) with the one of the given
+        subscriber (which is required to have one).
+
+        This is mandatory for all synchronous subscriptions to ensure that each "network" of synchronously connected
+        are locked mutually, such that race conditions and deadlocks are avoided. Thus, this method is automatically
+        called by :meth:`subscribe` for synchronous subscriptions of subscribers, which have a shared lock, i.e. inherit
+        from :class:`HasSharedLock`. When using :meth:`trigger` to synchronously call a locking method of a
+        `HasSharedLock` object, you **must** call `share_lock_with_subscriber()` manually for this object.
+
+        Subscribable objects that synchronously republish value updates from other Subscribable objects need to make
+        sure that all subscribers (also) share their locks with those objects. This can be achieved by either
+
+          * inheriting from :class:`HasSharedLock` and subscribing to those objects (or calling
+            ``share_lock_with_subscriber(self)`` on them) or
+          * overriding `share_lock_with_subscriber()` such that it calls ``share_lock_with_subscriber(subscriber)`` on
+            all of those objects.
+
+        :param subscriber: The subscriber which shall share its lock with this object. Must be inheriting from
+            `HasSharedLock`.
+        """
+        if isinstance(self, HasSharedLock):
+            self._share_lock_with(subscriber)
+
+    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False, sync=True) -> None:
         """
         Subscribe a writable object to this object to be updated, when this object publishes a new value.
 
@@ -196,6 +376,9 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         :param subscriber: The object to subscribe for updates
         :param convert: A callable to convert this object's new value to the data ``type`` of the subscriber or ``True``
             to choose the appropriate conversion function automatically.
+        :param sync: If True (default), when publishing a value update, this *Subscribable* object will wait for the
+            the subscriber's `write()` method to complete. See :ref:`base.synchronous_subscriptions` for more
+            information.
         :raises TypeError: If the `type` of the subscriber does not match this object's type and ``convert`` is False
             *or* if ``convert`` is True but no type conversion is known to convert this object's type into the
             subscriber's type.
@@ -210,9 +393,11 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         else:
             raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
                             .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
-        self._subscribers.append((subscriber, converter))
+        self._subscribers.append((subscriber, converter, sync))
+        if sync and isinstance(subscriber, HasSharedLock):
+            self.share_lock_with_subscriber(subscriber)
 
-    def trigger(self, target: LogicHandler) -> LogicHandler:
+    def trigger(self, target: LogicHandler, sync=False) -> LogicHandler:
         """
         Register a logic handler function to be triggered when this object is updated.
 
@@ -248,9 +433,12 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
         :param target: The handler function/coroutine to be triggered on updates. Must comply with the requirements
             mentioned above.
+        :param sync: If True, when publishing a value update, this *Subscribable* object will wait for the
+            the ``target`` coroutine to return. See :ref:`base.synchronous_subscriptions` for more
+            information. Defaults to False.
         :return: The ``target`` function (unchanged)
         """
-        self._triggers.append(target)
+        self._triggers.append((target, sync))
         return target
 
 

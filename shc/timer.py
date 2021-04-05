@@ -19,7 +19,7 @@ import time
 import weakref
 from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic
 
-from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError
+from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError, HasSharedLock
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
@@ -676,10 +676,10 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
         self.delay_task: Optional[asyncio.Task] = None
 
         for on_timer in on:
-            on_timer.trigger(self._on)
+            on_timer.trigger(self._on, sync=True)
         if off:
             for off_timer in off:
-                off_timer.trigger(self._off)
+                off_timer.trigger(self._off, sync=True)
 
     async def _on(self, _v, origin) -> None:
         if not self.value:
@@ -717,12 +717,18 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
 
     :param wrapped: The Subscribable object to be wrapped
     :param min_interval: The minimal allowed interval between published values in seconds
+    :param sync: If True, the internal handler is triggered synchronously by the wrapped object, such that each
+        publishing waits for the value to be republished by the RateLimitedSubscription. By default, value updates
+        from the wrapped object are handled asynchronously, such that all subscriptions via the
+        `RateLimitedSubscription` are practically asynchronous.
     """
-    def __init__(self, wrapped: Subscribable[T], min_interval: float):
+    def __init__(self, wrapped: Subscribable[T], min_interval: float, sync=False):
         self.type = wrapped.type
         super().__init__()
-        wrapped.trigger(self._new_value)
+        self.sync = sync
+        self.wrapped = wrapped
         self.min_interval = min_interval
+        wrapped.trigger(self._new_value, sync=sync)
         self._last_publish = 0.0
         self._delay_task: Optional[asyncio.Task] = None
         self._latest_value: T
@@ -740,9 +746,15 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
             if not self._delay_task:
                 self._delay_task = asyncio.create_task(self._delayed_publish(next_allowed_publish - now))
                 timer_supervisor.add_temporary_task(self._delay_task)
+                await self._delay_task
+            # FIXME elif sync: raise SupersededError on other waiting task
 
     async def _delayed_publish(self, delay: float):
         await asyncio.sleep(delay)
         self._last_publish = time.time()
         self._delay_task = None
         await self._publish(self._latest_value, self._latest_origin)
+
+    def share_lock_with_subscriber(self, subscriber: HasSharedLock) -> None:
+        if self.sync:
+            self.wrapped.share_lock_with_subscriber(subscriber)

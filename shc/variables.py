@@ -10,10 +10,11 @@
 # specific language governing permissions and limitations under the License.
 
 import asyncio
+import itertools
 import logging
 from typing import Generic, Type, Optional, List, Any, Union
 
-from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
+from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading, HasSharedLock, PublishError
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ async def read_initialize_variables() -> None:
     await asyncio.gather(*(variable._init_from_provider() for variable in _ALL_VARIABLES))
 
 
-class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]):
+class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], HasSharedLock, Generic[T]):
     """
     A Variable object for caching and distributing values of a certain type.
 
@@ -54,17 +55,24 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         old_value = self._value
-        self._value = value
         if old_value != value:  # if a single field is different, the full value will also be different
-            tasks = []
-            logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
-            tasks.append(self._publish(value, origin))
-            tasks.extend(field._recursive_publish(getattr(value, field.field),
-                                                  None if old_value is None else getattr(old_value, field.field),
-                                                  origin)
-                         for field in self._variable_fields)
-            if tasks:
-                await asyncio.gather(*tasks)
+            await self.acquire_lock(origin)
+            try:
+                self._value = value
+                tasks = []
+                logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
+                tasks.append(self._publish(value, origin))
+                tasks.extend(field._recursive_publish(getattr(value, field.field),
+                                                      None if old_value is None else getattr(old_value, field.field),
+                                                      origin)
+                             for field in self._variable_fields)
+                if tasks:
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    exceptions: List[PublishError] = [res for res in results if isinstance(res, PublishError)]
+                    if exceptions:
+                        raise PublishError(errors=list(itertools.chain.from_iterable((e.errors for e in exceptions))))
+            finally:
+                self.release_lock()
 
     async def read(self) -> T:
         if self._value is None:
@@ -88,10 +96,11 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
             return super().__repr__()
 
 
-class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
+class VariableField(Writable[T], Readable[T], Subscribable[T], HasSharedLock, Generic[T]):
     def __init__(self, parent: Union[Variable, "VariableField"], field: str, type_: Type[T]):
         self.type = type_
         super().__init__()
+        self._share_lock_with(parent)
         self.parent = parent
         self.variable: Variable = parent.variable if hasattr(parent, 'variable') else parent  # type: ignore
         self.field: str = field
@@ -111,7 +120,10 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         tasks.extend(field._recursive_publish(getattr(new_value, field.field),
                                               None if old_value is None else getattr(old_value, field.field), origin)
                      for field in self._variable_fields)
-        await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        exceptions: List[PublishError] = [res for res in results if isinstance(res, PublishError)]
+        if exceptions:
+            raise PublishError(errors=list(itertools.chain.from_iterable((e.errors for e in exceptions))))
 
     @property
     def _value(self):
