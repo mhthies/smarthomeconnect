@@ -290,7 +290,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             if raise_exc:
                 raise PublishError(errors=[(e, self, target)]) from e
 
-    async def _publish(self, value: T, origin: List[Any]):
+    async def _publish(self, value: T, origin: List[Any], force_async: bool = False, raise_exceptions: bool = True):
         """
         Coroutine to publish a new value to all subscribers and trigger all registered logic handlers.
 
@@ -303,8 +303,13 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         :param value: The new value to be published by this object. Must be an instance of this object's `type`.
         :param origin: The origin list of the new value, **excluding** this object. See :ref:`base.event-origin` for
             more details.`self` is appended automatically before calling the registered subscribers and logic handlers.
+        :param force_async: If True, the value is published asynchronously to all subscribers and logic handlers, such
+            that the method returns immediately. Exceptions are not caught and raised. This option SHOULD not be used
+            and is only meant for special corner cases (e.g. simulated value feedback from interfaces).
+        :param raise_exceptions: If True (default), exceptions from synchronous subscribers and logic handlers are
+            raised as a `PublishError`. Otherwise exceptions are only logged.
         :raises PublishError: If an Exception occurred while publishing the value to any of the synchronous subscribers
-            or triggering any of the synchronously triggered logic handlers.
+            or triggering any of the synchronously triggered logic handlers and `raise_exceptions` is True.
         """
         if not self._subscribers and not self._triggers:
             return
@@ -313,13 +318,13 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         new_origin = origin + [self]
         for subscriber, converter, sync in self._subscribers:
             if not any(subscriber is s for s in origin):
-                if sync:
-                    coro_sync.append(self.__publish_write(subscriber, converter, value, new_origin, True))
+                if sync and not force_async:
+                    coro_sync.append(self.__publish_write(subscriber, converter, value, new_origin, raise_exceptions))
                 else:
                     coro_async.append(self.__publish_write(subscriber, converter, value, new_origin, False))
         for target, sync in self._triggers:
-            if sync:
-                coro_sync.append(self.__publish_trigger(target, value, new_origin, True))
+            if sync and not force_async:
+                coro_sync.append(self.__publish_trigger(target, value, new_origin, raise_exceptions))
             else:
                 coro_async.append(self.__publish_trigger(target, value, new_origin, False))
 
@@ -331,7 +336,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         else:
             results = await asyncio.gather(*coro_sync, return_exceptions=True)
             exceptions: List[PublishError] = [res for res in results if isinstance(res, PublishError)]
-            if exceptions:
+            if exceptions and raise_exceptions:
                 raise PublishError(errors=list(itertools.chain.from_iterable((e.errors for e in exceptions))))
 
     def share_lock_with_subscriber(self, subscriber: HasSharedLock) -> None:
