@@ -82,8 +82,10 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.server_runner.start()
 
         # Test raising of subscription errors on startup (inexistent api object name)
+        # This requires that the object has a local subscriber (otherwise, subscription is skipped)
         another_client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
-        another_client.object(int, 'foobar')
+        foobar = another_client.object(int, 'foobar')
+        foobar.subscribe(ExampleSubscribable(int))
         with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
             await another_client.start()
 
