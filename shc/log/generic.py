@@ -249,7 +249,7 @@ class LoggingAggregatedWebUIView(WebUIConnector):
         self.last_update = datetime.datetime.fromtimestamp(0).astimezone() + 2 * aggregation_interval
 
         self.timer = timer.Every(update_interval)
-        self.timer.trigger(self._update)
+        self.timer.trigger(self._update, synchronous=True)
 
     async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
         begin, end = self.calculate_interval(False)

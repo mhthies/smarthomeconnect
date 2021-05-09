@@ -240,8 +240,8 @@ class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False):
         return self.wrapped.subscribe(subscriber, convert)
 
-    def trigger(self, target: LogicHandler) -> LogicHandler:
-        return self.wrapped.trigger(target)
+    def trigger(self, target: LogicHandler, synchronous: bool = False) -> LogicHandler:
+        return self.wrapped.trigger(target, synchronous=synchronous)
 
 
 class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic[T], metaclass=abc.ABCMeta):
@@ -254,12 +254,14 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     objects are *Readable* (to evaluate the expression's current value on demand) and *Subscribable* (to evaluate and
     publish the expression's new value, when any of the operands is updated).
     """
+    _synchronous_publishing = True
+
     def __init__(self, type_: Type[T], operands: Iterable[object]):
         super().__init__()
         self.type = type_
         for operand in operands:
             if isinstance(operand, Subscribable):
-                operand.trigger(self.on_change)
+                operand.trigger(self.on_change, synchronous=True)
 
     @abc.abstractmethod
     async def evaluate(self) -> T:

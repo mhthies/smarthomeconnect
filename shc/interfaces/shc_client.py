@@ -240,6 +240,8 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
     Thus, this class inherits from :class:`shc.base.Readable`, :class:`shc.base.Wrtiable` and
     :class:`shc.base.Subscribable`.
     """
+    _stateful_publishing = True
+
     def __init__(self, client: SHCWebClient, type_: Type[T], name: str):
         self.type = type_
         super().__init__()

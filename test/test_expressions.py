@@ -24,6 +24,7 @@ class TestExpressions(unittest.TestCase):
         self.assertEqual(False, await expression2.read())
 
         await var1.write(15, [self])
+        await asyncio.sleep(0.01)
         subscriber._write.assert_called_once_with(8, unittest.mock.ANY)
         subscriber2._write.assert_called_once_with(True, unittest.mock.ANY)
 

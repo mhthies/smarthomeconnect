@@ -71,17 +71,21 @@ class MiscTests(unittest.TestCase):
 
         # pub is uninitialized, so we should not receive anything, when control changes to True
         await control.write(True, [self])
+        await asyncio.sleep(0.01)
         sub._write.assert_not_called()
 
         await pub.write(42.0, [self])
+        await asyncio.sleep(0.01)
         sub._write.assert_called_once_with(42.0, [self, pub, unittest.mock.ANY])
 
         sub._write.reset_mock()
         await control.write(False, [self])
         await pub.write(56.0, [self])
+        await asyncio.sleep(0.01)
         sub._write.assert_not_called()
 
         await control.write(True, [self])
+        await asyncio.sleep(0.01)
         sub._write.assert_called_once_with(56.0, [self, control, unittest.mock.ANY])
 
     @async_test

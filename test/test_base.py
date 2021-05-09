@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import threading
 import unittest
@@ -80,6 +81,7 @@ class TestHandler(unittest.TestCase):
         wrapped_handler = base.handler()(handler)  # type: ignore
         a.trigger(wrapped_handler)
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.01)
         handler.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
 
     @async_test
@@ -93,6 +95,7 @@ class TestHandler(unittest.TestCase):
             await b.write(value)
 
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.01)
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
 
     @async_test
@@ -106,6 +109,7 @@ class TestHandler(unittest.TestCase):
             await b.write(value)
 
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.01)
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [test_handler])
 
     @async_test
@@ -138,6 +142,7 @@ class TestHandler(unittest.TestCase):
             await a.write(value + 1)
 
         await another_test_handler(TOTALLY_RANDOM_NUMBER, [])
+        await asyncio.sleep(0.01)
         self.assertEqual(2, self.call_counter)
 
     @async_test
@@ -152,6 +157,7 @@ class TestHandler(unittest.TestCase):
 
         with self.assertLogs(level=logging.ERROR) as ctx:
             await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+            await asyncio.sleep(0.01)
         self.assertIn("unexpected error in _write", "\n".join(ctx.output))
 
 
@@ -169,6 +175,7 @@ class TestBlockingHandler(unittest.TestCase):
         wrapped_handler = base.blocking_handler()(handler)  # type: ignore
         a.trigger(wrapped_handler)
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.01)
         handler.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
         self.assertIsInstance(thread_id_container[0], int)
         self.assertNotEqual(thread_id_container[0], threading.get_ident())
@@ -188,6 +195,7 @@ class TestBlockingHandler(unittest.TestCase):
             mock(value, _origin)
 
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
+        await asyncio.sleep(0.01)
         mock.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
 
 
