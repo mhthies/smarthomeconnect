@@ -258,7 +258,7 @@ class WebServer:
         try:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
-                    asyncio.create_task(self._ui_websocket_dispatch(ws, msg))
+                    await self._ui_websocket_dispatch(ws, msg)
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.info('UI websocket connection closed with exception %s', ws.exception())
         finally:
@@ -277,7 +277,7 @@ class WebServer:
             if message['serverToken'] != id(self):
                 logger.debug("Client's serverToken %s does not match our id. Asking for reload.",
                              message['serverToken'])
-                await ws.send_json({'reload': True})
+                asyncio.create_task(ws.send_json({'reload': True}))
             return
 
         try:
@@ -287,9 +287,11 @@ class WebServer:
                          "known.", message['id'])
             return
         if 'v' in message:
+            # We don't need to do this in an asynchronous task, since the from_websocket method uses asynchronous
+            # publishing
             await connector.from_websocket(message['v'], ws)
         elif 'sub' in message:
-            await connector.websocket_subscribe(ws)
+            asyncio.create_task(connector.websocket_subscribe(ws))
         else:
             logger.warning("Don't know how to handle websocket message: %s", message)
 
@@ -302,6 +304,8 @@ class WebServer:
         try:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
+                    # It does not make sense to avoid the task creation here, since we would have to create a task in
+                    # any branch of the _api_websocket_dispatch() to asynchronously do writing to websockets then.
                     asyncio.create_task(self._api_websocket_dispatch(request, ws, msg))
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.info('API websocket connection closed with exception %s', ws.exception())
@@ -761,7 +765,9 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
         value_converted = self.convert_from_ws_value(value)
         await self._publish(value_converted, [ws])
         if isinstance(self, WebDisplayDatapoint):
-            await self._websocket_publish(self.convert_to_ws_value(value_converted))
+            # from_websocket is awaited in the websocket message processing loop, so we should do all (asynchronously)
+            # blocking things in separate tasks.
+            asyncio.create_task(self._websocket_publish(self.convert_to_ws_value(value_converted)))
 
 
 class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):

@@ -140,7 +140,8 @@ class SHCWebClient:
 
         # New (or initial) value for subscribed object (not on read response)
         if 'value' in message and ('action' not in message or message['action'] == 'subscribe'):
-            asyncio.create_task(self._api_objects[name].new_value(message['value']))
+            # We don't need to do this in an asynchronous task, since the new_value method uses asynchronous publishing
+            await self._api_objects[name].new_value(message['value'])
 
         elif 'handle' not in message:
             logger.warning("Received unexpected message from SHC websocket API: %s", msg)
