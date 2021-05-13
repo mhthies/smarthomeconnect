@@ -698,6 +698,8 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc
     is_reading_optional = False
 
     async def _write(self, value: T, origin: List[Any]):
+        if isinstance(self, WebActionDatapoint):
+            await self._publish(value, origin)
         await self._websocket_publish(self.convert_to_ws_value(value))
 
     def convert_to_ws_value(self, value: T) -> Any:
@@ -747,6 +749,10 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
     As this is a generic *Connectable* class, don't forget to define the :ref:`type attribute <base.typing>`, when
     inheriting from it—either as a class attribute or as an instance attribute, set in the constructor.
     """
+    def __init__(self):
+        super().__init__()
+        self._stateful_publishing = isinstance(self, WebDisplayDatapoint)
+
     def convert_from_ws_value(self, value: Any) -> T:
         """
         Callback method to convert/transform values from a websocket client, before *publishing* them.
@@ -777,6 +783,7 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
     :ivar name: The name of this object in the REST/websocket API
     """
     is_reading_optional = False
+    _stateful_publishing = True
 
     def __init__(self, type_: Type[T], name: str):
         self.type = type_
@@ -795,6 +802,9 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         self.future = asyncio.get_event_loop().create_future()
 
     async def _write(self, value: T, origin: List[Any]) -> None:
+        # Asynchronous local feedback publishing. This ensures that conflicting updates, which are currently waiting for
+        # local processing by a subscriber can be corrected by resetting this update's origin.
+        await self._publish(value, origin)
         await self._publish_http(value)
 
     async def http_post(self, value: Any, origin: Any) -> None:

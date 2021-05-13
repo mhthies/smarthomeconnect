@@ -253,8 +253,10 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
         return from_json(self.type, await self.client._read_value(self.name))
 
     async def _write(self, value: T, origin: List[Any]) -> None:
-        await self.client._send_value(self.name, value)
+        # Asynchronous local feedback publishing. This ensures that conflicting updates, which are currently waiting for
+        # local processing by a subscriber can be corrected by resetting this update's origin.
         await self._publish(value, origin)
+        await self.client._send_value(self.name, value)
 
     async def new_value(self, value: Any) -> None:
         """
