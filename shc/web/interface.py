@@ -58,6 +58,7 @@ class WebServer(AbstractInterface):
     """
     def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "",
                  title_formatter: Union[str, Callable[[str], str]] = "{} | SHC"):
+        super().__init__()
         self.host = host
         self.port = port
         self.index_name = index_name
