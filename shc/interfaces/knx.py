@@ -237,6 +237,7 @@ class KNXConnector:
 
     async def send(self, addr: knxdclient.GroupAddress, encoded_data: knxdclient.EncodedData):
         await self.knx.group_write(addr, knxdclient.KNXDAPDUType.WRITE, encoded_data)
+        await asyncio.sleep(0.15)  # wait a bit longer to be sure, that the telegram has been sent to the bus
 
 
 class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
