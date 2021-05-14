@@ -190,6 +190,8 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         if self._stateful_publishing:
             for subscriber, converter in self._subscribers:
                 reset_origin = bool(self._pending_updates[subscriber])
+                if reset_origin:
+                    logger.info("Resetting origin from %s to %s; value=%s; origin=%s", self, subscriber, value, origin)
                 if reset_origin or not any(s is subscriber for s in origin):
                     task = asyncio.create_task(self.__publish_write(subscriber, converter, value, [] if reset_origin else origin, True))
                     self._pending_updates[subscriber].add(task)
