@@ -26,7 +26,7 @@ from aiohttp import WSCloseCode
 
 from ..base import Reading, T, Writable, Subscribable
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import get_interfaces, AbstractInterface
+from ..supervisor import get_interfaces, AbstractInterface, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -455,14 +455,14 @@ class WebServer(AbstractInterface):
         accept_map = {'text/*': 'text/plain',
                       'application/*': 'application/json',
                       '*/*': 'application/json',
-                      'text/plain': 'text/plain',
                       'text/html': 'text/html',
                       'application/json': 'application/json',
                       }
-        accept_list = request.headers.get("Accept", "application/json").split(", ")
+        accept_list = request.headers.get("Accept", "application/json").split(",")
+        print(accept_list)
         content_type: Optional[str] = None
         for mime_type in accept_list:
-            mime_type = mime_type.split(";")[0]
+            mime_type = mime_type.strip().split(";")[0]
             if mime_type in accept_map:
                 content_type = accept_map[mime_type]
                 break
@@ -491,24 +491,16 @@ class WebServer(AbstractInterface):
                 'status': overall_status,
                 'interfaces': interfaces_data,
             }
-            return aiohttp.web.Response(status=status,
-                                        body=json.dumps(data),
-                                        content_type="application/json",
-                                        charset='utf-8')
-        elif content_type == "text/plain":
-            # TODO format text
-            body = ""
-            return aiohttp.web.Response(status=status,
-                                        body=body,
-                                        content_type="text/plain",
-                                        charset='utf-8')
+            body = json.dumps(data)
         elif content_type == "text/html":
-            # TODO render template
-            body = ""
-            return aiohttp.web.Response(status=status,
-                                        body=body,
-                                        content_type="text/html",
-                                        charset='utf-8')
+            template = jinja_env.get_template('status.htm')
+            body = await template.render_async(overall_status=overall_status, interfaces_data=interfaces_data,
+                                               css_files=self._css_files, ServiceStatus=ServiceStatus,
+                                               html_title=self.title_formatter("Status Monitoring"))
+        return aiohttp.web.Response(status=status,
+                                    body=body,
+                                    content_type=content_type,
+                                    charset='utf-8')
 
     def serve_static_file(self, path: pathlib.Path) -> str:
         """
