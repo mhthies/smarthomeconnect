@@ -199,7 +199,7 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
                 reset_origin = False
                 if sync:
                     reset_origin = bool(self._pending_updates[target])
-                task = asyncio.create_task(self.__publish_trigger(target, value, [] if reset_origin else origin, True))
+                task = asyncio.create_task(self.__publish_trigger(target, value, [] if reset_origin else origin, sync))
                 if sync:
                     self._pending_updates[target].add(task)
 
