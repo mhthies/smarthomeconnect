@@ -29,6 +29,15 @@ _SHC_STOPPED = asyncio.Event(loop=event_loop)
 _SHC_STOPPED.set()
 
 
+class ServiceCriticality(enum.Enum):
+    """
+    Enum of possible criticality values of interfaces.
+    """
+    INFO = 0
+    WARNING = 1
+    CRITICAL = 2
+
+
 class AbstractInterface(metaclass=abc.ABCMeta):
     """
     Abstract base class for all SHC interface implementations
@@ -44,8 +53,9 @@ class AbstractInterface(metaclass=abc.ABCMeta):
         failure of a *CRITICAL* system is considered a critical state, whereas a critical failure of an *INFO* system
         only triggers an information message.
     """
+    criticality: ServiceCriticality = ServiceCriticality.CRITICAL
+
     def __init__(self):
-        self.criticality: ServiceCriticality = ServiceCriticality.CRITICAL
         register_interface(self)
 
     @abc.abstractmethod
@@ -110,15 +120,6 @@ class InterfaceStatus(NamedTuple):
     message: str = ""  #: A textual description of the error. E.g. an error message, if status != ServiceStatus.OK
     #: Additional monitoring indicators like performance values, identified by a unique string.
     indicators: Dict[str, Union[bool, int, float, str]] = {}
-
-
-class ServiceCriticality(enum.Enum):
-    """
-    Enum of possible criticality values of interfaces.
-    """
-    INFO = 0
-    WARNING = 1
-    CRITICAL = 2
 
 
 def register_interface(interface: AbstractInterface) -> None:
