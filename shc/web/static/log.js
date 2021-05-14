@@ -131,10 +131,10 @@ function LineChartWidget(domElement, _writeValue) {
             borderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, .5)`,
             pointBackgroundColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
             pointBorderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
-            steppedLine: spec.is_aggregated ? undefined : 'before',
+            stepped: spec.is_aggregated ? undefined : 'before',
             pointRadius: spec.is_aggregated ? 3 : 0,
             pointHitRadius: 3,
-            lineTension: 0.2,
+            tension: 0.2,
         });
         dataMap.set(spec.id, data);
     }
@@ -148,19 +148,20 @@ function LineChartWidget(domElement, _writeValue) {
             labels: []
         },
         options: {
-            legend: {
-                display: (datasets.length > 1)
+            plugins: {
+                legend: {
+                    display: (datasets.length > 1)
+                }
             },
             scales: {
-                xAxes: [{
+                x: {
                     type: 'time',
-                    distribution: 'linear',
+                    min: new Date(new Date() - interval),
+                    max: new Date(),
                     ticks: {
-                        min: new Date(new Date() - interval),
-                        max: new Date(),
                         source: 'labels',
                     }
-                }]
+                }
             },
             responsive: true
         }
@@ -172,8 +173,8 @@ function LineChartWidget(domElement, _writeValue) {
         let begin = new Date(now.getTime() - interval);
 
         // Set xAxis minimum and maximum
-        theChart.options.scales.xAxes[0].ticks.max = now;
-        theChart.options.scales.xAxes[0].ticks.min = begin;
+        theChart.options.scales.x.max = now;
+        theChart.options.scales.x.min = begin;
 
         // Calculate new ticks
         let firstTick = alignTicksTo + tickInterval * Math.ceil((begin.getTime() - alignTicksTo) / tickInterval);
