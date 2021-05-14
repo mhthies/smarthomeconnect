@@ -41,7 +41,7 @@ class MySQLPersistence(AbstractInterface):
             return InterfaceStatus(ServiceStatus.CRITICAL, "Interface not started yet")
         free_connections = self.pool.freesize
         try:
-            async with self.interface.pool.acquire() as conn:
+            async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute("SELECT * from `log` WHERE FALSE")
         except pymysql.err.MySQLError as e:
