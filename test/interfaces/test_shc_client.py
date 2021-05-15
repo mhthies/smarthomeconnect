@@ -85,7 +85,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         # This requires that the object has a local subscriber (otherwise, subscription is skipped)
         another_client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
         foobar = another_client.object(int, 'foobar')
-        foobar.subscribe(ExampleSubscribable(int))
+        foobar.subscribe(ExampleWritable(int))
         with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
             await another_client.start()
 
