@@ -18,12 +18,12 @@ import mido  # type: ignore
 
 from ..base import Subscribable, Writable, T
 from ..datatypes import RangeUInt8
-from ..supervisor import register_interface, stop
+from ..supervisor import stop, AbstractInterface
 
 logger = logging.getLogger(__name__)
 
 
-class MidiInterface:
+class MidiInterface(AbstractInterface):
     """
     An SHC interface for connecting with MIDI devices.
 
@@ -65,6 +65,7 @@ class MidiInterface:
                  receive_channel: Union[None, int, Iterable[int]] = None) -> None:
         if not input_port_name and not output_port_name:
             raise ValueError("Either MIDI input port name or output port name must be specified.")
+        super().__init__()
 
         self.input_port_name = input_port_name
         self.output_port_name = output_port_name
@@ -75,8 +76,6 @@ class MidiInterface:
         self._input_queue: asyncio.Queue[mido.Message]
 
         self._variable_map: Dict[Tuple[str, int], AbstractMidiVariable] = {}
-
-        register_interface(self)
 
     async def start(self) -> None:
         loop = asyncio.get_event_loop()

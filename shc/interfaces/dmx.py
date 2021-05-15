@@ -42,13 +42,12 @@ import asyncio
 
 from ..base import Writable
 from ..datatypes import RangeUInt8
-from ..supervisor import register_interface
-
+from ..supervisor import AbstractInterface
 
 logger = logging.getLogger(__name__)
 
 
-class AbstractDMXConnector(metaclass=abc.ABCMeta):
+class AbstractDMXConnector(AbstractInterface, metaclass=abc.ABCMeta):
     """
     Abstract base class for DMX output interfaces.
 
@@ -59,6 +58,7 @@ class AbstractDMXConnector(metaclass=abc.ABCMeta):
     Instances of these classes provide a method :meth:`address` to create a `writable` object for a given DMX channel.
     """
     def __init__(self, universe_size: int = 512):
+        super().__init__()
         self.universe = [0] * universe_size
 
     def address(self, dmx_address: int) -> "DMXAddress":
@@ -116,7 +116,6 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         self.serial_url = serial_url
         self.running_transmit: Optional[asyncio.Future] = None
         self.next_transmit: Optional[asyncio.Future] = None
-        register_interface(self)
 
     async def start(self):
         logger.info("Starting Enttec DMX USB Pro interface on serial port %s ...", self.serial_url)
