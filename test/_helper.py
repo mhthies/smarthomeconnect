@@ -82,7 +82,7 @@ class ClockMock:
         # original_async_sleep). This is required to always grant the `actual_sleep` time to a second thread/task, even
         # if a third thread/task has been sleeping before, checks the queue at the wrong time and is now the first in
         # the queue.
-        self.actually_sleep_until = 0
+        self.actually_sleep_until = 0.0
 
     def tidy_queue(self):
         while True:

@@ -219,7 +219,6 @@ class ConnectedVariablesTest(unittest.TestCase):
 
         await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
         await asyncio.sleep(0.01)
-        print(writable3._write.mock_calls)
         self.assertEqual(await var1.a.read(), await var3.read())  # type: ignore
 
         self.assertLessEqual(writable1._write.call_count, 3)

@@ -207,21 +207,21 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             for target, sync in self._triggers:
                 if not sync:
                     asyncio.create_task(self.__publish_trigger(target, value, origin, False))
-            sync_tasks = [self.__publish_write(subscriber, converter, value, origin, False)
+            sync_jobs = [self.__publish_write(subscriber, converter, value, origin, False)
                           for subscriber, converter in self._subscribers
                           if not any(s is subscriber for s in origin)]
-            sync_tasks.extend(
+            sync_jobs.extend(
                 self.__publish_trigger(target, value, origin, False)
                 for target, sync in self._triggers
                 if sync)
             if self._synchronous_publishing:
-                if len(sync_tasks) == 1:
-                    await sync_tasks[0]
-                elif sync_tasks:
-                    await asyncio.gather(*sync_tasks)
+                if len(sync_jobs) == 1:
+                    await sync_jobs[0]
+                elif sync_jobs:
+                    await asyncio.gather(*sync_jobs)
             else:
-                for task in sync_tasks:
-                    asyncio.create_task(task)
+                for job in sync_jobs:
+                    asyncio.create_task(job)
 
     def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False) -> None:
         """
