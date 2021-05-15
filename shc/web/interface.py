@@ -463,7 +463,6 @@ class WebServer(AbstractInterface):
                       'application/json': 'application/json',
                       }
         accept_list = request.headers.get("Accept", "application/json").split(",")
-        print(accept_list)
         content_type: Optional[str] = None
         for mime_type in accept_list:
             mime_type = mime_type.strip().split(";")[0]
@@ -499,8 +498,10 @@ class WebServer(AbstractInterface):
         elif content_type == "text/html":
             template = jinja_env.get_template('status.htm')
             body = await template.render_async(overall_status=overall_status, interfaces_data=interfaces_data,
-                                               css_files=self._css_files, ServiceStatus=ServiceStatus,
-                                               html_title=self.title_formatter("Status Monitoring"))
+                                               ServiceStatus=ServiceStatus, menu=self.ui_menu_entries,
+                                               root_url=self.root_url, js_files=self._js_files,
+                                               css_files=self._css_files, server_token=id(self),
+                                               html_title="Status Monitoring")
         return aiohttp.web.Response(status=status,
                                     body=body,
                                     content_type=content_type,
