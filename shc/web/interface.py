@@ -55,9 +55,11 @@ class WebServer(AbstractInterface):
     :param title_formatter: A format string or format function to create the full HTML title, typically shown as browser
         tab title, from a web page's title. If it is a string, it should have one positional format placeholder
         (``{}``)
+    :param enable_monitoring: If True (default), the monitoring endpoint at `/monitoring` is enabled to allow monitoring
+        the interfaces' status in the UI or from a monitoring system
     """
     def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "",
-                 title_formatter: Union[str, Callable[[str], str]] = "{} | SHC"):
+                 title_formatter: Union[str, Callable[[str], str]] = "{} | SHC", enable_monitoring: bool = True):
         super().__init__()
         self.host = host
         self.port = port
@@ -114,8 +116,9 @@ class WebServer(AbstractInterface):
             aiohttp.web.get("/api/v1/ws", self._api_websocket_handler),
             aiohttp.web.get("/api/v1/object/{name}", self._api_get_handler),
             aiohttp.web.post("/api/v1/object/{name}", self._api_post_handler),
-            aiohttp.web.get("/monitoring", self._monitoring_handler),
         ])
+        if enable_monitoring:
+            self._app.add_routes([aiohttp.web.get("/monitoring", self._monitoring_handler),])
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
