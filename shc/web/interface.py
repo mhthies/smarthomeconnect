@@ -118,7 +118,7 @@ class WebServer(AbstractInterface):
             aiohttp.web.post("/api/v1/object/{name}", self._api_post_handler),
         ])
         if enable_monitoring:
-            self._app.add_routes([aiohttp.web.get("/monitoring", self._monitoring_handler),])
+            self._app.add_routes([aiohttp.web.get("/monitoring", self._monitoring_handler)])
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
@@ -485,9 +485,9 @@ class WebServer(AbstractInterface):
             overall_status = max(overall_status, min(status.status.value, 2) - 2 + iface.criticality.value)
 
         # Calculate HTTP status code
-        status = {0: 200,
-                  1: 213,
-                  2: 513}.get(overall_status)
+        http_status = {0: 200,
+                       1: 213,
+                       2: 513}.get(overall_status, 500)
 
         if content_type == "application/json":
             data = {
@@ -502,7 +502,7 @@ class WebServer(AbstractInterface):
                                                root_url=self.root_url, js_files=self._js_files,
                                                css_files=self._css_files, server_token=id(self),
                                                html_title="Status Monitoring")
-        return aiohttp.web.Response(status=status,
+        return aiohttp.web.Response(status=http_status,
                                     body=body,
                                     content_type=content_type,
                                     charset='utf-8')

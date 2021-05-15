@@ -39,6 +39,7 @@ class MySQLPersistence(AbstractInterface):
     async def get_status(self) -> "InterfaceStatus":
         if not self.pool_ready.is_set():
             return InterfaceStatus(ServiceStatus.CRITICAL, "Interface not started yet")
+        assert(isinstance(self.pool, aiomysql.Pool))
         free_connections = self.pool.freesize
         try:
             async with self.pool.acquire() as conn:
