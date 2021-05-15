@@ -193,7 +193,8 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
                 if reset_origin:
                     logger.info("Resetting origin from %s to %s; value=%s; origin=%s", self, subscriber, value, origin)
                 if reset_origin or not any(s is subscriber for s in origin):
-                    task = asyncio.create_task(self.__publish_write(subscriber, converter, value, [] if reset_origin else origin, True))
+                    task = asyncio.create_task(self.__publish_write(subscriber, converter, value,
+                                                                    [] if reset_origin else origin, True))
                     self._pending_updates[id(subscriber)].add(task)
             for target, sync in self._triggers:
                 reset_origin = False
@@ -208,8 +209,8 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
                 if not sync:
                     asyncio.create_task(self.__publish_trigger(target, value, origin, False))
             sync_jobs = [self.__publish_write(subscriber, converter, value, origin, False)
-                          for subscriber, converter in self._subscribers
-                          if not any(s is subscriber for s in origin)]
+                         for subscriber, converter in self._subscribers
+                         if not any(s is subscriber for s in origin)]
             sync_jobs.extend(
                 self.__publish_trigger(target, value, origin, False)
                 for target, sync in self._triggers
