@@ -294,6 +294,11 @@ class MidiInterface(AbstractInterface):
         self._variable_map[('note_off', note)] = variable
         return variable
 
+    def __repr__(self) -> str:
+        return "{}(input_port_name={}, output_port_name={}, send_channel={}, receive_channel={})"\
+            .format(self.__class__.__name__, self.input_port_name, self.output_port_name, self.send_channel,
+                    self.receive_channel)
+
 
 class AbstractMidiVariable(metaclass=abc.ABCMeta):
     @abc.abstractmethod

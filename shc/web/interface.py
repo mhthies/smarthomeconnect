@@ -567,6 +567,9 @@ class WebServer(AbstractInterface):
             return
         self._css_files.append(self.serve_static_file(path))
 
+    def __repr__(self) -> str:
+        return "{}(host={}, port={})".format(self.__class__.__name__, self.host, self.port)
+
 
 class WebConnectorContainer(metaclass=abc.ABCMeta):
     @abc.abstractmethod

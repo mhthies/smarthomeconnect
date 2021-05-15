@@ -177,6 +177,9 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         self._writer.write(self._universe_to_enttec(self.universe).encode())
         await self._writer.drain()
 
+    def __repr__(self) -> str:
+        return "{}(serial_url={})".format(self.__class__.__name__, self.serial_url)
+
 
 class EntTecMessageLabel(enum.Enum):
     REPROGRAM_FIRMWARE = 1
