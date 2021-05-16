@@ -147,7 +147,7 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
             try:
                 await asyncio.wait_for(event.wait(), 5)
             except asyncio.TimeoutError:
-                pass
+                logger.warning("Sent MQTT message was not received back from the broker within 5s.")
             finally:
                 await self._publish(value, origin)
                 assert queue is not None
