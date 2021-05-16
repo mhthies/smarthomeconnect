@@ -140,7 +140,6 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
                 self._pending_mqtt_pubs[encoded_value] = queue
             event = asyncio.Event()
             queue.append(event)
-            await self._publish(value, origin)
 
         await self.interface.publish_message(self.publish_topic, encoded_value, self.qos, self.retain)
 
@@ -150,6 +149,7 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
             except asyncio.TimeoutError:
                 pass
             finally:
+                await self._publish(value, origin)
                 assert queue is not None
                 queue.remove(event)
                 if not queue:
