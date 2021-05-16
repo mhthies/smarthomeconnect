@@ -59,7 +59,8 @@ class MySQLPersistence(AbstractInterface):
         return MySQLPersistenceVariable(self, type_, name, log)
 
     def __repr__(self) -> str:
-        return "{}({})".format(self.__class__.__name__, self.connect_args)
+        return "{}({})".format(self.__class__.__name__, {k: v for k, v in self.connect_args.items()
+                                                         if k in ('host', 'db', 'port', 'unix_socket')})
 
 
 class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
