@@ -37,6 +37,8 @@ class InMemoryPersistenceVariable(PersistenceVariable, Generic[T]):
         except StopIteration:
             if include_previous and self.data:
                 return self.data[-1:]
+            else:
+                return []
         if include_previous and start_index > 0:
             start_index -= 1
         try:
