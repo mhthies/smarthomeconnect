@@ -31,6 +31,8 @@ class TasmotaInterface:
         self.device_topic = device_topic
         self.topic_template = topic_template
         self.connectors: Dict[str, AbstractTasmotaConnector] = {}
+        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'RESULT',
+                                                  self._dispatch_result, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'RESULT',
                                                   self._dispatch_result, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'STATE',
@@ -43,6 +45,7 @@ class TasmotaInterface:
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota result as JSON object: %s")
             return
+        logger.debug("Dispatching Tasmota result from %s: %s", self.device_topic, msg.payload)
         for key, value in data.items():
             if key in self.connectors:
                 await self.connectors[key]._new_value_from_device(value)
@@ -52,18 +55,23 @@ class TasmotaInterface:
         pass
 
     def power(self) -> "TasmotaPowerConnector":
-        if 'Power' not in self.connectors:
-            self.connectors["Power"] = TasmotaPowerConnector(self)
-        return self.connectors["Power"]  # type: ignore
+        if 'POWER' not in self.connectors:  # FIXME: This pattern does not work for the different color connectors
+            self.connectors["POWER"] = TasmotaPowerConnector(self)
+        return self.connectors["POWER"]  # type: ignore
 
     def dimmer(self) -> "TasmotaDimmerConnector":
         if 'Dimmer' not in self.connectors:
             self.connectors["Dimmer"] = TasmotaDimmerConnector(self)
-        return self.connectors["Power"]  # type: ignore
+        return self.connectors["Dimmer"]  # type: ignore
+
+    def ir_receiver(self) -> "TasmotaIRReceiverConnector":
+        if 'IrReceived' not in self.connectors:
+            self.connectors["IrReceived"] = TasmotaIRReceiverConnector(self)
+        return self.connectors["IrReceived"]  # type: ignore
 
     async def _send_command(self, command: str, value: str):
         await self.mqtt_interface.publish_message(
-            self.topic_template.format(prefix='cmnd', topic=self.device_topic) + 'command',
+            self.topic_template.format(prefix='cmnd', topic=self.device_topic) + command,
             value.encode())
 
 
@@ -106,12 +114,26 @@ class AbstractTasmotaConnector(Writable[T], Subscribable[T], Generic[T], metacla
     def _decode(self, value: Union[str, float]) -> T:
         pass
 
-    async def _new_value_from_device(self, value: str) -> None:
-        queue = self._pending_commands.get(value)
+    async def _new_value_from_device(self, value: str) -> None:  # FIXME: value may also be a str
+        # FIXME we do not catch changes from other variables here (e.g. non-black color setting POWER=on)
+        queue = self._pending_commands.get(str(value))  # FIXME: this is hacky. What about rounding differences?
         if queue is not None:
             queue[0].set()
         else:
             await self._publish(self._decode(value), [])
+
+
+class AbstractTasmotaSensorConnector(Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
+    def __init__(self, name: str):
+        super().__init__()
+        self.name = name
+
+    @abc.abstractmethod
+    def _decode(self, value: Union[str, float]) -> T:
+        pass
+
+    async def _new_value_from_device(self, value: str) -> None:
+        await self._publish(self._decode(value), [])
 
 
 class TasmotaPowerConnector(AbstractTasmotaConnector[bool]):
@@ -138,3 +160,11 @@ class TasmotaDimmerConnector(AbstractTasmotaConnector[RangeInt0To100]):
 
     def _decode(self, value: int) -> RangeInt0To100:
         return RangeInt0To100(value)
+
+
+class TasmotaIRReceiverConnector(AbstractTasmotaSensorConnector[bytes]):
+    type = bytes
+
+    def _decode(self, value: str) -> bytes:
+        data = value['Data'] if 'Data' in value else value['Hash']  # FIXME this is hacky
+        return bytes.fromhex(data[2:])
