@@ -123,8 +123,6 @@ class SHCWebsocketClientTest(unittest.TestCase):
         target._write.assert_called_once_with(ExampleType(42, True), unittest.mock.ANY)
         self.assertIsInstance(target._write.call_args[0][0], ExampleType)
 
-    # FIXME
-    @unittest.skip("Currently not working due to ClockMock not supporting asyncio.loop.call_later (via asyncio.wait)")
     def test_reconnect(self) -> None:
         self.server.api(ExampleType, "bar")\
             .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
@@ -135,67 +133,72 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.server_runner.start()
         self.client_runner.start()
 
-        with ClockMock(datetime.datetime(2020, 12, 30, 17, 0), actual_sleep=0.05):
-            with self.assertLogs("shc.interfaces._helper", logging.ERROR):
-                self.server_runner.stop()
-            # TODO check message
+        bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
+        bar_target._write.reset_mock()
+        # We cannot use ClockMock here, since it does not support asyncio.wait()
 
-            # Re-setup server
-            self.server = shc.web.WebServer("localhost", 42080)
-            self.server_runner = InterfaceThreadRunner(self.server)
-            self.server.api(ExampleType, "bar")\
-                .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
+            self.server_runner.stop()
+        self.assertIn("Unexpected shutdown", ctx.output[0])
+        self.assertIn("SHCWebClient", ctx.output[0])
 
-            # (virtually) wait for first reconnect attempt
-            with self.assertLogs("shc.interfaces.shc_client", logging.ERROR):
-                time.sleep(1)
-            # TODO check message
+        # Re-setup server
+        self.server = shc.web.WebServer("localhost", 42080)
+        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server.api(ExampleType, "bar")\
+            .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
 
-            # Start server
-            self.server_runner.start()
+        # Wait for first reconnect attempt
+        with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
+            time.sleep(1.1)
+        self.assertIn("Error in interface SHCWebClient", ctx.output[0])
+        self.assertIn("Cannot connect to host", ctx.output[0])
 
-            # (virtually) wait for second reconnect attempt
-            with unittest.mock.patch.object(self.client._session, 'ws_connect', new=AsyncMock()) as connect_mock:
-                time.sleep(1)
-                connect_mock.assert_not_called()
-            time.sleep(0.3)
+        # Start server
+        self.server_runner.start()
 
-            bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
+        # Wait for second reconnect attempt
+        with unittest.mock.patch.object(self.client._session, 'ws_connect', new=AsyncMock()) as connect_mock:
+            time.sleep(1)
+            connect_mock.assert_not_called()
+        time.sleep(0.3)
 
-    # FIXME
-    @unittest.skip("Currently working unreliably with ClockMock (server seems to be to slow)")
+        bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
+
     def test_initial_reconnect(self) -> None:
         self.client.failsafe_start = True
         client_bar = self.client.object(ExampleType, 'bar')
         bar_target = ExampleWritable(ExampleType).connect(client_bar)
 
-        with ClockMock(datetime.datetime(2020, 12, 30, 17, 0), actual_sleep=2):
-            with self.assertLogs("shc.interfaces.shc_client", logging.ERROR):
-                self.client_runner.start()
-                time.sleep(0.5)
-            # TODO check message
+        # We cannot use ClockMock here, since the server seems to be too slow then
 
-            # Start server
-            self.server_runner.start()
+        with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
+            self.client_runner.start()
+            time.sleep(0.5)
+        self.assertIn("Error in interface SHCWebClient", ctx.output[0])
+        self.assertIn("Cannot connect to host", ctx.output[0])
 
-            # Client should still fail due to missing API object
-            with self.assertLogs("shc.interfaces.shc_client", logging.ERROR):
-                time.sleep(0.1)
-                time.sleep(0.5)
-            # TODO check message
+        # Start server
+        self.server_runner.start()
 
-            # Re-setup server
-            self.server_runner.stop()
-            self.server = shc.web.WebServer("localhost", 42080)
-            self.server_runner = InterfaceThreadRunner(self.server)
-            self.server.api(ExampleType, "bar") \
-                .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
-            self.server_runner.start()
+        # Client should still fail due to missing API object
+        with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
+            time.sleep(0.6)
+        self.assertIn("Error in interface SHCWebClient", ctx.output[0])
+        self.assertIn("Failed to subscribe SHC API object 'bar'", ctx.output[0])
 
-            # (virtually) wait for second reconnect attempt
-            with unittest.mock.patch.object(self.client._session, 'ws_connect', new=AsyncMock()) as connect_mock:
-                time.sleep(1)
-                connect_mock.assert_not_called()
-            time.sleep(0.3)
+        # Re-setup server
+        self.server_runner.stop()
+        self.server = shc.web.WebServer("localhost", 42080)
+        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server.api(ExampleType, "bar") \
+            .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        self.server_runner.start()
 
-            bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
+        # wait for second reconnect attempt
+        with unittest.mock.patch.object(self.client._session, 'ws_connect', new=AsyncMock()) as connect_mock:
+            time.sleep(1)
+            connect_mock.assert_not_called()
+        time.sleep(0.3)
+
+        bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
