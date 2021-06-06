@@ -75,6 +75,8 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         :param timeout: If given, this method will raise an :class:`asyncio.TimeoutError` after the given timeout in
             seconds, if the interface has not come up by this time.
         """
+        # TODO somehow make it work before start() has been called to be safely used in other interfaces' start() method
+        #   e.g. create _started Event here if it does not yet exist (and don't override it in start()).
         await asyncio.wait_for(self._running.wait(), timeout)
 
     @abc.abstractmethod

@@ -31,6 +31,28 @@ JSONType = Union[str, float, int, None, Dict[str, Any], List[Any]]
 
 
 class TasmotaInterface(AbstractInterface):
+    """
+    SHC interface to connect with Tasmota IoT devices via MQTT.
+
+    Requires a :class:`MQTTClientInterface` which is connected to the MQTT broker to which your Tasmota device(s)
+    connect. Each instance of `TasmotaInterface` connects with a single Tasmota device. It identifies the individual
+    Tasmota device via its MQTT "Topic" (by default something like "tasmota_A0B1C2").
+
+    The `TasmotaInterface` provides *subscribable* and (mostly) *writable* connector objects to receive state updates
+    from the Tasmota device and send commands. Currently, only PWM-dimmed lights and IR receivers are fully supported.
+    Please file a GitHub issue if you are interested in other Tasmota functionality.
+
+    :param mqtt_interface: The `MQTTClientInterface` to use for MQTT communication
+    :param device_topic: The Tasmota devices individual "Topic", used to address the device, as it is configured on the
+        Tasmota web UI at Configuration → MQTT or using Tasmota's `Topic` command. By default it should look like
+        "tasmota_A0B1C2".
+    :param topic_template: The Tasmota "Full Topic", used build MQTT topics from the individual device's topic.
+        Only required if you don't use the default Full Topic "%prefix%/%topic%/". In contrast to the Tasmota web UI
+        or "FullTopic" command, the parameter uses Python's modern formatting syntax: If your Tasmota "Full Topic" is
+        "devices/%topic%/%prefix%/", you must specify "devices/{topic}/{prefix}/" as `topic_tempalate`.
+    :param telemetry_interval: The expected interval of periodic telemetry messages from the Tasmota device in seconds.
+        This is used by the status monitoring to detect device failures. Use `0` to disable telemetry monitoring.
+    """
     def __init__(self, mqtt_interface: MQTTClientInterface, device_topic: str,
                  topic_template: str = "{prefix}/{topic}/", telemetry_interval: int = 300):
         super().__init__()
@@ -46,6 +68,7 @@ class TasmotaInterface(AbstractInterface):
         self._latest_telemetry_time: Optional[float] = None
         self._latest_telemetry: Optional[Dict[str, JSONType]] = None
 
+        # Subscribe relevant MQTT topics and register message handlers
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'RESULT',
                                                   self._handle_result_or_status, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'RESULT',
@@ -58,7 +81,10 @@ class TasmotaInterface(AbstractInterface):
                                                   self._online_connector._update_from_mqtt, 1)
 
     async def start(self) -> None:
+        # This is a hack to ensure that the mqtt interfaces' start() method is called first.
+        # TODO remove this hack as soon as SupervisedClientInterface.wait_running() is safe to call before start()
         await asyncio.sleep(.1)
+        # Send status request (for telemetry data and state) as soon as the MQTT interface is up
         await self.mqtt_interface.wait_running(5)
         await self._send_command("status", "11")
 
@@ -66,8 +92,11 @@ class TasmotaInterface(AbstractInterface):
         pass
 
     async def get_status(self) -> InterfaceStatus:
+        # Check Tasmota online state (via Last Will message)
         if not self._online_connector.value:
             return InterfaceStatus(ServiceStatus.CRITICAL, "Tasmota device is not online")
+
+        # Check telemetry data
         if not self._latest_telemetry:
             if not self.telemetry_interval:
                 return InterfaceStatus()
@@ -98,6 +127,13 @@ class TasmotaInterface(AbstractInterface):
         return InterfaceStatus(indicators=indicators)  # type: ignore
 
     async def _handle_result_or_status(self, msg: MQTTMessage, result: bool = False) -> None:
+        """
+        Callback function to handle incoming MQTTMessages on the Tasmota device's RESULT, STATUS and STATE topics
+
+        :param msg: The MQTTMessage to be parsed and handled.
+        :param result: Shall be True if the handled message has been published on the Tasmota RESULT topic (i.e. it is
+            probably a result to a Tasmota command we issued recently)
+        """
         try:
             data = json.loads(msg.payload.decode('utf-8'))
             assert isinstance(data, dict)
@@ -107,6 +143,10 @@ class TasmotaInterface(AbstractInterface):
         await self._dispatch_status(data, result)
 
     async def _handle_status11(self, msg: MQTTMessage) -> None:
+        """
+        Callback function to handle incoming MQTTMessages on the STATUS11 topic (as a result to of the 'status 11')
+        command.
+        """
         try:
             data = json.loads(msg.payload.decode('utf-8'))
             assert isinstance(data, dict)
@@ -118,24 +158,50 @@ class TasmotaInterface(AbstractInterface):
         await self._dispatch_status(data['StatusSTS'], False)
 
     async def _dispatch_status(self, data: Dict[str, JSONType], result: bool) -> None:
+        """
+        Internal helper method to dispatch results/telemetry updates and sensor readings from Tasmota device, received
+        via :meth:`_handle_result_or_status` or :meth:`_handle_status11` for publishing by all affected connectors.
+
+        :param data: The parsed JSON payload of the tasmota result/telemetry message
+        :param result: Shall be True if the handled message has been published on the Tasmota RESULT topic (i.e. it is
+            probably a result to a Tasmota command we issued recently)
+        """
         logger.debug("Dispatching Tasmota result/status from %s: %s", self.device_topic, data)
 
         origin = []
         event = None
+
+        # If the message has been received as a Tasmota "result", check if is the response to a recent command, in order
+        # to publish the value updates with the correct 'origin' and let the sending Connector's `write()` method return
+        # (by set()ing the associated Event).
+        #
+        # Notice, that we only check the field names to match received results with pending commands. I.e., we assume
+        # that the first received result which contains the Tasmota field affected by an given command (and not matching
+        # a previous command) belongs to that command. This may be wrong when a concurrent update of the same field (or
+        # an internally linked field in Tasmota) from somewhere else happens. However, the worst outcome in that case
+        # should be the unintended re-publishing of the result to our command to its origin within SHC. This should not
+        # be an issue, since it will correctly represent the latest state of the Tasmota device and only happen once
+        # (and thus not result in a feedback loop).
         if result:
             for field, origin_, event_ in self._pending_commands:
                 if field in data:
                     origin = origin_
                     event = event_
+                    logger.debug("The result/status is considered a result to our recent command for '%s' field, "
+                                 "originating from %s", field, origin_)
                     break
 
         for key, value in data.items():
             for connector in self._connectors_by_result_field.get(key, []):
-                # TODO handle errors
-                await connector._publish(connector._decode(value), origin)
+                try:
+                    await connector._publish(connector._decode(value), origin)
+                except Exception as e:
+                    logger.error("Error while processing Tasmota result/status field %s=%s from %s in Tasmota "
+                                 "connector %s", key, value, self.device_topic, connector, exc_info=e)
         if event:
             event.set()
 
+        # If it seems to be (periodic) telemetry update, store it for usage by our `get_status()` method
         if not result and "Uptime" in data:
             self._latest_telemetry = data
             self._latest_telemetry_time = time.monotonic()
@@ -165,6 +231,13 @@ class TasmotaInterface(AbstractInterface):
         return self._get_or_create_connector(TasmotaIRReceiverConnector)
 
     def _get_or_create_connector(self, type_: Type[ConnType]) -> ConnType:
+        """
+        Helper method to create or get the connector object of a given type, while making sure that there is only one
+        of each type in each TasmotaInterface.
+
+        :param type_: The connector type (class) to be created
+        :return: The existing (or newly created) connector of the specified type
+        """
         if type_ in self._connectors_by_type:
             return cast(ConnType, self._connectors_by_type[type_])
         else:
@@ -177,6 +250,15 @@ class TasmotaInterface(AbstractInterface):
             return conn
 
     async def _send_command(self, command: str, value: str):
+        """
+        Internal helper method to send a Tasmota command to the device via MQTT.
+
+        See https://tasmota.github.io/docs/Commands/ for a reference of available commands.
+
+        :param command: The Tasmota command (used as part of the MQTT topic)
+        :param value: The parameters of the Tasmota command (used as MQTT payload)
+        """
+        # TODO raise exception if device is disconnected
         await self.mqtt_interface.publish_message(
             self.topic_template.format(prefix='cmnd', topic=self.device_topic) + command,
             value.encode())
@@ -202,14 +284,13 @@ class AbstractTasmotaRWConnector(AbstractTasmotaConnector[T], Writable[T], Gener
         self.interface = interface
 
     async def _write(self, value: T, origin: List[Any]) -> None:
-        # TODO return early if device is disconnected
         encoded_value = self._encode(value)
         event = asyncio.Event()
 
         self.interface._pending_commands.append((self.result_field, origin, event))
-        await self.interface._send_command(self.command, encoded_value)
 
         try:
+            await self.interface._send_command(self.command, encoded_value)
             await asyncio.wait_for(event.wait(), 5)
         except asyncio.TimeoutError:
             logger.warning("No Result from Tasmota device %s to %s command within 5s.", self.interface.device_topic,
@@ -331,7 +412,8 @@ class TasmotaIRReceiverConnector(AbstractTasmotaConnector[bytes]):
 
     def _decode(self, value: JSONType) -> bytes:
         assert isinstance(value, dict)
-        data = value['Data'] if 'Data' in value else value['Hash']  # TODO this is hacky. We should probably add the detected protocol
+        # TODO this is hacky. We should probably add the detected protocol
+        data = value['Data'] if 'Data' in value else value['Hash']
         return bytes.fromhex(data[2:])
 
 
