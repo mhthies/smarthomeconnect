@@ -21,7 +21,27 @@ from selenium.webdriver import ActionChains  # type: ignore
 import shc.web
 import shc.web.widgets
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
+from shc.supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
 from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
+
+
+class StatusTestInterface(AbstractInterface):
+    def __init__(self, name):
+        super().__init__()
+        self.status = InterfaceStatus()
+        self.name = name
+
+    async def start(self) -> None:
+        pass
+
+    async def stop(self) -> None:
+        pass
+
+    async def get_status(self) -> "InterfaceStatus":
+        return self.status
+
+    def __repr__(self):
+        return f"StatusTestInterface({self.name})"
 
 
 @unittest.skipIf(shutil.which("geckodriver") is None, "Selenium's geckodriver is not available in PATH")
@@ -95,6 +115,60 @@ class SimpleWebTest(AbstractWebTest):
         self.assertTrue(submenu_entry.is_displayed())
         self.assertEqual(submenu_entry.get_attribute('href').strip(), "http://localhost:42080/page/another_page/")
         submenu_entry.find_element_by_css_selector('i.bars.icon')
+
+
+class MonitoringTest(unittest.TestCase):
+    def setUp(self) -> None:
+        shc.supervisor._REGISTERED_INTERFACES.clear()
+        self.interface1 = StatusTestInterface("Interface 1")
+        self.interface1.criticality = shc.supervisor.ServiceCriticality.INFO
+        self.interface2 = StatusTestInterface("Interface 2")
+        self.interface2.criticality = shc.supervisor.ServiceCriticality.WARNING
+        self.interface3 = StatusTestInterface("Interface 3")
+        self.interface3.criticality = shc.supervisor.ServiceCriticality.CRITICAL
+        self.server = shc.web.WebServer("localhost", 42080, 'index')
+        self.server_runner = InterfaceThreadRunner(self.server)
+
+    def tearDown(self) -> None:
+        self.server_runner.stop()
+        shc.supervisor._REGISTERED_INTERFACES.clear()
+
+    @async_test
+    async def test_monitoring_json(self) -> None:
+        self.server_runner.start()
+
+        self.interface1.status = InterfaceStatus(ServiceStatus.CRITICAL, "Something is wrong", {"badness": 100})
+        self.interface3.status = InterfaceStatus(ServiceStatus.WARNING, "Be warned",
+                                                 {"info": "intervention may be required"})
+        headers = {"Accept": "application/json"}
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get('http://localhost:42080/monitoring') as resp:
+                self.assertEqual(213, resp.status)
+                data = await resp.json()
+
+            self.assertEqual(1, data['status'])
+            self.assertEqual(2, data['interfaces']['StatusTestInterface(Interface 1)']['status'])
+            self.assertEqual("Something is wrong", data['interfaces']['StatusTestInterface(Interface 1)']['message'])
+            self.assertEqual(100, data['interfaces']['StatusTestInterface(Interface 1)']['indicators']['badness'])
+            self.assertEqual(0, data['interfaces']['StatusTestInterface(Interface 2)']['status'])
+            self.assertEqual("", data['interfaces']['StatusTestInterface(Interface 2)']['message'])
+            self.assertEqual(1, data['interfaces']['StatusTestInterface(Interface 3)']['status'])
+
+            self.interface3.status = InterfaceStatus(ServiceStatus.CRITICAL, "ERROR ERROR!!1!")
+
+            async with session.get('http://localhost:42080/monitoring') as resp:
+                self.assertEqual(513, resp.status)
+                data = await resp.json()
+                self.assertEqual(2, data['status'])
+
+            self.interface3.status = InterfaceStatus(ServiceStatus.OK, "Service restored")
+
+            async with session.get('http://localhost:42080/monitoring') as resp:
+                self.assertEqual(200, resp.status)
+                data = await resp.json()
+                self.assertEqual(0, data['status'])
+
+    # TODO test HTML/UI monitoring page
 
 
 class WebWidgetsTest(AbstractWebTest):

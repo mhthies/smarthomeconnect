@@ -13,7 +13,7 @@ This product bundles iro.js 5.2.0 in shc/web/static/iro.min.js,
 which is available under the Mozilla Public License 2.0
 from https://github.com/jaames/iro.js.
 
-This product bundles Chart.js 2.9.3 in shc/log/Chart.min.js,
+This product bundles Chart.js 3.2.1 in shc/log/chart.min.js,
 which is available under the MIT License
 from https://www.chartjs.org/.
 

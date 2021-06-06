@@ -208,10 +208,6 @@ class AbstractLoggingTest(unittest.TestCase):
 
 
 class InMemoryTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        ClockMock.enable()
-
     @async_test
     async def test_simple(self) -> None:
         var1 = shc.log.in_memory.InMemoryPersistenceVariable(int, datetime.timedelta(seconds=10))

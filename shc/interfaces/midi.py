@@ -18,12 +18,12 @@ import mido  # type: ignore
 
 from ..base import Subscribable, Writable, T
 from ..datatypes import RangeUInt8
-from ..supervisor import register_interface
+from ..supervisor import stop, AbstractInterface
 
 logger = logging.getLogger(__name__)
 
 
-class MidiInterface:
+class MidiInterface(AbstractInterface):
     """
     An SHC interface for connecting with MIDI devices.
 
@@ -65,6 +65,7 @@ class MidiInterface:
                  receive_channel: Union[None, int, Iterable[int]] = None) -> None:
         if not input_port_name and not output_port_name:
             raise ValueError("Either MIDI input port name or output port name must be specified.")
+        super().__init__()
 
         self.input_port_name = input_port_name
         self.output_port_name = output_port_name
@@ -75,8 +76,6 @@ class MidiInterface:
         self._input_queue: asyncio.Queue[mido.Message]
 
         self._variable_map: Dict[Tuple[str, int], AbstractMidiVariable] = {}
-
-        register_interface(self)
 
     async def start(self) -> None:
         loop = asyncio.get_event_loop()
@@ -97,12 +96,6 @@ class MidiInterface:
         if self.input_port_name:
             self.receive_task = loop.create_task(self._receive_task())
             self.input_port = mido.open_input(self.input_port_name, callback=incoming_message_callback)
-
-    async def wait(self) -> None:
-        if self.input_port_name:
-            await self.receive_task
-        if self.output_port_name:
-            await self._send_thread_stopped.wait()
 
     async def stop(self) -> None:
         logger.info('Stopping MIDI interface.')
@@ -156,7 +149,10 @@ class MidiInterface:
                 continue
 
             # Dispatch new value in a new asyncio Task
-            asyncio.create_task(variable._incoming_message(message))
+            try:
+                asyncio.create_task(variable._incoming_message(message))
+            except Exception as e:
+                logger.error("Error while dispatching incoming MIDI message %s", message, exc_info=e)
 
     def _send_thread(self, loop: asyncio.AbstractEventLoop) -> None:
         """
@@ -177,6 +173,9 @@ class MidiInterface:
             logger.info('Closing mido output_port ...')
             output_port.close()
             logger.debug('_send_thread() done.')
+        except Exception as e:
+            logger.critical("Exception in MIDI send thread. Shutting down SHC ...", exc_info=e)
+            asyncio.run_coroutine_threadsafe(stop(), loop)
         finally:
             loop.call_soon_threadsafe(self._send_thread_stopped.set)
 
@@ -294,6 +293,11 @@ class MidiInterface:
         self._variable_map[('note_on', note)] = variable
         self._variable_map[('note_off', note)] = variable
         return variable
+
+    def __repr__(self) -> str:
+        return "{}(input_port_name={}, output_port_name={}, send_channel={}, receive_channel={})"\
+            .format(self.__class__.__name__, self.input_port_name, self.output_port_name, self.send_channel,
+                    self.receive_channel)
 
 
 class AbstractMidiVariable(metaclass=abc.ABCMeta):
