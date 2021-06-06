@@ -117,9 +117,9 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
         self.__subscribe_mqtt()
         super().subscribe(subscriber, convert)
 
-    def trigger(self, target: LogicHandler) -> LogicHandler:
+    def trigger(self, target: LogicHandler, synchronous: bool = False) -> LogicHandler:
         self.__subscribe_mqtt()
-        return super().trigger(target)
+        return super().trigger(target, synchronous)
 
     def __subscribe_mqtt(self):
         if not self._receiver_registered:
