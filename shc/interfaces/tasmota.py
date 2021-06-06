@@ -13,61 +13,119 @@ import asyncio
 import collections
 import json
 import logging
-from typing import List, Any, Dict, Deque, Generic, Union
+from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple, cast
 
 from paho.mqtt.client import MQTTMessage  # type: ignore
 
 from ..base import Writable, Subscribable, T
 from .mqtt import MQTTClientInterface
-from ..datatypes import RangeInt0To100
+from ..datatypes import RangeInt0To100, RGBUInt8, RangeUInt8, RGBWUInt8, RGBCCTUInt8, CCTUInt8
+from ..supervisor import AbstractInterface
 
 logger = logging.getLogger(__name__)
 
+ConnType = TypeVar("ConnType", bound="AbstractTasmotaConnector")
+JSONType = Union[str, float, int, None, Dict[str, Any], List[Any]]
 
-class TasmotaInterface:
+
+class TasmotaInterface(AbstractInterface):
     def __init__(self, mqtt_interface: MQTTClientInterface, device_topic: str,
                  topic_template: str = "{prefix}/{topic}/"):
+        super().__init__()
         self.mqtt_interface = mqtt_interface
         self.device_topic = device_topic
         self.topic_template = topic_template
-        self.connectors: Dict[str, AbstractTasmotaConnector] = {}
+        self._connectors_by_result_field: Dict[str, List[AbstractTasmotaConnector]] = {}
+        self._connectors_by_type: Dict[Type[AbstractTasmotaConnector], AbstractTasmotaConnector] = {}
+        self._pending_commands: Deque[Tuple[str, List[Any], asyncio.Event]] = collections.deque()
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'RESULT',
-                                                  self._dispatch_result, 1)
+                                                  self._handle_result, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'RESULT',
-                                                  self._dispatch_result, 1)
+                                                  self._handle_result, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'STATE',
-                                                  self._dispatch_telemetry, 1)
+                                                  self._handle_result, 1)
+        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'STATUS11',
+                                                  self._handle_status11, 1)
 
-    async def _dispatch_result(self, msg: MQTTMessage) -> None:
+    async def start(self) -> None:
+        await asyncio.sleep(.1)
+        await self.mqtt_interface.wait_running(5)
+        await self._send_command("status", "11")
+
+    async def stop(self) -> None:
+        pass
+
+    async def _handle_result(self, msg: MQTTMessage) -> None:
         try:
             data = json.loads(msg.payload.decode('utf-8'))
             assert isinstance(data, dict)
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
-            logger.error("Could not decode Tasmota result as JSON object: %s")
+            logger.error("Could not decode Tasmota result as JSON object: %s", msg.payload, exc_info=e)
             return
-        logger.debug("Dispatching Tasmota result from %s: %s", self.device_topic, msg.payload)
-        for key, value in data.items():
-            if key in self.connectors:
-                await self.connectors[key]._new_value_from_device(value)
+        await self._dispatch_status(data)
 
-    async def _dispatch_telemetry(self, msg: MQTTMessage) -> None:
-        # TODO
-        pass
+    async def _handle_status11(self, msg: MQTTMessage) -> None:
+        try:
+            data = json.loads(msg.payload.decode('utf-8'))
+            assert isinstance(data, dict)
+            assert 'StatusSTS' in data
+            assert isinstance(data['StatusSTS'], dict)
+        except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
+            logger.error("Could not decode Tasmota telemetry status as JSON object: %s", msg.payload, exc_info=e)
+            return
+
+        await self._dispatch_status(data['StatusSTS'])
+
+    async def _dispatch_status(self, data: JSONType) -> None:
+        logger.debug("Dispatching Tasmota result/status from %s: %s", self.device_topic, data)
+
+        origin = []
+        event = None
+        for field, origin_, event_ in self._pending_commands:
+            if field in data:
+                origin = origin_
+                event = event_
+                break
+
+        for key, value in data.items():
+            for connector in self._connectors_by_result_field.get(key, []):
+                # TODO handle errors
+                await connector._publish(connector._decode(value), origin)
+        if event:
+            event.set()
 
     def power(self) -> "TasmotaPowerConnector":
-        if 'POWER' not in self.connectors:  # FIXME: This pattern does not work for the different color connectors
-            self.connectors["POWER"] = TasmotaPowerConnector(self)
-        return self.connectors["POWER"]  # type: ignore
+        return self._get_or_create_connector(TasmotaPowerConnector)
 
     def dimmer(self) -> "TasmotaDimmerConnector":
-        if 'Dimmer' not in self.connectors:
-            self.connectors["Dimmer"] = TasmotaDimmerConnector(self)
-        return self.connectors["Dimmer"]  # type: ignore
+        return self._get_or_create_connector(TasmotaDimmerConnector)
+
+    def color_cct(self) -> "TasmotaColorCCTConnector":
+        return self._get_or_create_connector(TasmotaColorCCTConnector)
+
+    def color_rgb(self) -> "TasmotaColorRGBConnector":
+        return self._get_or_create_connector(TasmotaColorRGBConnector)
+
+    def color_rgbw(self) -> "TasmotaColorRGBWConnector":
+        return self._get_or_create_connector(TasmotaColorRGBWConnector)
+
+    def color_rgbcct(self) -> "TasmotaColorRGBCCTConnector":
+        return self._get_or_create_connector(TasmotaColorRGBCCTConnector)
 
     def ir_receiver(self) -> "TasmotaIRReceiverConnector":
-        if 'IrReceived' not in self.connectors:
-            self.connectors["IrReceived"] = TasmotaIRReceiverConnector(self)
-        return self.connectors["IrReceived"]  # type: ignore
+        return self._get_or_create_connector(TasmotaIRReceiverConnector)
+
+    def _get_or_create_connector(self, type_: Type[ConnType]) -> ConnType:
+        if type_ in self._connectors_by_type:
+            return cast(ConnType, self._connectors_by_type[type_])
+        else:
+            conn = type_(self)  # type: ignore
+            self._connectors_by_type[type_] = conn
+            if conn.result_field in self._connectors_by_result_field:
+                self._connectors_by_result_field[conn.result_field].append(conn)
+            else:
+                self._connectors_by_result_field[conn.result_field] = [conn]
+            return conn
 
     async def _send_command(self, command: str, value: str):
         await self.mqtt_interface.publish_message(
@@ -75,23 +133,28 @@ class TasmotaInterface:
             value.encode())
 
 
-class AbstractTasmotaConnector(Writable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
-    def __init__(self, interface: TasmotaInterface, command: str):
+class AbstractTasmotaConnector(Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
+    def __init__(self, result_field: str):
         super().__init__()
+        self.result_field = result_field
+
+    @abc.abstractmethod
+    def _decode(self, value: JSONType) -> T:
+        pass
+
+
+class AbstractTasmotaRWConnector(AbstractTasmotaConnector[T], Writable[T], Generic[T], metaclass=abc.ABCMeta):
+    def __init__(self, interface: TasmotaInterface, command: str, result_field: str):
+        super().__init__(result_field)
         self.command = command
         self.interface = interface
-        self._pending_commands: Dict[str, Deque[asyncio.Event]] = {}
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         # TODO return early if device is disconnected
         encoded_value = self._encode(value)
-        queue = self._pending_commands.get(encoded_value)
-        if queue is None:
-            queue = collections.deque()
-            self._pending_commands[encoded_value] = queue
         event = asyncio.Event()
-        queue.append(event)
 
+        self.interface._pending_commands.append((self.result_field, origin, event))
         await self.interface._send_command(self.command, encoded_value)
 
         try:
@@ -100,71 +163,121 @@ class AbstractTasmotaConnector(Writable[T], Subscribable[T], Generic[T], metacla
             logger.warning("No Result from Tasmota device %s to %s command within 5s.", self.interface.device_topic,
                            self.command)
         finally:
-            await self._publish(value, origin)
-            assert queue is not None
-            queue.remove(event)
-            if not queue:
-                del self._pending_commands[encoded_value]
+            # Remove queue entry
+            index = -1
+            for pos, t in enumerate(self.interface._pending_commands):
+                if t[2] is event:
+                    index = pos
+                    break
+            assert index != -1
+            del self.interface._pending_commands[index]
 
     @abc.abstractmethod
     def _encode(self, value: T) -> str:
         pass
 
-    @abc.abstractmethod
-    def _decode(self, value: Union[str, float]) -> T:
-        pass
 
-    async def _new_value_from_device(self, value: str) -> None:  # FIXME: value may also be a str
-        # FIXME we do not catch changes from other variables here (e.g. non-black color setting POWER=on)
-        queue = self._pending_commands.get(str(value))  # FIXME: this is hacky. What about rounding differences?
-        if queue is not None:
-            queue[0].set()
-        else:
-            await self._publish(self._decode(value), [])
-
-
-class AbstractTasmotaSensorConnector(Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
-    def __init__(self, name: str):
-        super().__init__()
-        self.name = name
-
-    @abc.abstractmethod
-    def _decode(self, value: Union[str, float]) -> T:
-        pass
-
-    async def _new_value_from_device(self, value: str) -> None:
-        await self._publish(self._decode(value), [])
-
-
-class TasmotaPowerConnector(AbstractTasmotaConnector[bool]):
+class TasmotaPowerConnector(AbstractTasmotaRWConnector[bool]):
     type = bool
 
     def __init__(self, interface: TasmotaInterface):
-        super().__init__(interface, "Power")
+        super().__init__(interface, "Power", "POWER")
 
     def _encode(self, value: bool) -> str:
         return 'ON' if value else 'OFF'
 
-    def _decode(self, value: str) -> bool:
+    def _decode(self, value: JSONType) -> bool:
+        assert isinstance(value, str)
         return value.lower() in ('on', '1', 'true')
 
 
-class TasmotaDimmerConnector(AbstractTasmotaConnector[RangeInt0To100]):
+class TasmotaDimmerConnector(AbstractTasmotaRWConnector[RangeInt0To100]):
     type = RangeInt0To100
 
     def __init__(self, interface: TasmotaInterface):
-        super().__init__(interface, "Dimmer")
+        super().__init__(interface, "Dimmer", "Dimmer")
 
     def _encode(self, value: RangeInt0To100) -> str:
         return str(value)
 
-    def _decode(self, value: int) -> RangeInt0To100:
+    def _decode(self, value: JSONType) -> RangeInt0To100:
+        assert isinstance(value, int)
         return RangeInt0To100(value)
 
 
-class TasmotaIRReceiverConnector(AbstractTasmotaSensorConnector[bytes]):
+class TasmotaColorCCTConnector(AbstractTasmotaRWConnector[CCTUInt8]):
+    type = CCTUInt8
+
+    def __init__(self, interface: TasmotaInterface):
+        super().__init__(interface, "color", "Color")
+
+    def _encode(self, value: CCTUInt8) -> str:
+        return '#{:0>2X}{:0>2X}'.format(value.cold, value.warm)
+
+    def _decode(self, value: JSONType) -> CCTUInt8:
+        assert isinstance(value, str)
+        data = bytes.fromhex(value)
+        data += bytes([0] * (2 - len(data)))
+        return CCTUInt8(RangeUInt8(data[0]), RangeUInt8(data[1]))
+
+
+class TasmotaColorRGBConnector(AbstractTasmotaRWConnector[RGBUInt8]):
+    type = RGBUInt8
+
+    def __init__(self, interface: TasmotaInterface):
+        super().__init__(interface, "color", "Color")
+
+    def _encode(self, value: RGBUInt8) -> str:
+        return '#{:0>2X}{:0>2X}{:0>2X}'.format(value.red, value.green, value.blue)
+
+    def _decode(self, value: JSONType) -> RGBUInt8:
+        assert isinstance(value, str)
+        data = bytes.fromhex(value)
+        data += bytes([0] * (3 - len(data)))
+        return RGBUInt8(*(RangeUInt8(v) for v in data))
+
+
+class TasmotaColorRGBWConnector(AbstractTasmotaRWConnector[RGBWUInt8]):
+    type = RGBWUInt8
+
+    def __init__(self, interface: TasmotaInterface):
+        super().__init__(interface, "color", "Color")
+
+    def _encode(self, value: RGBWUInt8) -> str:
+        return '#{:0>2X}{:0>2X}{:0>2X}{:0>2X}'.format(value.rgb.red, value.rgb.green, value.rgb.blue, value.white)
+
+    def _decode(self, value: JSONType) -> RGBWUInt8:
+        assert isinstance(value, str)
+        data = bytes.fromhex(value)
+        data += bytes([0] * (4 - len(data)))
+        return RGBWUInt8(RGBUInt8(*(RangeUInt8(v) for v in data[0:3])), RangeUInt8(data[3]))
+
+
+class TasmotaColorRGBCCTConnector(AbstractTasmotaRWConnector[RGBCCTUInt8]):
+    type = RGBCCTUInt8
+
+    def __init__(self, interface: TasmotaInterface):
+        super().__init__(interface, "color", "Color")
+
+    def _encode(self, value: RGBCCTUInt8) -> str:
+        return '#{:0>2X}{:0>2X}{:0>2X}{:0>2X}{:0>2X}'.format(value.rgb.red, value.rgb.green, value.rgb.blue,
+                                                             value.white.cold, value.white.warm)
+
+    def _decode(self, value: JSONType) -> RGBCCTUInt8:
+        assert isinstance(value, str)
+        data = bytes.fromhex(value)
+        data += bytes([0] * (5 - len(data)))
+        return RGBCCTUInt8(RGBUInt8(*(RangeUInt8(v) for v in data[0:3])),
+                           CCTUInt8(RangeUInt8(data[3]), RangeUInt8(data[4])))
+
+
+class TasmotaIRReceiverConnector(AbstractTasmotaConnector[bytes]):
     type = bytes
 
-    def _decode(self, value: str) -> bytes:
-        data = value['Data'] if 'Data' in value else value['Hash']  # FIXME this is hacky
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("IrReceived")
+
+    def _decode(self, value: JSONType) -> bytes:
+        assert isinstance(value, dict)
+        data = value['Data'] if 'Data' in value else value['Hash']  # TODO this is hacky. We should probably add the detected protocol
         return bytes.fromhex(data[2:])
