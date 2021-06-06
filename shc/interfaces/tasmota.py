@@ -11,16 +11,18 @@
 import abc
 import asyncio
 import collections
+import functools
 import json
 import logging
+import time
 from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple, cast
 
 from paho.mqtt.client import MQTTMessage  # type: ignore
 
-from ..base import Writable, Subscribable, T
+from ..base import Writable, Subscribable, T, Readable
 from .mqtt import MQTTClientInterface
 from ..datatypes import RangeInt0To100, RGBUInt8, RangeUInt8, RGBWUInt8, RGBCCTUInt8, CCTUInt8
-from ..supervisor import AbstractInterface
+from ..supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -30,22 +32,30 @@ JSONType = Union[str, float, int, None, Dict[str, Any], List[Any]]
 
 class TasmotaInterface(AbstractInterface):
     def __init__(self, mqtt_interface: MQTTClientInterface, device_topic: str,
-                 topic_template: str = "{prefix}/{topic}/"):
+                 topic_template: str = "{prefix}/{topic}/", telemetry_interval: int = 300):
         super().__init__()
         self.mqtt_interface = mqtt_interface
         self.device_topic = device_topic
         self.topic_template = topic_template
+        self.telemetry_interval = telemetry_interval
         self._connectors_by_result_field: Dict[str, List[AbstractTasmotaConnector]] = {}
         self._connectors_by_type: Dict[Type[AbstractTasmotaConnector], AbstractTasmotaConnector] = {}
         self._pending_commands: Deque[Tuple[str, List[Any], asyncio.Event]] = collections.deque()
+        self._online_connector = TasmotaOnlineConnector()
+
+        self._latest_telemetry_time = None
+        self._latest_telemetry = None
+
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'RESULT',
-                                                  self._handle_result, 1)
+                                                  self._handle_result_or_status, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'RESULT',
-                                                  self._handle_result, 1)
+                                                  functools.partial(self._handle_result_or_status, result=True), 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'STATE',
-                                                  self._handle_result, 1)
+                                                  self._handle_result_or_status, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'STATUS11',
                                                   self._handle_status11, 1)
+        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'LWT',
+                                                  self._online_connector._update_from_mqtt, 1)
 
     async def start(self) -> None:
         await asyncio.sleep(.1)
@@ -55,14 +65,43 @@ class TasmotaInterface(AbstractInterface):
     async def stop(self) -> None:
         pass
 
-    async def _handle_result(self, msg: MQTTMessage) -> None:
+    async def get_status(self) -> InterfaceStatus:
+        if not self._online_connector.value:
+            return InterfaceStatus(ServiceStatus.CRITICAL, "Tasmota device is not online")
+        if not self._latest_telemetry and self.telemetry_interval:
+            return InterfaceStatus(ServiceStatus.CRITICAL, "No telemetry data received from Tasmota device by now")
+        last_telemetry_age = time.monotonic() - self._latest_telemetry_time
+        if last_telemetry_age > 10 * self.telemetry_interval:
+            return InterfaceStatus(ServiceStatus.CRITICAL, "No telemetry data received from Tasmota device by now")
+        indicators = {
+            'telemetry_age': last_telemetry_age,
+            'tasmota.UptimeSec': self._latest_telemetry.get('UptimeSec'),
+            'tasmota.Heap': self._latest_telemetry.get('Heap'),
+            'tasmota.LoadAvg': self._latest_telemetry.get('LoadAvg'),
+            'tasmota.Wifi.RSSI': self._latest_telemetry.get('Wifi', {}).get('RSSI'),
+            'tasmota.Wifi.Signal': self._latest_telemetry.get('Wifi', {}).get('Signal'),
+            'tasmota.Wifi.Downtime': self._latest_telemetry.get('Wifi', {}).get('Downtime'),
+        }
+        if last_telemetry_age > 10 * self.telemetry_interval:
+            return InterfaceStatus(status=ServiceStatus.CRITICAL,
+                                   message="Latest telemetry data from Tasmota device is {:.2f}s old (more than 10x the"
+                                           " expected telemetry interval)".format(last_telemetry_age),
+                                   indicators=indicators)
+        if last_telemetry_age > 1.5 * self.telemetry_interval:
+            return InterfaceStatus(status=ServiceStatus.WARNING,
+                                   message="Latest telemetry data from Tasmota device is {:.2f}s old (more than 1.5x "
+                                           "the expected telemetry interval)".format(last_telemetry_age),
+                                   indicators=indicators)
+        return InterfaceStatus(indicators=indicators)
+
+    async def _handle_result_or_status(self, msg: MQTTMessage, result: bool = False) -> None:
         try:
             data = json.loads(msg.payload.decode('utf-8'))
             assert isinstance(data, dict)
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota result as JSON object: %s", msg.payload, exc_info=e)
             return
-        await self._dispatch_status(data)
+        await self._dispatch_status(data, result)
 
     async def _handle_status11(self, msg: MQTTMessage) -> None:
         try:
@@ -73,19 +112,19 @@ class TasmotaInterface(AbstractInterface):
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota telemetry status as JSON object: %s", msg.payload, exc_info=e)
             return
+        await self._dispatch_status(data['StatusSTS'], False)
 
-        await self._dispatch_status(data['StatusSTS'])
-
-    async def _dispatch_status(self, data: JSONType) -> None:
+    async def _dispatch_status(self, data: JSONType, result: bool) -> None:
         logger.debug("Dispatching Tasmota result/status from %s: %s", self.device_topic, data)
 
         origin = []
         event = None
-        for field, origin_, event_ in self._pending_commands:
-            if field in data:
-                origin = origin_
-                event = event_
-                break
+        if result:
+            for field, origin_, event_ in self._pending_commands:
+                if field in data:
+                    origin = origin_
+                    event = event_
+                    break
 
         for key, value in data.items():
             for connector in self._connectors_by_result_field.get(key, []):
@@ -93,6 +132,13 @@ class TasmotaInterface(AbstractInterface):
                 await connector._publish(connector._decode(value), origin)
         if event:
             event.set()
+
+        if not result and "Uptime" in data:
+            self._latest_telemetry = data
+            self._latest_telemetry_time = time.monotonic()
+
+    def online(self) -> "TasmotaOnlineConnector":
+        return self._online_connector
 
     def power(self) -> "TasmotaPowerConnector":
         return self._get_or_create_connector(TasmotaPowerConnector)
@@ -281,3 +327,18 @@ class TasmotaIRReceiverConnector(AbstractTasmotaConnector[bytes]):
         assert isinstance(value, dict)
         data = value['Data'] if 'Data' in value else value['Hash']  # TODO this is hacky. We should probably add the detected protocol
         return bytes.fromhex(data[2:])
+
+
+class TasmotaOnlineConnector(Readable[bool], Subscribable[bool]):
+    type = bool
+
+    def __init__(self):
+        super().__init__()
+        self.value = None
+
+    async def _update_from_mqtt(self, msg: MQTTMessage) -> None:
+        self.value = msg.payload == b'Online'
+        await self._publish(self.value, [])
+
+    async def read(self) -> bool:
+        return self.value
