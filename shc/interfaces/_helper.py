@@ -65,6 +65,18 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
                                self._last_error if not self._running.is_set() else "",
                                {})
 
+    async def wait_running(self, timeout: Optional[float] = None) -> None:
+        """
+        Wait for the interface to be running.
+
+        Attention: This must be called *after* :meth:`start` has initially been called (not neccessarily after it has
+        returned).
+
+        :param timeout: If given, this method will raise an :class:`asyncio.TimeoutError` after the given timeout in
+            seconds, if the interface has not come up by this time.
+        """
+        await asyncio.wait_for(self._running.wait(), timeout)
+
     @abc.abstractmethod
     async def _run(self) -> None:
         """
