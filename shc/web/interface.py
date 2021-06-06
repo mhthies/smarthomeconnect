@@ -26,7 +26,7 @@ from aiohttp import WSCloseCode
 
 from ..base import Reading, T, Writable, Subscribable
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import register_interface
+from ..supervisor import get_interfaces, AbstractInterface, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ jinja_env = jinja2.Environment(
 jinja_env.filters['id'] = id
 
 
-class WebServer:
+class WebServer(AbstractInterface):
     """
     A SHC interface to provide the web user interface and a REST+websocket API for interacting with Connectable objects.
 
@@ -55,9 +55,12 @@ class WebServer:
     :param title_formatter: A format string or format function to create the full HTML title, typically shown as browser
         tab title, from a web page's title. If it is a string, it should have one positional format placeholder
         (``{}``)
+    :param enable_monitoring: If True (default), the monitoring endpoint at `/monitoring` is enabled to allow monitoring
+        the interfaces' status in the UI or from a monitoring system
     """
     def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "",
-                 title_formatter: Union[str, Callable[[str], str]] = "{} | SHC"):
+                 title_formatter: Union[str, Callable[[str], str]] = "{} | SHC", enable_monitoring: bool = True):
+        super().__init__()
         self.host = host
         self.port = port
         self.index_name = index_name
@@ -114,8 +117,8 @@ class WebServer:
             aiohttp.web.get("/api/v1/object/{name}", self._api_get_handler),
             aiohttp.web.post("/api/v1/object/{name}", self._api_post_handler),
         ])
-
-        register_interface(self)
+        if enable_monitoring:
+            self._app.add_routes([aiohttp.web.get("/monitoring", self._monitoring_handler)])
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
@@ -127,12 +130,6 @@ class WebServer:
         await self._runner.setup()
         site = aiohttp.web.TCPSite(self._runner, self.host, self.port)
         await site.start()
-        # aiohttp's Runner or Site do not provide a good method to await the stopping of the server. Thus we use our own
-        # Event for that purpose.
-        self._stopped = asyncio.Event()
-
-    async def wait(self) -> None:
-        await self._stopped.wait()
 
     async def stop(self) -> None:
         logger.info("Closing open websockets ...")
@@ -142,7 +139,6 @@ class WebServer:
             task.cancel()
         logger.info("Cleaning up AppRunner ...")
         await self._runner.cleanup()
-        self._stopped.set()
 
     def page(self, name: str, title: Optional[str] = None, menu_entry: Union[bool, str] = False,
              menu_icon: Optional[str] = None, menu_sub_label: Optional[str] = None, menu_sub_icon: Optional[str] = None
@@ -459,6 +455,58 @@ class WebServer:
                                                       .format(e))
         raise aiohttp.web.HTTPNoContent()
 
+    async def _monitoring_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
+        accept_map = {'text/*': 'text/plain',
+                      'application/*': 'application/json',
+                      '*/*': 'application/json',
+                      'text/html': 'text/html',
+                      'application/json': 'application/json',
+                      }
+        accept_list = request.headers.get("Accept", "application/json").split(",")
+        content_type: Optional[str] = None
+        for mime_type in accept_list:
+            mime_type = mime_type.strip().split(";")[0]
+            if mime_type in accept_map:
+                content_type = accept_map[mime_type]
+                break
+        if content_type is None:
+            raise aiohttp.web.HTTPNotAcceptable()
+
+        # Fetch interface data
+        interfaces_data = {}
+        overall_status = 0
+        for iface in get_interfaces():
+            status = await iface.get_status()
+            interfaces_data[repr(iface)] = {
+                'status': status.status.value,
+                'message': status.message,
+                'indicators': status.indicators,
+            }
+            overall_status = max(overall_status, min(status.status.value, 2) - 2 + iface.criticality.value)
+
+        # Calculate HTTP status code
+        http_status = {0: 200,
+                       1: 213,
+                       2: 513}.get(overall_status, 500)
+
+        if content_type == "application/json":
+            data = {
+                'status': overall_status,
+                'interfaces': interfaces_data,
+            }
+            body = json.dumps(data)
+        elif content_type == "text/html":
+            template = jinja_env.get_template('status.htm')
+            body = await template.render_async(overall_status=overall_status, interfaces_data=interfaces_data,
+                                               ServiceStatus=ServiceStatus, menu=self.ui_menu_entries,
+                                               root_url=self.root_url, js_files=self._js_files,
+                                               css_files=self._css_files, server_token=id(self),
+                                               html_title="Status Monitoring")
+        return aiohttp.web.Response(status=http_status,
+                                    body=body,
+                                    content_type=content_type,
+                                    charset='utf-8')
+
     def serve_static_file(self, path: pathlib.Path) -> str:
         """
         Register a static file to be served on this HTTP server.
@@ -518,6 +566,9 @@ class WebServer:
         if path in self.static_files:
             return
         self._css_files.append(self.serve_static_file(path))
+
+    def __repr__(self) -> str:
+        return "{}(host={}, port={})".format(self.__class__.__name__, self.host, self.port)
 
 
 class WebConnectorContainer(metaclass=abc.ABCMeta):

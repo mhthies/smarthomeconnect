@@ -16,11 +16,11 @@ import logging
 from typing import List, Any, Dict, Tuple, Optional, Set, Generic
 
 import knxdclient
+from ._helper import SupervisedClientInterface
 
 from .. import datatypes
 from ..base import Writable, Subscribable, Reading, T
 from ..conversion import register_converter
-from ..supervisor import register_interface
 
 KNXGAD = knxdclient.GroupAddress
 
@@ -85,7 +85,7 @@ KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
 }
 
 
-class KNXConnector:
+class KNXConnector(SupervisedClientInterface):
     """
     SHC interface for connecting with a KNX home automation bus via KNX deamon (KNXD).
 
@@ -102,28 +102,45 @@ class KNXConnector:
     :param host: Hostname for connecting to KNXD via TCP. Defaults to 'localhost'
     :param port: TCP port where KNXD is listening for client connections at the specified `host`. Defaults to 6720.
     :param sock: Path to the KNXD UNIX domain socket. If given, it is used instead of the TCP connection to host/port.
+    :param auto_reconnect: If True (default), the interface tries to reconnect automatically with exponential backoff
+        (5 * 1.25^n seconds sleep), when connection to KNXD is lost. Otherwise, the complete SHC system is shut down
+        on connection errors.
+    :param read_init_after_reconnect: If True (default), the *group read* telegrams for initialization (according to the
+        `init` parameter of :meth:`group`) are resent when reconnecting after a connection loss to compensate for
+        possibly missed value updates on the KNX bus.
+    :param failsafe_start: If True, the KNXD client allows SHC to start up, even if the connection to KNXD can not be
+        established in the first try. The connection is retried in background with exponential backoff (see
+        `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not retried and will
+        shutdown the SHC application on failure, even if `auto_reconnect` is True.
     """
-    def __init__(self, host: str = 'localhost', port: int = 6720, sock: Optional[str] = None):
+    def __init__(self, host: str = 'localhost', port: int = 6720, sock: Optional[str] = None,
+                 auto_reconnect: bool = True, read_init_after_reconnect: bool = True, failsafe_start: bool = False):
+        super().__init__(auto_reconnect, failsafe_start)
+        self.backoff_base = 5
         self.host = host
         self.port = port
         self.sock = sock
+        self.read_init_after_reconnect = read_init_after_reconnect
         self.groups: Dict[KNXGAD, KNXGroupVar] = {}
         self.knx = knxdclient.KNXDConnection()
         self.knx.register_telegram_handler(self._dispatch_telegram)
-        self.knx_run_task: asyncio.Task
         self.init_request_groups: Set[KNXGAD] = set()
-        register_interface(self)
+        self._first_connect = True
 
-    async def start(self):
+    async def _connect(self) -> None:
         await self.knx.connect(self.host, self.port, self.sock)
-        self.knx_run_task = asyncio.create_task(self.knx.run())
+
+    async def _subscribe(self) -> None:
         await self.knx.open_group_socket()
-        await self._send_init_requests()
+        if self._first_connect or self.read_init_after_reconnect:
+            await self._send_init_requests()
+        self._first_connect = False
 
-    async def wait(self):
-        await self.knx_run_task
+    async def _run(self):
+        self._running.set()
+        await self.knx.run()
 
-    async def stop(self):
+    async def _disconnect(self) -> None:
         await self.knx.stop()
 
     def group(self, addr: KNXGAD, dpt: str, init: bool = False) -> "KNXGroupVar":
@@ -237,6 +254,9 @@ class KNXConnector:
 
     async def send(self, addr: knxdclient.GroupAddress, encoded_data: knxdclient.EncodedData):
         await self.knx.group_write(addr, knxdclient.KNXDAPDUType.WRITE, encoded_data)
+
+    def __repr__(self) -> str:
+        return "{}(host={}, port={}, sock={})".format(self.__class__.__name__, self.host, self.port, self.sock)
 
 
 class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):

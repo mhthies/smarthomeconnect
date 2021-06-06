@@ -13,13 +13,14 @@ import json
 import logging
 import weakref
 from json import JSONDecodeError
-from typing import Type, Dict, Generic, List, Any
+from typing import Type, Dict, Generic, List, Any, Optional
 
 import aiohttp
 
+from ._helper import SupervisedClientInterface
 from ..base import T, Subscribable, Writable, Readable, UninitializedError
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import register_interface
+from ..supervisor import register_interface, stop
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 TIMEOUT = 5.0
 
 
-class SHCWebClient:
+class SHCWebClient(SupervisedClientInterface):
     """
     Client for connecting to remote SHC instances via the websocket API, provided by :class:`shc.web.WebServer`
 
@@ -39,35 +40,22 @@ class SHCWebClient:
 
     :param server: Base URL of the remote SHC webserver instance without trailing slash, e.g. 'https://example.com/shc'.
         The path of the API websocket ('/api/v1/ws') is appended internally.
+    :param auto_reconnect: If True (default), the API client tries to reconnect automatically on connection errors with
+        exponential backoff (1 * 1.25^n seconds sleep). Otherwise, the complete SHC system is shut down, when a
+        connection error occurs.
+    :param failsafe_start: If True and auto_reconnect is True, the API client allows SHC to start up, even if the API
+        connection can not be established in the first try. The connection is retried in background with exponential
+        backoff (see `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not
+        retried and will shutdown the SHC application on failure, even if `auto_reconnect` is True.
     """
-    def __init__(self, server: str) -> None:
+    def __init__(self, server: str, auto_reconnect: bool = True, failsafe_start: bool = False) -> None:
+        super().__init__(auto_reconnect, failsafe_start)
         self.server = server
         self._api_objects: Dict[str, WebApiClientObject] = {}
-        register_interface(self)
 
         self._session: aiohttp.ClientSession
-        self._ws: aiohttp.ClientWebSocketResponse
-        self._run_task: asyncio.Task
-        self._stopping = False
+        self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
         self._waiting_futures: weakref.WeakValueDictionary[int, asyncio.Future] = weakref.WeakValueDictionary()
-
-    async def start(self):
-        logger.info("Connecting SHC web client interface to %s ...", self.server)
-        self._session = aiohttp.ClientSession()
-        try:
-            self._ws = await self._session.ws_connect(self.server + '/api/v1/ws')
-            try:
-                self._run_task = asyncio.create_task(self.run())
-                await asyncio.gather(*(self._subscribe_and_wait(name)
-                                       for name, obj in self._api_objects.items()
-                                       if obj._subscribers or obj._triggers))
-                # TODO gather results and give a better error description
-            except Exception:
-                await self._ws.close()
-                raise
-        except Exception:
-            await self._session.close()
-            raise
 
     async def _subscribe_and_wait(self, name: str) -> None:
         """
@@ -84,33 +72,52 @@ class SHCWebClient:
         """
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
+        assert self._ws is not None
         await self._ws.send_json({'action': 'subscribe', 'name': name, 'handle': id(future)})
         result = await asyncio.wait_for(future, TIMEOUT)
         if not 200 <= result['status'] < 300:
             raise WebSocketAPIError("Failed to subscribe SHC API object '{}' with status {}: {}"
                                     .format(name, result['status'], result.get('error')))
 
-    async def wait(self):
-        await self._run_task
+    async def start(self) -> None:
+        self._session = aiohttp.ClientSession()
+        await super().start()
 
-    async def stop(self):
-        logger.info("Closing SHC web client to %s ...", self.server)
-        self._stopping = True
-        await self._ws.close()
-        await self._run_task
+    async def _connect(self) -> None:
+        # TODO change timeout: https://docs.aiohttp.org/en/stable/client_quickstart.html#timeouts
+        self._ws = await self._session.ws_connect(self.server + '/api/v1/ws')
+
+    async def _subscribe(self) -> None:
+        await asyncio.gather(*(self._subscribe_and_wait(name)
+                               for name, obj in self._api_objects.items()
+                               if obj._subscribers or obj._triggers))
+        # TODO gather results and give a better error description
+
+    async def _disconnect(self) -> None:
+        logger.info("Closing client websocket to %s ...", self.server)
+        if self._ws is not None:
+            await self._ws.close()
+
+    async def stop(self) -> None:
+        await super().stop()
         await self._session.close()
 
-    async def run(self) -> None:
+    async def _run(self) -> None:
+        """
+        Entrypoint for the async "run" Task for receiving Websocket messages
+        """
+        assert self._ws is not None
+        self._running.set()
+
+        # Receive websocket messages until websocket is closed
         msg: aiohttp.WSMessage
         async for msg in self._ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 await self._websocket_dispatch(msg)
             elif msg.type == aiohttp.WSMsgType.ERROR:
-                raise RuntimeError('SHC API websocket connection closed with exception {}'
-                                   .format(self._ws.exception()))
+                logger.error('SHC API websocket failed with %s', self._ws.exception())
+
         logger.debug('SHC API websocket connection closed')
-        if not self._stopping:
-            raise RuntimeError('SHC API websocket was unexpectedly closed')
 
     async def _websocket_dispatch(self, msg: aiohttp.WSMessage) -> None:
         try:
@@ -160,6 +167,8 @@ class SHCWebClient:
             not in the 200-range). This may be caused by a type or object name mismatch.
         :raises asyncio.TimeoutError: when no response is received from the server within TIMEOUT seconds
         """
+        if self._ws is None:
+            raise RuntimeError("Websocket of SHC client for API at {} has not been connected yet".format(self.server))
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         logger.debug("Writing value from SHC API object %s ...", name)
@@ -190,6 +199,8 @@ class SHCWebClient:
             is not in the 200-range). This may be caused object name mismatch or another server-side error.
         :raises asyncio.TimeoutError: when no response is received from the server within TIMEOUT seconds
         """
+        if self._ws is None:
+            raise RuntimeError("Websocket of SHC client for API at {} has not been connected yet".format(self.server))
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         logger.debug("Reading value from SHC API object %s ...", name)
@@ -227,6 +238,9 @@ class SHCWebClient:
             api_object = WebApiClientObject(self, type_, name)
             self._api_objects[name] = api_object
             return api_object
+
+    def __repr__(self) -> str:
+        return "{}(server={})".format(self.__class__.__name__, self.server)
 
 
 class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):

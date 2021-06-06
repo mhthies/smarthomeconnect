@@ -42,13 +42,12 @@ import asyncio
 
 from ..base import Writable
 from ..datatypes import RangeUInt8
-from ..supervisor import register_interface
-
+from ..supervisor import AbstractInterface
 
 logger = logging.getLogger(__name__)
 
 
-class AbstractDMXConnector(metaclass=abc.ABCMeta):
+class AbstractDMXConnector(AbstractInterface, metaclass=abc.ABCMeta):
     """
     Abstract base class for DMX output interfaces.
 
@@ -59,6 +58,7 @@ class AbstractDMXConnector(metaclass=abc.ABCMeta):
     Instances of these classes provide a method :meth:`address` to create a `writable` object for a given DMX channel.
     """
     def __init__(self, universe_size: int = 512):
+        super().__init__()
         self.universe = [0] * universe_size
 
     def address(self, dmx_address: int) -> "DMXAddress":
@@ -116,15 +116,11 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         self.serial_url = serial_url
         self.running_transmit: Optional[asyncio.Future] = None
         self.next_transmit: Optional[asyncio.Future] = None
-        register_interface(self)
 
     async def start(self):
         logger.info("Starting Enttec DMX USB Pro interface on serial port %s ...", self.serial_url)
         self._reader, self._writer = await serial_asyncio.open_serial_connection(url=self.serial_url)
         await self._transmit()
-
-    async def wait(self):
-        await self._writer.wait_closed()
 
     async def stop(self):
         logger.info("Closing serial port %s ...", self.serial_url)
@@ -177,8 +173,12 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
 
         This method converts the current state of the DMX universe to an EnttecMessage, writes it to the serial buffer
         and awaits the flush of the serial buffer to the interface."""
+        # TODO catch connection errors
         self._writer.write(self._universe_to_enttec(self.universe).encode())
         await self._writer.drain()
+
+    def __repr__(self) -> str:
+        return "{}(serial_url={})".format(self.__class__.__name__, self.serial_url)
 
 
 class EntTecMessageLabel(enum.Enum):

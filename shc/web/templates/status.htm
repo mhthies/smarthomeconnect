@@ -1,0 +1,64 @@
+{# Copyright 2020 Michael Thies <mail@mhthies.de>
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ # the License. You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ # an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ # specific language governing permissions and limitations under the License.
+ #}
+{% extends "base.htm" %}
+{% block content %}
+    <h1 class="ui inverted header">SHC Status Monitoring</h1>
+
+    {% if overall_status == ServiceStatus.OK.value %}
+        <div class="ui visible positive icon message">
+            <i class="thumbs up icon"></i>
+            <p>Overall status: OK</p>
+        </div>
+    {% elif overall_status == ServiceStatus.WARNING.value %}
+        <div class="ui visible yellow icon message">
+            <i class="exclamation triangle icon"></i>
+            <p>Overall status: WARNING</p>
+        </div>
+    {% elif overall_status == ServiceStatus.CRITICAL.value %}
+        <div class="ui visible negative icon message">
+            <i class="exclamation triangle icon"></i>
+            <p>Overall status: CRITICAL</p>
+        </div>
+    {% else %}
+        <div class="ui visible violet icon message">
+            <i class="question icon"></i>
+            <p>Overall status: UNKNOWN</p>
+        </div>
+    {% endif %}
+
+    <div class="ui stackable grid">
+        {% for interface_chunk in interfaces_data.items()|slice(3) %}
+            <div class="eight wide column">
+                {% for interface_name, interface in interface_chunk %}
+                    <h3 class="ui inverted header">{{ interface_name }}</h3>
+                    <div class="ui segment">
+                        <div class="ui relaxed divided list">
+                            <div class="item">
+                                <label class="shc label">Status</label><div class="ui right floated">{{ ServiceStatus(interface.status).name }}</div> {# TODO color #}
+                            </div>
+                            {% if interface.message %}
+                                <div class="item">
+                                    <label class="shc label">Message</label><div class="ui right floated">{{ interface.message }}</div>
+                                </div>
+                            {% endif %}
+                            {% for name, value in interface.indicators.items() %}
+                                <div class="item">
+                                    <label class="shc label">{{ name }}</label><div class="ui right floated">{{ value }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}
