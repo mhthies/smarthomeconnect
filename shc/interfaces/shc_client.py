@@ -88,7 +88,9 @@ class SHCWebClient(SupervisedClientInterface):
         self._ws = await self._session.ws_connect(self.server + '/api/v1/ws')
 
     async def _subscribe(self) -> None:
-        await asyncio.gather(*(self._subscribe_and_wait(name) for name in self._api_objects))
+        await asyncio.gather(*(self._subscribe_and_wait(name)
+                               for name, obj in self._api_objects.items()
+                               if obj._subscribers or obj._triggers))
         # TODO gather results and give a better error description
 
     async def _disconnect(self) -> None:
