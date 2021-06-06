@@ -178,6 +178,9 @@ class TasmotaInterface(AbstractInterface):
             self.topic_template.format(prefix='cmnd', topic=self.device_topic) + command,
             value.encode())
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.device_topic})"
+
 
 class AbstractTasmotaConnector(Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self, result_field: str):

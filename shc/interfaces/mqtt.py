@@ -95,6 +95,9 @@ class MQTTClientInterface(SupervisedClientInterface):
                     continue
                 asyncio.create_task(receiver(message))
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.client._hostname})"
+
 
 class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
     def __init__(self, interface: MQTTClientInterface, publish_topic: str, subscribe_topics: str, qos: int,
