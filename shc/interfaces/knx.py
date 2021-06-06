@@ -254,12 +254,15 @@ class KNXConnector(SupervisedClientInterface):
 
     async def send(self, addr: knxdclient.GroupAddress, encoded_data: knxdclient.EncodedData):
         await self.knx.group_write(addr, knxdclient.KNXDAPDUType.WRITE, encoded_data)
+        await asyncio.sleep(0.15)  # wait a bit longer to be sure, that the telegram has been sent to the bus
 
     def __repr__(self) -> str:
         return "{}(host={}, port={}, sock={})".format(self.__class__.__name__, self.host, self.port, self.sock)
 
 
 class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
+    _stateful_publishing = True
+
     def __init__(self, connector: KNXConnector, addr: KNXGAD, dpt: str):
         if dpt not in KNXDPTs:
             raise ValueError("KNX Datapoint Type {} is not supported".format(dpt))
@@ -284,9 +287,9 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
         return None
 
     async def _write(self, value: T, origin: List[Any]) -> None:
+        await self._publish(value, origin)
         encoded_data = knxdclient.encode_value(value, self.knx_major_dpt)
         await self.connector.send(self.addr, encoded_data)
-        await self._publish(value, origin)
 
     def __repr__(self) -> str:
         return "{}(GAD={})".format(self.__class__.__name__, self.addr)

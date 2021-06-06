@@ -147,7 +147,8 @@ class SHCWebClient(SupervisedClientInterface):
 
         # New (or initial) value for subscribed object (not on read response)
         if 'value' in message and ('action' not in message or message['action'] == 'subscribe'):
-            asyncio.create_task(self._api_objects[name].new_value(message['value']))
+            # We don't need to do this in an asynchronous task, since the new_value method uses asynchronous publishing
+            await self._api_objects[name].new_value(message['value'])
 
         elif 'handle' not in message:
             logger.warning("Received unexpected message from SHC websocket API: %s", msg)
@@ -254,6 +255,8 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
     Thus, this class inherits from :class:`shc.base.Readable`, :class:`shc.base.Wrtiable` and
     :class:`shc.base.Subscribable`.
     """
+    _stateful_publishing = True
+
     def __init__(self, client: SHCWebClient, type_: Type[T], name: str):
         self.type = type_
         super().__init__()
@@ -264,8 +267,10 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
         return from_json(self.type, await self.client._read_value(self.name))
 
     async def _write(self, value: T, origin: List[Any]) -> None:
-        await self.client._send_value(self.name, value)
+        # Asynchronous local feedback publishing. This ensures that conflicting updates, which are currently waiting for
+        # local processing by a subscriber can be corrected by resetting this update's origin.
         await self._publish(value, origin)
+        await self.client._send_value(self.name, value)
 
     async def new_value(self, value: Any) -> None:
         """

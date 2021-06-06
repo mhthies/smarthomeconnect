@@ -254,7 +254,7 @@ class WebServer(AbstractInterface):
         try:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
-                    asyncio.create_task(self._ui_websocket_dispatch(ws, msg))
+                    await self._ui_websocket_dispatch(ws, msg)
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.info('UI websocket connection closed with exception %s', ws.exception())
         finally:
@@ -273,7 +273,7 @@ class WebServer(AbstractInterface):
             if message['serverToken'] != id(self):
                 logger.debug("Client's serverToken %s does not match our id. Asking for reload.",
                              message['serverToken'])
-                await ws.send_json({'reload': True})
+                asyncio.create_task(ws.send_json({'reload': True}))
             return
 
         try:
@@ -283,9 +283,11 @@ class WebServer(AbstractInterface):
                          "known.", message['id'])
             return
         if 'v' in message:
+            # We don't need to do this in an asynchronous task, since the from_websocket method uses asynchronous
+            # publishing
             await connector.from_websocket(message['v'], ws)
         elif 'sub' in message:
-            await connector.websocket_subscribe(ws)
+            asyncio.create_task(connector.websocket_subscribe(ws))
         else:
             logger.warning("Don't know how to handle websocket message: %s", message)
 
@@ -298,6 +300,8 @@ class WebServer(AbstractInterface):
         try:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
+                    # It does not make sense to avoid the task creation here, since we would have to create a task in
+                    # any branch of the _api_websocket_dispatch() to asynchronously do writing to websockets then.
                     asyncio.create_task(self._api_websocket_dispatch(request, ws, msg))
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.info('API websocket connection closed with exception %s', ws.exception())
@@ -745,6 +749,8 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc
     is_reading_optional = False
 
     async def _write(self, value: T, origin: List[Any]):
+        if isinstance(self, WebActionDatapoint):
+            await self._publish(value, origin)
         await self._websocket_publish(self.convert_to_ws_value(value))
 
     def convert_to_ws_value(self, value: T) -> Any:
@@ -794,6 +800,10 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
     As this is a generic *Connectable* class, don't forget to define the :ref:`type attribute <base.typing>`, when
     inheriting from it—either as a class attribute or as an instance attribute, set in the constructor.
     """
+    def __init__(self):
+        super().__init__()
+        self._stateful_publishing = isinstance(self, WebDisplayDatapoint)
+
     def convert_from_ws_value(self, value: Any) -> T:
         """
         Callback method to convert/transform values from a websocket client, before *publishing* them.
@@ -812,7 +822,9 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
         value_converted = self.convert_from_ws_value(value)
         await self._publish(value_converted, [ws])
         if isinstance(self, WebDisplayDatapoint):
-            await self._websocket_publish(self.convert_to_ws_value(value_converted))
+            # from_websocket is awaited in the websocket message processing loop, so we should do all (asynchronously)
+            # blocking things in separate tasks.
+            asyncio.create_task(self._websocket_publish(self.convert_to_ws_value(value_converted)))
 
 
 class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
@@ -822,6 +834,7 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
     :ivar name: The name of this object in the REST/websocket API
     """
     is_reading_optional = False
+    _stateful_publishing = True
 
     def __init__(self, type_: Type[T], name: str):
         self.type = type_
@@ -840,6 +853,9 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         self.future = asyncio.get_event_loop().create_future()
 
     async def _write(self, value: T, origin: List[Any]) -> None:
+        # Asynchronous local feedback publishing. This ensures that conflicting updates, which are currently waiting for
+        # local processing by a subscriber can be corrected by resetting this update's origin.
+        await self._publish(value, origin)
         await self._publish_http(value)
 
     async def http_post(self, value: Any, origin: Any) -> None:

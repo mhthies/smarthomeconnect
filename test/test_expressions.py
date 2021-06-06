@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import unittest
 import unittest.mock
@@ -23,6 +24,7 @@ class TestExpressions(unittest.TestCase):
         self.assertEqual(False, await expression2.read())
 
         await var1.write(15, [self])
+        await asyncio.sleep(0.01)
         subscriber._write.assert_called_once_with(8, unittest.mock.ANY)
         subscriber2._write.assert_called_once_with(True, unittest.mock.ANY)
 
@@ -105,3 +107,12 @@ class TestExpressions(unittest.TestCase):
             5 / var2.EX
         with self.assertRaises(TypeError):
             5 // var2.EX
+
+    @async_test
+    async def test_expressions_concurrent_update(self) -> None:
+        var1 = variables.Variable(int)
+        var2 = variables.Variable(int).connect(var1.EX + 5)
+        var1.connect(var2.EX - 5)
+
+        await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        self.assertEqual(await var1.read(), await var2.read() - 5)

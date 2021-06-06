@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 import unittest.mock
 
@@ -31,6 +32,15 @@ class MiscTests(unittest.TestCase):
         sub_right._write.assert_not_called()
 
     @async_test
+    async def test_two_way_pipe_concurrent_update(self) -> None:
+        var1 = shc.Variable(int)
+        pipe = shc.misc.TwoWayPipe(int).connect_left(var1)
+        var2 = shc.Variable(int).connect(pipe.right)
+
+        await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        self.assertEqual(await var1.read(), await var2.read())
+
+    @async_test
     async def test_breakable_subscription_simple(self) -> None:
         pub = ExampleSubscribable(float)
         control = ExampleReadable(bool, True)
@@ -61,17 +71,21 @@ class MiscTests(unittest.TestCase):
 
         # pub is uninitialized, so we should not receive anything, when control changes to True
         await control.write(True, [self])
+        await asyncio.sleep(0.01)
         sub._write.assert_not_called()
 
         await pub.write(42.0, [self])
+        await asyncio.sleep(0.01)
         sub._write.assert_called_once_with(42.0, [self, pub, unittest.mock.ANY])
 
         sub._write.reset_mock()
         await control.write(False, [self])
         await pub.write(56.0, [self])
+        await asyncio.sleep(0.01)
         sub._write.assert_not_called()
 
         await control.write(True, [self])
+        await asyncio.sleep(0.01)
         sub._write.assert_called_once_with(56.0, [self, control, unittest.mock.ANY])
 
     @async_test

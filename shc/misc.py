@@ -36,7 +36,7 @@ class PeriodicReader(Readable[T], Subscribable[T], Generic[T]):
         super().__init__()
         self.wrapped = wrapped
         self.timer = Every(interval)
-        self.timer.trigger(self.do_read)
+        self.timer.trigger(self.do_read, synchronous=True)
 
     async def read(self) -> T:
         return await self.wrapped.read()
@@ -91,6 +91,8 @@ class TwoWayPipe(ConnectableWrapper[T], Generic[T]):
 
 
 class _PipeEnd(Subscribable[T], Writable[T], Generic[T]):
+    _synchronous_publishing = True
+
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
@@ -127,14 +129,16 @@ class BreakableSubscription(Subscribable[T], Generic[T]):
     :param wrapped: The Subscribable object to be wrapped
     :param control: The Readable control object
     """
+    _synchronous_publishing = True
+
     def __init__(self, wrapped: Subscribable[T], control: Readable[bool]):
         self.type = wrapped.type
         super().__init__()
         self.wrapped = wrapped
         self.control = control
-        wrapped.trigger(self._new_value)
+        wrapped.trigger(self._new_value, synchronous=True)
         if isinstance(control, Subscribable) and isinstance(wrapped, Readable):
-            control.trigger(self._connection_change)
+            control.trigger(self._connection_change, synchronous=True)
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
         try:
@@ -175,11 +179,12 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
         inverted, too.
     """
     type = bool
+    _synchronous_publishing = True
 
     def __init__(self, wrapped: Subscribable[T], lower: T, upper: T, inverted: bool = False,
                  initial_value: bool = False):
         super().__init__()
-        wrapped.trigger(self._new_value)
+        wrapped.trigger(self._new_value, synchronous=True)
         self._value = initial_value  #: Current output value (uninverted)
         if not isinstance(lower, wrapped.type) or not isinstance(upper, wrapped.type):
             raise TypeError("'lower' and 'upper' must be instances of the wrapped Subscribable's type, which is {}"

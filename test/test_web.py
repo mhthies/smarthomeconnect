@@ -187,6 +187,7 @@ class WebWidgetsTest(AbstractWebTest):
 
             asyncio.run_coroutine_threadsafe(switch_widget.write(False, [self]), loop=self.server_runner.loop).result()
             time.sleep(0.05)
+            publish_mock.reset_mock()
             self.assertFalse(checkbox_element.is_selected())
 
             checkbox_container = checkbox_element.find_element_by_xpath('./..')
@@ -264,6 +265,9 @@ class WebWidgetsTest(AbstractWebTest):
             asyncio.run_coroutine_threadsafe(b2.write(False, [self]), loop=self.server_runner.loop).result()
             asyncio.run_coroutine_threadsafe(b4.write(56, [self]), loop=self.server_runner.loop).result()
             time.sleep(0.05)
+            b1_publish.reset_mock()
+            b3_publish.reset_mock()
+            b4_publish.reset_mock()
             self.assertNotIn('blue', b2_element.get_attribute('class'))
             self.assertNotIn('red', b4_element.get_attribute('class'))
 
@@ -359,6 +363,7 @@ class WebWidgetsTest(AbstractWebTest):
 
             asyncio.run_coroutine_threadsafe(input_widget.write(56, [self]), loop=self.server_runner.loop).result()
             time.sleep(0.05)
+            publish_mock.reset_mock()
             self.assertEqual("56", input_element.get_attribute("value"))
 
             input_element.send_keys(Keys.SHIFT + Keys.HOME, Keys.BACK_SPACE)
@@ -396,6 +401,7 @@ class WebWidgetsTest(AbstractWebTest):
             asyncio.run_coroutine_threadsafe(input_widget.write("Foobar", [self]), loop=self.server_runner.loop)\
                 .result()
             time.sleep(0.05)
+            publish_mock.reset_mock()
             self.assertEqual("Foobar", input_element.get_attribute("value"))
 
             input_element.send_keys(Keys.SHIFT + Keys.HOME, Keys.BACK_SPACE)

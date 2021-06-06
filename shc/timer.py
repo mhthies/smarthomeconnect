@@ -126,7 +126,7 @@ class _AbstractScheduleTimer(Subscribable[None], metaclass=abc.ABCMeta):
             logger.info("Scheduling next execution of timer %s for %s", self, next_execution)
             await _logarithmic_sleep(next_execution)
             self.last_execution = next_execution
-            asyncio.create_task(self._publish(None, []))
+            await self._publish(None, [])  # we use asynchronous publishing, so no worries about timing
 
     @abc.abstractmethod
     def _next_execution(self) -> Optional[datetime.datetime]:
@@ -443,13 +443,14 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
     * :class:`TPulse`: Each True value triggers a True pulse of exactly ``delay`` length, but only if no pulse is
         currently active (i.e. the current value is False; a pulse is not re-triggerable).
     """
+    type = bool
+
     def __init__(self, wrapped: Subscribable[bool], delay: datetime.timedelta):
-        self.type = bool
         super().__init__()
         self.delay = delay
         self._value = False
         self._change_task: Optional[asyncio.Task] = None
-        wrapped.trigger(self._update)
+        wrapped.trigger(self._update, synchronous=True)
 
     @abc.abstractmethod
     async def _update(self, value: bool, origin: List[Any]): ...
@@ -601,7 +602,7 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
         super().__init__()
         self.delay = delay
         self._value: Optional[T] = initial_value
-        wrapped.trigger(self._update)
+        wrapped.trigger(self._update, synchronous=True)
 
     async def _update(self, value: T, origin: List[Any]) -> None:
         asyncio.create_task(self.__set_delayed(value, origin))
@@ -676,10 +677,10 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
         self.delay_task: Optional[asyncio.Task] = None
 
         for on_timer in on:
-            on_timer.trigger(self._on)
+            on_timer.trigger(self._on, synchronous=True)
         if off:
             for off_timer in off:
-                off_timer.trigger(self._off)
+                off_timer.trigger(self._off, synchronous=True)
 
     async def _on(self, _v, origin) -> None:
         if not self.value:
@@ -718,10 +719,12 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
     :param wrapped: The Subscribable object to be wrapped
     :param min_interval: The minimal allowed interval between published values in seconds
     """
+    _synchronous_publishing = True
+
     def __init__(self, wrapped: Subscribable[T], min_interval: float):
         self.type = wrapped.type
         super().__init__()
-        wrapped.trigger(self._new_value)
+        wrapped.trigger(self._new_value, synchronous=True)
         self.min_interval = min_interval
         self._last_publish = 0.0
         self._delay_task: Optional[asyncio.Task] = None

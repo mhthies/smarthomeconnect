@@ -36,6 +36,8 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         set via :meth:`set_provider`, the Variable is initialized with a None value and any :meth:`read` request
         will raise an :exc:`shc.base.UninitializedError` until the first value update is received.
     """
+    _stateful_publishing = True
+
     def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None):
         self.type = type_
         super().__init__()
@@ -56,15 +58,12 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         old_value = self._value
         self._value = value
         if old_value != value:  # if a single field is different, the full value will also be different
-            tasks = []
             logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
-            tasks.append(self._publish(value, origin))
-            tasks.extend(field._recursive_publish(getattr(value, field.field),
-                                                  None if old_value is None else getattr(old_value, field.field),
-                                                  origin)
-                         for field in self._variable_fields)
-            if tasks:
-                await asyncio.gather(*tasks)
+            await self._publish(value, origin)
+            for field in self._variable_fields:
+                await field._recursive_publish(getattr(value, field.field),
+                                               None if old_value is None else getattr(old_value, field.field),
+                                               origin)
 
     async def read(self) -> T:
         if self._value is None:
@@ -89,6 +88,8 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
 
 class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
+    _stateful_publishing = True
+
     def __init__(self, parent: Union[Variable, "VariableField"], field: str, type_: Type[T]):
         self.type = type_
         super().__init__()
@@ -105,13 +106,12 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                 setattr(self, name, variable_field)
 
     async def _recursive_publish(self, new_value: T, old_value: T, origin: List[Any]):
-        tasks = []
         if old_value != new_value:
-            tasks.append(self._publish(new_value, origin))
-        tasks.extend(field._recursive_publish(getattr(new_value, field.field),
-                                              None if old_value is None else getattr(old_value, field.field), origin)
-                     for field in self._variable_fields)
-        await asyncio.gather(*tasks)
+            await self._publish(new_value, origin)
+            for field in self._variable_fields:
+                await field._recursive_publish(getattr(new_value, field.field),
+                                               None if old_value is None else getattr(old_value, field.field),
+                                               origin)
 
     @property
     def _value(self):

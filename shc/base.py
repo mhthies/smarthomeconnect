@@ -14,7 +14,7 @@ import asyncio
 import contextvars
 import functools
 import logging
-from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union
+from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Dict
 
 from . import conversion
 
@@ -145,23 +145,34 @@ class UninitializedError(RuntimeError):
 
 
 class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
+    _stateful_publishing: bool = False
+    _synchronous_publishing: bool = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._subscribers: List[Tuple[Writable[S], Optional[Callable[[T], S]]]] = []
-        self._triggers: List[LogicHandler] = []
+        self._triggers: List[Tuple[LogicHandler, bool]] = []
+        self._pending_updates: Dict[int, Set[asyncio.Task]] = {}
 
     async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T], S]], value: T,
-                              origin: List[Any]):
+                              origin: List[Any], use_pending: bool):
         try:
             await subscriber.write(converter(value) if converter else value, origin + [self])  # type: ignore
         except Exception as e:
             logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
+        finally:
+            if use_pending:
+                self._pending_updates[id(subscriber)].discard(asyncio.current_task())
 
-    async def __publish_trigger(self, target: LogicHandler, value: T, origin: List[Any]):
+    async def __publish_trigger(self, target: LogicHandler, value: T,
+                                origin: List[Any], use_pending: bool):
         try:
             await target(value, origin + [self])
         except Exception as e:
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
+        finally:
+            if use_pending:
+                self._pending_updates[id(target)].discard(asyncio.current_task())
 
     async def _publish(self, value: T, origin: List[Any]):
         """
@@ -176,13 +187,42 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         :param origin: The origin list of the new value, **excluding** this object. See :ref:`base.event-origin` for
             more details.`self` is appended automatically before calling the registered subscribers and logic handlers.
         """
-        await asyncio.gather(
-            *(self.__publish_write(subscriber, converter, value, origin)
-              for subscriber, converter in self._subscribers
-              if not any(subscriber is s for s in origin)),
-            *(self.__publish_trigger(target, value, origin)
-              for target in self._triggers)
-        )
+        if self._stateful_publishing:
+            for subscriber, converter in self._subscribers:
+                reset_origin = bool(self._pending_updates[id(subscriber)])
+                if reset_origin:
+                    logger.info("Resetting origin from %s to %s; value=%s; origin=%s", self, subscriber, value, origin)
+                if reset_origin or not any(s is subscriber for s in origin):
+                    task = asyncio.create_task(self.__publish_write(subscriber, converter, value,
+                                                                    [] if reset_origin else origin, True))
+                    self._pending_updates[id(subscriber)].add(task)
+            for target, sync in self._triggers:
+                reset_origin = False
+                if sync:
+                    reset_origin = bool(self._pending_updates[id(target)])
+                task = asyncio.create_task(self.__publish_trigger(target, value, [] if reset_origin else origin, sync))
+                if sync:
+                    self._pending_updates[id(target)].add(task)
+
+        else:
+            for target, sync in self._triggers:
+                if not sync:
+                    asyncio.create_task(self.__publish_trigger(target, value, origin, False))
+            sync_jobs = [self.__publish_write(subscriber, converter, value, origin, False)
+                         for subscriber, converter in self._subscribers
+                         if not any(s is subscriber for s in origin)]
+            sync_jobs.extend(
+                self.__publish_trigger(target, value, origin, False)
+                for target, sync in self._triggers
+                if sync)
+            if self._synchronous_publishing:
+                if len(sync_jobs) == 1:
+                    await sync_jobs[0]
+                elif sync_jobs:
+                    await asyncio.gather(*sync_jobs)
+            else:
+                for job in sync_jobs:
+                    asyncio.create_task(job)
 
     def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False) -> None:
         """
@@ -211,8 +251,10 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
                             .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
         self._subscribers.append((subscriber, converter))
+        if self._stateful_publishing:
+            self._pending_updates[id(subscriber)] = set()
 
-    def trigger(self, target: LogicHandler) -> LogicHandler:
+    def trigger(self, target: LogicHandler, synchronous: bool = False) -> LogicHandler:
         """
         Register a logic handler function to be triggered when this object is updated.
 
@@ -250,7 +292,9 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             mentioned above.
         :return: The ``target`` function (unchanged)
         """
-        self._triggers.append(target)
+        self._triggers.append((target, synchronous))
+        if synchronous and self._stateful_publishing:
+            self._pending_updates[id(target)] = set()
         return target
 
 
@@ -307,7 +351,7 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
 
     :param reset_origin: If True, the origin which is magically passed to all `write` calls, only contains the logic
         handler itself, not the previous `origin` list, which led to the handler's execution. This can be used to
-        change an object's value, which triggers this logic handler. This may cause infinite recursive feedback loops,
+        change an object's value, which triggered this logic handler. This may cause infinite recursive feedback loops,
         so use with care!
     :param allow_recursion: If True, recursive execution of the handler is not skipped. The handler must check the
         passed values and/or the `origin` list itself to prevent infinite feedback loops via `write` calls or calls to
@@ -321,7 +365,7 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
                     origin = magicOriginVar.get()
                 except LookupError as e:
                     raise ValueError("No origin attribute provided or set via execution context") from e
-            if any(wrapper is s for s in origin) and not allow_recursion:
+            if wrapper in origin and not allow_recursion:
                 logger.info("Skipping recursive execution of logic handler %s() via %s", f.__name__, origin)
                 return
             logger.info("Triggering logic handler %s() from %s", f.__name__, origin)
