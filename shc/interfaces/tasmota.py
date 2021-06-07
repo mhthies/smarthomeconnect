@@ -32,7 +32,8 @@ JSONType = Union[str, float, int, None, Dict[str, Any], List[Any]]
 
 class TasmotaInterface(AbstractInterface):
     """
-    SHC interface to connect with Tasmota IoT devices via MQTT.
+    SHC interface to connect with ESP8266-based IoT devices, running the
+    `Tasmota firmware <https://tasmota.github.io/>`_, via MQTT.
 
     Requires a :class:`MQTTClientInterface` which is connected to the MQTT broker to which your Tasmota device(s)
     connect. Each instance of `TasmotaInterface` connects with a single Tasmota device. It identifies the individual
@@ -207,27 +208,94 @@ class TasmotaInterface(AbstractInterface):
             self._latest_telemetry_time = time.monotonic()
 
     def online(self) -> "TasmotaOnlineConnector":
+        """
+        Returns a *readable* and *subscribable* :class:`bool`-typed Connector that will indicate the online-state of the
+        Tasmota device, using its MQTT "Last Will Topic".
+        """
         return self._online_connector
 
     def power(self) -> "TasmotaPowerConnector":
+        """
+        Returns a *subscribable* and *writable* :class:`bool`-typed Connector to monitor and control the POWER state of
+        the Tasmota device.
+        """
         return self._get_or_create_connector(TasmotaPowerConnector)
 
     def dimmer(self) -> "TasmotaDimmerConnector":
+        """
+        Returns a *subscribable* and *writable* Connector to monitor and control the Dimmer state of the Tasmota device.
+
+        The dimmer value is an integer between 0 and 100, represented as :class:`shc.datatypes.RangeInt0To100` in SHC.
+        """
         return self._get_or_create_connector(TasmotaDimmerConnector)
 
     def color_cct(self) -> "TasmotaColorCCTConnector":
+        """
+        Returns a *subscribable* and *writable* Connector to monitor and control two channel (cold-white, white-white)
+        dimmable lamps attached to the Tasmota device. The value is represented as :class:`shc.datatypes.CCTUInt8`
+        (composed of two 8-bit :class:`shc.datatypes.RangeUInt8` integer values).
+
+        Note, that this connector is only sensible if the Tasmota device has two PWM pins for cold white and warm white
+        configured. It will also work with different numbers of PWM channels configured, but the channel mapping will
+        not be sensible.
+
+        See https://tasmota.github.io/docs/Lights/ for more information on Tasmota light controls.
+        """
         return self._get_or_create_connector(TasmotaColorCCTConnector)
 
     def color_rgb(self) -> "TasmotaColorRGBConnector":
+        """
+        Returns a *subscribable* and *writable* Connector to monitor and control three channel (red, green, blue)
+        dimmable lamps attached to the Tasmota device. The value is represented as :class:`shc.datatypes.RGBUInt8`
+        (composed of three 8-bit :class:`shc.datatypes.RangeUInt8` integer values).
+
+        Note, that this connector is only sensible if the Tasmota device has at least three PWM pins for red, green and
+        blue configured. It will also work with less PWM channels configured, but the channel mapping will not be
+        sensible.
+
+        See https://tasmota.github.io/docs/Lights/ for more information on Tasmota light controls.
+        """
         return self._get_or_create_connector(TasmotaColorRGBConnector)
 
     def color_rgbw(self) -> "TasmotaColorRGBWConnector":
+        """
+        Returns a *subscribable* and *writable* Connector to monitor and control four channel (red, green, blue, white)
+        dimmable lamps attached to the Tasmota device. The value is represented as :class:`shc.datatypes.RGBWUInt8`
+        (composed of three 8-bit :class:`shc.datatypes.RangeUInt8` integer values for RGB in an
+        `shc.datatypes.RGBUInt8` and an additional :class:`shc.datatypes.RangeUInt8` value for the white channel).
+
+        Note, that this connector is only sensible if the Tasmota device has four PWM pins for red, green, blue and
+        white configured. It will also work with a different number PWM channels configured, but the channel mapping
+        will not always be sensible.
+
+        See https://tasmota.github.io/docs/Lights/ for more information on Tasmota light controls.
+        """
         return self._get_or_create_connector(TasmotaColorRGBWConnector)
 
     def color_rgbcct(self) -> "TasmotaColorRGBCCTConnector":
+        """
+        Returns a *subscribable* and *writable* Connector to monitor and control five channel (red, green, blue, cold
+        white, warm white) dimmable lamps attached to the Tasmota device. The value is represented as
+        :class:`shc.datatypes.RGBCCTUInt8`
+        (composed of three 8-bit :class:`shc.datatypes.RangeUInt8` integer values for RGB in an
+        `shc.datatypes.RGBUInt8` and two additional :class:`shc.datatypes.RangeUInt8` values in an
+        class:`shc.datatypes.CCTUInt8`).
+
+        Note, that this connector is only sensible if the Tasmota device has five PWM pins configured. It will also work
+        less PWM channels configured, but the channel mapping will not always be sensible.
+
+        See https://tasmota.github.io/docs/Lights/ for more information on Tasmota light controls.
+        """
         return self._get_or_create_connector(TasmotaColorRGBCCTConnector)
 
     def ir_receiver(self) -> "TasmotaIRReceiverConnector":
+        """
+        Returns a *subscribable* :class:`bytes`-typed Connector that publishes the data/hash of each IR command received
+        by the Tasmota device (via an IR receiver, attatched to a pin configured as `IRrecv`).
+
+        See https://tasmota.github.io/docs/Tasmota-IR/#receiving-ir-commands for more information about receiving IR
+        commands.
+        """
         return self._get_or_create_connector(TasmotaIRReceiverConnector)
 
     def _get_or_create_connector(self, type_: Type[ConnType]) -> ConnType:
