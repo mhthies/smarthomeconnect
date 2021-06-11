@@ -91,10 +91,9 @@ class MidiInterface(AbstractInterface):
             self._send_thread_stopped.clear()
 
         def incoming_message_callback(message):
-            loop.call_soon_threadsafe(self._input_queue.put_nowait, message)
+            loop.call_soon_threadsafe(self._dispatch_message, message)
 
         if self.input_port_name:
-            self.receive_task = loop.create_task(self._receive_task())
             self.input_port = mido.open_input(self.input_port_name, callback=incoming_message_callback)
 
     async def stop(self) -> None:
@@ -103,9 +102,6 @@ class MidiInterface(AbstractInterface):
         if self.input_port_name:
             logger.debug('First, closing down mido input_port ...')
             await asyncio.get_event_loop().run_in_executor(None, self.input_port.close)
-            logger.debug('Cancelling receive_task ...')
-            self.receive_task.cancel()
-            await self.receive_task
 
         if self.output_port_name:
             logger.debug('Sending None value to _send_thread() to shut it down ...')
@@ -113,46 +109,35 @@ class MidiInterface(AbstractInterface):
             await self._send_thread_stopped.wait()
         logger.debug('MIDI interface shutdown finished.')
 
-    async def _receive_task(self) -> None:
-        """
-        Entry point for the async receive task, which takes MIDI events from the `_input_queue`, and dispatches them
-        to the correct *Connectable* object
-        """
-        while True:
-            try:
-                message = await self._input_queue.get()
-            except asyncio.CancelledError:
-                logger.debug("_receive_task() cancelled while waiting for messages. Shutting down.")
-                break
-
-            logger.debug('Received MIDI message: %s', message)
-            msg_type = message.type
-            channel = message.channel
-            # Filter by MIDI event type
-            if msg_type not in ('note_on', 'note_off', 'control_change'):
-                logger.debug('Unsupported MIDI message type %s', msg_type)
-                continue
-            # Filter by MIDI channel
-            if isinstance(self.receive_channel, int):
-                if channel != self.receive_channel:
-                    logger.debug('Ignoring message from wrong input channel %s', channel)
-                    continue
-            elif self.receive_channel is not None and channel not in self.receive_channel:
+    def _dispatch_message(self, message) -> None:
+        logger.debug('Received MIDI message: %s', message)
+        msg_type = message.type
+        channel = message.channel
+        # Filter by MIDI event type
+        if msg_type not in ('note_on', 'note_off', 'control_change'):
+            logger.debug('Unsupported MIDI message type %s', msg_type)
+            return
+        # Filter by MIDI channel
+        if isinstance(self.receive_channel, int):
+            if channel != self.receive_channel:
                 logger.debug('Ignoring message from wrong input channel %s', channel)
-                continue
+                return
+        elif self.receive_channel is not None and channel not in self.receive_channel:
+            logger.debug('Ignoring message from wrong input channel %s', channel)
+            return
 
-            # Check if a *Connectable* object is registered for this type/index combination
-            key = message.control if msg_type == 'control_change' else message.note
-            variable = self._variable_map.get((msg_type, key))
-            if variable is None:
-                logger.debug('MIDI message is not assigned to any variable')
-                continue
+        # Check if a *Connectable* object is registered for this type/index combination
+        key = message.control if msg_type == 'control_change' else message.note
+        variable = self._variable_map.get((msg_type, key))
+        if variable is None:
+            logger.debug('MIDI message is not assigned to any variable')
+            return
 
-            # Dispatch new value in a new asyncio Task
-            try:
-                asyncio.create_task(variable._incoming_message(message))
-            except Exception as e:
-                logger.error("Error while dispatching incoming MIDI message %s", message, exc_info=e)
+        # Dispatch new value in a new asyncio Task
+        try:
+            variable._incoming_message(message)
+        except Exception as e:
+            logger.error("Error while dispatching incoming MIDI message %s", message, exc_info=e)
 
     def _send_thread(self, loop: asyncio.AbstractEventLoop) -> None:
         """
@@ -302,7 +287,7 @@ class MidiInterface(AbstractInterface):
 
 class AbstractMidiVariable(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def _incoming_message(self, message: mido.Message) -> None:
+    def _incoming_message(self, message: mido.Message) -> None:
         pass
 
 
@@ -320,7 +305,7 @@ class NoteVelocityVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abstr
                                                   channel=self.interface.send_channel, note=self.note,
                                                   velocity=midi_value))
 
-    async def _incoming_message(self, message: mido.Message) -> None:
+    def _incoming_message(self, message: mido.Message) -> None:
         value = message.velocity
         value = value * 2 + (1 if value > 63 else 0)
         self._publish(RangeUInt8(value), [])
@@ -338,7 +323,7 @@ class ControlChangeVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abst
         self.interface._send_message(mido.Message('control_change', channel=self.interface.send_channel,
                                                   control=self.control_channel, value=value//2))
 
-    async def _incoming_message(self, message: mido.Message) -> None:
+    def _incoming_message(self, message: mido.Message) -> None:
         value = message.value
         value = value * 2 + (1 if value > 63 else 0)
         self._publish(RangeUInt8(value), [])
@@ -361,19 +346,19 @@ class NoteOnOffVariable(Subscribable[bool], Writable[bool], AbstractMidiVariable
 
     async def _write(self, value: bool, origin: List[Any]) -> None:
         self.value = value
-        await self._to_midi(value)
+        self._to_midi(value)
 
-    async def _to_midi(self, value) -> None:
+    def _to_midi(self, value) -> None:
         self.interface._send_message(mido.Message('note_on' if value else 'note_off',
                                                   channel=self.interface.send_channel, note=self.note,
                                                   velocity=self.on_velocity if value else self.off_velocity))
 
-    async def _incoming_message(self, message: mido.Message) -> None:
+    def _incoming_message(self, message: mido.Message) -> None:
         on = message.type == 'note_on' and message.velocity > 0
         if self.emulate_toggle:
             if on:
                 self.value = not self.value
-            await self._to_midi(self.value)
+            self._to_midi(self.value)
         else:
             self.value = on
         self._publish(self.value, [])

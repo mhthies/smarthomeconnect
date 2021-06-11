@@ -129,6 +129,7 @@ class MIDIInputTest(unittest.TestCase):
             publish_mock.assert_called_once_with(False, unittest.mock.ANY)
 
             asyncio.run_coroutine_threadsafe(var1.write(True, [self]), self.interface_runner.loop)
+            time.sleep(0.05)
 
             # Toggle off again
             publish_mock.reset_mock()
