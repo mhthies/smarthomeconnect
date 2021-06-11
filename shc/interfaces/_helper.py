@@ -37,19 +37,15 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         self.backoff_base = 1.0  #: First wait interval for exponential backoff in seconds
         self.backoff_exponent = 1.25  #: Multiplier for wait intervals for exponential backoff
         self._supervise_task: Optional[asyncio.Task] = None
-        self._started: asyncio.Future
-        self._stopping: asyncio.Event
-        self._running: asyncio.Event
-        self._last_error: str = "Interface has not been started yet"
-
-    async def start(self) -> None:
         loop = asyncio.get_event_loop()
         self._started = loop.create_future()
         self._stopping = asyncio.Event()
         self._running = asyncio.Event()
+        self._last_error: str = "Interface has not been started yet"
 
+    async def start(self) -> None:
         logger.debug("Starting supervisor task for interface %s and waiting for it to come up ...", self)
-        self._supervise_task = loop.create_task(self._supervise())
+        self._supervise_task = asyncio.create_task(self._supervise())
         await self._started
 
     async def stop(self) -> None:
@@ -75,8 +71,6 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         :param timeout: If given, this method will raise an :class:`asyncio.TimeoutError` after the given timeout in
             seconds, if the interface has not come up by this time.
         """
-        # TODO somehow make it work before start() has been called to be safely used in other interfaces' start() method
-        #   e.g. create _started Event here if it does not yet exist (and don't override it in start()).
         await asyncio.wait_for(self._running.wait(), timeout)
 
     @abc.abstractmethod

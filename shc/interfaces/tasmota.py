@@ -82,9 +82,6 @@ class TasmotaInterface(AbstractInterface):
                                                   self._online_connector._update_from_mqtt, 1)
 
     async def start(self) -> None:
-        # This is a hack to ensure that the mqtt interfaces' start() method is called first.
-        # TODO remove this hack as soon as SupervisedClientInterface.wait_running() is safe to call before start()
-        await asyncio.sleep(.1)
         # Send status request (for telemetry data and state) as soon as the MQTT interface is up
         await self.mqtt_interface.wait_running(5)
         await self._send_command("status", "11")
