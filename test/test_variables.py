@@ -9,7 +9,7 @@ from ._helper import async_test, ExampleReadable, ExampleWritable, AsyncMock
 
 class SimpleVariableTest(unittest.TestCase):
 
-    @unittest.mock.patch('shc.variables.Variable._publish', new_callable=AsyncMock)
+    @unittest.mock.patch('shc.variables.Variable._publish')
     @async_test
     async def test_basic_behaviour(self, publish_patch):
         var = variables.Variable(int)

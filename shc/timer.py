@@ -126,7 +126,7 @@ class _AbstractScheduleTimer(Subscribable[None], metaclass=abc.ABCMeta):
             logger.info("Scheduling next execution of timer %s for %s", self, next_execution)
             await _logarithmic_sleep(next_execution)
             self.last_execution = next_execution
-            await self._publish(None, [])  # we use asynchronous publishing, so no worries about timing
+            self._publish(None, [])  # we use asynchronous publishing, so no worries about timing
 
     @abc.abstractmethod
     def _next_execution(self) -> Optional[datetime.datetime]:
@@ -468,7 +468,7 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
         except asyncio.CancelledError:
             return
         self._value = value
-        await self._publish(value, origin)
+        self._publish(value, origin)
         self._change_task = None
 
     @property
@@ -501,7 +501,7 @@ class TOn(_DelayedBool):
                 self._change_task = None
             if self._value:
                 self._value = False
-                await self._publish(False, origin)
+                self._publish(False, origin)
 
 
 class TOff(_DelayedBool):
@@ -529,7 +529,7 @@ class TOff(_DelayedBool):
                 self._change_task = None
             if not self._value:
                 self._value = True
-                await self._publish(True, origin)
+                self._publish(True, origin)
 
 
 class TOnOff(_DelayedBool):
@@ -582,7 +582,7 @@ class TPulse(_DelayedBool):
         if rising_edge and not self._value:
             self._change_task = asyncio.create_task(self._set_delayed(False, origin))
             self._value = True
-            await self._publish(True, origin)
+            self._publish(True, origin)
 
 
 class Delay(Subscribable[T], Readable[T], Generic[T]):
@@ -619,7 +619,7 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
         changed = value != self._value
         logger.debug("Value %s for Delay %s is now active and published", value, self)
         self._value = value
-        await self._publish(value, origin)
+        self._publish(value, origin)
 
     async def read(self) -> T:
         if self._value is None:
@@ -685,7 +685,7 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
     async def _on(self, _v, origin) -> None:
         if not self.value:
             self.value = True
-            await self._publish(True, origin)
+            self._publish(True, origin)
         if self.duration is not None:
             if self.delay_task is not None:
                 self.delay_task.cancel()
@@ -695,7 +695,7 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
     async def _off(self, _v, origin) -> None:
         if self.value:
             self.value = False
-            await self._publish(False, origin)
+            self._publish(False, origin)
 
     async def _delayed_off(self, origin) -> None:
         assert(self.duration is not None)
@@ -719,8 +719,6 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
     :param wrapped: The Subscribable object to be wrapped
     :param min_interval: The minimal allowed interval between published values in seconds
     """
-    _synchronous_publishing = True
-
     def __init__(self, wrapped: Subscribable[T], min_interval: float):
         self.type = wrapped.type
         super().__init__()
@@ -736,7 +734,7 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
         now = time.time()
         if now >= next_allowed_publish:
             self._last_publish = now
-            await self._publish(value, origin)
+            self._publish(value, origin)
         else:
             self._latest_value = value
             self._latest_origin = origin
@@ -748,4 +746,4 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
         await asyncio.sleep(delay)
         self._last_publish = time.time()
         self._delay_task = None
-        await self._publish(self._latest_value, self._latest_origin)
+        self._publish(self._latest_value, self._latest_origin)

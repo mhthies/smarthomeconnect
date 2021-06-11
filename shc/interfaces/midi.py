@@ -323,7 +323,7 @@ class NoteVelocityVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abstr
     async def _incoming_message(self, message: mido.Message) -> None:
         value = message.velocity
         value = value * 2 + (1 if value > 63 else 0)
-        await self._publish(RangeUInt8(value), [])
+        self._publish(RangeUInt8(value), [])
 
 
 class ControlChangeVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], AbstractMidiVariable):
@@ -341,7 +341,7 @@ class ControlChangeVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abst
     async def _incoming_message(self, message: mido.Message) -> None:
         value = message.value
         value = value * 2 + (1 if value > 63 else 0)
-        await self._publish(RangeUInt8(value), [])
+        self._publish(RangeUInt8(value), [])
 
 
 class NoteOnOffVariable(Subscribable[bool], Writable[bool], AbstractMidiVariable):
@@ -376,4 +376,4 @@ class NoteOnOffVariable(Subscribable[bool], Writable[bool], AbstractMidiVariable
             await self._to_midi(self.value)
         else:
             self.value = on
-        await self._publish(self.value, [])
+        self._publish(self.value, [])

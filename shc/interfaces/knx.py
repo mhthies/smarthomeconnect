@@ -278,7 +278,7 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
         if type(value) is not self.type:
             value = self.type(value)  # type: ignore
         logger.debug("Got new value %s for KNX Group variable %s from bus", value, self.addr)
-        await self._publish(value, origin)
+        self._publish(value, origin)
 
     async def read_from_bus(self) -> Optional[knxdclient.EncodedData]:
         value = await self._from_provider()
@@ -287,7 +287,7 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
         return None
 
     async def _write(self, value: T, origin: List[Any]) -> None:
-        await self._publish(value, origin)
+        self._publish(value, origin)
         encoded_data = knxdclient.encode_value(value, self.knx_major_dpt)
         await self.connector.send(self.addr, encoded_data)
 

@@ -93,14 +93,9 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         classes should override *_write* instead of this method to keep profiting from the value type checking and
         magic context-based origin passing features.
 
-        This method typically awaits the complete transmission of the new value to all targets. Depending in the
-        internal functionality of the `Writable` this might include awaiting the `write` coroutine of multiple other
-        `Writable` objects, which, in turn, might even await a successful network transmission of the value, and so on.
-
-        This way, you can be sure that the value has been delivered to the target system (as far as SHC can track it)
-        when the `write` coroutine returns. On the other hand, to keep your control flow independent from (probably
-        lagging) transmission of values, you should call `write` in a new :class:`asyncio.Task`. For `writing` a value
-        to multiple objects in parallel, you might consider :func:`asyncio.gather`.
+        This method awaits the complete transmission and processing of the new value by the next stateful
+        object/system, e.g. storing and re-publishing the value on a Variable, publishing the value from an MQTT
+        broker on an MQTT client connector, forwarding the value to all subscribers on an Expression.
 
         :param value: The new value
         :param origin: The origin / trace of the value update event, i.e. the list of objects/functions which have been
@@ -127,6 +122,17 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         It must be overridden by classes inheriting from :class:`Writable` to be updated with new values. The *_write*
         implementation does not need to check the new value's type.
 
+        Please make sure that your `_write` implementation awaits the processing of the value update by the next
+        stateful object/system before returning:
+        - On a Variable and similar stateful re-publishing objects, which use `_stateful_publishing = True`, await the
+          storing and `_publish()`-ing of the new value
+        - On an Expression and similar stateless re-publishing objects, use `_publish_and_wait()` instead of
+          `_publish()` and await its return
+        - On external interface connectors (e.g. MQTT connector) await (at least) the successful processing of the value
+          by the external system
+
+        This is required to make the state inconsistency mitigation method of :class:`Subscribable` objects work.
+
         :param value: The new value to update this object with
         :param origin: The origin / trace of the value update event. Should be passed to :meth:`Subscribable._publish`
             if the implementing class is *Subscribable* and re-publishes new values.
@@ -146,7 +152,6 @@ class UninitializedError(RuntimeError):
 
 class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     _stateful_publishing: bool = False
-    _synchronous_publishing: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -174,14 +179,23 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             if use_pending:
                 self._pending_updates[id(target)].discard(asyncio.current_task())
 
-    async def _publish(self, value: T, origin: List[Any]):
+    def _publish(self, value: T, origin: List[Any]):
         """
-        Coroutine to publish a new value to all subscribers and trigger all registered logic handlers.
+        Method to publish a new value to all subscribers and trigger all registered logic handlers.
 
-        All logic handlers and :meth:`Writable.write` methods are called in parallel asyncio tasks. However, this
-        method awaits the return of *all* them. Thus, when implementing an external interface, which should be capable
-        of processing multiple incoming values in parallel, you should `_publish()` each incoming new value in a
-        seperate asyncio Task. See also :meth:`Writable.write`.
+        All logic handlers and :meth:`Writable.write` methods are called in parallel asyncio tasks, which are **not**
+        awaited to return. If `_stateful_publishing` is True on this object (or class), it will keep track of the
+        currently pending publishing tasks. This information is then used to mitigate state inconsistencies, caused by
+        value updates crossing over each other, by resetting the `origin` of following value updates to the respected
+        subscribers.
+
+        `_stateful_publishing` should be enabled for all objects that are *Subscribable* and *Writable* (i.e. allows
+        sending and receiving value updates) and have either internal state (like Variables) or represent an external,
+        stateful (or quasi-stateful) system (like a Connector object for a KNX group address/an MQTT topic). On the
+        other hand, objects, that are only *Subscribable*, should not use `_stateful_publishing`.
+
+        If the object only forwards value updates without storing a state, it should await the successful publishing of
+        the value by using the :meth:`_publish_and_wait` coroutine.
 
         :param value: The new value to be published by this object. Must be an instance of this object's `type`.
         :param origin: The origin list of the new value, **excluding** this object. See :ref:`base.event-origin` for
@@ -206,23 +220,39 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
         else:
             for target, sync in self._triggers:
-                if not sync:
-                    asyncio.create_task(self.__publish_trigger(target, value, origin, False))
-            sync_jobs = [self.__publish_write(subscriber, converter, value, origin, False)
-                         for subscriber, converter in self._subscribers
-                         if not any(s is subscriber for s in origin)]
-            sync_jobs.extend(
-                self.__publish_trigger(target, value, origin, False)
-                for target, sync in self._triggers
-                if sync)
-            if self._synchronous_publishing:
-                if len(sync_jobs) == 1:
-                    await sync_jobs[0]
-                elif sync_jobs:
-                    await asyncio.gather(*sync_jobs)
-            else:
-                for job in sync_jobs:
-                    asyncio.create_task(job)
+                asyncio.create_task(self.__publish_trigger(target, value, origin, False))
+            for subscriber, converter in self._subscribers:
+                if not any(s is subscriber for s in origin):
+                    asyncio.create_task(self.__publish_write(subscriber, converter, value, origin, False))
+
+    async def _publish_and_wait(self, value: T, origin: List[Any]):
+        """
+        A coroutine to publish a new value to all subscribers and trigger all registered logic handlers and wait for
+        this publishing to finish.
+
+        All logic handlers and :meth:`Writable.write` methods are called in parallel asyncio tasks. However, this
+        method awaits the return of *all* them. This should only be used for **stateless** objects that re-publish
+        incoming value updates (like :ref:`Expressions <expressions>`, :class:`shc.misc.TwoWayPipe`, etc.). Other
+        objects should use :meth:`_publish` instead.
+
+        :param value: The new value to be published by this object. Must be an instance of this object's `type`.
+        :param origin: The origin list of the new value, **excluding** this object. See :ref:`base.event-origin` for
+            more details.`self` is appended automatically before calling the registered subscribers and logic handlers.
+        """
+        for target, sync in self._triggers:
+            if not sync:
+                asyncio.create_task(self.__publish_trigger(target, value, origin, False))
+        sync_jobs = [self.__publish_write(subscriber, converter, value, origin, False)
+                     for subscriber, converter in self._subscribers
+                     if not any(s is subscriber for s in origin)]
+        sync_jobs.extend(
+            self.__publish_trigger(target, value, origin, False)
+            for target, sync in self._triggers
+            if sync)
+        if len(sync_jobs) == 1:
+            await sync_jobs[0]
+        elif sync_jobs:
+            await asyncio.gather(*sync_jobs)
 
     def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False) -> None:
         """

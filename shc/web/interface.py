@@ -750,7 +750,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc
 
     async def _write(self, value: T, origin: List[Any]):
         if isinstance(self, WebActionDatapoint):
-            await self._publish(value, origin)
+            self._publish(value, origin)
         await self._websocket_publish(self.convert_to_ws_value(value))
 
     def convert_to_ws_value(self, value: T) -> Any:
@@ -820,7 +820,7 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
 
     async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         value_converted = self.convert_from_ws_value(value)
-        await self._publish(value_converted, [ws])
+        self._publish(value_converted, [ws])
         if isinstance(self, WebDisplayDatapoint):
             # from_websocket is awaited in the websocket message processing loop, so we should do all (asynchronously)
             # blocking things in separate tasks.
@@ -855,11 +855,11 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         # Asynchronous local feedback publishing. This ensures that conflicting updates, which are currently waiting for
         # local processing by a subscriber can be corrected by resetting this update's origin.
-        await self._publish(value, origin)
+        self._publish(value, origin)
         await self._publish_http(value)
 
     async def http_post(self, value: Any, origin: Any) -> None:
-        await self._publish(from_json(self.type, value), [origin])
+        self._publish(from_json(self.type, value), [origin])
         await self._publish_http(value, origin)
 
     async def _publish_http(self, value: T, skip_websocket: Optional[object] = None) -> None:

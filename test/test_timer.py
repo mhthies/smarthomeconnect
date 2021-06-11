@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import unittest
 import unittest.mock
+from unittest.mock import Mock
 from typing import Optional, List
 
 from shc import timer, base
@@ -56,7 +57,7 @@ class AbstractTimerTest(unittest.TestCase):
                            datetime.datetime(2020, 8, 20, 22, 0, 0).astimezone()]
         events = []
 
-        async def store_time(*args, **kwargs):
+        def store_time(*args, **kwargs):
             events.append(clock_mock.now().astimezone())
 
         t = self.TestTimer(expected_events)
@@ -278,7 +279,7 @@ class BoolTimerTest(unittest.TestCase):
         base = ExampleSubscribable(bool)
         ton = timer.TOn(base, datetime.timedelta(seconds=42))
 
-        with unittest.mock.patch.object(ton, "_publish", new=AsyncMock(side_effect=save_time)) as publish_mock:
+        with unittest.mock.patch.object(ton, "_publish", new=Mock(side_effect=save_time)) as publish_mock:
             with ClockMock(begin, actual_sleep=0.05) as clock:
                 self.assertFalse(await ton.read())
 
@@ -330,7 +331,7 @@ class BoolTimerTest(unittest.TestCase):
         base = ExampleSubscribable(bool)
         toff = timer.TOff(base, datetime.timedelta(seconds=42))
 
-        with unittest.mock.patch.object(toff, "_publish", new=AsyncMock(side_effect=save_time)) as publish_mock:
+        with unittest.mock.patch.object(toff, "_publish", new=Mock(side_effect=save_time)) as publish_mock:
             with ClockMock(begin, actual_sleep=0.05) as clock:
                 self.assertFalse(await toff.read())
 
@@ -384,7 +385,7 @@ class BoolTimerTest(unittest.TestCase):
         base = ExampleSubscribable(bool)
         tpulse = timer.TPulse(base, datetime.timedelta(seconds=42))
 
-        with unittest.mock.patch.object(tpulse, "_publish", new=AsyncMock(side_effect=save_time)) as publish_mock:
+        with unittest.mock.patch.object(tpulse, "_publish", new=Mock(side_effect=save_time)) as publish_mock:
             with ClockMock(begin, actual_sleep=0.05) as clock:
                 self.assertFalse(await tpulse.read())
 
@@ -459,7 +460,7 @@ class TimerSwitchTest(unittest.TestCase):
 
         timerswitch = timer.TimerSwitch([pub_on1, pub_on2], [pub_off1, pub_off2])
 
-        with unittest.mock.patch.object(timerswitch, "_publish", new=AsyncMock()) as publish_mock:
+        with unittest.mock.patch.object(timerswitch, "_publish") as publish_mock:
             self.assertFalse(await timerswitch.read())
 
             await pub_on1.publish(None, [self])
@@ -488,7 +489,7 @@ class TimerSwitchTest(unittest.TestCase):
 
         timerswitch = timer.TimerSwitch([pub_on1, pub_on2], duration=datetime.timedelta(seconds=42))
 
-        with unittest.mock.patch.object(timerswitch, "_publish", new=AsyncMock()) as publish_mock:
+        with unittest.mock.patch.object(timerswitch, "_publish") as publish_mock:
             with ClockMock(begin, actual_sleep=0.05) as clock:
                 self.assertFalse(await timerswitch.read())
 
@@ -540,7 +541,7 @@ class RateLimitedSubscriptionTest(unittest.TestCase):
 
         self.assertIs(rate_limiter.type, int)
 
-        with unittest.mock.patch.object(rate_limiter, "_publish", new=AsyncMock(side_effect=save_time)) as publish_mock:
+        with unittest.mock.patch.object(rate_limiter, "_publish", new=Mock(side_effect=save_time)) as publish_mock:
             with ClockMock(begin, actual_sleep=0.05) as clock:
                 # First value should be forwarded immediately
                 await base.publish(42, [self])

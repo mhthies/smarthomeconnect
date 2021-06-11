@@ -209,14 +209,12 @@ class ExampleReadable(base.Readable[T], Generic[T]):
 
 
 class ExampleSubscribable(base.Subscribable[T], Generic[T]):
-    _synchronous_publishing = True
-
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
 
     async def publish(self, val: T, origin: List[Any]) -> None:
-        await self._publish(val, origin)
+        await self._publish_and_wait(val, origin)
 
 
 class ExampleWritable(base.Writable[T], Generic[T]):
@@ -242,10 +240,9 @@ class ExampleReading(base.Reading[T], Generic[T]):
 
 class SimpleIntRepublisher(base.Writable, base.Subscribable):
     type = int
-    _synchronous_publishing = True
 
     async def _write(self, value: T, origin: List[Any]):
-        await self._publish(value, origin)
+        await self._publish_and_wait(value, origin)
 
 
 class InterfaceThreadRunner:

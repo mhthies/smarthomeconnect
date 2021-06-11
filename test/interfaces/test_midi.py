@@ -50,9 +50,9 @@ class MIDIInputTest(unittest.TestCase):
         var2 = self.interface.note_velocity(7)
         var3 = self.interface.control_change(1)
 
-        with unittest.mock.patch.object(var1, '_publish', new_callable=AsyncMock) as publish_mock1,\
-             unittest.mock.patch.object(var2, '_publish', new_callable=AsyncMock) as publish_mock2,\
-             unittest.mock.patch.object(var3, '_publish', new_callable=AsyncMock) as publish_mock3:
+        with unittest.mock.patch.object(var1, '_publish') as publish_mock1,\
+             unittest.mock.patch.object(var2, '_publish') as publish_mock2,\
+             unittest.mock.patch.object(var3, '_publish') as publish_mock3:
 
             self.interface_runner.start()
             time.sleep(0.05)
@@ -100,7 +100,7 @@ class MIDIInputTest(unittest.TestCase):
     def test_emulated_toggle(self) -> None:
         var1 = self.interface.note_on_off(5, emulate_toggle=True)
 
-        with unittest.mock.patch.object(var1, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(var1, '_publish') as publish_mock:
 
             self.interface_runner.start()
             time.sleep(0.05)

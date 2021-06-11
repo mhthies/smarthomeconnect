@@ -280,7 +280,7 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
         :param value: The received, json-decoded value. It will be processed using :meth:`shc.conversion.from_json`.
         """
         try:
-            await self._publish(from_json(self.type, value), [])
+            self._publish(from_json(self.type, value), [])
             logger.debug("Received new value %s for SHC API object %s", value, self.name)
         except Exception as e:
             logger.error("Error while processing new value %s for API object %s", value, self.name, exc_info=e)
