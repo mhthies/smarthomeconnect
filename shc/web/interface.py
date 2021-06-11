@@ -262,7 +262,7 @@ class WebServer(AbstractInterface):
             # Make sure the websocket is removed as a subscriber from all WebDisplayDatapoints
             self._websockets.discard(ws)
             for connector in self.connectors.values():
-                await connector.websocket_close(ws)
+                connector.websocket_close(ws)
             return ws
 
     async def _ui_websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
@@ -285,7 +285,7 @@ class WebServer(AbstractInterface):
         if 'v' in message:
             # We don't need to do this in an asynchronous task, since the from_websocket method uses asynchronous
             # publishing
-            await connector.from_websocket(message['v'], ws)
+            connector.from_websocket(message['v'], ws)
         elif 'sub' in message:
             asyncio.create_task(connector.websocket_subscribe(ws))
         else:
@@ -682,7 +682,7 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
     def __init__(self):
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
 
-    async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
+    def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         """
         This method is called for incoming "value" messages from a client to this specific `WebUIConnector` object.
 
@@ -721,7 +721,7 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
         data = json.dumps({'id': id(self), 'v': value}, cls=SHCJsonEncoder)
         await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets))
 
-    async def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
+    def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
         self.subscribed_websockets.discard(ws)
 
     def get_connectors(self) -> Iterable["WebUIConnector"]:
@@ -818,7 +818,7 @@ class WebActionDatapoint(Subscribable[T], WebUIConnector, metaclass=abc.ABCMeta)
         """
         return from_json(self.type, value)
 
-    async def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
+    def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
         value_converted = self.convert_from_ws_value(value)
         self._publish(value_converted, [ws])
         if isinstance(self, WebDisplayDatapoint):
