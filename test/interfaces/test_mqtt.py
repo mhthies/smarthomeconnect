@@ -17,17 +17,16 @@ from .._helper import InterfaceThreadRunner, async_test, ExampleWritable
 class MQTTClientTest(unittest.TestCase):
     def setUp(self) -> None:
         tracemalloc.start()
-        self.client = shc.interfaces.mqtt.MQTTClientInterface("localhost", 42883)
+        self.client_runner = InterfaceThreadRunner(shc.interfaces.mqtt.MQTTClientInterface, "localhost", 42883)
+        self.client = self.client_runner.interface
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
 
     def tearDown(self) -> None:
-        asyncio.get_event_loop().run_until_complete(self.client.stop())
+        self.client_runner.stop()
         self.broker_process.terminate()
 
     @async_test
     async def test_subscribe(self) -> None:
-        logging.basicConfig(level=logging.DEBUG)
-
         async with asyncio_mqtt.Client("localhost", 42883, client_id="TestClient") as c:
             await c.publish("test/topic", b"42", 0, True)
 
@@ -36,7 +35,7 @@ class MQTTClientTest(unittest.TestCase):
         target_str = ExampleWritable(str).connect(self.client.topic_string('test/topic'))
         target_int = ExampleWritable(int).connect(self.client.topic_json(int, 'test/topic'))
 
-        await self.client.start()
+        self.client_runner.start()
 
         await asyncio.sleep(0.50)
 
