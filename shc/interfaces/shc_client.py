@@ -113,13 +113,13 @@ class SHCWebClient(SupervisedClientInterface):
         msg: aiohttp.WSMessage
         async for msg in self._ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
-                await self._websocket_dispatch(msg)
+                self._websocket_dispatch(msg)
             elif msg.type == aiohttp.WSMsgType.ERROR:
                 logger.error('SHC API websocket failed with %s', self._ws.exception())
 
         logger.debug('SHC API websocket connection closed')
 
-    async def _websocket_dispatch(self, msg: aiohttp.WSMessage) -> None:
+    def _websocket_dispatch(self, msg: aiohttp.WSMessage) -> None:
         try:
             message = msg.json()
         except JSONDecodeError:
@@ -148,7 +148,7 @@ class SHCWebClient(SupervisedClientInterface):
         # New (or initial) value for subscribed object (not on read response)
         if 'value' in message and ('action' not in message or message['action'] == 'subscribe'):
             # We don't need to do this in an asynchronous task, since the new_value method uses asynchronous publishing
-            await self._api_objects[name].new_value(message['value'])
+            self._api_objects[name].new_value(message['value'])
 
         elif 'handle' not in message:
             logger.warning("Received unexpected message from SHC websocket API: %s", msg)
@@ -269,10 +269,10 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         # Asynchronous local feedback publishing. This ensures that conflicting updates, which are currently waiting for
         # local processing by a subscriber can be corrected by resetting this update's origin.
-        await self._publish(value, origin)
+        self._publish(value, origin)
         await self.client._send_value(self.name, value)
 
-    async def new_value(self, value: Any) -> None:
+    def new_value(self, value: Any) -> None:
         """
         Called by the associated :class:`SHCWebClient` when a new value for this object is received from the remote SHC
         server to be published to local subscribers.
@@ -280,7 +280,7 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
         :param value: The received, json-decoded value. It will be processed using :meth:`shc.conversion.from_json`.
         """
         try:
-            await self._publish(from_json(self.type, value), [])
+            self._publish(from_json(self.type, value), [])
             logger.debug("Received new value %s for SHC API object %s", value, self.name)
         except Exception as e:
             logger.error("Error while processing new value %s for API object %s", value, self.name, exc_info=e)

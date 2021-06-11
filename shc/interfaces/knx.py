@@ -250,7 +250,7 @@ class KNXConnector(SupervisedClientInterface):
             except KeyError:
                 logging.debug("No KNX Group Variable for Addr %s registered", packet.dst)
                 return
-            await group_var.update_from_bus(packet.payload.value, [packet.src])
+            group_var.update_from_bus(packet.payload.value, [packet.src])
 
     async def send(self, addr: knxdclient.GroupAddress, encoded_data: knxdclient.EncodedData):
         await self.knx.group_write(addr, knxdclient.KNXDAPDUType.WRITE, encoded_data)
@@ -273,12 +273,12 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
         self.connector = connector
         self.addr = addr
 
-    async def update_from_bus(self, data: knxdclient.EncodedData, origin: List[Any]) -> None:
+    def update_from_bus(self, data: knxdclient.EncodedData, origin: List[Any]) -> None:
         value: T = knxdclient.decode_value(data, self.knx_major_dpt)  # type: ignore
         if type(value) is not self.type:
             value = self.type(value)  # type: ignore
         logger.debug("Got new value %s for KNX Group variable %s from bus", value, self.addr)
-        await self._publish(value, origin)
+        self._publish(value, origin)
 
     async def read_from_bus(self) -> Optional[knxdclient.EncodedData]:
         value = await self._from_provider()
@@ -287,7 +287,7 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
         return None
 
     async def _write(self, value: T, origin: List[Any]) -> None:
-        await self._publish(value, origin)
+        self._publish(value, origin)
         encoded_data = knxdclient.encode_value(value, self.knx_major_dpt)
         await self.connector.send(self.addr, encoded_data)
 

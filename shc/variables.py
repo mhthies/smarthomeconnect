@@ -59,11 +59,11 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         self._value = value
         if old_value != value:  # if a single field is different, the full value will also be different
             logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
-            await self._publish(value, origin)
+            self._publish(value, origin)
             for field in self._variable_fields:
-                await field._recursive_publish(getattr(value, field.field),
-                                               None if old_value is None else getattr(old_value, field.field),
-                                               origin)
+                field._recursive_publish(getattr(value, field.field),
+                                         None if old_value is None else getattr(old_value, field.field),
+                                         origin)
 
     async def read(self) -> T:
         if self._value is None:
@@ -105,13 +105,13 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                 self._variable_fields.append(variable_field)
                 setattr(self, name, variable_field)
 
-    async def _recursive_publish(self, new_value: T, old_value: T, origin: List[Any]):
+    def _recursive_publish(self, new_value: T, old_value: T, origin: List[Any]):
         if old_value != new_value:
-            await self._publish(new_value, origin)
+            self._publish(new_value, origin)
             for field in self._variable_fields:
-                await field._recursive_publish(getattr(new_value, field.field),
-                                               None if old_value is None else getattr(old_value, field.field),
-                                               origin)
+                field._recursive_publish(getattr(new_value, field.field),
+                                         None if old_value is None else getattr(old_value, field.field),
+                                         origin)
 
     @property
     def _value(self):

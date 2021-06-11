@@ -44,7 +44,7 @@ class PeriodicReader(Readable[T], Subscribable[T], Generic[T]):
     async def do_read(self, _value, origin) -> None:
         # We add the wrapped Readable object to the `origin` list to avoid publishing back its own value, in case it is
         # subscribed to one of our subscribers (e.g. a variable).
-        await self._publish(await self.wrapped.read(), origin + [self.wrapped])
+        self._publish(await self.wrapped.read(), origin + [self.wrapped])
 
 
 class TwoWayPipe(ConnectableWrapper[T], Generic[T]):
@@ -91,15 +91,13 @@ class TwoWayPipe(ConnectableWrapper[T], Generic[T]):
 
 
 class _PipeEnd(Subscribable[T], Writable[T], Generic[T]):
-    _synchronous_publishing = True
-
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
         self.other_end: "_PipeEnd" = None  # type: ignore
 
     async def _write(self, value: T, origin: List[Any]):
-        await self.other_end._publish(value, origin)
+        await self.other_end._publish_and_wait(value, origin)
 
 
 class BreakableSubscription(Subscribable[T], Generic[T]):
@@ -147,13 +145,13 @@ class BreakableSubscription(Subscribable[T], Generic[T]):
             # We default to False, if the control variable is not initialized yet
             return
         if connected:
-            await self._publish(value, origin)
+            await self._publish_and_wait(value, origin)
 
     async def _connection_change(self, connected: bool, origin: List[Any]) -> None:
         if not connected:
             return
         try:
-            await self._publish(await self.wrapped.read(), origin)  # type: ignore
+            await self._publish_and_wait(await self.wrapped.read(), origin)  # type: ignore
         except UninitializedError:
             pass
 
@@ -179,7 +177,6 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
         inverted, too.
     """
     type = bool
-    _synchronous_publishing = True
 
     def __init__(self, wrapped: Subscribable[T], lower: T, upper: T, inverted: bool = False,
                  initial_value: bool = False):
@@ -202,7 +199,7 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
         elif value > self.upper:  # type: ignore
             self._value = True
         if self._value != old_value:
-            await self._publish(self._value != self.inverted, origin)
+            await self._publish_and_wait(self._value != self.inverted, origin)
 
     async def read(self) -> bool:
         return self._value != self.inverted

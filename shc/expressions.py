@@ -254,8 +254,6 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     objects are *Readable* (to evaluate the expression's current value on demand) and *Subscribable* (to evaluate and
     publish the expression's new value, when any of the operands is updated).
     """
-    _synchronous_publishing = True
-
     def __init__(self, type_: Type[T], operands: Iterable[object]):
         super().__init__()
         self.type = type_
@@ -269,7 +267,7 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
 
     async def on_change(self, _value, origin):
         try:
-            await self._publish(await self.evaluate(), origin)
+            await self._publish_and_wait(await self.evaluate(), origin)
         except UninitializedError:
             pass
 

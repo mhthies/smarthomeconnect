@@ -177,7 +177,7 @@ class WebWidgetsTest(AbstractWebTest):
         switch_widget = shc.web.widgets.Switch("Main Power").connect(ExampleReadable(bool, True))
         page.add_item(switch_widget)
 
-        with unittest.mock.patch.object(switch_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(switch_widget, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -203,7 +203,7 @@ class WebWidgetsTest(AbstractWebTest):
         page = self.server.page('index')
         page.add_item(switch)
 
-        with unittest.mock.patch.object(switch, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(switch, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -238,9 +238,9 @@ class WebWidgetsTest(AbstractWebTest):
         page = self.server.page('index')
         page.add_item(shc.web.widgets.ButtonGroup("My button group", [b1, b2, b3, b4]))
 
-        with unittest.mock.patch.object(b1, '_publish', new_callable=AsyncMock) as b1_publish,\
-                unittest.mock.patch.object(b3, '_publish', new_callable=AsyncMock) as b3_publish,\
-                unittest.mock.patch.object(b4, '_publish', new_callable=AsyncMock) as b4_publish:
+        with unittest.mock.patch.object(b1, '_publish') as b1_publish,\
+                unittest.mock.patch.object(b3, '_publish') as b3_publish,\
+                unittest.mock.patch.object(b4, '_publish') as b4_publish:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -297,7 +297,7 @@ class WebWidgetsTest(AbstractWebTest):
         page = self.server.page('index')
         page.add_item(shc.web.widgets.ButtonGroup("My button group", [button]))
 
-        with unittest.mock.patch.object(button, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(button, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -354,7 +354,7 @@ class WebWidgetsTest(AbstractWebTest):
         input_widget = shc.web.widgets.TextInput(int, "Brightness").connect(ExampleReadable(int, 42))
         page.add_item(input_widget)
 
-        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(input_widget, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -390,7 +390,7 @@ class WebWidgetsTest(AbstractWebTest):
             .connect(ExampleReadable(str, "Hello, World!"))
         page.add_item(input_widget)
 
-        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(input_widget, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -415,7 +415,7 @@ class WebWidgetsTest(AbstractWebTest):
         input_widget = shc.web.widgets.Slider("Amount of Foo").connect(ExampleReadable(RangeFloat1, RangeFloat1(0.3)))
         page.add_item(input_widget)
 
-        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(input_widget, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -452,7 +452,7 @@ class WebWidgetsTest(AbstractWebTest):
         foobar_row = shc.web.widgets.HideRow("Foobar", color='yellow').connect(ExampleReadable(bool, False))
         page.add_item(shc.web.widgets.HideRowBox([foo_row, bar_row, foobar_row]))
 
-        with unittest.mock.patch.object(foo_button, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(foo_button, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -491,7 +491,7 @@ class WebWidgetsTest(AbstractWebTest):
             .connect(ExampleReadable(RGBUInt8, RGBUInt8(RangeUInt8(127), RangeUInt8(127), RangeUInt8(127))))
         page.add_item(input_widget)
 
-        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(input_widget, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -548,7 +548,7 @@ class WebWidgetsTest(AbstractWebTest):
             .connect(ExampleReadable(ExampleEnum, ExampleEnum.SOME_OTHER_VALUE))
         page.add_item(input_widget)
 
-        with unittest.mock.patch.object(input_widget, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(input_widget, '_publish') as publish_mock:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -713,7 +713,7 @@ class TestAPI(unittest.TestCase):
         self.server_runner.start()
 
         # POST to non-existing object
-        with unittest.mock.patch.object(api_object, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(api_object, '_publish') as publish_mock:
             with self.assertRaises(urllib.error.HTTPError) as cm:
                 request = urllib.request.Request("http://localhost:42080/api/v1/object/non_existing_object",
                                                  data=json.dumps(56).encode(), method="POST")
@@ -722,7 +722,7 @@ class TestAPI(unittest.TestCase):
         publish_mock.assert_not_called()
 
         # valid POST
-        with unittest.mock.patch.object(api_object, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(api_object, '_publish') as publish_mock:
             request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object",
                                              data=json.dumps(56).encode(), method="POST")
             urllib.request.urlopen(request)
@@ -853,7 +853,7 @@ class WebSocketAPITest(unittest.TestCase):
         self.server_runner.start()
         await self.start_websocket()
 
-        with unittest.mock.patch.object(api_object, '_publish', new_callable=AsyncMock) as publish_mock:
+        with unittest.mock.patch.object(api_object, '_publish') as publish_mock:
             await self.ws.send_json({'action': 'post', 'name': 'the_api_object', 'value': 56})
             await asyncio.sleep(0.05)
 
