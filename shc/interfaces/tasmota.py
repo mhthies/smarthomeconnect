@@ -124,7 +124,7 @@ class TasmotaInterface(AbstractInterface):
                                    indicators=indicators)  # type: ignore
         return InterfaceStatus(indicators=indicators)  # type: ignore
 
-    async def _handle_result_or_status(self, msg: MQTTMessage, result: bool = False) -> None:
+    def _handle_result_or_status(self, msg: MQTTMessage, result: bool = False) -> None:
         """
         Callback function to handle incoming MQTTMessages on the Tasmota device's RESULT, STATUS and STATE topics
 
@@ -138,9 +138,9 @@ class TasmotaInterface(AbstractInterface):
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota result as JSON object: %s", msg.payload, exc_info=e)
             return
-        await self._dispatch_status(data, result)
+        self._dispatch_status(data, result)
 
-    async def _handle_status11(self, msg: MQTTMessage) -> None:
+    def _handle_status11(self, msg: MQTTMessage) -> None:
         """
         Callback function to handle incoming MQTTMessages on the STATUS11 topic (as a result to of the 'status 11')
         command.
@@ -153,9 +153,9 @@ class TasmotaInterface(AbstractInterface):
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota telemetry status as JSON object: %s", msg.payload, exc_info=e)
             return
-        await self._dispatch_status(data['StatusSTS'], False)
+        self._dispatch_status(data['StatusSTS'], False)
 
-    async def _dispatch_status(self, data: Dict[str, JSONType], result: bool) -> None:
+    def _dispatch_status(self, data: Dict[str, JSONType], result: bool) -> None:
         """
         Internal helper method to dispatch results/telemetry updates and sensor readings from Tasmota device, received
         via :meth:`_handle_result_or_status` or :meth:`_handle_status11` for publishing by all affected connectors.
@@ -192,7 +192,7 @@ class TasmotaInterface(AbstractInterface):
         for key, value in data.items():
             for connector in self._connectors_by_result_field.get(key, []):
                 try:
-                    await connector._publish(connector._decode(value), origin)
+                    connector._publish(connector._decode(value), origin)
                 except Exception as e:
                     logger.error("Error while processing Tasmota result/status field %s=%s from %s in Tasmota "
                                  "connector %s", key, value, self.device_topic, connector, exc_info=e)
@@ -489,9 +489,9 @@ class TasmotaOnlineConnector(Readable[bool], Subscribable[bool]):
         super().__init__()
         self.value = None
 
-    async def _update_from_mqtt(self, msg: MQTTMessage) -> None:
+    def _update_from_mqtt(self, msg: MQTTMessage) -> None:
         self.value = msg.payload == b'Online'
-        await self._publish(self.value, [])
+        self._publish(self.value, [])
 
     async def read(self) -> bool:
         return self.value

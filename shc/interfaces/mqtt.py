@@ -11,6 +11,7 @@
 import abc
 import asyncio
 import collections
+import itertools
 import json
 import logging
 from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Tuple, Union, Dict, Deque
@@ -75,6 +76,7 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     async def _connect(self) -> None:
         logger.info("Connecting MQTT client interface ...")
+        # TODO disconnect if already connected
         await self.client.connect()
 
     async def _subscribe(self) -> None:
@@ -111,7 +113,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         logger.debug("Sending MQTT message t: %s p: %s q: %s r: %s", topic, payload, qos, retain)
         await self.client.publish(topic, payload, qos, retain)
 
-    def register_filtered_receiver(self, topic_filter: str, receiver: Callable[[MQTTMessage], Awaitable[None]],
+    def register_filtered_receiver(self, topic_filter: str, receiver: Callable[[MQTTMessage], None],
                                    subscription_qos: int = 0) -> None:
         # If the topic is already subscribed (e.g. by another connector), merge the QOS values (in doubt, promote
         # it to 2)
@@ -131,13 +133,10 @@ class MQTTClientInterface(SupervisedClientInterface):
             self._running.set()
             async for message in messages:
                 logger.debug("Incoming MQTT message: %s", message)
-                try:
-                    receivers: List[Callable[[MQTTMessage], Awaitable[None]]] = self.matcher[message.topic]
-                except KeyError:
-                    logger.info("Topic %s of incoming message does not match any receiver filter")
-                    continue
-                for receiver in receivers:
-                    asyncio.create_task(receiver(message))
+                receivers: List[List[Callable[[MQTTMessage], Awaitable[None]]]] \
+                    = self.matcher.iter_match(message.topic)
+                for receiver in itertools.chain.from_iterable(receivers):
+                    receiver(message)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.client._hostname})"
@@ -196,18 +195,18 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
             except asyncio.TimeoutError:
                 logger.warning("Sent MQTT message was not received back from the broker within 5s.")
             finally:
-                await self._publish(value, origin)
+                self._publish(value, origin)
                 assert queue is not None
                 queue.remove(event)
                 if not queue:
                     del self._pending_mqtt_pubs[encoded_value]
 
-    async def _new_value_from_mqtt(self, message: MQTTMessage) -> None:
+    def _new_value_from_mqtt(self, message: MQTTMessage) -> None:
         queue = self._pending_mqtt_pubs.get(message.payload)
         if queue is not None:
             queue[0].set()
         else:
-            await self._publish(self._decode(message.payload), [])
+            self._publish(self._decode(message.payload), [])
 
 
 class RawMQTTTopicVariable(AbstractMQTTTopicVariable[bytes]):
