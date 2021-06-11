@@ -70,7 +70,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         self.client = Client(hostname, port, username=username, password=password, client_id=client_id,
                              protocol=protocol)
         self.matcher = MQTTMatcher()
-        self.subscribe_topics: List[Tuple[str, int]] = []  #: List of (topic, qos) tuples for subscribing
+        self.subscribe_topics: Dict[str, int] = {}  #: dict {topic: qos} for subscribing
         self.run_task: Optional[asyncio.Task] = None
 
     async def _connect(self) -> None:
@@ -81,7 +81,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         if self.subscribe_topics:
             logger.info("Subscribing to MQTT topics ...")
             logger.debug("Topics: %s", self.subscribe_topics)
-            await self.client.subscribe(self.subscribe_topics)
+            await self.client.subscribe(list(self.subscribe_topics.items()))
         else:
             logger.info("No MQTT topics need to be subscribed")
 
@@ -113,8 +113,18 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     def register_filtered_receiver(self, topic_filter: str, receiver: Callable[[MQTTMessage], Awaitable[None]],
                                    subscription_qos: int = 0) -> None:
-        self.subscribe_topics.append((topic_filter, subscription_qos))
-        self.matcher[topic_filter] = receiver
+        # If the topic is already subscribed (e.g. by another connector), merge the QOS values (in doubt, promote
+        # it to 2)
+        if topic_filter in self.subscribe_topics:
+            self.subscribe_topics[topic_filter] = \
+                2 if self.subscribe_topics[topic_filter] != subscription_qos else subscription_qos
+        else:
+            self.subscribe_topics[topic_filter] = subscription_qos
+        try:
+            receiver_list = self.matcher[topic_filter]
+            receiver_list.append(receiver)
+        except KeyError:
+            self.matcher[topic_filter] = [receiver]
 
     async def _run(self) -> None:
         async with self.client.unfiltered_messages() as messages:
@@ -122,11 +132,12 @@ class MQTTClientInterface(SupervisedClientInterface):
             async for message in messages:
                 logger.debug("Incoming MQTT message: %s", message)
                 try:
-                    receiver: Callable[[MQTTMessage], Awaitable[None]] = self.matcher[message.topic]
+                    receivers: List[Callable[[MQTTMessage], Awaitable[None]]] = self.matcher[message.topic]
                 except KeyError:
                     logger.info("Topic %s of incoming message does not match any receiver filter")
                     continue
-                asyncio.create_task(receiver(message))
+                for receiver in receivers:
+                    asyncio.create_task(receiver(message))
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.client._hostname})"
