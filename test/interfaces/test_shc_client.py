@@ -31,11 +31,10 @@ class ExampleType(NamedTuple):
 
 class SHCWebsocketClientTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.server = shc.web.WebServer("localhost", 42080)
-        self.client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
-
-        self.client_runner = InterfaceThreadRunner(self.client)
-        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
+        self.client_runner = InterfaceThreadRunner(shc.interfaces.shc_client.SHCWebClient, 'http://localhost:42080')
+        self.server = self.server_runner.interface
+        self.client = self.client_runner.interface
 
     def tearDown(self) -> None:
         self.client_runner.stop()
@@ -80,7 +79,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
         # Test raising of connection errors on startup (server is not started yet)
         with self.assertRaises(aiohttp.ClientConnectionError):
-            await self.client.start()
+            self.client_runner.start()
 
         self.server_runner.start()
 
@@ -145,8 +144,8 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.assertIn("SHCWebClient", ctx.output[0])
 
         # Re-setup server
-        self.server = shc.web.WebServer("localhost", 42080)
-        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
+        self.server = self.server_runner.interface
         self.server.api(ExampleType, "bar")\
             .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
 
@@ -191,8 +190,8 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
         # Re-setup server
         self.server_runner.stop()
-        self.server = shc.web.WebServer("localhost", 42080)
-        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
+        self.server = self.server_runner.interface
         self.server.api(ExampleType, "bar") \
             .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
         self.server_runner.start()
