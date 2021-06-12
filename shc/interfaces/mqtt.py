@@ -281,6 +281,10 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
                     del self._pending_mqtt_pubs[encoded_value]
 
     def _new_value_from_mqtt(self, message: MQTTMessage) -> None:
+        if message.topic != self.publish_topic:
+            self._publish(self._decode(message.payload), [])
+            return
+
         queue = self._pending_mqtt_pubs.get(message.payload)
         if queue is not None:
             queue[0].set()
