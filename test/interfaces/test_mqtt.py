@@ -1,12 +1,13 @@
 import asyncio
-import logging
 import shutil
 import subprocess
-import tracemalloc
 import unittest
 import unittest.mock
+from contextlib import suppress
+from typing import List
 
 import asyncio_mqtt
+from paho.mqtt.client import MQTTMessage
 
 import shc.interfaces.mqtt
 
@@ -16,7 +17,6 @@ from .._helper import InterfaceThreadRunner, async_test, ExampleWritable
 @unittest.skipIf(shutil.which("mosquitto") is None, "mosquitto MQTT broker is not available in PATH")
 class MQTTClientTest(unittest.TestCase):
     def setUp(self) -> None:
-        tracemalloc.start()
         self.client_runner = InterfaceThreadRunner(shc.interfaces.mqtt.MQTTClientInterface, "localhost", 42883)
         self.client = self.client_runner.interface
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
@@ -32,7 +32,7 @@ class MQTTClientTest(unittest.TestCase):
 
         target_raw = ExampleWritable(bytes).connect(self.client.topic_raw('test/topic'))
         target_raw2 = ExampleWritable(bytes).connect(self.client.topic_raw('test/another/topic'))
-        target_str = ExampleWritable(str).connect(self.client.topic_string('test/topic'))
+        target_str = ExampleWritable(str).connect(self.client.topic_string('test/topic', 'test/#'))
         target_int = ExampleWritable(int).connect(self.client.topic_json(int, 'test/topic'))
 
         self.client_runner.start()
@@ -55,8 +55,70 @@ class MQTTClientTest(unittest.TestCase):
         target_raw._write.assert_called_once_with(b'56', unittest.mock.ANY)
         target_str._write.assert_called_once_with('56', unittest.mock.ANY)
         target_int._write.assert_called_once_with(56, unittest.mock.ANY)
+        target_raw._write.reset_mock()
+        target_str._write.reset_mock()
+        target_int._write.reset_mock()
 
-    # TODO test_publish
+        async with asyncio_mqtt.Client("localhost", 42883, client_id="TestClient") as c:
+            await c.publish("test/something", b"21", 0, False)
+
+        await asyncio.sleep(0.05)
+
+        target_raw._write.assert_not_called()
+        target_str._write.assert_called_once_with('21', unittest.mock.ANY)
+        target_raw._write.assert_not_called()
+
+    @async_test
+    async def test_publish(self) -> None:
+        MESSAGES: List[MQTTMessage] = []
+
+        async def _task() -> None:
+            async with asyncio_mqtt.Client("localhost", 42883, client_id="TestClient") as c:
+                await c.subscribe('#')
+                async with c.unfiltered_messages() as messages:
+                    async for msg in messages:
+                        MESSAGES.append(msg)
+
+        task = asyncio.create_task(_task())
+        await asyncio.sleep(0.1)
+
+        try:
+            conn_raw = self.client.topic_raw('test/topic', qos=2)
+            conn_str = self.client.topic_string('test/another/topic', 'test/another/#', retain=True)
+            conn_json = self.client.topic_json(str, 'test/topic', force_mqtt_subscription=True)
+            target_str = ExampleWritable(str).connect(conn_str)
+
+            self.client_runner.start()
+
+            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(conn_raw.write(b'"500"', [self]),
+                                                                       loop=self.client_runner.loop))
+            # Write might not wait until the message is published
+            await asyncio.sleep(0.1)
+            self.assertEqual(1, len(MESSAGES))
+            self.assertEqual(b'"500"', MESSAGES[-1].payload)
+            self.assertEqual('test/topic', MESSAGES[-1].topic)
+
+            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(conn_str.write('a test with »«', [self]),
+                                                                       loop=self.client_runner.loop))
+            # Due to the local subscriber, write() should wait until the message has been received
+            target_str._write.assert_called_once_with('a test with »«', [self, conn_str])
+            await asyncio.sleep(0.01)
+            self.assertEqual(2, len(MESSAGES))
+            self.assertEqual('a test with »«'.encode('utf-8'), MESSAGES[-1].payload)
+            self.assertEqual('test/another/topic', MESSAGES[-1].topic)
+
+            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(conn_json.write('text', [self]),
+                                                                       loop=self.client_runner.loop))
+            # Du to the forced subscription, write() should wait until the message has been received
+            await asyncio.sleep(0.01)
+            self.assertEqual(3, len(MESSAGES))
+            self.assertEqual(b'"text"', MESSAGES[-1].payload)
+            self.assertEqual('test/topic', MESSAGES[-1].topic)
+
+        finally:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
     # TODO test_publish_message
     # TODO test_register_filtered_receiver
