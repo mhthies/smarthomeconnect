@@ -225,6 +225,9 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
         self.interface = interface
         self.publish_topic = publish_topic
         self.subscribe_topics = subscribe_topics
+        if not check_topic_matches_filter(publish_topic, subscribe_topics):
+            raise ValueError("The publishing topic must match the subscribe topics filter! (Use an additional connector"
+                             "otherwise.)")
         self.qos = qos
         self.retain = retain
         self._receiver_registered = False
@@ -316,3 +319,16 @@ class JSONMQTTTopicVariable(AbstractMQTTTopicVariable[T], Generic[T]):
 
     def _decode(self, value: bytes) -> T:
         return from_json(self.type, json.loads(value.decode('utf-8-sig')))
+
+
+def check_topic_matches_filter(topic: str, topic_filter: str) -> bool:
+    """Returns true if the topic matches the topic_filter (which may contain wildcards).
+    It can also be used to check if one topic_filter represents a subset of topics of another filter"""
+    for a, b in itertools.zip_longest(topic.split('/'), topic_filter.split('/'), fillvalue=None):
+        if b == '#':
+            return True
+        if b == '+' and a is not None:
+            continue
+        if a != b:
+            return False
+    return True
