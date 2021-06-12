@@ -76,7 +76,7 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     async def _connect(self) -> None:
         logger.info("Connecting MQTT client interface ...")
-        # TODO disconnect if already connected
+        # TODO disconnect if already connected to avoid InvalidState errors
         await self.client.connect()
 
     async def _subscribe(self) -> None:
@@ -93,28 +93,104 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     def topic_raw(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False,
                   force_mqtt_subscription: bool = False) -> "RawMQTTTopicVariable":
+        """
+        Create a connector for publishing and receiving MQTT messages to/form a single topic as raw `bytes`
+
+        :param topic: The MQTT topic to publish messages to
+        :param subscribe_topics: The topic filter to subscribe to. If None (default) it will be equal to `topic`. This
+            can be used to subscribe to a wildcard topic filter instead of only the single publishing topic.
+            Attention: `subscribe_topics` must always include the `topic`!
+        :param qos: The MQTT QoS for publishing messages to that topic (subscription QoS is currently always 0)
+        :param retain: The MQTT *retain* bit for publishing messages to that topic
+        :param force_mqtt_subscription: Force subscription to the MQTT topic(s) even if there are no SHC-internal
+            *Subscribers* or logic handlers registered to this object. This is required for the `write` method to await
+            the successful publishing of a published message to all clients. If there are local *Subscribers* or
+            triggered logic handlers and `force_mqtt_subscription` is False, the client will not subscribe to the MQTT
+            broker for this topic, so `write()` of this connector object will return immediately.
+        """
         if subscribe_topics is None:
             subscribe_topics = topic
         return RawMQTTTopicVariable(self, topic, subscribe_topics, qos, retain, force_mqtt_subscription)
 
     def topic_string(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False,
                      force_mqtt_subscription: bool = False) -> "StringMQTTTopicVariable":
+        """
+        Create a connector for publishing and receiving MQTT messages to/form a single topic as UTF-8 encoded strings
+
+        :param topic: The MQTT topic to publish messages to
+        :param subscribe_topics: The topic filter to subscribe to. If None (default) it will be equal to `topic`. This
+            can be used to subscribe to a wildcard topic filter instead of only the single publishing topic.
+            Attention: `subscribe_topics` must always include the `topic`!
+        :param qos: The MQTT QoS for publishing messages to that topic (subscription QoS is currently always 0)
+        :param retain: The MQTT *retain* bit for publishing messages to that topic
+        :param force_mqtt_subscription: Force subscription to the MQTT topic(s) even if there are no SHC-internal
+            *Subscribers* or logic handlers registered to this object. This is required for the `write` method to await
+            the successful publishing of a published message to all clients. If there are local *Subscribers* or
+            triggered logic handlers and `force_mqtt_subscription` is False, the client will not subscribe to the MQTT
+            broker for this topic, so `write()` of this connector object will return immediately.
+        """
         if subscribe_topics is None:
             subscribe_topics = topic
         return StringMQTTTopicVariable(self, topic, subscribe_topics, qos, retain, force_mqtt_subscription)
 
     def topic_json(self, type_: Type[T], topic: str, subscribe_topics: Optional[str] = None, qos: int = 0,
                    retain: bool = False, force_mqtt_subscription: bool = False) -> "JSONMQTTTopicVariable[T]":
+        """
+        Create a connector for publishing and receiving arbitrary values as JSON-encoded MQTT messages
+
+        The connector uses SHC's generic JSON encoding/decoding system from the :mod:`shc.conversion` module. It has
+        built-in support for basic datatypes, :class:`typing.NamedTuple`-based types and :class:`enum.Enum`-based types.
+        For handling a custom JSON message format, you should create a custom Python type and specify JSON encoder and
+        decoder functions for it, using :func:`shc.conversion.register_json_conversion`. Additionally, you'll want to
+        add default type conversion functions from/to default types, using :func:`register_converter`, so that type
+        conversion can happen on-the-fly between *connected* objects.
+
+        :param type_: The connector's value type (used for its ``.type`` attribute and for chosing the correct JSON
+            decoding function)
+        :param topic: The MQTT topic to publish messages to
+        :param subscribe_topics: The topic filter to subscribe to. If None (default) it will be equal to `topic`. This
+            can be used to subscribe to a wildcard topic filter instead of only the single publishing topic.
+            Attention: `subscribe_topics` must always include the `topic`!
+        :param qos: The MQTT QoS for publishing messages to that topic (subscription QoS is currently always 0)
+        :param retain: The MQTT *retain* bit for publishing messages to that topic
+        :param force_mqtt_subscription: Force subscription to the MQTT topic(s) even if there are no SHC-internal
+            *Subscribers* or logic handlers registered to this object. This is required for the `write` method to await
+            the successful publishing of a published message to all clients. If there are local *Subscribers* or
+            triggered logic handlers and `force_mqtt_subscription` is False, the client will not subscribe to the MQTT
+            broker for this topic, so `write()` of this connector object will return immediately.
+        """
         if subscribe_topics is None:
             subscribe_topics = topic
         return JSONMQTTTopicVariable(type_, self, topic, subscribe_topics, qos, retain, force_mqtt_subscription)
 
     async def publish_message(self, topic: str, payload: bytes, qos: int = 0, retain: bool = False) -> None:
+        """
+        Generic coroutine for publishing an MQTT message to be used by higher-level interfaces
+
+        :param topic: The MQTT topic to send the message to
+        :param payload: The raw MQTT message payload
+        :param qos: The MQTT QoS value of the published message
+        :param retain: The MQTT retain bit for publishing
+        """
         logger.debug("Sending MQTT message t: %s p: %s q: %s r: %s", topic, payload, qos, retain)
         await self.client.publish(topic, payload, qos, retain)
 
     def register_filtered_receiver(self, topic_filter: str, receiver: Callable[[MQTTMessage], None],
                                    subscription_qos: int = 0) -> None:
+        """
+        Subscribe to an MQTT topic filter and register a callback function to be called when a message matching this
+        filter is received.
+
+        Warning: If multiple receivers with intersecting topic filters are registered, the receiver behaviour for MQTT
+        messages seems to be undefined. Each receiver will still only receive the correct messages, but QoS guarantees
+        will probably not be hold. Esp., messages might be received multiple times.
+
+        :param topic_filter: An MQTT topic filter, possible containing wildcard characters. It is used for subscribing
+            to these topics and for filtering the received messages.
+        :param receiver: The callback function to be called when a matching MQTT message is received. The function
+            must have a single free positional argument for taking the MQTTMessage object.
+        :param subscription_qos: The subscription QoS
+        """
         # If the topic is already subscribed (e.g. by another connector), merge the QOS values (in doubt, promote
         # it to 2)
         if topic_filter in self.subscribe_topics:
