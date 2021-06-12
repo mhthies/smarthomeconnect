@@ -23,7 +23,7 @@ setup(
         'MarkupSafe>=1.1,<2',
     ],
     extras_require={
-        'mysql': ['aiomysql==0.0.20'],
+        'mysql': ['aiomysql==0.0.21'],
         'knx': ['knxdclient~=0.3.0'],
         'dmx': ['pyserial-asyncio==0.3'],
         'midi': ['mido>=1.2.9,<2', 'python-rtmidi>=1.4.6,<2'],

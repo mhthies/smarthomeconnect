@@ -1,5 +1,5 @@
 aiohttp>=3.6,<4
-aiomysql==0.0.20
+aiomysql==0.0.21
 types-PyMySQL
 jinja2>=2.11,<3
 types-Jinja2>=2.11,<3
