@@ -141,7 +141,7 @@ class MQTTClientTest(unittest.TestCase):
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
             time.sleep(0.5)
             self.broker_process.terminate()
-            self.broker_process.wait(timeout=5)
+            self.broker_process.wait()
             time.sleep(0.5)
         self.assertIn("Disconnected", ctx.output[0])
         self.assertIn("MQTTClientInterface", ctx.output[0])
