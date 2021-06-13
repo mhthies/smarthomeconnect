@@ -76,7 +76,9 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     async def _connect(self) -> None:
         logger.info("Connecting MQTT client interface ...")
-        # TODO disconnect if already connected to avoid InvalidState errors
+        # TODO this is a dirty hack to work around asyncio-mqtt's reconnect issues
+        self.client._connected = asyncio.Future()
+        self.client._disconnected = asyncio.Future()
         await self.client.connect()
 
     async def _subscribe(self) -> None:

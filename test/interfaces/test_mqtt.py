@@ -130,16 +130,19 @@ class MQTTClientTest(unittest.TestCase):
                 await task
 
     def test_reconnect(self) -> None:
-        asyncio.run(self._send_retained_test_message())
+        asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
 
         target_raw = ExampleWritable(bytes).connect(self.client.topic_raw('test/topic'))
         self.client_runner.start()
         # We cannot use ClockMock here, since it does not support asyncio.wait()
         target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
+        target_raw._write.reset_mock()
 
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
+            time.sleep(0.5)
             self.broker_process.terminate()
             self.broker_process.wait(timeout=5)
+            time.sleep(0.5)
         self.assertIn("Disconnected", ctx.output[0])
         self.assertIn("MQTTClientInterface", ctx.output[0])
 
@@ -151,17 +154,19 @@ class MQTTClientTest(unittest.TestCase):
 
         # Restart server
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
+        time.sleep(0.3)
+        asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
 
         # Wait for second reconnect attempt
         with unittest.mock.patch.object(self.client.client, 'connect', new=AsyncMock()) as connect_mock:
-            time.sleep(1)
+            time.sleep(0.3)
             connect_mock.assert_not_called()
         time.sleep(0.3)
 
         target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
 
     def test_initial_reconnect(self) -> None:
-        asyncio.run(self._send_retained_test_message())
+        asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
         self.client.failsafe_start = True
         target_raw = ExampleWritable(bytes).connect(self.client.topic_raw('test/topic'))
 
@@ -179,7 +184,7 @@ class MQTTClientTest(unittest.TestCase):
         # Restart server
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
         time.sleep(0.25)
-        asyncio.run(self._send_retained_test_message())
+        asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
 
         # wait for reconnect attempt
         with unittest.mock.patch.object(self.client.client, 'connect', new=AsyncMock()) as connect_mock:
