@@ -1,6 +1,8 @@
 import asyncio
+import logging
 import shutil
 import subprocess
+import time
 import unittest
 import unittest.mock
 from contextlib import suppress
@@ -11,7 +13,7 @@ from paho.mqtt.client import MQTTMessage
 
 import shc.interfaces.mqtt
 
-from .._helper import InterfaceThreadRunner, async_test, ExampleWritable
+from .._helper import InterfaceThreadRunner, async_test, ExampleWritable, AsyncMock
 
 
 @unittest.skipIf(shutil.which("mosquitto") is None, "mosquitto MQTT broker is not available in PATH")
@@ -20,15 +22,21 @@ class MQTTClientTest(unittest.TestCase):
         self.client_runner = InterfaceThreadRunner(shc.interfaces.mqtt.MQTTClientInterface, "localhost", 42883)
         self.client = self.client_runner.interface
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
+        time.sleep(0.25)
 
     def tearDown(self) -> None:
         self.client_runner.stop()
         self.broker_process.terminate()
+        self.broker_process.wait()
+
+    @staticmethod
+    async def _send_retained_test_message() -> None:
+        async with asyncio_mqtt.Client("localhost", 42883, client_id="TestClient") as c:
+            await c.publish("test/topic", b"42", 0, True)
 
     @async_test
     async def test_subscribe(self) -> None:
-        async with asyncio_mqtt.Client("localhost", 42883, client_id="TestClient") as c:
-            await c.publish("test/topic", b"42", 0, True)
+        await self._send_retained_test_message()
 
         target_raw = ExampleWritable(bytes).connect(self.client.topic_raw('test/topic'))
         target_raw2 = ExampleWritable(bytes).connect(self.client.topic_raw('test/another/topic'))
@@ -39,10 +47,11 @@ class MQTTClientTest(unittest.TestCase):
 
         await asyncio.sleep(0.50)
 
-        target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
-        target_str._write.assert_called_once_with('42', unittest.mock.ANY)
-        target_int._write.assert_called_once_with(42, unittest.mock.ANY)
+        # Due to the double-subscription to test/topic, they may be called multiple times
+        target_raw._write.assert_called_with(b'42', unittest.mock.ANY)
         target_raw2._write.assert_not_called()
+        target_str._write.assert_called_with('42', unittest.mock.ANY)
+        target_int._write.assert_called_with(42, unittest.mock.ANY)
         target_raw._write.reset_mock()
         target_str._write.reset_mock()
         target_int._write.reset_mock()
@@ -120,7 +129,63 @@ class MQTTClientTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    # TODO test_publish_message
-    # TODO test_register_filtered_receiver
+    async def test_reconnect(self) -> None:
+        asyncio.run(self._send_retained_test_message())
 
-    # TODO test reconnect
+        target_raw = ExampleWritable(bytes).connect(self.client.topic_raw('test/topic'))
+        self.client_runner.start()
+        # We cannot use ClockMock here, since it does not support asyncio.wait()
+        target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
+
+        with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
+            self.broker_process.terminate()
+            self.broker_process.wait(timeout=5)
+        self.assertIn("Disconnected", ctx.output[0])
+        self.assertIn("MQTTClientInterface", ctx.output[0])
+
+        # Wait for first reconnect attempt
+        with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
+            time.sleep(1.1)
+        self.assertIn("Error in interface MQTTClientInterface", ctx.output[0])
+        self.assertIn("Connection refused", ctx.output[0])
+
+        # Restart server
+        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
+
+        # Wait for second reconnect attempt
+        with unittest.mock.patch.object(self.client.client, 'connect', new=AsyncMock()) as connect_mock:
+            time.sleep(1)
+            connect_mock.assert_not_called()
+        time.sleep(0.3)
+
+        target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
+
+    def test_initial_reconnect(self) -> None:
+        asyncio.run(self._send_retained_test_message())
+        self.client.failsafe_start = True
+        target_raw = ExampleWritable(bytes).connect(self.client.topic_raw('test/topic'))
+
+        self.broker_process.terminate()
+        self.broker_process.wait()
+
+        # We cannot use ClockMock here, since the server seems to be too slow then
+
+        with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
+            self.client_runner.start()
+            time.sleep(0.5)
+        self.assertIn("Error in interface MQTTClientInterface", ctx.output[0])
+        self.assertIn("Connection refused", ctx.output[0])
+
+        # Restart server
+        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
+        time.sleep(0.25)
+        asyncio.run(self._send_retained_test_message())
+
+        # wait for reconnect attempt
+        with unittest.mock.patch.object(self.client.client, 'connect', new=AsyncMock()) as connect_mock:
+            time.sleep(0.15)
+            connect_mock.assert_not_called()
+        time.sleep(0.4)
+
+        target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
+

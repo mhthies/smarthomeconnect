@@ -89,7 +89,11 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     async def _disconnect(self) -> None:
         logger.info("Disconnecting MQTT client interface ...")
-        await self.client.disconnect()
+        try:
+            await self.client.disconnect()
+        except MqttError as e:
+            if e.args[0] == 'Operation timed out':
+                await self.client.force_disconnect()
 
     def topic_raw(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False,
                   force_mqtt_subscription: bool = False) -> "RawMQTTTopicVariable":
