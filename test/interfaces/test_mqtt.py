@@ -129,7 +129,7 @@ class MQTTClientTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    async def test_reconnect(self) -> None:
+    def test_reconnect(self) -> None:
         asyncio.run(self._send_retained_test_message())
 
         target_raw = ExampleWritable(bytes).connect(self.client.topic_raw('test/topic'))
