@@ -188,4 +188,3 @@ class MQTTClientTest(unittest.TestCase):
         time.sleep(0.4)
 
         target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
-

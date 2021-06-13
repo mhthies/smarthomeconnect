@@ -145,7 +145,8 @@ class MIDIOutputTest(unittest.TestCase):
         self.callback = unittest.mock.Mock()
         self.dummy_port = mido.open_input(self.port_name, virtual=True, callback=self.callback)
 
-        self.interface_runner = InterfaceThreadRunner(shc.interfaces.midi.MidiInterface, None, self.port_name, send_channel=9)
+        self.interface_runner = InterfaceThreadRunner(shc.interfaces.midi.MidiInterface, None, self.port_name,
+                                                      send_channel=9)
         self.interface = self.interface_runner.interface
 
     def tearDown(self) -> None:
