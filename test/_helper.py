@@ -247,7 +247,10 @@ class SimpleIntRepublisher(base.Writable, base.Subscribable):
         await self._publish_and_wait(value, origin)
 
 
-class InterfaceThreadRunner:
+IT = TypeVar('IT', bound=AbstractInterface)
+
+
+class InterfaceThreadRunner(Generic[IT]):
     """
     Some magic for running an SHC interface in a separate AsyncIO event loop in a background thread. This is helpful
     for testing the interface's features from the main thread, using blocking functions (e.g. selenium for web testing).
@@ -274,17 +277,18 @@ class InterfaceThreadRunner:
     """
     executor = concurrent.futures.ThreadPoolExecutor()
 
-    def __init__(self, interface_class: Type[AbstractInterface], *args, **kwargs):
-        self._server_constructed_future = concurrent.futures.Future()
+    def __init__(self, interface_class: Type[IT], *args, **kwargs):
+        self._server_constructed_future: concurrent.futures.Future[None] = concurrent.futures.Future()
         self.started = False
+        self.interface: IT
         self.future = self.executor.submit(self._run, interface_class, args, kwargs)
         self._server_constructed_future.result(timeout=5)
 
-    def _run(self, interface_class, args, kwargs) -> None:
+    def _run(self, interface_class: Type[IT], args, kwargs) -> None:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         try:
-            self.interface = interface_class(*args, **kwargs)
+            self.interface = interface_class(*args, **kwargs)  # type: ignore
             self._server_constructed_future.set_result(None)
         except Exception as e:
             self._server_constructed_future.set_exception(e)
