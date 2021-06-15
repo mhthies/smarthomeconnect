@@ -26,7 +26,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
         self.client = self.client_runner.interface
         self.interface: shc.interfaces.tasmota.TasmotaInterface = \
             asyncio.run_coroutine_threadsafe(_construct(self.client, 'test-device'), loop=self.client_runner.loop)\
-                .result()
+            .result()
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
         time.sleep(0.25)
 
@@ -64,8 +64,8 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
     @async_test
     async def test_color_external(self) -> None:
-        construct_color = lambda r, g, b, w: \
-            RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
+        def construct_color(r, g, b, w):
+            return RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
 
         task = asyncio.create_task(tasmota_device_mock("test-device"))
         conn_color = self.interface.color_rgbw()
@@ -96,8 +96,8 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
     @async_test
     async def test_color_internal(self) -> None:
-        construct_color = lambda r, g, b, w: \
-            RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
+        def construct_color(r, g, b, w):
+            return RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
 
         task = asyncio.create_task(tasmota_device_mock("test-device"))
         conn_color = self.interface.color_rgbw()
@@ -153,14 +153,15 @@ class TasmotaInterfaceTest(unittest.TestCase):
         target_ir._write.assert_called_once_with(b'\x00\xF7\x60\x9F', [conn_ir])
 
 
-BASE_STATUS11: Dict[str, Dict[str, Any]] = {"StatusSTS":
-                   {"Time": "1970-01-08T04:46:42", "Uptime": "7T04:46:38", "UptimeSec": 621998, "Heap": 26,
-                    "SleepMode": "Dynamic", "Sleep": 50, "LoadAvg": 19, "MqttCount": 1, "POWER": "OFF", "Dimmer": 100,
-                    "Color": "00CCFFEE", "HSBColor": "192,100,100", "White": 93, "Channel": [0, 80, 100, 93],
-                    "Scheme": 0, "Fade": "OFF", "Speed": 1, "LedTable": "ON",
-                    "Wifi": {
-                        "AP": 1, "SSId": "some-network", "BSSId":"00:11:22:33:44:55", "Channel": 11, "RSSI": 76,
-                        "Signal": -62, "LinkCount": 1, "Downtime": "0T00:00:03"}}}
+BASE_STATUS11: Dict[str, Dict[str, Any]] = {
+    "StatusSTS":
+        {"Time": "1970-01-08T04:46:42", "Uptime": "7T04:46:38", "UptimeSec": 621998, "Heap": 26,
+         "SleepMode": "Dynamic", "Sleep": 50, "LoadAvg": 19, "MqttCount": 1, "POWER": "OFF", "Dimmer": 100,
+         "Color": "00CCFFEE", "HSBColor": "192,100,100", "White": 93, "Channel": [0, 80, 100, 93],
+         "Scheme": 0, "Fade": "OFF", "Speed": 1, "LedTable": "ON",
+         "Wifi": {
+             "AP": 1, "SSId": "some-network", "BSSId": "00:11:22:33:44:55", "Channel": 11, "RSSI": 76,
+             "Signal": -62, "LinkCount": 1, "Downtime": "0T00:00:03"}}}
 
 
 async def tasmota_device_mock(deviceid: str) -> None:
