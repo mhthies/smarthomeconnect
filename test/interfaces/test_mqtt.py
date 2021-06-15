@@ -135,6 +135,7 @@ class MQTTClientTest(unittest.TestCase):
         target_raw = ExampleWritable(bytes).connect(self.client.topic_raw('test/topic'))
         self.client_runner.start()
         # We cannot use ClockMock here, since it does not support asyncio.wait()
+        time.sleep(0.05)
         target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
         target_raw._write.reset_mock()
 
