@@ -140,10 +140,9 @@ class MQTTClientTest(unittest.TestCase):
         target_raw._write.reset_mock()
 
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
-            time.sleep(0.5)
             self.broker_process.terminate()
             self.broker_process.wait()
-            time.sleep(0.5)
+            time.sleep(0.2)
         self.assertIn("Disconnected", ctx.output[0])
         self.assertIn("MQTTClientInterface", ctx.output[0])
 
@@ -155,14 +154,14 @@ class MQTTClientTest(unittest.TestCase):
 
         # Restart server
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
-        time.sleep(0.3)
-        asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
 
         # Wait for second reconnect attempt
         with unittest.mock.patch.object(self.client.client, 'connect', new=AsyncMock()) as connect_mock:
-            time.sleep(0.3)
+            time.sleep(1)
             connect_mock.assert_not_called()
-        time.sleep(1)
+
+        asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
+        time.sleep(2)
 
         target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
 
