@@ -199,7 +199,7 @@ async def tasmota_device_mock(deviceid: str) -> None:
                         if msg.payload[0] == ord('#'):
                             data = bytes.fromhex(msg.payload.decode('ascii')[1:])
                             data += bytes([0] * (4 - len(data)))
-                            channel = data[0:4]
+                            channel = list(data[0:4])
                         else:
                             # not implemented
                             continue
