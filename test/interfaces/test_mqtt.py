@@ -161,7 +161,7 @@ class MQTTClientTest(unittest.TestCase):
         with unittest.mock.patch.object(self.client.client, 'connect', new=AsyncMock()) as connect_mock:
             time.sleep(0.3)
             connect_mock.assert_not_called()
-        time.sleep(0.6)
+        time.sleep(1)
 
         target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
 
