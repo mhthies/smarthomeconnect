@@ -161,7 +161,7 @@ class MQTTClientTest(unittest.TestCase):
             connect_mock.assert_not_called()
 
         asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
-        time.sleep(2)
+        time.sleep(5)
 
         target_raw._write.assert_called_once_with(b'42', unittest.mock.ANY)
 
