@@ -151,9 +151,9 @@ class ConversionTests(unittest.TestCase):
         self.assertEqual(datatypes.RangeUInt8(133),
                          conversion.get_converter(datatypes.CCTUInt8, datatypes.RangeUInt8)
                          (datatypes.CCTUInt8(datatypes.RangeUInt8(113), datatypes.RangeUInt8(153))))
-        self.assertEqual(datatypes.CCTUInt8(datatypes.RangeUInt8(113), datatypes.RangeUInt8(153)),
+        self.assertEqual(datatypes.CCTUInt8(datatypes.RangeUInt8(133), datatypes.RangeUInt8(133)),
                          conversion.get_converter(datatypes.RangeUInt8, datatypes.CCTUInt8)
-                         (datatypes.RangeUInt8(113)))
+                         (datatypes.RangeUInt8(133)))
 
 
 class ColorTests(unittest.TestCase):
