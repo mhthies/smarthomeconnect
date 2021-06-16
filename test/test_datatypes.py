@@ -116,6 +116,45 @@ class ConversionTests(unittest.TestCase):
         self.assertAlmostEqual(0.625, some_yellow2.green, delta=0.01)
         self.assertAlmostEqual(0.25, some_yellow2.blue, delta=0.01)
 
+    def test_cct_and_rgbw(self) -> None:
+        some_blue_int = datatypes.RGBUInt8(datatypes.RangeUInt8(64),
+                                           datatypes.RangeUInt8(128),
+                                           datatypes.RangeUInt8(191))
+        some_blue_rgbw = conversion.get_converter(datatypes.RGBUInt8, datatypes.RGBWUInt8)(some_blue_int)
+        self.assertEqual(datatypes.RGBWUInt8(some_blue_int, datatypes.RangeUInt8(0)),
+                         some_blue_rgbw)
+
+        some_blue_with_white = some_blue_rgbw._replace(white=datatypes.RangeUInt8(133))
+        self.assertEqual(some_blue_int,
+                         conversion.get_converter(datatypes.RGBWUInt8, datatypes.RGBUInt8)(some_blue_with_white))
+
+        some_blue_with_cct = \
+            conversion.get_converter(datatypes.RGBWUInt8, datatypes.RGBCCTUInt8)(some_blue_with_white)
+        self.assertEqual(datatypes.RGBCCTUInt8(some_blue_int, datatypes.CCTUInt8(datatypes.RangeUInt8(133),
+                                                                                 datatypes.RangeUInt8(133))),
+                         some_blue_with_cct)
+
+        some_blue_with_white_other_cct = some_blue_with_cct._replace(
+            white=datatypes.CCTUInt8(datatypes.RangeUInt8(113), datatypes.RangeUInt8(153)))
+        self.assertEqual(some_blue_with_white,
+                         conversion.get_converter(datatypes.RGBCCTUInt8, datatypes.RGBWUInt8)
+                         (some_blue_with_white_other_cct))
+
+        self.assertEqual(datatypes.CCTUInt8(datatypes.RangeUInt8(113), datatypes.RangeUInt8(153)),
+                         conversion.get_converter(datatypes.RGBCCTUInt8, datatypes.CCTUInt8)
+                         (some_blue_with_white_other_cct))
+
+        self.assertEqual(some_blue_int,
+                         conversion.get_converter(datatypes.RGBCCTUInt8, datatypes.RGBUInt8)
+                         (some_blue_with_cct))
+
+        self.assertEqual(datatypes.RangeUInt8(133),
+                         conversion.get_converter(datatypes.CCTUInt8, datatypes.RangeUInt8)
+                         (datatypes.CCTUInt8(datatypes.RangeUInt8(113), datatypes.RangeUInt8(153))))
+        self.assertEqual(datatypes.CCTUInt8(datatypes.RangeUInt8(113), datatypes.RangeUInt8(153)),
+                         conversion.get_converter(datatypes.RangeUInt8, datatypes.CCTUInt8)
+                         (datatypes.RangeUInt8(113)))
+
 
 class ColorTests(unittest.TestCase):
     def test_rgb_scaling(self) -> None:
@@ -152,3 +191,26 @@ class ColorTests(unittest.TestCase):
 
         some_dim_hsv_blue3 = some_blue_hsv.dimmed(datatypes.RangeUInt8(127))
         self.assertAlmostEqual(some_dim_hsv_blue3.value, .375, delta=0.01)
+
+    def test_rgbw_scaling(self) -> None:
+        some_blue_with_white = datatypes.RGBWUInt8(datatypes.RGBUInt8(datatypes.RangeUInt8(64),
+                                                                      datatypes.RangeUInt8(128),
+                                                                      datatypes.RangeUInt8(191)),
+                                                   datatypes.RangeUInt8(133))
+        self.assertEqual(datatypes.RGBWUInt8(datatypes.RGBUInt8(datatypes.RangeUInt8(32),
+                                                                datatypes.RangeUInt8(64),
+                                                                datatypes.RangeUInt8(96)),
+                                             datatypes.RangeUInt8(66)),
+                         some_blue_with_white.dimmed(datatypes.RangeFloat1(0.5)))
+
+        some_blue_with_cct = datatypes.RGBCCTUInt8(datatypes.RGBUInt8(datatypes.RangeUInt8(64),
+                                                                      datatypes.RangeUInt8(128),
+                                                                      datatypes.RangeUInt8(191)),
+                                                   datatypes.CCTUInt8(datatypes.RangeUInt8(133),
+                                                                      datatypes.RangeUInt8(118)))
+        self.assertEqual(datatypes.RGBCCTUInt8(datatypes.RGBUInt8(datatypes.RangeUInt8(32),
+                                                                  datatypes.RangeUInt8(64),
+                                                                  datatypes.RangeUInt8(96)),
+                                               datatypes.CCTUInt8(datatypes.RangeUInt8(66),
+                                                                  datatypes.RangeUInt8(59))),
+                         some_blue_with_cct.dimmed(datatypes.RangeFloat1(0.5)))

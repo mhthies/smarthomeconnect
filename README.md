@@ -169,6 +169,9 @@ They can be installed automatically via pip, by specifying the relevant 'extras'
 * MIDI interface `[midi]`:
     * `mido` (MIT License)
     * `python-rtmidi` (MIT License) incl. RTMidi (modified MIT License)
+* MQTT interface `[mqtt]`:
+    * `paho-mqtt` (Eclipse Public License v1.0 *or* Eclipse Distribution License v1.0)
+    * `asyncio-mqtt` (BSD-3-Clause License)
 
 
 ## Development

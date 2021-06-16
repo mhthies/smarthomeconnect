@@ -14,6 +14,8 @@ from shc import base
 # #############################################
 # General helper classes for testing async code
 # #############################################
+from shc.supervisor import AbstractInterface
+
 
 def async_test(f: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
     """
@@ -245,20 +247,19 @@ class SimpleIntRepublisher(base.Writable, base.Subscribable):
         await self._publish_and_wait(value, origin)
 
 
-class InterfaceThreadRunner:
+IT = TypeVar('IT', bound=AbstractInterface)
+
+
+class InterfaceThreadRunner(Generic[IT]):
     """
     Some magic for running an SHC interface in a separate AsyncIO event loop in a background thread. This is helpful
     for testing the interface's features from the main thread, using blocking functions (e.g. selenium for web testing).
 
-    The interface must not contain AsyncIO futures which are created at construction time and used by the
-    start/wait/stop coroutines.
-
     The interface will most probably not be thread-safe internally (as SHC usually runs in only one AsyncIO event loop
-    in a single thread). Thus, after starting the interface via the `InterfaceThreadRunner`, its methods/coroutines must
-    only be called within the `InterfaceThreadRunner`s AsnycIO event loop::
+    in a single thread). Thus, its methods/coroutines must only be called within the `InterfaceThreadRunner`s AsnycIO
+    event loop. For convenience, there is a :meth:`start` method that calls the interface's start method correctly::
 
-        interface = SomeSHCInterface()
-        runner = InterfaceThreadRunner(interface)
+        runner = InterfaceThreadRunner(SomeSHCInterfaceClass, "arg1", "arg2")
         runner.start()
         asyncio.run_coroutine_threadsafe(interface.some_coro(*args), loop=runner.loop).result()
         runner.loop.call_soon_threadsafe(interface.some_method(*args))
@@ -266,41 +267,40 @@ class InterfaceThreadRunner:
 
     :ivar loop: The event loop of the background thread, in which the interface is running. This variable is only
         available after :meth:`start` has successfully completed.
-    :ivar interface: The wrapped interface (passed to the constructor).
+    :ivar interface: The constructed interface
+    :param interface_class: The interface to create an instance of. An interface of this class is constructed in the
+        context of the background thread (to assign the correct asyncio Event loop to any Futures, Events, etc.) and
+        available in the `interface` attribute after construction.
+    :param args: positional arguments to be passed to the interface's constructor
+    :param kwargs: keyword arguments to be passed to the interface's constructor
+    :raises TimeoutError: When the interface cannot be constructed within 5 seconds.
     """
     executor = concurrent.futures.ThreadPoolExecutor()
 
-    def __init__(self, interface):
-        self.interface = interface
-        self._server_started_future = concurrent.futures.Future()
+    def __init__(self, interface_class: Type[IT], *args, **kwargs):
+        self._server_constructed_future: concurrent.futures.Future[None] = concurrent.futures.Future()
         self.started = False
+        self.interface: IT
+        self.future = self.executor.submit(self._run, interface_class, args, kwargs)
+        self._server_constructed_future.result(timeout=5)
 
-    def start(self) -> None:
-        """
-        Start the interface in a background thread.
-
-        This method blocks until the successful startup of the interface (completion of its start() coroutine).
-        :raises TimeoutError: If the interface does not come up (complete its `start()` coroutine) within 5 seconds.
-        :raises Exception: If the interface raised an Exception in its `start()` coroutine.
-        """
-        self.future = self.executor.submit(self._run)
-        self._server_started_future.result(timeout=5)
-
-    def _run(self) -> None:
-        asyncio.run(self._run_coro())
-
-    async def _run_coro(self) -> None:
-        self.loop = asyncio.get_event_loop()
+    def _run(self, interface_class: Type[IT], args, kwargs) -> None:
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        try:
+            self.interface = interface_class(*args, **kwargs)  # type: ignore
+            self._server_constructed_future.set_result(None)
+        except Exception as e:
+            self._server_constructed_future.set_exception(e)
+            return
         self._stopped_event = asyncio.Event()
         self.started = True
-        try:
-            await self.interface.start()
-            self._server_started_future.set_result(None)
-        except Exception as e:
-            self._server_started_future.set_exception(e)
-            return
-        # Keep the event loop running until explicitly stopped
-        await self._stopped_event.wait()
+        self.loop.run_until_complete(self._stopped_event.wait())
+        self.loop.close()
+
+    def start(self) -> None:
+        start_future = asyncio.run_coroutine_threadsafe(self.interface.start(), self.loop)
+        start_future.result(timeout=5)
 
     def stop(self) -> None:
         """
@@ -310,6 +310,6 @@ class InterfaceThreadRunner:
             return
         self.started = False
         stop_future = asyncio.run_coroutine_threadsafe(self.interface.stop(), self.loop)
-        stop_future.result()
-        self.loop.call_soon_threadsafe(lambda: self._stopped_event.set())
+        stop_future.result(timeout=5)
+        self.loop.call_soon_threadsafe(self._stopped_event.set)
         self.future.result(timeout=5)

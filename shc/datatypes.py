@@ -211,3 +211,62 @@ register_converter(HSVFloat1, RGBFloat1, lambda v: v.as_rgb())
 register_converter(RGBFloat1, HSVFloat1, HSVFloat1.from_rgb)
 register_converter(HSVFloat1, RGBUInt8, lambda v: RGBUInt8.from_float(v.as_rgb()))
 register_converter(RGBUInt8, HSVFloat1, lambda v: HSVFloat1.from_rgb(v.as_float()))
+
+
+class RGBWUInt8(NamedTuple):
+    """
+    4-channel RGBW LED color value, composed of a :class:`RGBUInt8` for `rgb` and a :class:`RangeUInt8` for `white`.
+    """
+    rgb: RGBUInt8
+    white: RangeUInt8
+
+    def dimmed(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100]) -> "RGBWUInt8":
+        if not isinstance(other, RangeFloat1):
+            other = get_converter(type(other), RangeFloat1)(other)
+
+        return RGBWUInt8(self.rgb.dimmed(other),
+                         RangeUInt8.from_float(self.white.as_float() * other))
+
+
+register_converter(RGBWUInt8, RGBUInt8, lambda x: x.rgb)
+register_converter(RGBUInt8, RGBWUInt8, lambda x: RGBWUInt8(x, RangeUInt8(0)))
+
+
+class CCTUInt8(NamedTuple):
+    """
+    A CCT LED brightness value, composed of two :class:`RangeUInt8` values `cold` and `warm`
+    """
+    cold: RangeUInt8
+    warm: RangeUInt8
+
+    def dimmed(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100]) -> "CCTUInt8":
+        if not isinstance(other, RangeFloat1):
+            other = get_converter(type(other), RangeFloat1)(other)
+
+        return CCTUInt8(RangeUInt8.from_float(self.cold.as_float() * other),
+                        RangeUInt8.from_float(self.warm.as_float() * other))
+
+
+class RGBCCTUInt8(NamedTuple):
+    """
+    5 channel LED color value, composed of a :class:`RGBUInt8` for `rgb` and a :class:`CCTUInt8` for `white`.
+    """
+    rgb: RGBUInt8
+    white: CCTUInt8
+
+    def dimmed(self, other: Union[RangeUInt8, RangeFloat1, RangeInt0To100]) -> "RGBCCTUInt8":
+        if not isinstance(other, RangeFloat1):
+            other = get_converter(type(other), RangeFloat1)(other)
+
+        return RGBCCTUInt8(self.rgb.dimmed(other), self.white.dimmed(other))
+
+
+register_converter(CCTUInt8, RangeUInt8, lambda x: RangeUInt8((x.cold + x.warm)/2))
+register_converter(RangeUInt8, CCTUInt8, lambda x: CCTUInt8(x, x))
+register_converter(RGBCCTUInt8, RGBUInt8, lambda x: x.rgb)
+register_converter(RGBUInt8, RGBCCTUInt8, lambda x: RGBCCTUInt8(x, CCTUInt8(RangeUInt8(0), RangeUInt8(0))))
+register_converter(RGBCCTUInt8, CCTUInt8, lambda x: x.white)
+register_converter(CCTUInt8, RGBCCTUInt8, lambda x: RGBCCTUInt8(RGBUInt8(RangeUInt8(0), RangeUInt8(0), RangeUInt8(0)),
+                                                                x))
+register_converter(RGBCCTUInt8, RGBWUInt8, lambda x: RGBWUInt8(x.rgb, RangeUInt8((x.white.cold + x.white.warm)/2)))
+register_converter(RGBWUInt8, RGBCCTUInt8, lambda x: RGBCCTUInt8(x.rgb, CCTUInt8(x.white, x.white)))

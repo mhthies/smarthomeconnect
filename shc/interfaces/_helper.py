@@ -37,19 +37,15 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         self.backoff_base = 1.0  #: First wait interval for exponential backoff in seconds
         self.backoff_exponent = 1.25  #: Multiplier for wait intervals for exponential backoff
         self._supervise_task: Optional[asyncio.Task] = None
-        self._started: asyncio.Future
-        self._stopping: asyncio.Event
-        self._running: asyncio.Event
-        self._last_error: str = "Interface has not been started yet"
-
-    async def start(self) -> None:
         loop = asyncio.get_event_loop()
         self._started = loop.create_future()
         self._stopping = asyncio.Event()
         self._running = asyncio.Event()
+        self._last_error: str = "Interface has not been started yet"
 
+    async def start(self) -> None:
         logger.debug("Starting supervisor task for interface %s and waiting for it to come up ...", self)
-        self._supervise_task = loop.create_task(self._supervise())
+        self._supervise_task = asyncio.create_task(self._supervise())
         await self._started
 
     async def stop(self) -> None:
@@ -64,6 +60,18 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         return InterfaceStatus(ServiceStatus.OK if self._running.is_set() else ServiceStatus.CRITICAL,
                                self._last_error if not self._running.is_set() else "",
                                {})
+
+    async def wait_running(self, timeout: Optional[float] = None) -> None:
+        """
+        Wait for the interface to be running.
+
+        Attention: This must be called *after* :meth:`start` has initially been called (not neccessarily after it has
+        returned).
+
+        :param timeout: If given, this method will raise an :class:`asyncio.TimeoutError` after the given timeout in
+            seconds, if the interface has not come up by this time.
+        """
+        await asyncio.wait_for(self._running.wait(), timeout)
 
     @abc.abstractmethod
     async def _run(self) -> None:

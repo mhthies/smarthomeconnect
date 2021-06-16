@@ -49,8 +49,8 @@ class AbstractWebTest(unittest.TestCase):
     driver: webdriver.Firefox
 
     def setUp(self) -> None:
-        self.server = shc.web.WebServer("localhost", 42080, 'index')
-        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, 'index')
+        self.server = self.server_runner.interface
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -126,8 +126,8 @@ class MonitoringTest(unittest.TestCase):
         self.interface2.criticality = shc.supervisor.ServiceCriticality.WARNING
         self.interface3 = StatusTestInterface("Interface 3")
         self.interface3.criticality = shc.supervisor.ServiceCriticality.CRITICAL
-        self.server = shc.web.WebServer("localhost", 42080, 'index')
-        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, 'index')
+        self.server = self.server_runner.interface
 
     def tearDown(self) -> None:
         self.server_runner.stop()
@@ -619,8 +619,8 @@ class TestAPI(unittest.TestCase):
     # another HTTP implementation and have a more realistic control flow/timing (with different threads instead of one
     # AsyncIO event loop)
     def setUp(self) -> None:
-        self.server = shc.web.WebServer("localhost", 42080, 'index')
-        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, 'index')
+        self.server = self.server_runner.interface
 
     def tearDown(self) -> None:
         self.server_runner.stop()
@@ -745,8 +745,8 @@ class TestAPI(unittest.TestCase):
 
 class WebSocketAPITest(unittest.TestCase):
     def setUp(self) -> None:
-        self.server = shc.web.WebServer("localhost", 42080, 'index')
-        self.server_runner = InterfaceThreadRunner(self.server)
+        self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, 'index')
+        self.server = self.server_runner.interface
 
         self.closing = False
         self.ws_callback = unittest.mock.Mock()
