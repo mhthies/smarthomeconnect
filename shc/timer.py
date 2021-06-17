@@ -123,7 +123,7 @@ class _AbstractScheduleTimer(Subscribable[None], metaclass=abc.ABCMeta):
             if next_execution is None:
                 logger.info("Timer %s has fulfilled its job and is quitting now.", self)
                 return
-            logger.info("Scheduling next execution of timer %s for %s", self, next_execution)
+            logger.debug("Scheduling next execution of timer %s for %s", self, next_execution)
             await _logarithmic_sleep(next_execution)
             self.last_execution = next_execution
             self._publish(None, [])  # we use asynchronous publishing, so no worries about timing
