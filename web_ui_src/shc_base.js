@@ -10,6 +10,9 @@
  * specific language governing permissions and limitations under the License.
  */
 
+import iro from '@jaames/iro';
+import $ from 'jquery';
+
 function ws_path(path) {
     if (path.startsWith("/")) {
         const loc = window.location;
@@ -270,16 +273,14 @@ function HideRowWidget(domElement, _writeValue) {
     };
 }
 
-const WIDGET_TYPES = new Map([
-   ['switch', SwitchWidget],
-   ['select', SelectWidget],
-   ['button', ButtonWidget],
-   ['text-display', TextDisplayWidget],
-   ['text-input', TextInputWidget],
-   ['slider', SliderWidget],
-   ['colorchoser', ColorChoserWidget],
-   ['hiderow', HideRowWidget],
-]);
+WIDGET_TYPES.set('switch', SwitchWidget);
+WIDGET_TYPES.set('select', SelectWidget);
+WIDGET_TYPES.set('button', ButtonWidget);
+WIDGET_TYPES.set('text-display', TextDisplayWidget);
+WIDGET_TYPES.set('text-input', TextInputWidget);
+WIDGET_TYPES.set('slider', SliderWidget);
+WIDGET_TYPES.set('colorchoser', ColorChoserWidget);
+WIDGET_TYPES.set('hiderow', HideRowWidget);
 
 (function () {
     let widgetMap = new Map();

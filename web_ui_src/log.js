@@ -1,4 +1,29 @@
 
+import {
+    Chart,
+    LineElement,
+    LineController,
+    LinearScale,
+    TimeScale,
+    Decimation,
+    Filler,
+    Legend,
+    Tooltip,
+    _adapters,
+    PointElement
+} from 'chart.js';
+
+Chart.register(
+  LineElement,
+  PointElement,
+  LineController,
+  LinearScale,
+  TimeScale,
+  Decimation,
+  Filler,
+  Legend,
+  Tooltip
+);
 
 function LogListWidget(domElement, _writeValue) {
     const interval = parseInt(domElement.getAttribute('data-interval')); // in milliseconds
@@ -293,7 +318,7 @@ WIDGET_TYPES.set('log.line_chart', LineChartWidget);
  * This is fine, since we define our bounds and tick interval manually, so we only need the
  * adapter for date formatting.
  */
-Chart._adapters._date.override({
+_adapters._date.override({
 	_id: 'minimal-intl',
 
 	formats: function() {
