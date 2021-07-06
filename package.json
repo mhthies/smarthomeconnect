@@ -6,5 +6,8 @@
     "@jaames/iro": "^5.5.1",
     "chart.js": "^3.4.1",
     "fomantic-ui-css": "^2.8.8"
+  },
+  "scripts": {
+    "build": "parcel build web_ui_src/main.js --out-dir shc/web/static/pack --public-url ./"
   }
 }
