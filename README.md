@@ -61,7 +61,7 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
    It will be only install smarthomeconnect and the dependencies of its core features.
    Additional depdencies are required for certain interface modules and can be installed via pip's/setuptool's 'extras' feature.
    See [Depdencies section](#Dependencies) of this readme for a complete list.
-   If you install SHC from a source distribution (in contrast to a "binary" package, such as a "wheel" package from PyPI), you'll need NodeJS and npm installed on your machine, which are used to download the web UI assets during the Python packaging process. 
+   If you install SHC from a source distribution (in contrast to a "binary" package, such as a "wheel" package from PyPI), you'll need NodeJS and npm installed on your machine, which are used to download the web UI assets during the Python package building process. 
 
 2. Create a Python script (let's call it `my_home_automation.py`) which imports and starts Smart Home Connect:
    ```python
@@ -144,11 +144,7 @@ Smart Home Connect is published under the terms of the Apache License 2.0.
 
 It's bundled with multiple third party works:
 
-* [jQuery](https://jquery.com/) (MIT License)
-* [Fomantic UI CSS framework](https://fomantic-ui.com/) (MIT License)
 * [“Prism”](https://www.toptal.com/designers/subtlepatterns/prism/) – Subtle Patterns by Toptal Designers (Creative Commons BY-SA 3.0)
-* [iro.js](https://iro.js.org/) (Mozilla Public License 2.0)
-* [Chart.js](https://www.chartjs.org//) (MIT License)
 
 See `LICENSE` and `NOTICE` file for further information.
 
@@ -175,6 +171,15 @@ They can be installed automatically via pip, by specifying the relevant 'extras'
 * MQTT interface `[mqtt]`:
     * `paho-mqtt` (Eclipse Public License v1.0 *or* Eclipse Distribution License v1.0)
     * `asyncio-mqtt` (BSD-3-Clause License)
+
+In addition, the following Javascript libraries from NPM are required for the web UI frontend.
+They are not included in this repository or in source distribution packages of SHC.
+Instead they are downloaded and packed during Python package build and bundled in the "binary" Python packages (including "wheel" packages) of SHC:
+
+* [Fomantic UI CSS framework](https://fomantic-ui.com/) (MIT License)
+* [jQuery](https://jquery.com/) (MIT License)
+* [iro.js](https://iro.js.org/) (Mozilla Public License 2.0)
+* [Chart.js](https://www.chartjs.org//) (MIT License)
 
 
 ## Development
