@@ -61,6 +61,7 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
    It will be only install smarthomeconnect and the dependencies of its core features.
    Additional depdencies are required for certain interface modules and can be installed via pip's/setuptool's 'extras' feature.
    See [Depdencies section](#Dependencies) of this readme for a complete list.
+   If you install SHC from a source distribution (in contrast to a "binary" package, such as a "wheel" package from PyPI), you'll need NodeJS and npm installed on your machine, which are used to download the web UI assets during the Python packaging process. 
 
 2. Create a Python script (let's call it `my_home_automation.py`) which imports and starts Smart Home Connect:
    ```python
@@ -194,11 +195,22 @@ pip3 install python-rtmidi
 ```
 You may want to use a virtual environment to avoid messing up your Python packages.
 
+Additionally, you'll need NodeJS and NPM on your machine for downloading and packing the web UI frontend asset  files.
+Use the following commands to download all frontend dependencies from NPM and package them into `/shc/web/static` (using Parcel.js):
+```bash
+npm install
+npm run build
+```
+When working on the web UI source files themselves (which are located in `web_ui_src`), you'll probably want to run Parcel.js in monitor mode, providing automatic re-packing and reload on every change:
+```bash
+npx parcel web_ui_src/main.js --out-dir shc/web/static/pack --public-url ./
+```
+
 Please make sure that all the unittests are passing, when submitting a Pull Request:
 ```bash
 python3 -m unittest
 ```
-The web tests require Firefox and `geckodriver` to be installed on your systems. 
+The web tests require Firefox and `geckodriver` to be installed on your system and the frontend assets. 
 
 Additionally, I'd like to keep the test coverage on a high level.
 To check it, you may want to determine it locally, using the `coverage` tool:
