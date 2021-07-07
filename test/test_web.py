@@ -534,8 +534,8 @@ class WebWidgetsTest(AbstractWebTest):
             self.assertEqual(2, publish_mock.call_count)
             latest_color = publish_mock.call_args[0][0]
             self.assertAlmostEqual(204, latest_color.red, delta=13)  # 5% off is okay
-            self.assertAlmostEqual(204, latest_color.green, delta=13)
-            self.assertAlmostEqual(0, latest_color.blue, delta=6)
+            self.assertAlmostEqual(0, latest_color.green, delta=6)
+            self.assertAlmostEqual(204, latest_color.blue, delta=13)
 
     def test_enum_select(self) -> None:
         class ExampleEnum(enum.Enum):
