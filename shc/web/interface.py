@@ -88,19 +88,12 @@ class WebServer(AbstractInterface):
         #  ...]
         self.ui_menu_entries: List[Tuple[str, Optional[str], Union[str, List[Tuple[str, Optional[str], str]]]]] = []
         # List of all static js URLs to be included in the user interface pages
-        # TODO load chart.min.js, iro.min.js and log.js only when required
         self._js_files = [
-            "static/jquery-3.min.js",
-            "static/semantic-ui/semantic.min.js",
-            "static/iro.min.js",
-            "static/chart.min.js",
-            "static/main.js",
-            "static/log.js"
+            "static/pack/main.js",
         ]
         # List of all static css URLs to be included in the user interface pages
         self._css_files = [
-            "static/semantic-ui/semantic.min.css",
-            "static/main.css",
+            "static/pack/main.css",
         ]
         # A dict of all static files served by the application. Used to make sure, any of those is only served at one
         # path, when added via `serve_static_file()` multiple times.

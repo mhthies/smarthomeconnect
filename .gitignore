@@ -1,6 +1,9 @@
 __pycache__/
 /.idea/
+/.cache/
 /venv/
+/node_modules/
+/shc/web/static/pack/
 /dist/
 /build/
 /*.egg-info/

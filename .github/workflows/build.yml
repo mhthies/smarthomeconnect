@@ -24,6 +24,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install coverage codecov
         pip install -r requirements.txt
+    - name: Install and pack web ui assets
+      run: |
+        npm install
+        npm run build
     - name: Test with coverage + unittest
       run: |
         coverage run --source=shc,example -m unittest

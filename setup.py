@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 import os.path
+import subprocess
 from setuptools import setup, find_packages
+from setuptools.command.build_py import build_py
+
+
+class custom_build_py(build_py):
+    def run(self):
+        subprocess.check_call(['npm', 'install'])
+        subprocess.check_call(['npm', 'run', 'build'])
+        super().run()
+
 
 with open(os.path.join(os.path.dirname(__file__), 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
@@ -14,6 +24,9 @@ setup(
     author='Michael Thies',
     author_email='mail@mhthies.de',
     url='https://github.com/mhthies/smarthomeconnect',
+    cmdclass={
+        'build_py': custom_build_py
+    },
     packages=find_packages(),
     include_package_data=True,
     python_requires='~=3.7',
