@@ -157,7 +157,7 @@ class MQTTClientTest(unittest.TestCase):
 
         # Wait for second reconnect attempt
         with unittest.mock.patch.object(self.client.client, 'connect', new=AsyncMock()) as connect_mock:
-            time.sleep(1)
+            time.sleep(0.8)
             connect_mock.assert_not_called()
 
         asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
