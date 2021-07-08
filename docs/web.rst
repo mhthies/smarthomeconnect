@@ -32,13 +32,55 @@ TODO filling the navigation bar
 
 
 
-Configuring the HTTP + Websocket API
-------------------------------------
+Configuring the HTTP REST + Websocket API
+-----------------------------------------
 
-TODO creating and using an API object (:meth:`WebServer.api`)
+The REST + Websocket API is automatically included with every :class:`WebServer` instance and can be configured by creating :class:`WebApiObject`s through :meth:`WebServer.api`.
+Each `WebApiObject` constitutes an API endpoint (i.e. "ressource" or path) of the REST API and an identifiable ressource in the Websocket API to interact with.
+The REST API supports normal *GET* and *POST* requests as well as `"Long Polling" <https://en.wikipedia.org/wiki/Push_technology#Long_polling>`_ to let a client wait for value updates.
 
-TODO API reference
+On the SHC-internal side, :class:`WebApiObject` are *Connectable* objects that are
 
+- *Reading*, to answer GET requests by *reading* the connected provider's value,
+- *Subscribable*, publishing a values that are POSTed to the API,
+- *Writable*, to publish new values to the websocket API and answer long-polling clients
+
+Each `WebApiObject` is identified by its `name` string.
+The name is used as part of the respective endpoint path and in Websocket messages to interact with the specific `WebApiObject`.
+
+Allowing interaction with an SHC Variable object via HTTP REST and websocket, is as simple as this::
+
+    import shc
+    import shc.web
+
+    web_server = shc.web.WebServer('localhost', 8080)
+
+    foo_variable = shc.Variable(int)
+    web_server.api(int, 'foo').connect(foo_variable)
+
+This will allow you to get the variable's value with a *GET* request to ``http://localhost:8080/api/v1/object/foo``.
+The variable will be encoded with SHC's default json encoding for the datatype, which is just the decimal integer representation in this case.
+In the same way, the value can be updated via a *POST* request to the same URL.
+Read more about that in the reference below.
+
+For a quick test, you can use cURL:
+
+.. code-block:: sh
+
+    curl http://localhost:8080/api/v1/object/foo
+    curl -d 42 http://localhost:8080/api/v1/object/foo
+    curl http://localhost:8080/api/v1/object/foo
+
+
+REST API reference
+^^^^^^^^^^^^^^^^^^
+
+TODO
+
+Websocket API reference
+^^^^^^^^^^^^^^^^^^^^^^^
+
+TODO
 
 
 Creating Custom Widgets
