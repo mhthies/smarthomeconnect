@@ -124,6 +124,7 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
         Please make sure that your `_write` implementation awaits the processing of the value update by the next
         stateful object/system before returning:
+
         - On a Variable and similar stateful re-publishing objects, which use `_stateful_publishing = True`, await the
           storing and `_publish()`-ing of the new value
         - On an Expression and similar stateless re-publishing objects, use `_publish_and_wait()` instead of
