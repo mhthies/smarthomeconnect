@@ -10,10 +10,13 @@
 # specific language governing permissions and limitations under the License.
 
 import abc
+import asyncio
 import datetime
+import functools
 import math
 import operator
-from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple
+import typing
+from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple, List
 
 from . import conversion
 from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler, UninitializedError
@@ -353,6 +356,61 @@ class IfThenElse(ExpressionHandler, Generic[T]):
 
     async def evaluate(self) -> T:
         return (await self.then.read()) if (await self.condition.read()) else (await self.otherwise.read())
+
+
+class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]):
+    _synchronous_publishing = True
+
+    def __init__(self, control: Readable[int], *inputs: Union[T, Readable[T]]):
+        super().__init__()
+        if not inputs:
+            raise ValueError("Multiplexer must have at least one input")
+        self.inputs: List[Readable[T]] = [input_ if isinstance(input_, Readable)
+                                          else ExpressionHandler._wrap_static_value(input_)
+                                          for input_ in inputs]
+        self.type: Type[T] = self.inputs[0].type
+        for i, input_ in enumerate(self.inputs):
+            if input_.type != self.type:
+                raise ValueError("Type of input {} ({}) does not match: {} instead of {}"
+                                 .format(i, input, input_.type, self.type))
+            if isinstance(input_, Subscribable):
+                input_.trigger(self._new_value, synchronous=True)
+
+        self.control = control
+        if isinstance(control, Subscribable):
+            control.trigger(self._index_change, synchronous=True)
+
+    async def read(self) -> T:
+        try:
+            current_index = await self.control.read()
+            current_input = self.inputs[current_index]
+        except IndexError:
+            # We "ignore" index errors here. They may have been logged by _index_change() before
+            raise UninitializedError
+        return await current_input.read()
+
+    async def _new_value(self, value: T, origin: List[Any]) -> None:
+        try:
+            current_index = await self.control.read()
+            current_input = self.inputs[current_index]
+        except UninitializedError:
+            # We default to False, if the control variable is not initialized yet
+            return
+        except IndexError:
+            # We ignore index errors here. They may have been logged by _index_change() before
+            return
+        if current_input is origin[-1]:
+            await self._publish_and_wait(value, origin)
+
+    async def _index_change(self, current_index: int, origin: List[Any]) -> None:
+        try:
+            current_input = self.inputs[current_index]
+        except IndexError:
+            raise ValueError("Index {} is out of range of available inputs of {}".format(current_index, self))
+        try:
+            await self._publish_and_wait(await current_input.read(), origin)
+        except UninitializedError:
+            pass
 
 
 def not_(a) -> Union[bool, UnaryCastExpressionHandler[bool]]:

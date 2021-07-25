@@ -3,7 +3,8 @@ import datetime
 import unittest
 import unittest.mock
 
-from shc import variables
+from shc import variables, expressions
+from shc.base import UninitializedError
 from shc.expressions import not_, or_, and_
 from test._helper import async_test, ExampleWritable
 
@@ -116,3 +117,48 @@ class TestExpressions(unittest.TestCase):
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
         self.assertEqual(await var1.read(), await var2.read() - 5)
+
+    @async_test
+    async def test_ifthenelse_and_multiplexer(self) -> None:
+        var1 = variables.Variable(int)
+        var2 = variables.Variable(bool)
+
+        ifthenelse = expressions.IfThenElse(var2, var1.EX + 5, 5)
+        multiplexer = expressions.Multiplexer(var2, 5, var1.EX + 5)
+
+        subscriber1 = ExampleWritable(int).connect(ifthenelse)
+        subscriber2 = ExampleWritable(int).connect(multiplexer)
+
+        self.assertIs(ifthenelse.type, int)
+        self.assertIs(multiplexer.type, int)
+
+        with self.assertRaises(UninitializedError):
+            await ifthenelse.read()
+        with self.assertRaises(UninitializedError):
+            await multiplexer.read()
+
+        await var1.write(42, [self])
+        await asyncio.sleep(0.01)
+        subscriber1._write.assert_not_called()
+        subscriber2._write.assert_not_called()
+
+        await var2.write(True, [self])
+        await asyncio.sleep(0.01)
+        subscriber1._write.assert_called_once_with(47, unittest.mock.ANY)
+        subscriber2._write.assert_called_once_with(47, unittest.mock.ANY)
+        self.assertEqual(47, await ifthenelse.read())
+        self.assertEqual(47, await multiplexer.read())
+
+        await var2.write(False, [self])
+        await asyncio.sleep(0.01)
+        subscriber1._write.assert_called_with(5, unittest.mock.ANY)
+        subscriber2._write.assert_called_with(5, unittest.mock.ANY)
+        self.assertEqual(5, await ifthenelse.read())
+        self.assertEqual(5, await multiplexer.read())
+
+        await var1.write(20, [self])
+        await asyncio.sleep(0.01)
+        subscriber1._write.assert_called_with(5, unittest.mock.ANY)
+        subscriber2._write.assert_called_with(5, unittest.mock.ANY)
+        self.assertEqual(5, await ifthenelse.read())
+        self.assertEqual(5, await multiplexer.read())
