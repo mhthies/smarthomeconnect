@@ -279,6 +279,7 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
         class Wrapper(Readable[S]):
             def __init__(self, v: S):
                 self.v = v
+                self.type = type(v)
 
             async def read(self) -> S:
                 return self.v
