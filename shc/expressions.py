@@ -451,6 +451,36 @@ def or_(a, b) -> Union[bool, BinaryCastExpressionHandler[bool]]:
     return BinaryCastExpressionHandler(bool, a, b, operator.or_)
 
 
+# This is just to make type checkers happy with the signiture of the __init__ method of return types by expression
+class ExpressionFunctionHandler(ExpressionHandler[T], Generic[T]):
+   def __init__(self, *args: Any) -> None: ...
+
+
+def expression(func: Callable[..., T]) -> Type[ExpressionFunctionHandler[T]]:
+    class WrapHandler(ExpressionHandler[T]):
+        def __init__(self, *args):
+            self.args = [self._wrap_static_value(a) for a in args]
+            type_ = typing.get_type_hints(func).get('return')
+            if not type_:
+                raise TypeError("@expression requires the wrapped function to have a return type annotation")
+            # Check if the type annotation is valid for runtime type checking
+            try:
+                isinstance(None, type_)
+            except TypeError as e:
+                raise TypeError("@expression requires the wrapped function to have a return type annotation") from e
+
+            super().__init__(type_, args)
+
+        async def evaluate(self) -> T:
+            return func(*(await asyncio.gather(*(a.read() for a in self.args))))
+
+        def __repr__(self) -> str:
+            return "@expression[{}({})]".format(func.__name__, repr(self.args))
+
+    functools.update_wrapper(WrapHandler, func, updated=())
+    return WrapHandler  # type: ignore
+
+
 # #################### #
 # Type Inference Rules #
 # #################### #

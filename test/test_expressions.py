@@ -162,3 +162,41 @@ class TestExpressions(unittest.TestCase):
         subscriber2._write.assert_called_with(5, unittest.mock.ANY)
         self.assertEqual(5, await ifthenelse.read())
         self.assertEqual(5, await multiplexer.read())
+
+    @async_test
+    async def test_expression_decorator(self) -> None:
+        var1 = variables.Variable(int)
+        var2 = variables.Variable(bool)
+
+        @expressions.expression
+        def test_1(a, b) -> int:
+            return a + 5 if b else 5
+
+        @expressions.expression
+        def test_2(a, b) -> str:
+            ret = "xx-{}".format(a)
+            if b:
+                ret += " (foo)"
+            return ret
+
+        test_1_inst = test_1(var1, var2)
+        test_2_inst = test_2(var1, var2)
+
+        self.assertIsInstance(test_1_inst, expressions.ExpressionBuilder)
+        self.assertIsInstance(test_2_inst, expressions.ExpressionBuilder)
+        self.assertIs(test_1_inst.type, int)
+        self.assertIs(test_2_inst.type, str)
+        subscriber1 = ExampleWritable(int).connect(test_1_inst)
+        subscriber2 = ExampleWritable(str).connect(test_2_inst)
+
+        await var1.write(42, [self])
+        await asyncio.sleep(0.01)
+        subscriber1._write.assert_not_called()
+        subscriber2._write.assert_not_called()
+
+        await var2.write(True, [self])
+        await asyncio.sleep(0.01)
+        subscriber1._write.assert_called_once_with(47, unittest.mock.ANY)
+        subscriber2._write.assert_called_once_with("xx-42 (foo)", unittest.mock.ANY)
+        self.assertEqual(47, await test_1_inst.read())
+        self.assertEqual("xx-42 (foo)", await test_2_inst.read())
