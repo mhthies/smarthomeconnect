@@ -359,6 +359,24 @@ class IfThenElse(ExpressionHandler, Generic[T]):
 
 
 class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]):
+    """
+    A :class:`ExpressionHandler` that behaves as a multiplexer block with an integer control value and any number of
+    inputs from that the output value is chosen
+
+    The control object, the first argument of this class, needs to be a Readable (and optionally Subscribable)
+    object of int type. All other parameters are considered to be inputs. They must either be static values or
+    Readable (and optionally Subscribable) objects. All of them must be of the same value type (resp. be instances of
+    exactly that type). This type will also be the type of the Multiplexer itself.
+
+    The control signal selects which of the inputs is passed through and is the provided value of the Multiplexer. E.g.,
+    when the control object has the value 0, *reading* from the Multiplexer returns the first input's current value
+    (i.e. the value of the object given as the second argument); when the control object has the value 1, the second
+    input's value is returned, and so on. If the control value is out of range of the available inputs, *reading*
+    returns an :class:`UninitializedError`.
+
+    The Multiplexer publishes a value update whenever an update from the control object or the currently selected
+    input is received – as long as they are Subscribable.
+    """
     _synchronous_publishing = True
 
     def __init__(self, control: Readable[int], *inputs: Union[T, Readable[T]]):
@@ -386,7 +404,7 @@ class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]
             current_input = self.inputs[current_index]
         except IndexError:
             # We "ignore" index errors here. They may have been logged by _index_change() before
-            raise UninitializedError
+            raise UninitializedError()
         return await current_input.read()
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
@@ -451,12 +469,38 @@ def or_(a, b) -> Union[bool, BinaryCastExpressionHandler[bool]]:
     return BinaryCastExpressionHandler(bool, a, b, operator.or_)
 
 
-# This is just to make type checkers happy with the signiture of the __init__ method of return types by expression
+# This is just a hack to make type checkers happy with the signature of the __init__ method of return types by
+# expression
 class ExpressionFunctionHandler(ExpressionHandler[T], Generic[T]):
    def __init__(self, *args: Any) -> None: ...
 
 
 def expression(func: Callable[..., T]) -> Type[ExpressionFunctionHandler[T]]:
+    """
+    A decorator to turn any simple function into an :class:`ExpressionHandler` class to be used in SHC expressions
+
+    This way, custom functions can be used in SHC expression in an intuitive way::
+
+        @expression
+        def invert(a: float) -> float:
+            return 1 / a
+
+        var1 = Variable(float)
+        var2 = Variable(float).connect( invert(var1) )
+
+    The decorator turns the function into a class, such that calling it will return an instance of that class instead of
+    evaluating the function. The resulting object is a *Readable* and *Subscribable* object, that evaluates the
+    original function with the current values of the given arguments on every *read()* and every value update. The
+    arguments passed to each instance must either be *Readable* (and optionally *Subscribable*) objects, providing
+    values of the expected argument type, or simply static objects of the expected type.
+
+    The wrapped function must be synchronous (not async) and have a type annotation for its return type. The type
+    annotation must refer to a runtime type, which can be used for dynamic type checking (i.e. no subscripted generic
+    type; use `list` instead of `List[int]` and similar). This return type annotation is also the type of the resulting
+    ExpressionHandler objects.
+
+    Currently only positional arguments (no keyword arguments) are supported for the functions.
+    """
     class WrapHandler(ExpressionHandler[T]):
         def __init__(self, *args):
             self.args = [self._wrap_static_value(a) for a in args]
