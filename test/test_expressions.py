@@ -124,7 +124,7 @@ class TestExpressions(unittest.TestCase):
         var2 = variables.Variable(bool)
 
         ifthenelse = expressions.IfThenElse(var2, var1.EX + 5, 5)
-        multiplexer = expressions.Multiplexer(var2, 5, var1.EX + 5)
+        multiplexer = expressions.Multiplexer(var2, 5, var1.EX + 5)  # type: ignore  # Variable is used covariantly here
 
         subscriber1 = ExampleWritable(int).connect(ifthenelse)
         subscriber2 = ExampleWritable(int).connect(multiplexer)
