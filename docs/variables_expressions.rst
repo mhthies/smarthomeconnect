@@ -117,6 +117,8 @@ There are still limitations to this expression syntax:
   Currently, such rules are only available for some basic builtin Python types and don't even support subclasses of these types.
   For a full list of supported types, see :ref:`datatypes.supported_types`.
 
+To use custom functions in SHC expressions, you can use the :func:`expression` decorator to turn any function into an :class:`ExpressionHandler` evaluating that function with the latest values.
+
 
 Classes for Building Expressions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -127,6 +129,7 @@ In addition, if they *subscribe* to other objects to evaluate their value, these
 
 * :class:`shc.variables.Variable` (expression support through :attr:`.EX <shc.variables.Variable.EX>` property)
 * :class:`IfThenElse`: SHC Expression version of a Python inline-if (``a if condition else b``)
+* :class:`Multiplexer`: A multiplexer expression, selecting one of n input values using a integer control value
 * :class:`shc.misc.Hysteresis`: Fixed threshold evaluation with hysteresis (expression support through  :attr:`.EX <shc.misc.Hysteresis.EX>` property)
 * :class:`shc.timer.TOn`: Power-up delay of bool value (expression support through :attr:`.EX <shc.timer.TOn.EX>` property)
 * :class:`shc.timer.TOff`: Turn-off delay of bool value (expression support through :attr:`.EX <shc.timer.TOff.EX>` property)
@@ -142,7 +145,8 @@ In addition, if they *subscribe* to other objects to evaluate their value, these
 .. autoclass:: ExpressionWrapper
 .. autoclass:: ExpressionHandler
 .. autoclass:: IfThenElse
+.. autoclass:: Multiplexer
 .. autofunction:: and_
 .. autofunction:: or_
 .. autofunction:: not_
-
+.. autodecorator:: expression
