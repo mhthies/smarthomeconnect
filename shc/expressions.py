@@ -472,7 +472,7 @@ def or_(a, b) -> Union[bool, BinaryCastExpressionHandler[bool]]:
 # This is just a hack to make type checkers happy with the signature of the __init__ method of return types by
 # expression
 class ExpressionFunctionHandler(ExpressionHandler[T], Generic[T]):
-   def __init__(self, *args: Any) -> None: ...
+    def __init__(self, *args: Any) -> None: ...
 
 
 def expression(func: Callable[..., T]) -> Type[ExpressionFunctionHandler[T]]:
