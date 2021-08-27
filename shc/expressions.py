@@ -175,34 +175,34 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
         else:
             raise TypeError("{} cannot be rounded".format(self))
 
-    def __eq__(self, other) -> "BinaryExpressionHandler":  # type: ignore
+    def __eq__(self, other) -> "BinaryExpressionHandler[bool]":  # type: ignore
         return BinaryExpressionHandler(bool, self, other, operator.eq)
 
-    def __ne__(self, other) -> "BinaryExpressionHandler":  # type: ignore
+    def __ne__(self, other) -> "BinaryExpressionHandler[bool]":  # type: ignore
         return BinaryExpressionHandler(bool, self, other, operator.eq)
 
-    def __lt__(self, other) -> "BinaryExpressionHandler":
+    def __lt__(self, other) -> "BinaryExpressionHandler[bool]":
         other_type = self.__get_other_type(other)
         if (self.type, other_type) in TYPES_LT_LE_GT_GE:
             return BinaryExpressionHandler(TYPES_LT_LE_GT_GE[(self.type, other_type)], self, other, operator.lt)
         else:
             return NotImplemented
 
-    def __le__(self, other) -> "BinaryExpressionHandler":
+    def __le__(self, other) -> "BinaryExpressionHandler[bool]":
         other_type = self.__get_other_type(other)
         if (self.type, other_type) in TYPES_LT_LE_GT_GE:
             return BinaryExpressionHandler(TYPES_LT_LE_GT_GE[(self.type, other_type)], self, other, operator.le)
         else:
             return NotImplemented
 
-    def __gt__(self, other) -> "BinaryExpressionHandler":
+    def __gt__(self, other) -> "BinaryExpressionHandler[bool]":
         other_type = self.__get_other_type(other)
         if (self.type, other_type) in TYPES_LT_LE_GT_GE:
             return BinaryExpressionHandler(TYPES_LT_LE_GT_GE[(self.type, other_type)], self, other, operator.gt)
         else:
             return NotImplemented
 
-    def __ge__(self, other) -> "BinaryExpressionHandler":
+    def __ge__(self, other) -> "BinaryExpressionHandler[bool]":
         other_type = self.__get_other_type(other)
         if (self.type, other_type) in TYPES_LT_LE_GT_GE:
             return BinaryExpressionHandler(TYPES_LT_LE_GT_GE[(self.type, other_type)], self, other, operator.ge)
@@ -215,10 +215,10 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
     def or_(self, other) -> "BinaryCastExpressionHandler":
         return BinaryCastExpressionHandler(bool, self, other, operator.or_)
 
-    def not_(self) -> "UnaryExpressionHandler":
+    def not_(self) -> "UnaryExpressionHandler[bool]":
         return UnaryCastExpressionHandler(bool, self, operator.not_)
 
-    def convert(self, type_: Type[S], converter: Optional[Callable[[T], S]] = None) -> "UnaryExpressionHandler":
+    def convert(self, type_: Type[S], converter: Optional[Callable[[T], S]] = None) -> "UnaryExpressionHandler[S]":
         """
         Returns an ExpressionHandler that wraps this object to convert values to another type using a given converter
         function or the :func:`default converter <conversion.get_converter>` for those two types.
