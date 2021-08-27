@@ -25,4 +25,3 @@ class PingTest(unittest.TestCase):
         target_2._write.assert_called_once_with(True, [ping_localhost2])
         target_3._write.assert_called_once_with(False, [ping_unreachable])
         target_4._write.assert_called_once_with(False, [ping_non_existent])
-
