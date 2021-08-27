@@ -16,7 +16,7 @@ import functools
 import math
 import operator
 import typing
-from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple, List
+from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple, List, Optional
 
 from . import conversion
 from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler, UninitializedError
@@ -53,10 +53,6 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
     * ``>=`` (ge)
 
     Additionally, the following methods are provided:
-
-    * :meth:`not`: To be used instead of the ``not`` operator (which cannot be overridden)
-    * :meth:`convert`: Creates a "type cast" expression, which converts this object's value to the specified value type,
-      using the default converter function from :mod:`shc.conversion`.
     """
     @staticmethod
     def __get_other_type(other: object) -> type:
@@ -222,8 +218,24 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
     def not_(self) -> "UnaryExpressionHandler":
         return UnaryCastExpressionHandler(bool, self, operator.not_)
 
-    def convert(self, type_: Type[T]) -> "UnaryExpressionHandler":
-        converter = conversion.get_converter(self.type, type_)
+    def convert(self, type_: Type[S], converter: Optional[Callable[[T], S]] = None) -> "UnaryExpressionHandler":
+        """
+        Returns an ExpressionHandler that wraps this object to convert values to another type using a given converter
+        function or the :func:`default converter <conversion.get_converter>` for those two types.
+
+        Example::
+
+            value = shc.Variable(float)
+            which_one = shc.Variable(bool)
+            # display_string shall be a str-typed expression object
+            display_string = expression.IfThenElse(which_one, value.EX.convert(str), "static string")
+
+        :param type_: The target type to convert new values to. This will also by the `type` attribute of the returned
+            ExpressionHandler object, such that it will be used for further
+        :param converter: An optional converter function to use instead of the default conversion from this object's
+            type to the given target type.
+        """
+        converter = converter or conversion.get_converter(self.type, type_)
         return UnaryExpressionHandler(type_, self, converter)
 
 

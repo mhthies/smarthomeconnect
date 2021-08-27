@@ -142,6 +142,12 @@ In addition, if they *subscribe* to other objects to evaluate their value, these
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: ExpressionBuilder
+
+    .. automethod:: and_
+    .. automethod:: or_
+    .. automethod:: not_
+    .. automethod:: convert
+
 .. autoclass:: ExpressionWrapper
 .. autoclass:: ExpressionHandler
 .. autoclass:: IfThenElse
