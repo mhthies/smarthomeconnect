@@ -358,6 +358,11 @@ class IfThenElse(ExpressionHandler, Generic[T]):
     be ``bool`` (or a *Connectable* with value type ``bool``), `then` and `otherwise` must be of the same type (reps.
     have the same value type). If the `condition` evaluates to True, this object evaluates to the value of `then`,
     otherwise it evaluates to the value of `otherwise`.
+
+    See also :class:`Multiplexer` for switching between more than two values using an integer control value.
+    If you only want enable and disable a single subscription dynamically (e.g. enable/disable the influence of a
+    :class:`TimerSwitch <shc.timer.TimerSwitch>` on a :class:`Variable <shc.variables.Variable>`), take a look at
+    :class:`shc.misc.BreakableSubscription` instead.
     """
     def __init__(self, condition: Union[bool, Readable[bool]], then: Union[T, Readable[T]],
                  otherwise: Union[T, Readable[T]]):
@@ -388,6 +393,11 @@ class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]
 
     The Multiplexer publishes a value update whenever an update from the control object or the currently selected
     input is received – as long as they are Subscribable.
+
+    See also :class:`IfThenElse` for simple cases with only two values and a boolean control value.
+    If you only want enable and disable a single subscription dynamically (e.g. enable/disable the influence of a
+    :class:`TimerSwitch <shc.timer.TimerSwitch>` on a :class:`Variable <shc.variables.Variable>`), take a look at
+    :class:`shc.misc.BreakableSubscription` instead.
     """
     _synchronous_publishing = True
 

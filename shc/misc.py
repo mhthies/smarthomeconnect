@@ -124,6 +124,9 @@ class BreakableSubscription(Subscribable[T], Generic[T]):
     If the wrapped object is also `Readable` and the control object is also `Subscribable`, the current value of the
     wrapped object is read and published when the subscription is enabled (the control object changes to `True`).
 
+    If you want to select a value from two or more `Readable` and `Subscribable` objects dynamically, take a look at
+    :class:`shc.expressions.IfThenElse` or :class:`shc.expressions.Multiplexer`.
+
     :param wrapped: The Subscribable object to be wrapped
     :param control: The Readable control object
     """
