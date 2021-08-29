@@ -5,7 +5,8 @@ import unittest.mock
 from unittest.mock import Mock
 from typing import Optional, List
 
-from shc import timer, base
+import shc.base
+from shc import timer, base, datatypes
 from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock, ExampleWritable
 
 
@@ -571,3 +572,67 @@ class RateLimitedSubscriptionTest(unittest.TestCase):
                 await base.publish(42, [self])
                 await asyncio.sleep(0.1)
                 publish_mock.assert_called_once_with(42, unittest.mock.ANY)
+
+
+class RampTest(unittest.TestCase):
+    @async_test
+    async def test_simple(self) -> None:
+        begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
+        BLACK = datatypes.RGBWUInt8(
+            datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+            datatypes.RangeUInt8(0))
+        RED = datatypes.RGBWUInt8(
+            datatypes.RGBUInt8(datatypes.RangeUInt8(255), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+            datatypes.RangeUInt8(0))
+
+        subscribable1 = ExampleSubscribable(datatypes.RangeUInt8)
+        ramp1 = timer.IntRamp(subscribable1, datetime.timedelta(seconds=1), max_frequency=2)
+        writable1 = ExampleWritable(datatypes.RangeUInt8).connect(ramp1)
+        subscribable2 = ExampleSubscribable(datatypes.RangeFloat1)
+        ramp2 = timer.FloatRamp(subscribable2, datetime.timedelta(seconds=1), max_frequency=4)
+        writable2 = ExampleWritable(datatypes.RangeFloat1).connect(ramp2)
+        subscribable3 = ExampleSubscribable(datatypes.RGBWUInt8)
+        ramp3 = timer.RGBWHSVRamp(subscribable3, datetime.timedelta(seconds=2), max_frequency=2)
+        writable3 = ExampleWritable(datatypes.RGBWUInt8).connect(ramp3)
+
+        self.assertIs(ramp1.type, datatypes.RangeUInt8)
+        with self.assertRaises(shc.base.UninitializedError):
+            await ramp2.read()
+
+        with ClockMock(begin, actual_sleep=0.05) as clock:
+            await subscribable1.publish(datatypes.RangeUInt8(0), [self])
+            await subscribable2.publish(datatypes.RangeFloat1(0), [self])
+            await subscribable3.publish(BLACK, [self])
+            await asyncio.sleep(0.05)
+            writable1._write.assert_called_once_with(datatypes.RangeUInt8(0), [self, subscribable1, ramp1])
+            writable2._write.assert_called_once_with(datatypes.RangeFloat1(0), [self, subscribable2, ramp2])
+            writable3._write.assert_called_once_with(BLACK, [self, subscribable3, ramp3])
+            self.assertEqual(BLACK, await ramp3.read())
+
+            for w in (writable1, writable2, writable3):
+                w._write.reset_mock()
+
+            await subscribable1.publish(datatypes.RangeUInt8(255), [self])
+            await subscribable2.publish(datatypes.RangeFloat1(1), [self])
+            await subscribable3.publish(RED, [self])
+            await asyncio.sleep(0.05)
+            # Assert first step
+            writable1._write.assert_called_once_with(datatypes.RangeUInt8(128), [ramp1])
+            writable2._write.assert_called_once_with(datatypes.RangeFloat1(0.25), [ramp2])
+            writable3._write.assert_called_once_with(datatypes.RGBWUInt8(
+                datatypes.RGBUInt8(datatypes.RangeUInt8(64), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                datatypes.RangeUInt8(0)),
+                [ramp3])
+
+            # Wait for and assert second step
+            await asyncio.sleep(0.5)
+            writable1._write.assert_called_with(datatypes.RangeUInt8(255), [ramp1])
+            writable2._write.assert_called_with(datatypes.RangeFloat1(0.75), [ramp2])
+            writable3._write.assert_called_with(datatypes.RGBWUInt8(
+                datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                datatypes.RangeUInt8(0)),
+                [ramp3])
+
+            # TODO interrupt ramp3 and test new dynamic duration
+
+    # TODO test enable_ramp (bypass) feature

@@ -56,3 +56,10 @@ Helper Classes
 
 .. autoclass:: TimerSwitch
 .. autoclass:: RateLimitedSubscription
+
+Ramp Generators
+---------------
+
+.. autoclass:: AbstractRamp
+
+    .. automethod:: do_ramp
