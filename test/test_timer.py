@@ -584,6 +584,9 @@ class RampTest(unittest.TestCase):
         RED = datatypes.RGBWUInt8(
             datatypes.RGBUInt8(datatypes.RangeUInt8(255), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
             datatypes.RangeUInt8(0))
+        MED_WHITE = datatypes.RGBWUInt8(
+            datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+            datatypes.RangeUInt8(127))
 
         subscribable1 = ExampleSubscribable(datatypes.RangeUInt8)
         ramp1 = timer.IntRamp(subscribable1, datetime.timedelta(seconds=1), max_frequency=2)
@@ -632,7 +635,36 @@ class RampTest(unittest.TestCase):
                 datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
                 datatypes.RangeUInt8(0)),
                 [ramp3])
+            self.assertEqual(datatypes.RangeUInt8(255), await ramp1.read())
+            self.assertEqual(datatypes.RGBWUInt8(
+                datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                datatypes.RangeUInt8(0)),
+                await ramp3.read())
 
-            # TODO interrupt ramp3 and test new dynamic duration
+            # Let's interrupt ramp3 and ramp to MED_WHITE
+            # (both channels only ramp half the way, so it should reduce the duration to 1s
+            writable3._write.reset_mock()
+            await subscribable3.publish(MED_WHITE, [self])
+            await asyncio.sleep(0.5)
+            writable3._write.assert_called_once_with(datatypes.RGBWUInt8(
+                datatypes.RGBUInt8(datatypes.RangeUInt8(85), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                datatypes.RangeUInt8(42)),
+                [ramp3])
+
+            # (due to rounding errors and precautions, it uses 3 instead of 2 steps for this ramp)
+            await asyncio.sleep(0.66)
+            writable3._write.assert_called_with(datatypes.RGBWUInt8(
+                datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                datatypes.RangeUInt8(127)),
+                [ramp3])
+
+            # Assert end result
+            await asyncio.sleep(5)
+            writable1._write.assert_called_with(datatypes.RangeUInt8(255), [ramp1])
+            writable2._write.assert_called_with(datatypes.RangeFloat1(1.0), [ramp2])
+            writable3._write.assert_called_with(datatypes.RGBWUInt8(
+                datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                datatypes.RangeUInt8(127)),
+                [ramp3])
 
     # TODO test enable_ramp (bypass) feature
