@@ -7,7 +7,7 @@ from typing import Optional, List
 
 import shc.base
 from shc import timer, base, datatypes
-from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock, ExampleWritable
+from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock, ExampleWritable, ExampleReadable
 
 
 class LogarithmicSleepTest(unittest.TestCase):
@@ -612,8 +612,9 @@ class RampTest(unittest.TestCase):
             writable3._write.assert_called_once_with(BLACK, [self, subscribable3, ramp3])
             self.assertEqual(BLACK, await ramp3.read())
 
-            for w in (writable1, writable2, writable3):
-                w._write.reset_mock()
+            writable1._write.reset_mock()
+            writable2._write.reset_mock()
+            writable3._write.reset_mock()
 
             await subscribable1.publish(datatypes.RangeUInt8(255), [self])
             await subscribable2.publish(datatypes.RangeFloat1(1), [self])
@@ -653,18 +654,54 @@ class RampTest(unittest.TestCase):
 
             # (due to rounding errors and precautions, it uses 3 instead of 2 steps for this ramp)
             await asyncio.sleep(0.66)
-            writable3._write.assert_called_with(datatypes.RGBWUInt8(
-                datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-                datatypes.RangeUInt8(127)),
-                [ramp3])
+            writable3._write.assert_called_with(MED_WHITE, [ramp3])
 
             # Assert end result
             await asyncio.sleep(5)
             writable1._write.assert_called_with(datatypes.RangeUInt8(255), [ramp1])
             writable2._write.assert_called_with(datatypes.RangeFloat1(1.0), [ramp2])
-            writable3._write.assert_called_with(datatypes.RGBWUInt8(
-                datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-                datatypes.RangeUInt8(127)),
-                [ramp3])
+            writable3._write.assert_called_with(MED_WHITE, [ramp3])
 
-    # TODO test enable_ramp (bypass) feature
+    @async_test
+    async def test_enable_ramp(self) -> None:
+        begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
+        BLACK = datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0))
+        RED = datatypes.RGBUInt8(datatypes.RangeUInt8(255), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0))
+
+        subscribable1 = ExampleSubscribable(datatypes.RGBUInt8)
+        enable1 = ExampleReadable(bool, True)
+        ramp1 = timer.RGBHSVRamp(subscribable1, datetime.timedelta(seconds=1), max_frequency=2, enable_ramp=enable1)
+        writable1 = ExampleWritable(datatypes.RGBUInt8).connect(ramp1)
+
+        with ClockMock(begin, actual_sleep=0.05) as clock:
+            # Ramping should work normal (as in the other test
+            await subscribable1.publish(BLACK, [self])
+            writable1._write.assert_called_once_with(BLACK, [self, subscribable1, ramp1])
+            self.assertEqual(BLACK, await ramp1.read())
+
+            writable1._write.reset_mock()
+
+            await subscribable1.publish(RED, [self])
+            await asyncio.sleep(0.05)
+            writable1._write.assert_called_once_with(
+                datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                [ramp1])
+            await asyncio.sleep(0.5)
+            writable1._write.assert_called_with(RED, [ramp1])
+            self.assertEqual(RED, await ramp1.read())
+
+            writable1._write.reset_mock()
+            await asyncio.sleep(0.5)
+            writable1._write.assert_not_called()
+
+            # ... until we disable the ramping
+            enable1.read.return_value = False
+
+            await subscribable1.publish(BLACK, [self])
+            await asyncio.sleep(0.05)
+            writable1._write.assert_called_once_with(BLACK, [self, subscribable1, ramp1])
+            self.assertEqual(BLACK, await ramp1.read())
+
+            writable1._write.reset_mock()
+            await asyncio.sleep(0.5)
+            writable1._write.assert_not_called()
