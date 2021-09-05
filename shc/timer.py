@@ -19,7 +19,7 @@ import time
 import weakref
 from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic, TypeVar
 
-from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError
+from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError, Reading
 from .datatypes import RangeFloat1, RangeUInt8, RangeInt0To100, HSVFloat1, RGBUInt8, RGBWUInt8
 from .expressions import ExpressionWrapper
 
@@ -750,7 +750,7 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
         self._publish(self._latest_value, self._latest_origin)
 
 
-class AbstractRamp(Readable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
+class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generic[T], metaclass=abc.ABCMeta):
     """
     Abstract base class for all ramp generators
 
@@ -766,6 +766,13 @@ class AbstractRamp(Readable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMe
     All ramp generators create smooth transitions from incoming value updates by splitting publishing multiple timed
     updates each doing a small step towards the target value. They are *Readable* and *Subscribable* to be used in
     :ref:`expressions`.
+
+    In addition, the Ramp generators are *Writable* and *Reading* in order to connect them to a stateful object (like a
+    :class:`Variable <shc.variables.Variable>`) which also receives value updates from other sources. For this to work
+    flawlessly, the Ramp generator will stop the current ramp in progress, when it receives a value (via :meth:`write`)
+    from the connected object and it will *read* the current value of the connected object and use it as the start value
+    for a ramp instead of the last value recived from the wrapped object. Both of these features are optional, so the
+    Ramp generator can also be connected to non-readable and non-subscribable objects.
 
     :param wrapped: The subscribable object from which the value updates are transformed into smooth ramps.
     :param ramp_duration: The duration of the generated ramp/transition. Depending on `dynamic_duration` this is either
@@ -783,6 +790,8 @@ class AbstractRamp(Readable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMe
         republished immediately. If the value is `True, the ramp generator is enabled. If no object is given, the ramp
         generator is always on.
     """
+    is_reading_optional = False
+
     def __init__(self, wrapped: Subscribable[T], ramp_duration: datetime.timedelta, dynamic_duration: bool = True,
                  max_frequency: float = 25.0, enable_ramp: Optional[Readable[bool]] = None):
         self.type = wrapped.type
@@ -801,6 +810,10 @@ class AbstractRamp(Readable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMe
             raise UninitializedError("RampGenerator has no value received yet.")
         return self._current_value
 
+    async def _write(self, value: T, origin: List[Any]) -> None:
+        if self.__task:
+            self.__task.cancel()
+
     async def ramp_to(self, value: T, origin: List[Any]) -> None:
         """
         Start a new ramp to the the given value.
@@ -808,10 +821,6 @@ class AbstractRamp(Readable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMe
         This method is triggered automatically by the wrapped *Subscribable* object. It can also be triggered
         programmatically from logic handlers etc.
         """
-        if self._current_value is None:
-            self._current_value = value
-            await self._publish_and_wait(value, origin)
-            return
         if self.enable_ramp is not None:
             enabled = await self.enable_ramp.read()
             if not enabled:
@@ -820,6 +829,13 @@ class AbstractRamp(Readable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMe
                 self._current_value = value
                 await self._publish_and_wait(value, origin)
                 return
+        begin = await self._from_provider()
+        if begin is not None:
+            self._current_value = begin
+        if self._current_value is None:
+            self._current_value = value
+            await self._publish_and_wait(value, origin)
+            return
 
         self.__new_target_value = value
         if not self.__task:
