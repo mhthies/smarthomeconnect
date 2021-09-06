@@ -17,9 +17,10 @@ import math
 import random
 import time
 import weakref
-from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic
+from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic, TypeVar
 
-from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError
+from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError, Reading
+from .datatypes import RangeFloat1, RangeUInt8, RangeInt0To100, HSVFloat1, RGBUInt8, RGBWUInt8
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
@@ -747,3 +748,304 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
         self._last_publish = time.time()
         self._delay_task = None
         self._publish(self._latest_value, self._latest_origin)
+
+
+class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generic[T], metaclass=abc.ABCMeta):
+    """
+    Abstract base class for all ramp generators
+
+    Different derived ramp generator classes for different datatypes exist:
+
+    - :class:`IntRamp` (for :class:`int`, :class:`shc.datatypes.RangeUInt8` and :class:`shc.datatypes.RangeInt0To100`)
+    - :class:`FloatRamp` (for :class:`float` and :class:`shc.datatypes.RangeFloat1`)
+    - :class:`HSVRamp` (for :class:`shc.datatypes.HSVFloat1`)
+    - :class:`RGBHSVRamp` (doing a linear ramp in HSV color space for :class:`shc.datatypes.RGBUInt8`)
+    - :class:`RGBWHSVRamp` (for :class:`shc.datatypes.RGBWUInt8`; doing a linear ramp in HSV color space plus simple
+      linear ramp for the white channel)
+
+    All ramp generators create smooth transitions from incoming value updates by splitting publishing multiple timed
+    updates each doing a small step towards the target value. They are *Readable* and *Subscribable* to be used in
+    :ref:`expressions`.
+
+    In addition, the Ramp generators are *Writable* and *Reading* in order to connect them to a stateful object (like a
+    :class:`Variable <shc.variables.Variable>`) which also receives value updates from other sources. For this to work
+    flawlessly, the Ramp generator will stop the current ramp in progress, when it receives a value (via :meth:`write`)
+    from the connected object and it will *read* the current value of the connected object and use it as the start value
+    for a ramp instead of the last value recived from the wrapped object. Both of these features are optional, so the
+    Ramp generator can also be connected to non-readable and non-subscribable objects.
+
+    :param wrapped: The subscribable object from which the value updates are transformed into smooth ramps.
+    :param ramp_duration: The duration of the generated ramp/transition. Depending on `dynamic_duration` this is either
+        the fixed duration of each ramp or it is the duration of a ramp across the full value range, which is
+        dynamically lowered for smaller ramps.
+    :param dynamic_duration: If `True` (default) the duration of each ramp is dynamically calculated, such that all
+        ramps/transitions have the same "speed" (only works for Range- and Range-based types). In this case,
+        `ramp_duration` defines the speed by specifying the maximum duration, resp. the duration of a range across the
+        full value range. If `False`, all ramps/transitions are stretched to the fixed duration.
+    :param max_frequency: The maximum frequency of value updates to be emitted by the ramp generator in updates per
+        second (i.e. the "frame rate" of the ramp animation). The frequency is be dynamically reduced, if the resolution
+        of the datatype cannot render the resulting number of steps/frames.
+    :param enable_ramp: Optional bypass: If a bool-typed *readable* object is provided, it is read at the beginning of
+        each received value update. If its value evaluates to `False`, the ramp is bypassed and the new target value is
+        republished immediately. If the value is `True, the ramp generator is enabled. If no object is given, the ramp
+        generator is always on.
+    """
+    is_reading_optional = False
+
+    def __init__(self, wrapped: Subscribable[T], ramp_duration: datetime.timedelta, dynamic_duration: bool = True,
+                 max_frequency: float = 25.0, enable_ramp: Optional[Readable[bool]] = None):
+        self.type = wrapped.type
+        super().__init__()
+        wrapped.trigger(self.ramp_to, synchronous=True)
+        self.ramp_duration = ramp_duration
+        self.dynamic_duration = dynamic_duration
+        self.max_frequency = max_frequency
+        self.enable_ramp = enable_ramp
+        self._current_value: Optional[T] = None
+        self.__new_target_value: Optional[T] = None
+        self.__task: Optional[asyncio.Task] = None
+
+    async def read(self) -> T:
+        if self._current_value is None:
+            raise UninitializedError("RampGenerator has no value received yet.")
+        return self._current_value
+
+    async def _write(self, value: T, origin: List[Any]) -> None:
+        if self.__task:
+            self.__task.cancel()
+
+    async def ramp_to(self, value: T, origin: List[Any]) -> None:
+        """
+        Start a new ramp to the the given value.
+
+        This method is triggered automatically by the wrapped *Subscribable* object. It can also be triggered
+        programmatically from logic handlers etc.
+        """
+        if self.enable_ramp is not None:
+            enabled = await self.enable_ramp.read()
+            if not enabled:
+                if self.__task:
+                    self.__task.cancel()
+                self._current_value = value
+                await self._publish_and_wait(value, origin)
+                return
+        begin = await self._from_provider()
+        if begin is not None:
+            self._current_value = begin
+        if self._current_value is None:
+            self._current_value = value
+            await self._publish_and_wait(value, origin)
+            return
+
+        self.__new_target_value = value
+        if not self.__task:
+            task = asyncio.get_event_loop().create_task(self._ramp())
+            self.__task = task
+            timer_supervisor.add_temporary_task(task)
+
+    async def _ramp(self) -> None:
+        step = 0
+        num_steps = 0
+        try:
+            assert self.__new_target_value is not None
+            while step < num_steps or self.__new_target_value is not None:
+                # New target => recalculate steps
+                if self.__new_target_value is not None:
+                    begin = self._current_value
+                    assert begin is not None
+                    target = self.__new_target_value
+                    self.__new_target_value = None
+                    height, max_steps = self._calculate_ramp(begin, target)
+                    length = self.ramp_duration.total_seconds() * (height if self.dynamic_duration else 1.0)
+                    num_steps = min(math.ceil(length * self.max_frequency), max_steps)
+                    if num_steps == 0:
+                        break
+                    step_length = length / num_steps
+                    self._init_ramp(begin, target, num_steps)
+                    step = 0
+                step += 1
+                value = self._next_step(step)
+                if value != self._current_value:
+                    self._publish(value, [])
+                    self._current_value = value
+                await asyncio.sleep(step_length)
+
+            # Mitigate deriving values from rounding errors etc.
+            if target != self._current_value:
+                self._publish(target, [])
+                self._current_value = target
+        except asyncio.CancelledError:
+            pass
+        finally:
+            self.__task = None
+
+    @abc.abstractmethod
+    def _calculate_ramp(self, begin: T, target: T) -> Tuple[float, int]:
+        """
+        Calculate height and maximum reasonable number of steps of a ramp to be performed
+
+        The maximum reasonable number of steps is typically constraint be the resolution of the datatype. In most cases,
+        it is not reasonable to compute more steps than the datatype can represent values between begin and target.
+
+        The height of the ramp must always be positive and in [0, 1].
+
+        :param begin: The planned start value of the ramp
+        :param target: The planned target value of the ramp
+        :return: Tuple of (height of the ramp as part of the full range, maximum reasonable number of steps)
+        """
+        pass
+
+    @abc.abstractmethod
+    def _init_ramp(self, begin: T, target: T, num_steps: int) -> None:
+        """
+        Initialize a new ramp
+
+        This method is called whenever a new ramp is started and can do any form of pre-calculation for the ramp steps.
+        The calculated internal values, are supposed to be stored as attributes of `self` such that they can be used by
+        :meth:`_next_step` afterwareds.
+
+        Attention: An ongoing ramp may be interrupted by a new target value. In this case, :meth:`_init_ramp` is called
+        again, before all steps of the ramp have been computed. Afterwards, the the `step` counter is reset to 1 and
+        :meth:`_next_step` is called again for each step of the new ramp.
+
+        :param begin: The start value of the ramp
+        :param target: The target value of the ramp
+        :param num_steps: The number of steps. This number is fixed in advanced; all steps will be performed (unless the
+            ramp is interrupted)
+        """
+        pass
+
+    @abc.abstractmethod
+    def _next_step(self, step: int) -> T:
+        """
+        Calculate the next step of the ramp.
+
+        This method can rely on any data generated by :meth:`_init_ramp`. For easier implementation, the step counter is
+        passed to the method.
+
+        Attention: An ongoing ramp may be interrupted by a new target value. In this case, :meth:`_init_ramp` is called
+        again, before all steps of the ramp have been computed. Afterwards, the the `step` counter is reset to 1 and
+        :meth:`_next_step` is called again for each step of the new ramp.
+
+        :param step: Step counter, starting at 1 (!) and running up to (including!) num_steps.
+        :return: The calculated value of this step, to be published
+        """
+        pass
+
+
+IntRampT = TypeVar('IntRampT', int, RangeUInt8, RangeInt0To100)
+
+
+class IntRamp(AbstractRamp[IntRampT], Generic[IntRampT]):
+    def _calculate_ramp(self, begin: IntRampT, target: IntRampT) -> Tuple[float, int]:
+        diff = abs(target-begin)
+        height = (diff/255 if issubclass(self.type, RangeUInt8) else
+                  diff/100 if issubclass(self.type, RangeInt0To100) else
+                  1.0)
+        return height, diff
+
+    def _init_ramp(self, begin: IntRampT, target: IntRampT, num_steps: int) -> None:
+        self._begin: IntRampT = begin
+        self._diff: float = (target - begin) / num_steps
+
+    def _next_step(self, step: int) -> IntRampT:
+        return self.type(round(self._begin + self._diff * step))
+
+
+FloatRampT = TypeVar('FloatRampT', float, RangeFloat1)
+
+
+class FloatRamp(AbstractRamp[FloatRampT], Generic[FloatRampT]):
+    def _calculate_ramp(self, begin: FloatRampT, target: FloatRampT) -> Tuple[float, int]:
+        diff = abs(target-begin)
+        height = diff/1.0 if issubclass(self.type, RangeFloat1) else 1.0
+        return height, 2**64-1
+
+    def _init_ramp(self, begin: FloatRampT, target: FloatRampT, num_steps: int) -> None:
+        self._begin: FloatRampT = begin
+        self._diff: float = (target - begin) / num_steps
+
+    def _next_step(self, step: int) -> FloatRampT:
+        return self.type(self._begin + self._diff * step)
+
+
+def _normalize_hsv_ramp(begin: HSVFloat1, target: HSVFloat1) -> Tuple[HSVFloat1, HSVFloat1]:
+    return begin._replace(hue=begin.hue if begin.saturation != 0 else target.hue,
+                          saturation=begin.saturation if begin.value != 0 else target.saturation),\
+           target._replace(hue=target.hue if target.saturation != 0 else begin.hue,
+                           saturation=target.saturation if target.value != 0 else begin.saturation)
+
+
+def _hsv_diff(begin: HSVFloat1, target: HSVFloat1) -> Tuple[float, float, float]:
+    return (
+        ((target.hue - begin.hue) % 1
+         if abs((target.hue - begin.hue) % 1) < 0.5
+         else -((begin.hue - target.hue) % 1)
+         ),
+        (target.saturation - begin.saturation),
+        (target.value - begin.value)
+    )
+
+
+def _hsv_step(begin: HSVFloat1, diff: Tuple[float, float, float], step: int) -> HSVFloat1:
+    return HSVFloat1(RangeFloat1((begin.hue + diff[0] * step) % 1.0),
+                     RangeFloat1(begin.saturation + diff[1] * step),
+                     RangeFloat1(begin.value + diff[2] * step))
+
+
+class HSVRamp(AbstractRamp[HSVFloat1]):
+    def _calculate_ramp(self, begin: HSVFloat1, target: HSVFloat1) -> Tuple[float, int]:
+        diff = _hsv_diff(begin, target)
+        height = max(abs(diff[0] * 2), abs(diff[1]), abs(diff[2]))
+        return height, 2**64-1
+
+    def _init_ramp(self, begin: HSVFloat1, target: HSVFloat1, num_steps: int) -> None:
+        self._begin = begin
+        self._diff: Tuple[float, float, float] = tuple(v/num_steps for v in _hsv_diff(begin, target))  # type: ignore
+
+    def _next_step(self, step: int) -> HSVFloat1:
+        return _hsv_step(self._begin, self._diff, step)
+
+
+class RGBHSVRamp(AbstractRamp[RGBUInt8]):
+    def _calculate_ramp(self, begin: RGBUInt8, target: RGBUInt8) -> Tuple[float, int]:
+        begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.as_float()),
+                                                    HSVFloat1.from_rgb(target.as_float()))
+        diff = _hsv_diff(begin_hsv, target_hsv)
+        height = max(abs(diff[0] * 2), abs(diff[1]), abs(diff[2]))
+        max_steps = max(2*abs(b-t) for b, t in zip(begin, target))  # rough estimation
+        return height, max_steps
+
+    def _init_ramp(self, begin: RGBUInt8, target: RGBUInt8, num_steps: int) -> None:
+        begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.as_float()),
+                                                    HSVFloat1.from_rgb(target.as_float()))
+        self._hsv_begin = begin_hsv
+        hsv_diff = _hsv_diff(begin_hsv, target_hsv)
+        self._hsv_diff: Tuple[float, float, float] = tuple(v/num_steps for v in hsv_diff)  # type: ignore
+
+    def _next_step(self, step: int) -> RGBUInt8:
+        return RGBUInt8.from_float(_hsv_step(self._hsv_begin, self._hsv_diff, step).as_rgb())
+
+
+class RGBWHSVRamp(AbstractRamp[RGBWUInt8]):
+    def _calculate_ramp(self, begin: RGBWUInt8, target: RGBWUInt8) -> Tuple[float, int]:
+        begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.rgb.as_float()),
+                                                    HSVFloat1.from_rgb(target.rgb.as_float()))
+        hsv_diff = _hsv_diff(begin_hsv, target_hsv)
+        w_diff = abs(target.white - begin.white)
+        height = max(abs(hsv_diff[0] * 2), abs(hsv_diff[1]), abs(hsv_diff[2]), w_diff / 255)
+        max_steps = max(*(2*abs(b-t) for b, t in zip(begin.rgb, target.rgb)), w_diff)  # rough estimation
+        return height, max_steps
+
+    def _init_ramp(self, begin: RGBWUInt8, target: RGBWUInt8, num_steps: int) -> None:
+        self._w_begin: int = begin.white
+        self._w_diff: float = (target.white - begin.white) / num_steps
+        begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.rgb.as_float()),
+                                                    HSVFloat1.from_rgb(target.rgb.as_float()))
+        self._hsv_begin = begin_hsv
+        hsv_diff = _hsv_diff(begin_hsv, target_hsv)
+        self._hsv_diff: Tuple[float, float, float] = tuple(v/num_steps for v in hsv_diff)  # type: ignore
+
+    def _next_step(self, step: int) -> RGBWUInt8:
+        return RGBWUInt8(RGBUInt8.from_float(_hsv_step(self._hsv_begin, self._hsv_diff, step).as_rgb()),
+                         RangeUInt8(round(self._w_begin + self._w_diff * step)))
