@@ -76,6 +76,8 @@ class TasmotaInterface(AbstractInterface):
                                                   functools.partial(self._handle_result_or_status, result=True), 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'STATE',
                                                   self._handle_result_or_status, 1)
+        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'SENSOR',
+                                                  self._handle_result_or_status, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'STATUS11',
                                                   self._handle_status11, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'LWT',
@@ -295,6 +297,55 @@ class TasmotaInterface(AbstractInterface):
         """
         return self._get_or_create_connector(TasmotaIRReceiverConnector)
 
+    def energy_power(self) -> "TasmotaEnergyPowerConnector":
+        """
+        Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured power consumption in
+        watts from the Tasmota device, if available.
+        """
+        return self._get_or_create_connector(TasmotaEnergyPowerConnector)
+
+    def energy_voltage(self) -> "TasmotaEnergyVoltageConnector":
+        """
+        Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured mains voltage in
+        volts from the Tasmota device, if available.
+        """
+        return self._get_or_create_connector(TasmotaEnergyVoltageConnector)
+
+    def energy_current(self) -> "TasmotaEnergyCurrentConnector":
+        """
+        Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured current flow in
+        amperes from the Tasmota device, if available.
+        """
+        return self._get_or_create_connector(TasmotaEnergyCurrentConnector)
+
+    def energy_total(self) -> "TasmotaEnergyTotalConnector":
+        """
+        Returns a *subscribable* :class:`float`-typed Connector, publishing the total energy consumption measured by the
+        Tasmota device since its last reboot in kWh.
+        """
+        return self._get_or_create_connector(TasmotaEnergyTotalConnector)
+
+    def energy_power_factor(self) -> "TasmotaEnergyFactorConnector":
+        """
+        Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured power factor from the
+        Tasmota device.
+        """
+        return self._get_or_create_connector(TasmotaEnergyFactorConnector)
+
+    def energy_apparent_power(self) -> "TasmotaEnergyApparentPowerConnector":
+        """
+        Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured apparent power in VA
+        from the Tasmota device.
+        """
+        return self._get_or_create_connector(TasmotaEnergyApparentPowerConnector)
+
+    def energy_reactive_power(self) -> "TasmotaEnergyReactivePowerConnector":
+        """
+        Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured reactive power in VAr
+        from the Tasmota device.
+        """
+        return self._get_or_create_connector(TasmotaEnergyReactivePowerConnector)
+
     def _get_or_create_connector(self, type_: Type[ConnType]) -> ConnType:
         """
         Helper method to create or get the connector object of a given type, while making sure that there is only one
@@ -480,6 +531,83 @@ class TasmotaIRReceiverConnector(AbstractTasmotaConnector[bytes]):
         # TODO this is hacky. We should probably add the detected protocol
         data = value['Data'] if 'Data' in value else value['Hash']
         return bytes.fromhex(data[2:])
+
+
+class TasmotaEnergyPowerConnector(AbstractTasmotaConnector[float]):
+    type = float
+
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("ENERGY")
+
+    def _decode(self, value: JSONType) -> float:
+        assert isinstance(value, dict)
+        return float(value['Power'])
+
+
+class TasmotaEnergyVoltageConnector(AbstractTasmotaConnector[float]):
+    type = float
+
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("ENERGY")
+
+    def _decode(self, value: JSONType) -> float:
+        assert isinstance(value, dict)
+        return float(value['Voltage'])
+
+
+class TasmotaEnergyCurrentConnector(AbstractTasmotaConnector[float]):
+    type = float
+
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("ENERGY")
+
+    def _decode(self, value: JSONType) -> float:
+        assert isinstance(value, dict)
+        return float(value['Current'])
+
+
+class TasmotaEnergyTotalConnector(AbstractTasmotaConnector[float]):
+    type = float
+
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("ENERGY")
+
+    def _decode(self, value: JSONType) -> float:
+        assert isinstance(value, dict)
+        return float(value['Total'])
+
+
+class TasmotaEnergyApparentPowerConnector(AbstractTasmotaConnector[float]):
+    type = float
+
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("ENERGY")
+
+    def _decode(self, value: JSONType) -> float:
+        assert isinstance(value, dict)
+        return float(value['ApparentPower'])
+
+
+class TasmotaEnergyReactivePowerConnector(AbstractTasmotaConnector[float]):
+    type = float
+
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("ENERGY")
+
+    def _decode(self, value: JSONType) -> float:
+        assert isinstance(value, dict)
+        return float(value['ReactivePower'])
+
+
+class TasmotaEnergyFactorConnector(AbstractTasmotaConnector[float]):
+    type = float
+
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("ENERGY")
+
+    def _decode(self, value: JSONType) -> float:
+        assert isinstance(value, dict)
+        return float(value['Factor'])
 
 
 class TasmotaOnlineConnector(Readable[bool], Subscribable[bool]):
