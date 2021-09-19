@@ -123,7 +123,7 @@ class KNXConnector(SupervisedClientInterface):
         self.read_init_after_reconnect = read_init_after_reconnect
         self.groups: Dict[KNXGAD, KNXGroupVar] = {}
         self.knx = knxdclient.KNXDConnection()
-        self.knx.register_telegram_handler(self._dispatch_telegram)
+        self.knx.set_group_apdu_handler(self._dispatch_telegram)
         self.init_request_groups: Set[KNXGAD] = set()
         self._first_connect = True
 
@@ -238,12 +238,10 @@ class KNXConnector(SupervisedClientInterface):
         await asyncio.gather(*(self.knx.group_write(addr, knxdclient.KNXDAPDUType.READ, 0)
                                for addr in self.init_request_groups))
 
-    async def _dispatch_telegram(self, packet: knxdclient.ReceivedGroupAPDU) -> None:
+    def _dispatch_telegram(self, packet: knxdclient.ReceivedGroupAPDU) -> None:
         if packet.payload.type is knxdclient.KNXDAPDUType.READ:
             if packet.dst in self.groups:
-                encoded_data = await self.groups[packet.dst].read_from_bus()
-                if encoded_data is not None:
-                    await self.knx.group_write(packet.dst, knxdclient.KNXDAPDUType.RESPONSE, encoded_data)
+                asyncio.create_task(self._respond_read_request(self.groups[packet.dst]))
         else:
             try:
                 group_var = self.groups[packet.dst]
@@ -251,6 +249,14 @@ class KNXConnector(SupervisedClientInterface):
                 logging.debug("No KNX Group Variable for Addr %s registered", packet.dst)
                 return
             group_var.update_from_bus(packet.payload.value, [packet.src])
+
+    async def _respond_read_request(self, group_var: "KNXGroupVar") -> None:
+        try:
+            encoded_data = await group_var.read_from_bus()
+            if encoded_data is not None:
+                await self.knx.group_write(group_var.addr, knxdclient.KNXDAPDUType.RESPONSE, encoded_data)
+        except Exception as e:
+            logger.warning("Error while responding to KNX group read request for %s:", group_var.addr, exc_info=e)
 
     async def send(self, addr: knxdclient.GroupAddress, encoded_data: knxdclient.EncodedData):
         await self.knx.group_write(addr, knxdclient.KNXDAPDUType.WRITE, encoded_data)
