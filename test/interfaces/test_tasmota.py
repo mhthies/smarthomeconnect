@@ -152,6 +152,33 @@ class TasmotaInterfaceTest(unittest.TestCase):
         await asyncio.sleep(0.25)
         target_ir._write.assert_called_once_with(b'\x00\xF7\x60\x9F', [conn_ir])
 
+    @async_test
+    async def test_sensor_power(self) -> None:
+        conn_voltage = self.interface.energy_voltage()
+        target_voltage = ExampleWritable(float).connect(conn_voltage)
+        conn_power = self.interface.energy_power()
+        target_power = ExampleWritable(float).connect(conn_power)
+
+        self.client_runner.start()
+        asyncio.run_coroutine_threadsafe(self.interface.start(), loop=self.client_runner.loop).result()
+        await asyncio.sleep(0.25)
+
+        target_voltage._write.assert_not_called()
+        target_power._write.assert_not_called()
+
+        async with asyncio_mqtt.Client("localhost", 42883, client_id="some-other-client") as c:
+            await c.publish(f"tele/test-device/SENSOR",
+                            json.dumps({"Time": "1970-01-01T00:49:50",
+                                        "ENERGY": {"TotalStartTime": "1970-01-01T00:00:00", "Total": 0.012,
+                                                   "Yesterday": 0.000, "Today": 0.012, "Period": 2, "Power": 15,
+                                                   "ApparentPower": 26, "ReactivePower": 22, "Factor": 0.56,
+                                                   "Voltage": 227, "Current": 0.114}})
+                            .encode('ascii'))
+
+        await asyncio.sleep(0.25)
+        target_voltage._write.assert_called_once_with(227.0, [conn_voltage])
+        target_power._write.assert_called_once_with(15.0, [conn_power])
+
 
 BASE_STATUS11: Dict[str, Dict[str, Any]] = {
     "StatusSTS":

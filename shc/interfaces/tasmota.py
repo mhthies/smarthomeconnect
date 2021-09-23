@@ -78,6 +78,7 @@ class TasmotaInterface(AbstractInterface):
                                                   self._handle_result_or_status, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'SENSOR',
                                                   self._handle_result_or_status, 1)
+        # TODO allow listening to STATUS8 responses for sensors
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'STATUS11',
                                                   self._handle_status11, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'LWT',
@@ -87,6 +88,7 @@ class TasmotaInterface(AbstractInterface):
         # Send status request (for telemetry data and state) as soon as the MQTT interface is up
         await self.mqtt_interface.wait_running(5)
         await self._send_command("status", "11")
+        # TODO send STATUS8 cmnd?
 
     async def stop(self) -> None:
         pass
