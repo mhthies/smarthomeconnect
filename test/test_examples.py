@@ -30,6 +30,9 @@ class BasicTest(unittest.TestCase):
         import example.server_client.client  # type: ignore
         shc.main()
 
+    def test_tasmota_led_example(self) -> None:
+        import example.tasmota_led_ir_with_ui  # type: ignore
+
     @classmethod
     def setUpClass(cls) -> None:
         shc.supervisor._REGISTERED_INTERFACES.clear()
