@@ -32,8 +32,8 @@ setup(
     python_requires='~=3.7',
     install_requires=[
         'aiohttp>=3.6,<4',
-        'jinja2>=2.11,<3',
-        'MarkupSafe>=1.1,<2',
+        'jinja2>=2.11,<4',
+        'MarkupSafe>=1.1,<3',
     ],
     extras_require={
         'mysql': ['aiomysql==0.0.21'],
