@@ -38,7 +38,7 @@ setup(
     extras_require={
         'mysql': ['aiomysql==0.0.21'],
         'knx': ['knxdclient~=0.4.0'],
-        'dmx': ['pyserial-asyncio==0.3'],
+        'dmx': ['pyserial-asyncio>=0.3,<=0.5'],
         'midi': ['mido>=1.2.9,<2', 'python-rtmidi>=1.4.6,<2'],
         'mqtt': ['paho-mqtt>=1.5.1,<2', 'asyncio-mqtt>=0.8.0,<0.9'],
     },

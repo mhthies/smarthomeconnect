@@ -8,7 +8,7 @@ types-MarkupSafe>=1.1,<2
 knxdclient~=0.4.0
 sphinx>=3.2,<4
 sphinx-rtd-theme==0.5.0
-pyserial-asyncio==0.3
+pyserial-asyncio>=0.3,<=0.5
 selenium>=3.141,<4
 mido>=1.2.9,<2
 asyncio-mqtt>=0.8.0,<0.9
