@@ -14,3 +14,10 @@ Tasmota Interface
         .. automethod:: color_rgbw
         .. automethod:: color_rgbcct
         .. automethod:: ir_receiver
+        .. automethod:: energy_power
+        .. automethod:: energy_voltage
+        .. automethod:: energy_current
+        .. automethod:: energy_total
+        .. automethod:: energy_power_factor
+        .. automethod:: energy_reactive_power
+        .. automethod:: energy_apparent_power
