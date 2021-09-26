@@ -61,5 +61,3 @@ Ramp Generators
 ---------------
 
 .. autoclass:: AbstractRamp
-
-    .. automethod:: do_ramp
