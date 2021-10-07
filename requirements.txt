@@ -13,3 +13,4 @@ selenium>=3.141,<4
 mido>=1.2.9,<2
 asyncio-mqtt>=0.10.0,<0.11
 paho-mqtt>=1.5.1,<2
+pulsectl_asyncio>=0.1.8,<0.2

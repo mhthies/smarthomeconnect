@@ -1,6 +1,8 @@
 import abc
+import asyncio
 import logging
-from typing import NamedTuple, Dict, List, Optional, Generic, Type, Any
+from collections import defaultdict
+from typing import NamedTuple, Dict, List, Optional, Generic, Type, Any, DefaultDict
 import ctypes as c
 import ctypes.util
 
@@ -10,6 +12,7 @@ from pulsectl import (  # type: ignore
 from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_VOLUME_NORM, PA_CHANNELS_MAX
 from pulsectl_asyncio import PulseAsync  # type: ignore
 
+import shc.conversion
 from shc.base import Connectable, Subscribable, Readable, T, UninitializedError, Writable
 from shc.interfaces._helper import SupervisedClientInterface
 
@@ -85,15 +88,19 @@ class PulseVolumeBalance(NamedTuple):
         return cls(volume, balance, fade, lfe_balance, list(cvolume.values)[:l], raw_volume.map)
 
 
+shc.conversion.register_converter(PulseVolumeRaw, PulseVolumeBalance, PulseVolumeBalance.from_channels)
+shc.conversion.register_converter(PulseVolumeBalance, PulseVolumeRaw, lambda v: v.as_channels())
+
+
 class PulseAudioInterface(SupervisedClientInterface):
     def __init__(self):
         super().__init__()
         # TODO allow specifying client name and server connection
         self.pulse = PulseAsync()
-        self.sink_connectors_by_id: Dict[int, List["SinkConnector"]] = {}
-        self.sink_connectors_by_name: Dict[Optional[str], List["SinkConnector"]] = {}
-        self.source_connectors_by_id: Dict[int, List["SourceConnector"]] = {}
-        self.source_connectors_by_name: Dict[Optional[str], List["SourceConnector"]] = {}
+        self.sink_connectors_by_id: DefaultDict[int, List["SinkConnector"]] = defaultdict(list)
+        self.sink_connectors_by_name: DefaultDict[Optional[str], List["SinkConnector"]] = defaultdict(list)
+        self.source_connectors_by_id: DefaultDict[int, List["SourceConnector"]] = defaultdict(list)
+        self.source_connectors_by_name: DefaultDict[Optional[str], List["SourceConnector"]] = defaultdict(list)
 
         self._default_sink_name_connector = DefaultNameConnector(self.pulse, "default_sink_name")
         self._default_source_name_connector = DefaultNameConnector(self.pulse, "default_source_name")
@@ -114,21 +121,36 @@ class PulseAudioInterface(SupervisedClientInterface):
         for sink_info in await self.pulse.sink_list():
             sink_connectors = self.sink_connectors_by_name.get(sink_info.name, ())
             if sink_info.name == server_info.default_sink_name:
-                sink_connectors = self.sink_connectors_by_name.get(None, ())
+                sink_connectors += self.sink_connectors_by_name.get(None, ())
+            if sink_connectors:
+                logging.debug("Pulseaudio sink \"%s\" is already available. Mapping %s connectors to sink id %s",
+                              sink_info.name, len(sink_connectors), sink_info.index)
             for connector in sink_connectors:
-                connector.current_id = sink_info.index
-                self.sink_connectors_by_id.get(sink_info.index, []).append(connector)
-                connector.on_change(sink_info)
+                try:
+                    connector.change_id(sink_info.index)
+                    self.sink_connectors_by_id[sink_info.index].append(connector)
+                    connector.on_change(sink_info)
+                except Exception as e:
+                    logging.error("Error while initializing connector %s with current data of sink", connector,
+                                  exc_info=e)
         for source_info in await self.pulse.source_list():
             source_connectors = self.source_connectors_by_name.get(source_info.name, ())
             if source_info.name == server_info.default_source_name:
-                source_connectors = self.source_connectors_by_name.get(None, ())
+                source_connectors += self.source_connectors_by_name.get(None, ())
+            if source_connectors:
+                logging.debug("Pulseaudio source \"%s\" is already available. Mapping %s connectors to source id %s",
+                              source_info.name, len(source_connectors), source_info.index)
             for source_connector in source_connectors:
-                source_connector.current_id = source_info.index
-                self.source_connectors_by_id.get(source_info.index, []).append(source_connector)
-                source_connector.on_change(source_info)
+                try:
+                    source_connector.current_id = source_info.index
+                    self.source_connectors_by_id[source_info.index].append(source_connector)
+                    source_connector.on_change(source_info)
+                except Exception as e:
+                    logging.error("Error while initializing connector %s with current data of source", source_connector,
+                                  exc_info=e)
 
     async def _run(self) -> None:
+        self._running.set()
         async for event in self.pulse.subscribe_events('sink', 'source', 'server'):
             try:
                 await self._dispatch_pulse_event(event)
@@ -136,20 +158,21 @@ class PulseAudioInterface(SupervisedClientInterface):
                 logger.error("Error while dispatching PulseAudio event %s", event, exc_info=e)
 
     async def _dispatch_pulse_event(self, event: PulseEventInfo) -> None:
+        logger.debug("Dispatching Pulse audio event: %s", event)
         if event.t is PulseEventTypeEnum.new:
             if event.facility is PulseEventFacilityEnum.sink:
                 data = await self.pulse.sink_info(event.index)
                 name = data.name
                 for connector in self.sink_connectors_by_name.get(name, ()):
                     connector.change_id(event.index)
-                    self.sink_connectors_by_id.get(event.index, []).append(connector)
+                    self.sink_connectors_by_id[event.index].append(connector)
                     connector.on_change(data)
             elif event.facility is PulseEventFacilityEnum.source:
                 data = await self.pulse.source_info(event.index)
                 name = data.name
                 for source_connector in self.source_connectors_by_name.get(name, ()):
                     source_connector.change_id(event.index)
-                    self.source_connectors_by_id.get(event.index, []).append(source_connector)
+                    self.source_connectors_by_id[event.index].append(source_connector)
                     source_connector.on_change(data)
         elif event.t is PulseEventTypeEnum.remove:
             if event.facility is PulseEventFacilityEnum.sink:
@@ -163,12 +186,12 @@ class PulseAudioInterface(SupervisedClientInterface):
 
         elif event.t is PulseEventTypeEnum.change:
             if event.facility is PulseEventFacilityEnum.sink:
+                data = await self.pulse.sink_info(event.index)
                 for connector in self.sink_connectors_by_id.get(event.index, ()):
-                    data = await self.pulse.sink_info(event.index)
                     connector.on_change(data)
             elif event.facility is PulseEventFacilityEnum.source:
+                data = await self.pulse.source_info(event.index)
                 for source_connector in self.source_connectors_by_id.get(event.index, ()):
-                    data = await self.pulse.source_info(event.index)
                     source_connector.on_change(data)
             elif event.facility is PulseEventFacilityEnum.server:
                 server_info = await self.pulse.server_info()
@@ -178,14 +201,14 @@ class PulseAudioInterface(SupervisedClientInterface):
                 default_sink_data = await self.pulse.get_sink_by_name(server_info.default_sink_name)
                 default_source_data = await self.pulse.get_source_by_name(server_info.default_source_name)
                 for connector in self.sink_connectors_by_name.get(None, ()):
-                    self.sink_connectors_by_id.get(connector.current_id, []).remove(connector)
+                    self.sink_connectors_by_id[connector.current_id].remove(connector)
                     connector.change_id(default_sink_data.index)
-                    self.sink_connectors_by_id.get(default_sink_data.index, []).append(connector)
+                    self.sink_connectors_by_id[default_source_data.index].append(connector)
                     connector.on_change(default_sink_data)
                 for source_connector in self.source_connectors_by_name.get(None, ()):
-                    self.source_connectors_by_id.get(source_connector.current_id, []).remove(source_connector)
+                    self.source_connectors_by_id[source_connector.current_id].remove(source_connector)
                     source_connector.change_id(default_source_data.index)
-                    self.source_connectors_by_id.get(default_source_data.index, []).append(source_connector)
+                    self.source_connectors_by_id[default_source_data.index].append(source_connector)
                     source_connector.on_change(default_source_data)
 
     def sink_volume(self, sink_name: str) -> "SinkVolumeConnector":
@@ -272,7 +295,7 @@ class SinkAttributeConnector(Subscribable[T], Readable[T], SinkConnector, Generi
         self.pulse = pulse
 
     def on_change(self, data: PulseSinkInfo) -> None:
-        self._publish(self._convert_from_pulse(), [])
+        self._publish(self._convert_from_pulse(data), [])
 
     @abc.abstractmethod
     def _convert_from_pulse(self, data: PulseSinkInfo) -> T:
@@ -317,7 +340,7 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
         super().__init__(pulse, PulseVolumeRaw)
 
     def _convert_from_pulse(self, data: PulseSinkInfo) -> PulseVolumeRaw:
-        return PulseVolumeRaw(data.volume.values, data.channel_map.values[:data.channel_count])
+        return PulseVolumeRaw(data.volume.values, data.channel_map)
 
     async def _write(self, value: PulseVolumeRaw, origin: List[Any]) -> None:
         if not self.current_id:
