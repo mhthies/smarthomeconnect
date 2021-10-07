@@ -1,0 +1,342 @@
+import abc
+import logging
+from typing import NamedTuple, Dict, List, Optional, Generic, Type, Any
+import ctypes as c
+import ctypes.util
+
+from pulsectl import (  # type: ignore
+    PulseEventInfo, PulseEventFacilityEnum, PulseEventTypeEnum, PulseSinkInfo, PulseSourceInfo, PulseServerInfo,
+    PulseVolumeInfo, PulseStateEnum)
+from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_VOLUME_NORM, PA_CHANNELS_MAX
+from pulsectl_asyncio import PulseAsync  # type: ignore
+
+from shc.base import Connectable, Subscribable, Readable, T, UninitializedError, Writable
+from shc.interfaces._helper import SupervisedClientInterface
+
+logger = logging.getLogger(__name__)
+
+
+libpulse = c.CDLL(ctypes.util.find_library('libpulse') or 'libpulse.so.0')
+
+pa_volume_t = c.c_uint32
+pa_cvolume_max = libpulse.pa_cvolume_max
+pa_cvolume_max.argtypes = [c.POINTER(PA_CVOLUME)]
+pa_cvolume_max.restype = pa_volume_t
+pa_cvolume_get_balance = libpulse.pa_cvolume_get_balance
+pa_cvolume_get_balance.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP)]
+pa_cvolume_get_balance.restype = c.c_float
+pa_cvolume_get_fade = libpulse.pa_cvolume_get_fade
+pa_cvolume_get_fade.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP)]
+pa_cvolume_get_fade.restype = c.c_float
+pa_cvolume_get_lfe_balance = libpulse.pa_cvolume_get_lfe_balance
+pa_cvolume_get_lfe_balance.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP)]
+pa_cvolume_get_lfe_balance.restype = c.c_float
+pa_cvolume_set_balance = libpulse.pa_cvolume_set_balance
+pa_cvolume_set_balance.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP), c.c_float]
+pa_cvolume_set_balance.restype = None
+pa_cvolume_set_fade = libpulse.pa_cvolume_set_fade
+pa_cvolume_set_fade.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP), c.c_float]
+pa_cvolume_set_fade.restype = None
+pa_cvolume_set_lfe_balance = libpulse.pa_cvolume_set_lfe_balance
+pa_cvolume_set_lfe_balance.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP), c.c_float]
+pa_cvolume_set_lfe_balance.restype = None
+pa_cvolume_scale = libpulse.pa_cvolume_scale
+pa_cvolume_scale.argtypes = [c.POINTER(PA_CVOLUME), pa_volume_t]
+pa_cvolume_scale.restype = None
+
+
+class PulseVolumeRaw(NamedTuple):
+    values: list = []   # TODO use Range type
+    map: list = []
+
+
+class PulseVolumeBalance(NamedTuple):
+    volume: float = 1.0  # TODO use Range type and/or special Balance type
+    balance: float = 0.0
+    fade: float = 0.0
+    lfe_balance: float = 0.0
+    normalized_values: list = []
+    map: list = []
+
+    def as_channels(self) -> PulseVolumeRaw:
+        l = len(self.normalized_values)
+        cvolume = PA_CVOLUME(l, (pa_volume_t * PA_CHANNELS_MAX)(*self.normalized_values))
+        cmap = PA_CHANNEL_MAP(l, (c.c_int * PA_CHANNELS_MAX)(*self.map))
+        pa_cvolume_set_lfe_balance(cvolume, cmap, self.lfe_balance)
+        pa_cvolume_set_fade(cvolume, cmap, self.fade)
+        pa_cvolume_set_balance(cvolume, cmap, self.balance)
+        pa_cvolume_scale(cvolume, round(self.volume * PA_VOLUME_NORM))
+        return PulseVolumeRaw([v / PA_VOLUME_NORM for v in cvolume.values[:cvolume.channels]], self.map)
+
+    @classmethod
+    def from_channels(cls, raw_volume: PulseVolumeRaw) -> "PulseVolumeBalance":
+        l = len(raw_volume.values)
+        cvolume = PA_CVOLUME(l, (pa_volume_t * PA_CHANNELS_MAX)(*(round(PA_VOLUME_NORM * v)
+                                                                  for v in raw_volume.values)))
+        cmap = PA_CHANNEL_MAP(l, (c.c_int * PA_CHANNELS_MAX)(*raw_volume.map))
+        volume = pa_cvolume_max(cvolume) / PA_VOLUME_NORM
+        pa_cvolume_scale(cvolume, PA_VOLUME_NORM)
+        balance = pa_cvolume_get_balance(cvolume, cmap)
+        pa_cvolume_set_balance(cvolume, cmap, 0.0)
+        fade = pa_cvolume_get_fade(cvolume, cmap)
+        pa_cvolume_set_fade(cvolume, cmap, 0.0)
+        lfe_balance = pa_cvolume_get_lfe_balance(cvolume, cmap)
+        pa_cvolume_set_lfe_balance(cvolume, cmap, 0.0)
+        return cls(volume, balance, fade, lfe_balance, list(cvolume.values)[:l], raw_volume.map)
+
+
+class PulseAudioInterface(SupervisedClientInterface):
+    def __init__(self):
+        super().__init__()
+        # TODO allow specifying client name and server connection
+        self.pulse = PulseAsync()
+        self.sink_connectors_by_id: Dict[int, List["SinkConnector"]] = {}
+        self.sink_connectors_by_name: Dict[Optional[str], List["SinkConnector"]] = {}
+        self.source_connectors_by_id: Dict[int, List["SourceConnector"]] = {}
+        self.source_connectors_by_name: Dict[Optional[str], List["SourceConnector"]] = {}
+
+        self._default_sink_name_connector = DefaultNameConnector(self.pulse, "default_sink_name")
+        self._default_source_name_connector = DefaultNameConnector(self.pulse, "default_source_name")
+        self._subscribe_server = False
+        self._subscribe_sinks = False
+        self._subscribe_sources = False
+
+    async def _connect(self) -> None:
+        await self.pulse.connect()
+
+    async def _disconnect(self) -> None:
+        self.pulse.disconnect()
+
+    async def _subscribe(self) -> None:
+        server_info = await self.pulse.server_info()
+        self._default_sink_name_connector._update(server_info)
+        self._default_source_name_connector._update(server_info)
+        for sink_info in await self.pulse.sink_list():
+            sink_connectors = self.sink_connectors_by_name.get(sink_info.name, ())
+            if sink_info.name == server_info.default_sink_name:
+                sink_connectors = self.sink_connectors_by_name.get(None, ())
+            for connector in sink_connectors:
+                connector.current_id = sink_info.index
+                self.sink_connectors_by_id.get(sink_info.index, []).append(connector)
+                connector.on_change(sink_info)
+        for source_info in await self.pulse.source_list():
+            source_connectors = self.source_connectors_by_name.get(source_info.name, ())
+            if source_info.name == server_info.default_source_name:
+                source_connectors = self.source_connectors_by_name.get(None, ())
+            for source_connector in source_connectors:
+                source_connector.current_id = source_info.index
+                self.source_connectors_by_id.get(source_info.index, []).append(source_connector)
+                source_connector.on_change(source_info)
+
+    async def _run(self) -> None:
+        async for event in self.pulse.subscribe_events('sink', 'source', 'server'):
+            try:
+                await self._dispatch_pulse_event(event)
+            except Exception as e:
+                logger.error("Error while dispatching PulseAudio event %s", event, exc_info=e)
+
+    async def _dispatch_pulse_event(self, event: PulseEventInfo) -> None:
+        if event.t is PulseEventTypeEnum.new:
+            if event.facility is PulseEventFacilityEnum.sink:
+                data = await self.pulse.sink_info(event.index)
+                name = data.name
+                for connector in self.sink_connectors_by_name.get(name, ()):
+                    connector.change_id(event.index)
+                    self.sink_connectors_by_id.get(event.index, []).append(connector)
+                    connector.on_change(data)
+            elif event.facility is PulseEventFacilityEnum.source:
+                data = await self.pulse.source_info(event.index)
+                name = data.name
+                for source_connector in self.source_connectors_by_name.get(name, ()):
+                    source_connector.change_id(event.index)
+                    self.source_connectors_by_id.get(event.index, []).append(source_connector)
+                    source_connector.on_change(data)
+        elif event.t is PulseEventTypeEnum.remove:
+            if event.facility is PulseEventFacilityEnum.sink:
+                for connector in self.sink_connectors_by_id.get(event.index, ()):
+                    connector.change_id(0)
+                del self.sink_connectors_by_id[event.index]
+            elif event.facility is PulseEventFacilityEnum.source:
+                for source_connector in self.source_connectors_by_id.get(event.index, ()):
+                    source_connector.change_id(0)
+                del self.source_connectors_by_id[event.index]
+
+        elif event.t is PulseEventTypeEnum.change:
+            if event.facility is PulseEventFacilityEnum.sink:
+                for connector in self.sink_connectors_by_id.get(event.index, ()):
+                    data = await self.pulse.sink_info(event.index)
+                    connector.on_change(data)
+            elif event.facility is PulseEventFacilityEnum.source:
+                for source_connector in self.source_connectors_by_id.get(event.index, ()):
+                    data = await self.pulse.source_info(event.index)
+                    source_connector.on_change(data)
+            elif event.facility is PulseEventFacilityEnum.server:
+                server_info = await self.pulse.server_info()
+                self._default_sink_name_connector._update(server_info)
+                self._default_source_name_connector._update(server_info)
+                # Update default sink/source connectors
+                default_sink_data = await self.pulse.get_sink_by_name(server_info.default_sink_name)
+                default_source_data = await self.pulse.get_source_by_name(server_info.default_source_name)
+                for connector in self.sink_connectors_by_name.get(None, ()):
+                    self.sink_connectors_by_id.get(connector.current_id, []).remove(connector)
+                    connector.change_id(default_sink_data.index)
+                    self.sink_connectors_by_id.get(default_sink_data.index, []).append(connector)
+                    connector.on_change(default_sink_data)
+                for source_connector in self.source_connectors_by_name.get(None, ()):
+                    self.source_connectors_by_id.get(source_connector.current_id, []).remove(source_connector)
+                    source_connector.change_id(default_source_data.index)
+                    self.source_connectors_by_id.get(default_source_data.index, []).append(source_connector)
+                    source_connector.on_change(default_source_data)
+
+    def sink_volume(self, sink_name: str) -> "SinkVolumeConnector":
+        connector = SinkVolumeConnector(self.pulse)
+        self.sink_connectors_by_name[sink_name].append(connector)
+        return connector
+
+    def sink_muted(self, sink_name: str) -> "SinkMuteConnector":
+        connector = SinkMuteConnector(self.pulse)
+        self.sink_connectors_by_name[sink_name].append(connector)
+        return connector
+
+    def sink_running(self, sink_name: str) -> Connectable[bool]:
+        connector = SinkStateConnector(self.pulse)
+        self.sink_connectors_by_name[sink_name].append(connector)
+        return connector
+
+    def sink_peak_monitor(self, source_name: str, frequency: int) -> Subscribable[float]: ...  # TODO
+
+    def default_sink_volume(self) -> "SinkVolumeConnector":
+        connector = SinkVolumeConnector(self.pulse)
+        self.sink_connectors_by_name[None].append(connector)
+        return connector
+
+    def default_sink_muted(self) -> "SinkMuteConnector":
+        connector = SinkMuteConnector(self.pulse)
+        self.sink_connectors_by_name[None].append(connector)
+        return connector
+
+    def default_sink_running(self) -> Connectable[bool]:
+        connector = SinkStateConnector(self.pulse)
+        self.sink_connectors_by_name[None].append(connector)
+        return connector
+
+    def default_sink_peak_monitor(self, source_name: str, frequency: int) -> Subscribable[float]: ...  # TODO
+
+    def default_sink_name(self) -> "DefaultNameConnector":
+        self._subscribe_server = True
+        self._subscribe_sinks = True
+        return self._default_sink_name_connector
+
+    def source_volume(self, source_name: str) -> Connectable[PulseVolumeRaw]: ...  # TODO
+    def source_muted(self, source_name: str) -> Connectable[bool]: ...  # TODO
+    def source_running(self, source_name: str) -> Connectable[bool]: ...  # TODO
+    def source_peak_monitor(self, source_name: str) -> Subscribable[float]: ...  # TODO
+
+    def default_source_volume(self) -> Connectable[PulseVolumeRaw]: ...  # TODO
+    def default_source_muted(self) -> Connectable[bool]: ...  # TODO
+    def default_source_running(self) -> Connectable[bool]: ...  # TODO
+    def default_source_peak_monitor(self, frequency: int) -> Subscribable[float]: ...  # TODO
+
+    def default_source_name(self) -> "DefaultNameConnector":
+        self._subscribe_server = True
+        self._subscribe_sources = True
+        return self._default_source_name_connector
+
+
+class SinkConnector(metaclass=abc.ABCMeta):
+    def __init__(self):
+        self.current_id: int = 0
+
+    def on_change(self, data: PulseSinkInfo) -> None:
+        pass
+
+    def change_id(self, index: int) -> None:
+        self.current_id = index
+
+
+class SourceConnector(metaclass=abc.ABCMeta):
+    def __init__(self):
+        self.current_id: int = 0
+
+    def on_change(self, data: PulseSourceInfo) -> None:
+        pass
+
+    def change_id(self, index: int) -> None:
+        self.current_id = index
+
+
+class SinkAttributeConnector(Subscribable[T], Readable[T], SinkConnector, Generic[T], metaclass=abc.ABCMeta):
+    def __init__(self, pulse: PulseAsync, type_: Type[T]):
+        self.type = type_
+        super().__init__()
+        self.pulse = pulse
+
+    def on_change(self, data: PulseSinkInfo) -> None:
+        self._publish(self._convert_from_pulse(), [])
+
+    @abc.abstractmethod
+    def _convert_from_pulse(self, data: PulseSinkInfo) -> T:
+        pass
+
+    async def read(self) -> T:
+        if self.current_id:
+            raise UninitializedError
+        data = await self.pulse.sink_info(self.current_id)
+        return self._convert_from_pulse(data)
+
+
+class SinkStateConnector(SinkAttributeConnector[bool]):
+    def __init__(self, pulse: PulseAsync):
+        super().__init__(pulse, bool)
+
+    def _convert_from_pulse(self, data: PulseSinkInfo) -> bool:
+        return data.state == PulseStateEnum.running
+
+    def change_id(self, index: int) -> None:
+        super().change_id(index)
+        if not index:
+            self._publish(False, [])
+
+
+class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
+    def __init__(self, pulse: PulseAsync):
+        super().__init__(pulse, bool)
+
+    def _convert_from_pulse(self, data: PulseSinkInfo) -> bool:
+        return data.mute
+
+    async def _write(self, value: T, origin: List[Any]) -> None:
+        if not self.current_id:
+            raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
+        # TODO register origin for incoming update
+        await self.pulse.sink_mute(self.current_id, value)
+
+
+class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[PulseVolumeRaw]):
+    def __init__(self, pulse: PulseAsync):
+        super().__init__(pulse, PulseVolumeRaw)
+
+    def _convert_from_pulse(self, data: PulseSinkInfo) -> PulseVolumeRaw:
+        return PulseVolumeRaw(data.volume.values, data.channel_map.values[:data.channel_count])
+
+    async def _write(self, value: PulseVolumeRaw, origin: List[Any]) -> None:
+        if not self.current_id:
+            raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
+        # TODO register origin for incoming update
+        await self.pulse.sink_volume_set(self.current_id, PulseVolumeInfo(value.values))
+
+
+class DefaultNameConnector(Subscribable[str], Readable[str]):  # TODO make writable
+    type = str
+
+    def __init__(self, pulse: PulseAsync, attr: str):
+        super().__init__()
+        self.pulse = pulse
+        self.attr = attr
+
+    def _update(self, server_info: PulseServerInfo) -> None:
+        self._publish(getattr(server_info, self.attr), [])
+
+    async def read(self) -> str:
+        server_info = await self.pulse.server_info()
+        return getattr(server_info, self.attr)
