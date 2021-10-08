@@ -99,9 +99,9 @@ class PulseAudioInterface(SupervisedClientInterface):
         self._default_sink_name_connector._update(server_info)
         self._default_source_name_connector._update(server_info)
         for sink_info in await self.pulse.sink_list():
-            sink_connectors = self.sink_connectors_by_name.get(sink_info.name, ())
+            sink_connectors = self.sink_connectors_by_name.get(sink_info.name, [])
             if sink_info.name == server_info.default_sink_name:
-                sink_connectors += self.sink_connectors_by_name.get(None, ())
+                sink_connectors += self.sink_connectors_by_name.get(None, [])
             if sink_connectors:
                 logging.debug("Pulseaudio sink \"%s\" is already available. Mapping %s connectors to sink id %s",
                               sink_info.name, len(sink_connectors), sink_info.index)
@@ -114,9 +114,9 @@ class PulseAudioInterface(SupervisedClientInterface):
                     logging.error("Error while initializing connector %s with current data of sink", connector,
                                   exc_info=e)
         for source_info in await self.pulse.source_list():
-            source_connectors = self.source_connectors_by_name.get(source_info.name, ())
+            source_connectors = self.source_connectors_by_name.get(source_info.name, [])
             if source_info.name == server_info.default_source_name:
-                source_connectors += self.source_connectors_by_name.get(None, ())
+                source_connectors += self.source_connectors_by_name.get(None, [])
             if source_connectors:
                 logging.debug("Pulseaudio source \"%s\" is already available. Mapping %s connectors to source id %s",
                               source_info.name, len(source_connectors), source_info.index)
@@ -143,35 +143,37 @@ class PulseAudioInterface(SupervisedClientInterface):
             if event.facility is PulseEventFacilityEnum.sink:
                 data = await self.pulse.sink_info(event.index)
                 name = data.name
-                for connector in self.sink_connectors_by_name.get(name, ()):
+                for connector in self.sink_connectors_by_name.get(name, []):
                     connector.change_id(event.index)
                     self.sink_connectors_by_id[event.index].append(connector)
                     connector.on_change(data)
             elif event.facility is PulseEventFacilityEnum.source:
                 data = await self.pulse.source_info(event.index)
                 name = data.name
-                for source_connector in self.source_connectors_by_name.get(name, ()):
+                for source_connector in self.source_connectors_by_name.get(name, []):
                     source_connector.change_id(event.index)
                     self.source_connectors_by_id[event.index].append(source_connector)
                     source_connector.on_change(data)
         elif event.t is PulseEventTypeEnum.remove:
             if event.facility is PulseEventFacilityEnum.sink:
-                for connector in self.sink_connectors_by_id.get(event.index, ()):
+                for connector in self.sink_connectors_by_id.get(event.index, []):
                     connector.change_id(0)
-                del self.sink_connectors_by_id[event.index]
+                if event.index in self.sink_connectors_by_id:
+                    del self.sink_connectors_by_id[event.index]
             elif event.facility is PulseEventFacilityEnum.source:
-                for source_connector in self.source_connectors_by_id.get(event.index, ()):
+                for source_connector in self.source_connectors_by_id.get(event.index, []):
                     source_connector.change_id(0)
-                del self.source_connectors_by_id[event.index]
+                if event.index in self.source_connectors_by_id:
+                    del self.source_connectors_by_id[event.index]
 
         elif event.t is PulseEventTypeEnum.change:
             if event.facility is PulseEventFacilityEnum.sink:
                 data = await self.pulse.sink_info(event.index)
-                for connector in self.sink_connectors_by_id.get(event.index, ()):
+                for connector in self.sink_connectors_by_id.get(event.index, []):
                     connector.on_change(data)
             elif event.facility is PulseEventFacilityEnum.source:
                 data = await self.pulse.source_info(event.index)
-                for source_connector in self.source_connectors_by_id.get(event.index, ()):
+                for source_connector in self.source_connectors_by_id.get(event.index, []):
                     source_connector.on_change(data)
             elif event.facility is PulseEventFacilityEnum.server:
                 server_info = await self.pulse.server_info()
@@ -180,13 +182,19 @@ class PulseAudioInterface(SupervisedClientInterface):
                 # Update default sink/source connectors
                 default_sink_data = await self.pulse.get_sink_by_name(server_info.default_sink_name)
                 default_source_data = await self.pulse.get_source_by_name(server_info.default_source_name)
-                for connector in self.sink_connectors_by_name.get(None, ()):
-                    self.sink_connectors_by_id[connector.current_id].remove(connector)
+                for connector in self.sink_connectors_by_name.get(None, []):
+                    try:
+                        self.sink_connectors_by_id[connector.current_id].remove(connector)
+                    except ValueError:
+                        pass
                     connector.change_id(default_sink_data.index)
-                    self.sink_connectors_by_id[default_source_data.index].append(connector)
+                    self.sink_connectors_by_id[default_sink_data.index].append(connector)
                     connector.on_change(default_sink_data)
-                for source_connector in self.source_connectors_by_name.get(None, ()):
-                    self.source_connectors_by_id[source_connector.current_id].remove(source_connector)
+                for source_connector in self.source_connectors_by_name.get(None, []):
+                    try:
+                        self.source_connectors_by_id[source_connector.current_id].remove(source_connector)
+                    except ValueError:
+                        pass
                     source_connector.change_id(default_source_data.index)
                     self.source_connectors_by_id[default_source_data.index].append(source_connector)
                     source_connector.on_change(default_source_data)
@@ -201,7 +209,7 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
-    def sink_running(self, sink_name: str) -> Connectable[bool]:
+    def sink_running(self, sink_name: str) -> Readable[bool]:
         connector = SinkStateConnector(self.pulse)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
@@ -221,7 +229,7 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
-    def default_sink_running(self) -> Connectable[bool]:
+    def default_sink_running(self) -> Readable[bool]:
         connector = SinkStateConnector(self.pulse)
         self.sink_connectors_by_name[None].append(connector)
         return connector
@@ -262,6 +270,7 @@ class PulseAudioInterface(SupervisedClientInterface):
 
 class SinkConnector(metaclass=abc.ABCMeta):
     def __init__(self):
+        super().__init__()
         self.current_id: int = 0
 
     def on_change(self, data: PulseSinkInfo) -> None:
@@ -273,6 +282,7 @@ class SinkConnector(metaclass=abc.ABCMeta):
 
 class SourceConnector(metaclass=abc.ABCMeta):
     def __init__(self):
+        super().__init__()
         self.current_id: int = 0
 
     def on_change(self, data: PulseSourceInfo) -> None:
@@ -320,7 +330,7 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
         super().__init__(pulse, bool)
 
     def _convert_from_pulse(self, data: PulseSinkInfo) -> bool:
-        return data.mute
+        return bool(data.mute)
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         if not self.current_id:
