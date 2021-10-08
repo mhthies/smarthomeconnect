@@ -1,8 +1,7 @@
 import abc
-import asyncio
 import logging
 from collections import defaultdict
-from typing import NamedTuple, Dict, List, Optional, Generic, Type, Any, DefaultDict
+from typing import NamedTuple, List, Optional, Generic, Type, Any, DefaultDict
 import ctypes as c
 import ctypes.util
 
@@ -14,6 +13,7 @@ from pulsectl_asyncio import PulseAsync  # type: ignore
 
 import shc.conversion
 from shc.base import Connectable, Subscribable, Readable, T, UninitializedError, Writable
+from shc.datatypes import RangeFloat1, Balance
 from shc.interfaces._helper import SupervisedClientInterface
 
 logger = logging.getLogger(__name__)
@@ -49,15 +49,15 @@ pa_cvolume_scale.restype = None
 
 
 class PulseVolumeRaw(NamedTuple):
-    values: list = []   # TODO use Range type
+    values: list = []
     map: list = []
 
 
 class PulseVolumeBalance(NamedTuple):
-    volume: float = 1.0  # TODO use Range type and/or special Balance type
-    balance: float = 0.0
-    fade: float = 0.0
-    lfe_balance: float = 0.0
+    volume: RangeFloat1 = 1.0
+    balance: Balance = 0.0
+    fade: Balance = 0.0
+    lfe_balance: Balance = 0.0
     normalized_values: list = []
     map: list = []
 
@@ -85,7 +85,8 @@ class PulseVolumeBalance(NamedTuple):
         pa_cvolume_set_fade(cvolume, cmap, 0.0)
         lfe_balance = pa_cvolume_get_lfe_balance(cvolume, cmap)
         pa_cvolume_set_lfe_balance(cvolume, cmap, 0.0)
-        return cls(volume, balance, fade, lfe_balance, list(cvolume.values)[:l], raw_volume.map)
+        return cls(RangeFloat1(volume), Balance(balance), Balance(fade), Balance(lfe_balance),
+                   list(cvolume.values)[:l], raw_volume.map)
 
 
 shc.conversion.register_converter(PulseVolumeRaw, PulseVolumeBalance, PulseVolumeBalance.from_channels)
