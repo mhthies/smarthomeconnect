@@ -3,12 +3,10 @@ import logging
 from collections import defaultdict
 from typing import NamedTuple, List, Optional, Generic, Type, Any, DefaultDict
 import ctypes as c
-import ctypes.util
 
 from pulsectl import (  # type: ignore
     PulseEventInfo, PulseEventFacilityEnum, PulseEventTypeEnum, PulseSinkInfo, PulseSourceInfo, PulseServerInfo,
     PulseVolumeInfo, PulseStateEnum)
-from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_VOLUME_NORM, PA_CHANNELS_MAX
 from pulsectl_asyncio import PulseAsync  # type: ignore
 
 import shc.conversion
@@ -17,35 +15,6 @@ from shc.datatypes import RangeFloat1, Balance
 from shc.interfaces._helper import SupervisedClientInterface
 
 logger = logging.getLogger(__name__)
-
-
-libpulse = c.CDLL(ctypes.util.find_library('libpulse') or 'libpulse.so.0')
-
-pa_volume_t = c.c_uint32
-pa_cvolume_max = libpulse.pa_cvolume_max
-pa_cvolume_max.argtypes = [c.POINTER(PA_CVOLUME)]
-pa_cvolume_max.restype = pa_volume_t
-pa_cvolume_get_balance = libpulse.pa_cvolume_get_balance
-pa_cvolume_get_balance.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP)]
-pa_cvolume_get_balance.restype = c.c_float
-pa_cvolume_get_fade = libpulse.pa_cvolume_get_fade
-pa_cvolume_get_fade.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP)]
-pa_cvolume_get_fade.restype = c.c_float
-pa_cvolume_get_lfe_balance = libpulse.pa_cvolume_get_lfe_balance
-pa_cvolume_get_lfe_balance.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP)]
-pa_cvolume_get_lfe_balance.restype = c.c_float
-pa_cvolume_set_balance = libpulse.pa_cvolume_set_balance
-pa_cvolume_set_balance.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP), c.c_float]
-pa_cvolume_set_balance.restype = None
-pa_cvolume_set_fade = libpulse.pa_cvolume_set_fade
-pa_cvolume_set_fade.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP), c.c_float]
-pa_cvolume_set_fade.restype = None
-pa_cvolume_set_lfe_balance = libpulse.pa_cvolume_set_lfe_balance
-pa_cvolume_set_lfe_balance.argtypes = [c.POINTER(PA_CVOLUME), c.POINTER(PA_CHANNEL_MAP), c.c_float]
-pa_cvolume_set_lfe_balance.restype = None
-pa_cvolume_scale = libpulse.pa_cvolume_scale
-pa_cvolume_scale.argtypes = [c.POINTER(PA_CVOLUME), pa_volume_t]
-pa_cvolume_scale.restype = None
 
 
 class PulseVolumeRaw(NamedTuple):
@@ -62,6 +31,10 @@ class PulseVolumeBalance(NamedTuple):
     map: list = []
 
     def as_channels(self) -> PulseVolumeRaw:
+        from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
+        from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
+            pa_cvolume_set_balance, pa_cvolume_scale
+
         l = len(self.normalized_values)
         cvolume = PA_CVOLUME(l, (pa_volume_t * PA_CHANNELS_MAX)(*self.normalized_values))
         cmap = PA_CHANNEL_MAP(l, (c.c_int * PA_CHANNELS_MAX)(*self.map))
@@ -73,6 +46,11 @@ class PulseVolumeBalance(NamedTuple):
 
     @classmethod
     def from_channels(cls, raw_volume: PulseVolumeRaw) -> "PulseVolumeBalance":
+        from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
+        from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
+            pa_cvolume_set_balance, pa_cvolume_scale, pa_cvolume_max, pa_cvolume_get_balance, pa_cvolume_get_fade, \
+            pa_cvolume_get_lfe_balance
+
         l = len(raw_volume.values)
         cvolume = PA_CVOLUME(l, (pa_volume_t * PA_CHANNELS_MAX)(*(round(PA_VOLUME_NORM * v)
                                                                   for v in raw_volume.values)))
