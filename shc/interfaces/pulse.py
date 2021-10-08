@@ -73,10 +73,25 @@ shc.conversion.register_converter(PulseVolumeBalance, PulseVolumeRaw, lambda v: 
 
 
 class PulseAudioInterface(SupervisedClientInterface):
-    def __init__(self):
-        super().__init__()
-        # TODO allow specifying client name and server connection
-        self.pulse = PulseAsync()
+    """
+
+    :param pulse_client_name: Client name reported to the Pulseaudio server when connecting.
+    :param pulse_server_socket: Address of the Pulseaudio server socket, e.g. "unix:/run/user/1000/pulse/native". If not
+        specified or None, the system default Pulseaudio instance is used.
+    :param auto_reconnect: If True (default), the interface tries to reconnect automatically with
+        exponential backoff (1.25 ^ n seconds sleep), when the Pulseaudio event subscription exits unexpectedly, e.g.
+        due to a connection loss with the Pulseaudio server. Otherwise, the complete SHC system is shut down on
+        such errors.
+    :param failsafe_start: If True and auto_reconnect is True, the interface allows SHC to start up, even if the
+        connection and event subscription with the Pulseaudio server fails in the first try. The connection is retried
+        in background with exponential backoff (see `auto_reconnect` option). Otherwise (default), the first connection
+        attempt on startup is not retried and will raise an exception from `start()` on failure, even if
+        `auto_reconnect` is True.
+    """
+    def __init__(self, pulse_client_name: str = "smarthomeconnect", pulse_server_socket: Optional[str] = None,
+                 auto_reconnect: bool = True, failsafe_start: bool = False):
+        super().__init__(auto_reconnect, failsafe_start)
+        self.pulse = PulseAsync(pulse_client_name, server=pulse_server_socket)
         self.sink_connectors_by_id: DefaultDict[int, List["SinkConnector"]] = defaultdict(list)
         self.sink_connectors_by_name: DefaultDict[Optional[str], List["SinkConnector"]] = defaultdict(list)
         self.source_connectors_by_id: DefaultDict[int, List["SourceConnector"]] = defaultdict(list)
