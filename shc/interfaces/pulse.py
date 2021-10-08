@@ -1,4 +1,5 @@
 import abc
+import asyncio
 import logging
 from collections import defaultdict
 from typing import NamedTuple, List, Optional, Generic, Type, Any, DefaultDict
@@ -6,7 +7,7 @@ import ctypes as c
 
 from pulsectl import (  # type: ignore
     PulseEventInfo, PulseEventFacilityEnum, PulseEventTypeEnum, PulseSinkInfo, PulseSourceInfo, PulseServerInfo,
-    PulseVolumeInfo, PulseStateEnum)
+    PulseVolumeInfo, PulseStateEnum, PulseDisconnected)
 from pulsectl_asyncio import PulseAsync  # type: ignore
 
 import shc.conversion
@@ -205,7 +206,10 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
-    def sink_peak_monitor(self, source_name: str, frequency: int) -> Subscribable[float]: ...  # TODO
+    def sink_peak_monitor(self, sink_name: str, frequency: int = 1) -> "SinkPeakConnector":
+        connector = SinkPeakConnector(self.pulse, frequency)
+        self.sink_connectors_by_name[sink_name].append(connector)
+        return connector
 
     def default_sink_volume(self) -> "SinkVolumeConnector":
         connector = SinkVolumeConnector(self.pulse)
@@ -222,7 +226,10 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
-    def default_sink_peak_monitor(self, source_name: str, frequency: int) -> Subscribable[float]: ...  # TODO
+    def default_sink_peak_monitor(self, frequency: int = 1) -> "SinkPeakConnector":
+        connector = SinkPeakConnector(self.pulse, frequency)
+        self.sink_connectors_by_name[None].append(connector)
+        return connector
 
     def default_sink_name(self) -> "DefaultNameConnector":
         self._subscribe_server = True
@@ -232,12 +239,20 @@ class PulseAudioInterface(SupervisedClientInterface):
     def source_volume(self, source_name: str) -> Connectable[PulseVolumeRaw]: ...  # TODO
     def source_muted(self, source_name: str) -> Connectable[bool]: ...  # TODO
     def source_running(self, source_name: str) -> Connectable[bool]: ...  # TODO
-    def source_peak_monitor(self, source_name: str) -> Subscribable[float]: ...  # TODO
+
+    def source_peak_monitor(self, source_name: str, frequency: int = 1) -> "SourcePeakConnector":
+        connector = SourcePeakConnector(self.pulse, frequency)
+        self.source_connectors_by_name[source_name].append(connector)
+        return connector
 
     def default_source_volume(self) -> Connectable[PulseVolumeRaw]: ...  # TODO
     def default_source_muted(self) -> Connectable[bool]: ...  # TODO
     def default_source_running(self) -> Connectable[bool]: ...  # TODO
-    def default_source_peak_monitor(self, frequency: int) -> Subscribable[float]: ...  # TODO
+
+    def default_source_peak_monitor(self, frequency: int = 1) -> "SourcePeakConnector":
+        connector = SourcePeakConnector(self.pulse, frequency)
+        self.source_connectors_by_name[None].append(connector)
+        return connector
 
     def default_source_name(self) -> "DefaultNameConnector":
         self._subscribe_server = True
@@ -326,6 +341,58 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
         # TODO register origin for incoming update
         await self.pulse.sink_volume_set(self.current_id, PulseVolumeInfo(value.values))
+
+
+class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
+    type = RangeFloat1
+
+    def __init__(self, pulse: PulseAsync, frequency: int):
+        super().__init__()
+        self.pulse = pulse
+        self.frequency = frequency
+        self.task: Optional[asyncio.Task] = None
+
+    def change_id(self, index: int) -> None:
+        if self.task and index != self.current_id:
+            self.task.cancel()
+            self.task = None
+        super().change_id(index)
+        if index and not self.task:
+            self.task = asyncio.create_task(self._run())
+
+    async def _run(self) -> None:
+        data = await self.pulse.sink_info(self.current_id)
+        try:
+            async for value in self.pulse.subscribe_peak_sample(data.monitor_source, self.frequency):
+                self._publish(RangeFloat1(value), [])
+        except (asyncio.CancelledError, PulseDisconnected):
+            pass
+
+
+class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
+    type = RangeFloat1
+
+    def __init__(self, pulse: PulseAsync, frequency: int):
+        super().__init__()
+        self.pulse = pulse
+        self.frequency = frequency
+        self.task: Optional[asyncio.Task] = None
+
+    def change_id(self, index: int) -> None:
+        if self.task and index != self.current_id:
+            self.task.cancel()
+            self.task = None
+        super().change_id(index)
+        if index and not self.task:
+            self.task = asyncio.create_task(self._run())
+
+    async def _run(self) -> None:
+        data = await self.pulse.source_info(self.current_id)
+        try:
+            async for value in self.pulse.subscribe_peak_sample(data.name, self.frequency):
+                self._publish(RangeFloat1(value), [])
+        except (asyncio.CancelledError, PulseDisconnected):
+            pass
 
 
 class DefaultNameConnector(Subscribable[str], Readable[str]):  # TODO make writable
