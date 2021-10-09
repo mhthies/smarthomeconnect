@@ -2,6 +2,8 @@ import unittest
 import ctypes
 import ctypes.util
 
+from shc.datatypes import RangeFloat1, Balance
+
 libpulse_available = False
 try:
     ctypes.CDLL(ctypes.util.find_library('libpulse') or 'libpulse.so.0')
@@ -28,7 +30,7 @@ class PulseVolumeTests(unittest.TestCase):
         for v1, v2 in zip(vol.values, vol2.values):
             self.assertAlmostEqual(v1, v2)
 
-        vol_split2 = vol_split._replace(volume=0.3333, balance=0.25, fade=0.5)
+        vol_split2 = vol_split._replace(volume=RangeFloat1(0.3333), balance=Balance(0.25), fade=Balance(0.5))
         vol3 = vol_split2.as_channels()
         self.assertAlmostEqual(0.25, vol3.values[0], places=4)
         self.assertAlmostEqual(0.3333, vol3.values[1], places=4)
@@ -45,7 +47,7 @@ class PulseVolumeTests(unittest.TestCase):
         for v1, v2 in zip(vol.values, vol2.values):
             self.assertAlmostEqual(v1, v2, places=4)
 
-        vol_split2 = vol_split._replace(volume=0.9)
+        vol_split2 = vol_split._replace(volume=RangeFloat1(0.9))
         vol3 = vol_split2.as_channels()
         self.assertEqual(vol.map, vol2.map)
         for v1, v2 in zip(vol.values, vol3.values):
