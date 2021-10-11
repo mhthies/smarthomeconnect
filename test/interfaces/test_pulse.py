@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+import unittest.mock
 import ctypes
 import ctypes.util
 from pathlib import Path
@@ -136,9 +137,49 @@ class SinkConnectorTests(unittest.TestCase):
         value1_new = value1._replace(values=[0.8, 0.7])
         await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector1.write(value1_new, [self]),
                                                                    loop=self.interface_runner.loop))
+        # TODO check event update on target1 (incl. origin)
         response = await self._run_pactl('get-sink-volume', 'testsink1')
         self.assertIn("front-left: 52429", response)
         self.assertIn("front-right: 45875", response)
+
+    @async_test
+    async def test_default_sink_mute(self) -> None:
+        mute_connector = self.interface.default_sink_muted()
+        target = ExampleWritable(bool).connect(mute_connector)
+
+        await self._run_pactl('set-default-sink', 'testsink1')
+
+        self.interface_runner.start()
+
+        # Read sink volumes
+        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.read(),
+                                                                           loop=self.interface_runner.loop))
+        self.assertIs(value, False)
+
+        # External mute change to testsink1
+        target._write.reset_mock()
+        await self._run_pactl('set-sink-mute', 'testsink1', 'true')
+        await asyncio.sleep(0.05)
+        target._write.assert_called_once_with(True, unittest.mock.ANY)
+
+        # Change default sink to testsink2
+        target._write.reset_mock()
+        await self._run_pactl('set-default-sink', 'testsink2')
+        await asyncio.sleep(0.05)
+        target._write.assert_called_once_with(False, unittest.mock.ANY)
+
+        # External mute change to testsink1, which should not have an effect
+        target._write.reset_mock()
+        await self._run_pactl('set-sink-mute', 'testsink1', 'false')
+        await asyncio.sleep(0.05)
+        target._write.assert_not_called()
+
+        # Write to default sink's (testsink2's) mute
+        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.write(True, [self]),
+                                                                   loop=self.interface_runner.loop))
+        # TODO check event update on target1 (incl. origin)
+        self.assertIn("yes", await self._run_pactl('get-sink-mute', 'testsink2'))
+        self.assertIn("no", await self._run_pactl('get-sink-mute', 'testsink1'))
 
     async def _run_pactl(self, *args) -> str:
         proc = await asyncio.create_subprocess_exec(
@@ -148,6 +189,7 @@ class SinkConnectorTests(unittest.TestCase):
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=dict(LC_MESSAGES='C', PATH=os.environ['PATH'])
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode:
