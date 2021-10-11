@@ -19,15 +19,25 @@ logger = logging.getLogger(__name__)
 
 
 class PulseVolumeRaw(NamedTuple):
+    """
+    TODO
+    """
     values: list = []
     map: list = []
 
 
 class PulseVolumeBalance(NamedTuple):
-    volume: RangeFloat1 = 1.0
-    balance: Balance = 0.0
-    fade: Balance = 0.0
-    lfe_balance: Balance = 0.0
+    """
+    TODO
+
+    .. warning:
+        Conversion methods :meth:`as_channels` and :meth:`from_channels`, which are used as default converters into/from
+        PulseVolumeRaw objects, require the libpulse shared library.
+    """
+    volume: RangeFloat1 = RangeFloat1(1.0)
+    balance: Balance = Balance(0.0)
+    fade: Balance = Balance(0.0)
+    lfe_balance: Balance = Balance(0.0)
     normalized_values: list = []
     map: list = []
 
@@ -74,6 +84,8 @@ shc.conversion.register_converter(PulseVolumeBalance, PulseVolumeRaw, lambda v: 
 
 class PulseAudioInterface(SupervisedClientInterface):
     """
+    Interface for controlling a Pulseaudio server and receiving status feedback, esp. sink and source volumes, muting,
+    and level monitoring.
 
     :param pulse_client_name: Client name reported to the Pulseaudio server when connecting.
     :param pulse_server_socket: Address of the Pulseaudio server socket, e.g. "unix:/run/user/1000/pulse/native". If not
@@ -146,6 +158,7 @@ class PulseAudioInterface(SupervisedClientInterface):
 
     async def _run(self) -> None:
         self._running.set()
+        # TODO only subscribe required event facilities
         async for event in self.pulse.subscribe_events('sink', 'source', 'server'):
             try:
                 await self._dispatch_pulse_event(event)
