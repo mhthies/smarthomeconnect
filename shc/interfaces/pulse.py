@@ -334,8 +334,8 @@ class SinkAttributeConnector(Subscribable[T], Readable[T], SinkConnector, Generi
         pass
 
     async def read(self) -> T:
-        if self.current_id:
-            raise UninitializedError
+        if self.current_id is None:
+            raise UninitializedError()
         data = await self.pulse.sink_info(self.current_id)
         return self._convert_from_pulse(data)
 
