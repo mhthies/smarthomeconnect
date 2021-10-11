@@ -185,12 +185,12 @@ class PulseAudioInterface(SupervisedClientInterface):
         elif event.t is PulseEventTypeEnum.remove:
             if event.facility is PulseEventFacilityEnum.sink:
                 for connector in self.sink_connectors_by_id.get(event.index, []):
-                    connector.change_id(0)
+                    connector.change_id(None)
                 if event.index in self.sink_connectors_by_id:
                     del self.sink_connectors_by_id[event.index]
             elif event.facility is PulseEventFacilityEnum.source:
                 for source_connector in self.source_connectors_by_id.get(event.index, []):
-                    source_connector.change_id(0)
+                    source_connector.change_id(None)
                 if event.index in self.source_connectors_by_id:
                     del self.source_connectors_by_id[event.index]
 
@@ -299,24 +299,24 @@ class PulseAudioInterface(SupervisedClientInterface):
 class SinkConnector(metaclass=abc.ABCMeta):
     def __init__(self):
         super().__init__()
-        self.current_id: int = 0
+        self.current_id: Optional[int] = None
 
     def on_change(self, data: PulseSinkInfo) -> None:
         pass
 
-    def change_id(self, index: int) -> None:
+    def change_id(self, index: Optional[int]) -> None:
         self.current_id = index
 
 
 class SourceConnector(metaclass=abc.ABCMeta):
     def __init__(self):
         super().__init__()
-        self.current_id: int = 0
+        self.current_id: Optional[int] = 0
 
     def on_change(self, data: PulseSourceInfo) -> None:
         pass
 
-    def change_id(self, index: int) -> None:
+    def change_id(self, index: Optional[int]) -> None:
         self.current_id = index
 
 
@@ -347,9 +347,9 @@ class SinkStateConnector(SinkAttributeConnector[bool]):
     def _convert_from_pulse(self, data: PulseSinkInfo) -> bool:
         return data.state == PulseStateEnum.running
 
-    def change_id(self, index: int) -> None:
+    def change_id(self, index: Optional[int]) -> None:
         super().change_id(index)
-        if not index:
+        if index is None:
             self._publish(False, [])
 
 
@@ -361,7 +361,7 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
         return bool(data.mute)
 
     async def _write(self, value: T, origin: List[Any]) -> None:
-        if not self.current_id:
+        if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
         # TODO register origin for incoming update
         await self.pulse.sink_mute(self.current_id, value)
@@ -375,7 +375,7 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
         return PulseVolumeRaw(data.volume.values, data.channel_map)
 
     async def _write(self, value: PulseVolumeRaw, origin: List[Any]) -> None:
-        if not self.current_id:
+        if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
         # TODO register origin for incoming update
         await self.pulse.sink_volume_set(self.current_id, PulseVolumeInfo(value.values))
@@ -390,12 +390,12 @@ class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
         self.frequency = frequency
         self.task: Optional[asyncio.Task] = None
 
-    def change_id(self, index: int) -> None:
+    def change_id(self, index: Optional[int]) -> None:
         if self.task and index != self.current_id:
             self.task.cancel()
             self.task = None
         super().change_id(index)
-        if index and not self.task:
+        if index is not None and not self.task:
             self.task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
@@ -416,12 +416,12 @@ class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
         self.frequency = frequency
         self.task: Optional[asyncio.Task] = None
 
-    def change_id(self, index: int) -> None:
+    def change_id(self, index: Optional[int]) -> None:
         if self.task and index != self.current_id:
             self.task.cancel()
             self.task = None
         super().change_id(index)
-        if index and not self.task:
+        if index is not None and not self.task:
             self.task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
