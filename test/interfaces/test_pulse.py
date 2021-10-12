@@ -201,7 +201,7 @@ class SinkConnectorTests(unittest.TestCase):
         # We need to wait for 2 seconds for the peak monitoring to start, due to the sink default latency of 2s.
         # In theory, we should be able to reduce the latency by playing something with low-latency before, but I didn't
         # manage to do that.
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
         # No output to the sink yet
         value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(state_connector.read(),
