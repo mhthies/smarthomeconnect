@@ -198,7 +198,6 @@ class SinkConnectorTests(unittest.TestCase):
 
         self.interface_runner.start()
 
-        print(await self._run_pactl("list", "sinks"))
         # We need to wait for 2 seconds for the peak monitoring to start, due to the sink default latency of 2s.
         # In theory, we should be able to reduce the latency by playing something with low-latency before, but I didn't
         # manage to do that.
