@@ -77,9 +77,9 @@ class SinkConnectorTests(unittest.TestCase):
         self.interface = self.interface_runner.interface
 
     def tearDown(self) -> None:
-            self.interface_runner.stop()
-            self.pulse_process.terminate()
-            self.pulse_process.wait()
+        self.interface_runner.stop()
+        self.pulse_process.terminate()
+        self.pulse_process.wait()
 
     @async_test
     async def test_sink_volume(self) -> None:
@@ -186,6 +186,48 @@ class SinkConnectorTests(unittest.TestCase):
         target._write.assert_called_once_with(True, [self, mute_connector])
         self.assertIn("yes", await self._run_pactl('get-sink-mute', 'testsink2'))
         self.assertIn("no", await self._run_pactl('get-sink-mute', 'testsink1'))
+
+    @async_test
+    async def test_sink_peak_and_state(self) -> None:
+        state_connector = self.interface.sink_running('testsink1')
+        state_target = ExampleWritable(bool).connect(state_connector)
+        peak_connector = self.interface.default_sink_peak_monitor(20)
+        peak_target = ExampleWritable(RangeFloat1).connect(peak_connector)
+
+        await self._run_pactl('set-default-sink', 'testsink1')
+
+        self.interface_runner.start()
+
+        print(await self._run_pactl("list", "sinks"))
+        # We need to wait for 2 seconds for the peak monitoring to start, due to the sink default latency of 2s.
+        # In theory, we should be able to reduce the latency by playing something with low-latency before, but I didn't
+        # manage to do that.
+        await asyncio.sleep(2)
+
+        # No output to the sink yet
+        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(state_connector.read(),
+                                                                           loop=self.interface_runner.loop))
+        self.assertIs(value, False)
+        state_target._write.assert_called_with(False, unittest.mock.ANY)
+        peak_target._write.assert_called_with(0.0, unittest.mock.ANY)
+
+        # start noise playback
+        proc = await asyncio.create_subprocess_exec(
+            'paplay', '-s', self.pulse_url, '--raw', '/dev/urandom', env=dict(PATH=os.environ['PATH']))
+
+        # Check sink state and sink monitor
+        await asyncio.sleep(0.1)
+        state_target._write.assert_called_with(True, unittest.mock.ANY)
+        self.assertGreater(peak_target._write.call_args[0][0], 0.0)
+        await asyncio.sleep(0.1)
+        self.assertGreater(peak_target._write.call_count, 2)
+
+        # Stop noise playback
+        proc.terminate()
+        await proc.wait()
+
+        await asyncio.sleep(0.05)
+        state_target._write.assert_called_with(False, unittest.mock.ANY)
 
     async def _run_pactl(self, *args) -> str:
         proc = await asyncio.create_subprocess_exec(

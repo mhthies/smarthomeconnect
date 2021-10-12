@@ -451,10 +451,12 @@ class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
     async def _run(self) -> None:
         data = await self.pulse.sink_info(self.current_id)
         try:
-            async for value in self.pulse.subscribe_peak_sample(data.monitor_source, self.frequency):
+            async for value in self.pulse.subscribe_peak_sample(data.monitor_source_name, self.frequency):
                 self._publish(RangeFloat1(value), [])
         except (asyncio.CancelledError, PulseDisconnected):
             pass
+        except Exception as e:
+            logger.error("Error while monitoring peaks of sink %s:", data.name, exc_info=e)
 
 
 class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
