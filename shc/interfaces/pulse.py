@@ -389,8 +389,7 @@ class SinkStateConnector(SinkAttributeConnector[bool]):
 
 
 class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
-    def __init__(self, pulse: PulseAsync,
-                 register_origin_callback: Callable[[PulseEventFacilityEnum, int, List[Any]], None]):
+    def __init__(self, pulse: PulseAsync, register_origin_callback: Callable[[str, int, List[Any]], None]):
         super().__init__(pulse, bool)
         self.register_origin_callback = register_origin_callback
 
@@ -405,8 +404,7 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
 
 
 class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[PulseVolumeRaw]):
-    def __init__(self, pulse: PulseAsync,
-                 register_origin_callback: Callable[[PulseEventFacilityEnum, int, List[Any]], None]):
+    def __init__(self, pulse: PulseAsync, register_origin_callback: Callable[[str, int, List[Any]], None]):
         super().__init__(pulse, PulseVolumeRaw)
         self.register_origin_callback = register_origin_callback
 
