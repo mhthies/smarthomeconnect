@@ -70,7 +70,7 @@ class PulseVolumeTests(unittest.TestCase):
 class SinkConnectorTests(unittest.TestCase):
     def setUp(self) -> None:
         pulse_dir, self.pulse_process = create_dummy_instance()
-        time.sleep(0.05)  # let Pulseaudio start
+        time.sleep(0.5)  # let Pulseaudio start
         self.pulse_url = f"unix:{pulse_dir / 'pulse' / 'native'}"
         self.interface_runner = InterfaceThreadRunner(shc.interfaces.pulse.PulseAudioInterface,
                                                       pulse_server_socket=self.pulse_url)
