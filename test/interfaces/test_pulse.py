@@ -263,6 +263,6 @@ load-module module-null-sink sink_name=testsink1
 load-module module-null-sink sink_name=testsink2 channels=6 channel_map=front-left,front-right,rear-left,rear-right,front-center,lfe
 load-module module-null-source source_name=testsource1
 load-module module-null-source source_name=testsource2
-""".encode())
+""".encode())  # noqa: E501
     proc.stdin.close()
     return Path(pulse_dir), proc

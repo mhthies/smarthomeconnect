@@ -46,9 +46,9 @@ class PulseVolumeBalance(NamedTuple):
         from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
             pa_cvolume_set_balance, pa_cvolume_scale  # type: ignore
 
-        l = len(self.normalized_values)
-        cvolume = PA_CVOLUME(l, (pa_volume_t * PA_CHANNELS_MAX)(*self.normalized_values))
-        cmap = PA_CHANNEL_MAP(l, (c.c_int * PA_CHANNELS_MAX)(*self.map))
+        num_channels = len(self.normalized_values)
+        cvolume = PA_CVOLUME(num_channels, (pa_volume_t * PA_CHANNELS_MAX)(*self.normalized_values))
+        cmap = PA_CHANNEL_MAP(num_channels, (c.c_int * PA_CHANNELS_MAX)(*self.map))
         pa_cvolume_set_lfe_balance(cvolume, cmap, self.lfe_balance)
         pa_cvolume_set_fade(cvolume, cmap, self.fade)
         pa_cvolume_set_balance(cvolume, cmap, self.balance)
@@ -62,10 +62,10 @@ class PulseVolumeBalance(NamedTuple):
             pa_cvolume_set_balance, pa_cvolume_scale, pa_cvolume_max, pa_cvolume_get_balance, pa_cvolume_get_fade, \
             pa_cvolume_get_lfe_balance
 
-        l = len(raw_volume.values)
-        cvolume = PA_CVOLUME(l, (pa_volume_t * PA_CHANNELS_MAX)(*(round(PA_VOLUME_NORM * v)
-                                                                  for v in raw_volume.values)))
-        cmap = PA_CHANNEL_MAP(l, (c.c_int * PA_CHANNELS_MAX)(*raw_volume.map))
+        num_channels = len(raw_volume.values)
+        cvolume = PA_CVOLUME(num_channels, (pa_volume_t * PA_CHANNELS_MAX)(*(round(PA_VOLUME_NORM * v)
+                                                                             for v in raw_volume.values)))
+        cmap = PA_CHANNEL_MAP(num_channels, (c.c_int * PA_CHANNELS_MAX)(*raw_volume.map))
         volume = pa_cvolume_max(cvolume) / PA_VOLUME_NORM
         pa_cvolume_scale(cvolume, PA_VOLUME_NORM)
         balance = pa_cvolume_get_balance(cvolume, cmap)
@@ -75,7 +75,7 @@ class PulseVolumeBalance(NamedTuple):
         lfe_balance = pa_cvolume_get_lfe_balance(cvolume, cmap)
         pa_cvolume_set_lfe_balance(cvolume, cmap, 0.0)
         return cls(RangeFloat1(volume), Balance(balance), Balance(fade), Balance(lfe_balance),
-                   list(cvolume.values)[:l], raw_volume.map)
+                   list(cvolume.values)[:num_channels], raw_volume.map)
 
 
 shc.conversion.register_converter(PulseVolumeRaw, PulseVolumeBalance, PulseVolumeBalance.from_channels)
@@ -117,7 +117,8 @@ class PulseAudioInterface(SupervisedClientInterface):
 
         # A dict for keeping track of the SHC value update origin of changes we are currently applying to the Pulseaudio
         # server, so that we can correctly apply the original origin list to the resulting Pulseaudio event
-        self._change_event_origin: DefaultDict[Tuple[PulseEventFacilityEnum, int], Deque[List[Any]]] = defaultdict(deque)
+        self._change_event_origin: DefaultDict[Tuple[PulseEventFacilityEnum, int], Deque[List[Any]]] \
+            = defaultdict(deque)
 
     async def _connect(self) -> None:
         await self.pulse.connect()
