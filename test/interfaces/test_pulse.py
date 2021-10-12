@@ -210,6 +210,7 @@ def create_dummy_instance() -> Tuple[Path, subprocess.Popen]:
         ['pulseaudio', '--daemonize=no', '--fail',
          '-nF', '/dev/stdin', '--exit-idle-time=-1', '--log-level=error'],
         env=env, stdin=subprocess.PIPE)
+    assert proc.stdin is not None
     proc.stdin.write("""
 load-module module-suspend-on-idle
 load-module module-filter-heuristics

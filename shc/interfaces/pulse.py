@@ -42,9 +42,9 @@ class PulseVolumeBalance(NamedTuple):
     map: list = []
 
     def as_channels(self) -> PulseVolumeRaw:
-        from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
+        from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM  # type: ignore
         from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
-            pa_cvolume_set_balance, pa_cvolume_scale
+            pa_cvolume_set_balance, pa_cvolume_scale  # type: ignore
 
         l = len(self.normalized_values)
         cvolume = PA_CVOLUME(l, (pa_volume_t * PA_CHANNELS_MAX)(*self.normalized_values))
@@ -140,7 +140,7 @@ class PulseAudioInterface(SupervisedClientInterface):
                 try:
                     connector.change_id(sink_info.index)
                     self.sink_connectors_by_id[sink_info.index].append(connector)
-                    connector.on_change(sink_info)
+                    connector.on_change(sink_info, [])
                 except Exception as e:
                     logging.error("Error while initializing connector %s with current data of sink", connector,
                                   exc_info=e)
@@ -155,7 +155,7 @@ class PulseAudioInterface(SupervisedClientInterface):
                 try:
                     source_connector.current_id = source_info.index
                     self.source_connectors_by_id[source_info.index].append(source_connector)
-                    source_connector.on_change(source_info)
+                    source_connector.on_change(source_info, [])
                 except Exception as e:
                     logging.error("Error while initializing connector %s with current data of source", source_connector,
                                   exc_info=e)
@@ -234,18 +234,20 @@ class PulseAudioInterface(SupervisedClientInterface):
                 default_sink_data = await self.pulse.get_sink_by_name(server_info.default_sink_name)
                 default_source_data = await self.pulse.get_source_by_name(server_info.default_source_name)
                 for connector in self.sink_connectors_by_name.get(None, []):
-                    try:
-                        self.sink_connectors_by_id[connector.current_id].remove(connector)
-                    except ValueError:
-                        pass
+                    if connector.current_id is not None:
+                        try:
+                            self.sink_connectors_by_id[connector.current_id].remove(connector)
+                        except ValueError:
+                            pass
                     connector.change_id(default_sink_data.index)
                     self.sink_connectors_by_id[default_sink_data.index].append(connector)
                     connector.on_change(default_sink_data, [])  # should we set the original origin here?
                 for source_connector in self.source_connectors_by_name.get(None, []):
-                    try:
-                        self.source_connectors_by_id[source_connector.current_id].remove(source_connector)
-                    except ValueError:
-                        pass
+                    if source_connector.current_id is not None:
+                        try:
+                            self.source_connectors_by_id[source_connector.current_id].remove(source_connector)
+                        except ValueError:
+                            pass
                     source_connector.change_id(default_source_data.index)
                     self.source_connectors_by_id[default_source_data.index].append(source_connector)
                     source_connector.on_change(default_source_data, [])  # should we set the original origin here?
