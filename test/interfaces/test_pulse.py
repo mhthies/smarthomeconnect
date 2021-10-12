@@ -137,7 +137,11 @@ class SinkConnectorTests(unittest.TestCase):
         value1_new = value1._replace(values=[0.8, 0.7])
         await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector1.write(value1_new, [self]),
                                                                    loop=self.interface_runner.loop))
-        # TODO check event update on target1 (incl. origin)
+        await asyncio.sleep(0.05)
+        target1._write.assert_called_once()
+        self.assertEqual([self, volume_connector1], target1._write.call_args[0][1])
+        for v1, v2 in zip(value1_new.values, target1._write.call_args[0][0].values):
+            self.assertAlmostEqual(v1, v2, places=4)
         response = await self._run_pactl('get-sink-volume', 'testsink1')
         self.assertIn("front-left: 52429", response)
         self.assertIn("front-right: 45875", response)
@@ -175,9 +179,11 @@ class SinkConnectorTests(unittest.TestCase):
         target._write.assert_not_called()
 
         # Write to default sink's (testsink2's) mute
+        target._write.reset_mock()
         await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.write(True, [self]),
                                                                    loop=self.interface_runner.loop))
-        # TODO check event update on target1 (incl. origin)
+        await asyncio.sleep(0.05)
+        target._write.assert_called_once_with(True, [self, mute_connector])
         self.assertIn("yes", await self._run_pactl('get-sink-mute', 'testsink2'))
         self.assertIn("no", await self._run_pactl('get-sink-mute', 'testsink1'))
 
