@@ -158,8 +158,14 @@ class PulseAudioInterface(SupervisedClientInterface):
 
     async def _run(self) -> None:
         self._running.set()
-        # TODO only subscribe required event facilities
-        async for event in self.pulse.subscribe_events('sink', 'source', 'server'):
+        subscribe_facilities = []
+        if self._subscribe_server:
+            subscribe_facilities.append('server')
+        if self._subscribe_sinks:
+            subscribe_facilities.append('sink')
+        if self._subscribe_sources:
+            subscribe_facilities.append('source')
+        async for event in self.pulse.subscribe_events(*subscribe_facilities):
             try:
                 await self._dispatch_pulse_event(event)
             except Exception as e:
@@ -228,48 +234,58 @@ class PulseAudioInterface(SupervisedClientInterface):
                     source_connector.on_change(default_source_data)
 
     def sink_volume(self, sink_name: str) -> "SinkVolumeConnector":
+        self._subscribe_sinks = True
         connector = SinkVolumeConnector(self.pulse)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_muted(self, sink_name: str) -> "SinkMuteConnector":
+        self._subscribe_sinks = True
         connector = SinkMuteConnector(self.pulse)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_running(self, sink_name: str) -> Readable[bool]:
+        self._subscribe_sinks = True
         connector = SinkStateConnector(self.pulse)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_peak_monitor(self, sink_name: str, frequency: int = 1) -> "SinkPeakConnector":
+        self._subscribe_sinks = True
         connector = SinkPeakConnector(self.pulse, frequency)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def default_sink_volume(self) -> "SinkVolumeConnector":
+        self._subscribe_server = True
+        self._subscribe_sinks = True
         connector = SinkVolumeConnector(self.pulse)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_muted(self) -> "SinkMuteConnector":
+        self._subscribe_server = True
+        self._subscribe_sinks = True
         connector = SinkMuteConnector(self.pulse)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_running(self) -> Readable[bool]:
+        self._subscribe_server = True
+        self._subscribe_sinks = True
         connector = SinkStateConnector(self.pulse)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_peak_monitor(self, frequency: int = 1) -> "SinkPeakConnector":
+        self._subscribe_server = True
         connector = SinkPeakConnector(self.pulse, frequency)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_name(self) -> "DefaultNameConnector":
         self._subscribe_server = True
-        self._subscribe_sinks = True
         return self._default_sink_name_connector
 
     def source_volume(self, source_name: str) -> Connectable[PulseVolumeRaw]: ...  # TODO
@@ -277,6 +293,7 @@ class PulseAudioInterface(SupervisedClientInterface):
     def source_running(self, source_name: str) -> Connectable[bool]: ...  # TODO
 
     def source_peak_monitor(self, source_name: str, frequency: int = 1) -> "SourcePeakConnector":
+        self._subscribe_sources = True
         connector = SourcePeakConnector(self.pulse, frequency)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
@@ -286,13 +303,13 @@ class PulseAudioInterface(SupervisedClientInterface):
     def default_source_running(self) -> Connectable[bool]: ...  # TODO
 
     def default_source_peak_monitor(self, frequency: int = 1) -> "SourcePeakConnector":
+        self._subscribe_server = True
         connector = SourcePeakConnector(self.pulse, frequency)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
     def default_source_name(self) -> "DefaultNameConnector":
         self._subscribe_server = True
-        self._subscribe_sources = True
         return self._default_source_name_connector
 
 
