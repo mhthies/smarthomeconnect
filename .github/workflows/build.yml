@@ -38,6 +38,8 @@ jobs:
         coverage report -m
     - uses: codecov/codecov-action@v2
       if: ${{ always() }}
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   static-analysis:
     runs-on: ubuntu-latest
