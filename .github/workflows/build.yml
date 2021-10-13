@@ -22,7 +22,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install coverage codecov
+        pip install coverage
         pip install -r requirements.txt
     - name: Install and pack web ui assets
       run: |
@@ -32,12 +32,10 @@ jobs:
       run: |
         coverage run --source=shc,example -m unittest
     - name: Report test coverage & Upload to Codecov.io
-      if: ${{ always() }}
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
         coverage report -m
-        codecov
+    - uses: codecov/codecov-action@v2
+      if: ${{ always() }}
 
   static-analysis:
     runs-on: ubuntu-latest
