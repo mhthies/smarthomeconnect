@@ -396,6 +396,48 @@ class SinkConnectorTests(unittest.TestCase):
         await asyncio.sleep(0.05)
         state_target._write.assert_called_with(False, unittest.mock.ANY)
 
+    @async_test
+    async def test_default_name(self) -> None:
+        default_sink_connector = self.interface.default_sink_name()
+        sink_target = ExampleWritable(str).connect(default_sink_connector)
+        default_source_connector = self.interface.default_source_name()
+        source_target = ExampleWritable(str).connect(default_source_connector)
+
+        await self._run_pactl('set-default-sink', 'testsink1')
+        await self._run_pactl('set-default-source', 'testsource1')
+
+        self.interface_runner.start()
+
+        sink_target._write.assert_called_with('testsink1', unittest.mock.ANY)
+        source_target._write.assert_called_with('testsource1', unittest.mock.ANY)
+        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(default_sink_connector.read(),
+                                                                           loop=self.interface_runner.loop))
+        self.assertEqual('testsink1', value)
+        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(default_source_connector.read(),
+                                                                           loop=self.interface_runner.loop))
+        self.assertEqual('testsource1', value)
+
+        # External change of default sink/source
+        sink_target._write.reset_mock()
+        source_target._write.reset_mock()
+        await self._run_pactl('set-default-sink', 'testsink2')
+        await asyncio.sleep(0.1)
+        sink_target._write.assert_called_once_with('testsink2', unittest.mock.ANY)
+        await self._run_pactl('set-default-source', 'testsource2')
+        await asyncio.sleep(0.1)
+        source_target._write.assert_called_with('testsource2', unittest.mock.ANY)
+
+        # Change from SHC
+        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(default_sink_connector.write('testsink1', [self]),
+                                                                   loop=self.interface_runner.loop))
+        await asyncio.sleep(0.1)
+        sink_target._write.assert_called_with('testsink1', [self, default_sink_connector])
+        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(
+            default_source_connector.write('testsource1', [self]),
+            loop=self.interface_runner.loop))
+        await asyncio.sleep(0.1)
+        source_target._write.assert_called_with('testsource1', [self, default_source_connector])
+
     async def _run_pactl(self, *args) -> str:
         proc = await asyncio.create_subprocess_exec(
             'pactl',

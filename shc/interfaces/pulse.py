@@ -109,8 +109,10 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.source_connectors_by_id: DefaultDict[int, List["SourceConnector"]] = defaultdict(list)
         self.source_connectors_by_name: DefaultDict[Optional[str], List["SourceConnector"]] = defaultdict(list)
 
-        self._default_sink_name_connector = DefaultNameConnector(self.pulse, "default_sink_name")
-        self._default_source_name_connector = DefaultNameConnector(self.pulse, "default_source_name")
+        self._default_sink_name_connector = DefaultNameConnector(
+            self.pulse, "default_sink_name", self._register_origin_callback)
+        self._default_source_name_connector = DefaultNameConnector(
+            self.pulse, "default_source_name", self._register_origin_callback)
         #: A subset of {'source', 'sink', 'server'}
         self._subscribe_facilities: Set[str] = set()
 
@@ -201,7 +203,7 @@ class PulseAudioInterface(SupervisedClientInterface):
             # Check if the event has probably been caused by a value update from SHC. In this case, we should have the
             # original origin stored in self.event_origin and can apply it to the publishing of the event
             try:
-                index = 0 if event.t == PulseEventFacilityEnum.server else event.index
+                index = 0 if event.facility == PulseEventFacilityEnum.server else event.index
                 origin = self._change_event_origin[(event.facility._value, index)].popleft()
             except IndexError:
                 origin = []
@@ -554,14 +556,12 @@ class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
             self.task.cancel()
             self.task = None
         super().change_id(index)
-        print("got index", index)
         if index is not None and not self.task:
             self.task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
         data = await self.pulse.source_info(self.current_id)
         try:
-            print("starting monitoring of ", data.name)
             async for value in self.pulse.subscribe_peak_sample(data.name, self.frequency):
                 self._publish(RangeFloat1(value), [])
         except (asyncio.CancelledError, PulseDisconnected):
@@ -570,13 +570,14 @@ class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
             logger.error("Error while monitoring peaks of source %s:", data.name, exc_info=e)
 
 
-class DefaultNameConnector(Subscribable[str], Readable[str]):  # TODO make writable
+class DefaultNameConnector(Subscribable[str], Readable[str], Writable[str]):
     type = str
 
-    def __init__(self, pulse: PulseAsync, attr: str):
+    def __init__(self, pulse: PulseAsync, attr: str, register_origin_callback: Callable[[str, int, List[Any]], None]):
         super().__init__()
         self.pulse = pulse
         self.attr = attr
+        self.register_origin_callback = register_origin_callback
 
     def _update(self, server_info: PulseServerInfo, origin: List[Any]) -> None:
         self._publish(getattr(server_info, self.attr), origin)
@@ -584,3 +585,10 @@ class DefaultNameConnector(Subscribable[str], Readable[str]):  # TODO make writa
     async def read(self) -> str:
         server_info = await self.pulse.server_info()
         return getattr(server_info, self.attr)
+
+    async def _write(self, value: str, origin: List[Any]) -> None:
+        self.register_origin_callback('server', 0, origin)
+        if self.attr == 'default_source_name':
+            await self.pulse.source_default_set(value)
+        else:
+            await self.pulse.sink_default_set(value)
