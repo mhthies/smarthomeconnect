@@ -409,7 +409,7 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
         self.register_origin_callback = register_origin_callback
 
     def _convert_from_pulse(self, data: PulseSinkInfo) -> PulseVolumeRaw:
-        return PulseVolumeRaw(data.volume.values, data.channel_map)
+        return PulseVolumeRaw(data.volume.values, data.channel_list_raw)
 
     async def _write(self, value: PulseVolumeRaw, origin: List[Any]) -> None:
         if self.current_id is None:
