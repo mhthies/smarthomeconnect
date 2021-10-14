@@ -229,6 +229,173 @@ class SinkConnectorTests(unittest.TestCase):
         await asyncio.sleep(0.05)
         state_target._write.assert_called_with(False, unittest.mock.ANY)
 
+    @async_test
+    async def test_source_volume(self) -> None:
+        volume_connector1 = self.interface.source_volume("testsource1")
+        target1 = ExampleWritable(shc.interfaces.pulse.PulseVolumeRaw).connect(volume_connector1)
+        volume_connector2 = self.interface.source_volume("testsource2")
+        target2 = ExampleWritable(shc.interfaces.pulse.PulseVolumeRaw).connect(volume_connector2)
+        volume_connector3 = self.interface.source_volume("testsource3")
+        target3 = ExampleWritable(shc.interfaces.pulse.PulseVolumeRaw).connect(volume_connector3)
+
+        # Initialize source volumes
+        await self._run_pactl('set-source-volume', 'testsource1', '90%')
+        await self._run_pactl('set-source-volume', 'testsource2', '100%')
+
+        self.interface_runner.start()
+
+        # Read source volumes
+        value1 = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector1.read(),
+                                                                            loop=self.interface_runner.loop))
+        self.assertAlmostEqual(0.9, value1.values[0], places=3)
+        value2 = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector2.read(),
+                                                                            loop=self.interface_runner.loop))
+        self.assertAlmostEqual(1.0, value2.values[0], places=3)
+        with self.assertRaises(shc.base.UninitializedError):
+            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector3.read(),
+                                                                       loop=self.interface_runner.loop))
+
+        # External volume change to testsource2
+        target1._write.reset_mock()
+        target2._write.reset_mock()
+        await self._run_pactl('set-source-volume', 'testsource2', '90%', '80%')
+        await asyncio.sleep(0.05)
+        target2._write.assert_called_once()
+        for v1, v2 in zip([0.9, 0.8], target2._write.call_args[0][0].values):
+            self.assertAlmostEqual(v1, v2, places=4)
+        target1._write.assert_not_called()
+        target3._write.assert_not_called()
+
+        # testsource3 added
+        output = await self._run_pactl('load-module', 'module-null-source', 'source_name=testsource3')
+        module_id = int(output)
+        await asyncio.sleep(0.05)
+        target3._write.assert_called_once()
+        for v1, v2 in zip([1.0, 1.0], target3._write.call_args[0][0].values):
+            self.assertAlmostEqual(v1, v2, places=4)
+
+        # unload testsource3
+        await self._run_pactl('unload-module', str(module_id))
+        await asyncio.sleep(0.05)
+        with self.assertRaises(shc.base.UninitializedError):
+            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector3.read(),
+                                                                       loop=self.interface_runner.loop))
+
+        # Write to testsource1's volume
+        value1_new = value1._replace(values=[0.8, 0.7])
+        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector1.write(value1_new, [self]),
+                                                                   loop=self.interface_runner.loop))
+        await asyncio.sleep(0.05)
+        target1._write.assert_called_once()
+        self.assertEqual([self, volume_connector1], target1._write.call_args[0][1])
+        for v1, v2 in zip(value1_new.values, target1._write.call_args[0][0].values):
+            self.assertAlmostEqual(v1, v2, places=4)
+        response = (await self._pactl_get_data('source', 'testsource1'))['Volume']
+        self.assertIn("front-left: 52429", response)
+        self.assertIn("front-right: 45875", response)
+
+    @async_test
+    async def test_default_source_mute(self) -> None:
+        mute_connector = self.interface.default_source_muted()
+        target = ExampleWritable(bool).connect(mute_connector)
+
+        await self._run_pactl('set-default-source', 'testsource1')
+
+        self.interface_runner.start()
+
+        # Read source volumes
+        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.read(),
+                                                                           loop=self.interface_runner.loop))
+        self.assertIs(value, False)
+
+        # External mute change to testsource1
+        target._write.reset_mock()
+        await self._run_pactl('set-source-mute', 'testsource1', 'true')
+        await asyncio.sleep(0.05)
+        target._write.assert_called_once_with(True, unittest.mock.ANY)
+
+        # Change default source to testsource2
+        target._write.reset_mock()
+        await self._run_pactl('set-default-source', 'testsource2')
+        await asyncio.sleep(0.05)
+        target._write.assert_called_once_with(False, unittest.mock.ANY)
+
+        # External mute change to testsource1, which should not have an effect
+        target._write.reset_mock()
+        await self._run_pactl('set-source-mute', 'testsource1', 'false')
+        await asyncio.sleep(0.05)
+        target._write.assert_not_called()
+
+        # Write to default source's (testsource2's) mute
+        target._write.reset_mock()
+        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.write(True, [self]),
+                                                                   loop=self.interface_runner.loop))
+        await asyncio.sleep(0.05)
+        target._write.assert_called_once_with(True, [self, mute_connector])
+        self.assertIn("yes", (await self._pactl_get_data('source', 'testsource2'))['Mute'])
+        self.assertIn("no", (await self._pactl_get_data('source', 'testsource1'))['Mute'])
+
+    @async_test
+    async def test_source_peak(self) -> None:
+        peak_connector = self.interface.source_peak_monitor('testsink1.monitor', 20)
+        peak_target = ExampleWritable(RangeFloat1).connect(peak_connector)
+
+        await self._run_pactl('set-default-sink', 'testsink1')
+        await self._run_pactl('set-default-source', 'testsink1.monitor')
+
+        self.interface_runner.start()
+
+        # We need to wait for 2 seconds for the peak monitoring to start, due to the source default latency of 2s.
+        # In theory, we should be able to reduce the latency by playing something with low-latency before, but I didn't
+        # manage to do that.
+        await asyncio.sleep(3)
+
+        peak_target._write.assert_called_with(0.0, unittest.mock.ANY)
+
+        # start noise playback to get some readings on the peak monitoring of the monitor source
+        proc = await asyncio.create_subprocess_exec(
+            'paplay', '-s', self.pulse_url, '--raw', '/dev/urandom', env=dict(PATH=os.environ['PATH']))
+        await asyncio.sleep(0.1)
+        self.assertGreater(peak_target._write.call_count, 2)
+        self.assertGreater(peak_target._write.call_args[0][0], 0.0)
+
+        # Stop noise playback
+        proc.terminate()
+        await proc.wait()
+
+    @async_test
+    async def test_source_state(self) -> None:
+        state_connector = self.interface.source_running('testsource1')
+        state_target = ExampleWritable(bool).connect(state_connector)
+
+        await self._run_pactl('set-default-source', 'testsource1')
+
+        self.interface_runner.start()
+
+        # No output to the source yet
+        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(state_connector.read(),
+                                                                           loop=self.interface_runner.loop))
+        self.assertIs(value, False)
+        state_target._write.assert_called_with(False, unittest.mock.ANY)
+
+        # start recording from monitor source (to /dev/null)
+        proc = await asyncio.create_subprocess_exec(
+            'paplay', '-s', self.pulse_url, '-r', '/dev/null', env=dict(PATH=os.environ['PATH']))
+
+        # Check source state and source monitor
+        await asyncio.sleep(0.1)
+        state_target._write.assert_called_with(True, unittest.mock.ANY)
+        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(state_connector.read(),
+                                                                           loop=self.interface_runner.loop))
+        self.assertIs(value, True)
+
+        # Stop recording and noise playback
+        proc.terminate()
+        await proc.wait()
+
+        await asyncio.sleep(0.05)
+        state_target._write.assert_called_with(False, unittest.mock.ANY)
+
     async def _run_pactl(self, *args) -> str:
         proc = await asyncio.create_subprocess_exec(
             'pactl',
