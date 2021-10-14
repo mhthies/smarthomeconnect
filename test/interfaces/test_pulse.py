@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -9,7 +10,7 @@ import unittest.mock
 import ctypes
 import ctypes.util
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Dict
 
 from shc.datatypes import RangeFloat1, Balance
 from .._helper import async_test, InterfaceThreadRunner, ExampleWritable
@@ -142,7 +143,7 @@ class SinkConnectorTests(unittest.TestCase):
         self.assertEqual([self, volume_connector1], target1._write.call_args[0][1])
         for v1, v2 in zip(value1_new.values, target1._write.call_args[0][0].values):
             self.assertAlmostEqual(v1, v2, places=4)
-        response = await self._run_pactl('get-sink-volume', 'testsink1')
+        response = (await self._pactl_get_data('sink', 'testsink1'))['Volume']
         self.assertIn("front-left: 52429", response)
         self.assertIn("front-right: 45875", response)
 
@@ -184,8 +185,8 @@ class SinkConnectorTests(unittest.TestCase):
                                                                    loop=self.interface_runner.loop))
         await asyncio.sleep(0.05)
         target._write.assert_called_once_with(True, [self, mute_connector])
-        self.assertIn("yes", await self._run_pactl('get-sink-mute', 'testsink2'))
-        self.assertIn("no", await self._run_pactl('get-sink-mute', 'testsink1'))
+        self.assertIn("yes", (await self._pactl_get_data('sink', 'testsink2'))['Mute'])
+        self.assertIn("no", (await self._pactl_get_data('sink', 'testsink1'))['Mute'])
 
     @async_test
     async def test_sink_peak_and_state(self) -> None:
@@ -242,6 +243,30 @@ class SinkConnectorTests(unittest.TestCase):
         if proc.returncode:
             raise RuntimeError(f"pactl failed with exit code {proc.returncode}. StdErr:\n{stderr.decode()}")
         return stdout.decode()
+
+    async def _pactl_get_data(self, facility: str, name: str) -> Dict[str, str]:
+        """
+        Use `pactl list sinks` (etc.) as a replacement for `pactl get-sink-volume` etc.
+
+        The get-*-* actions of pactl are quite new and – at the time of writing – not available in the pactl version of
+        Ubuntu LTS, which is used for the GitHub Actions CI. Thus, we have this workaround for testing the correct
+        modification of attributes.
+
+        :param facility: 'sink', 'source', etc.
+        :param name: Name of the sink/source/etc. of interest
+        :return: A dict of all the properties of the Pulseaudio object of interest, e.g.
+            {'Name': …, 'Volume': …, 'Mute': …, …}
+        """
+        data = await self._run_pactl('list', facility + 's')
+        items = re.split(r'(?:\n|^)[\w ]+ #\d+\n', data)
+        for text in items[1:]:
+            name_match = re.search(r"(?:\n|^)\s*Name: (.*?)\n", text)
+            if not name_match or name_match.group(1).strip() != name:
+                continue
+            entries = re.split(r'(?:\n|^)\t([\w ]+): ', text)
+            a = iter(entries[1:])
+            return {k: v.strip() for k, v in zip(a, a)}
+        raise KeyError(f"No {facility} with name '{name}' found in pactl output.")
 
 
 def create_dummy_instance() -> Tuple[Path, subprocess.Popen]:
