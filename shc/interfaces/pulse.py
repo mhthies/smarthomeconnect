@@ -365,7 +365,7 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
-    def sink_running(self, sink_name: str) -> Readable[bool]:
+    def sink_running(self, sink_name: str) -> "SinkStateConnector":
         self._subscribe_facilities.add('sink')
         connector = SinkStateConnector(self.pulse)
         self.sink_connectors_by_name[sink_name].append(connector)
@@ -391,7 +391,7 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
-    def default_sink_running(self) -> Readable[bool]:
+    def default_sink_running(self) -> "SinkStateConnector":
         self._subscribe_facilities.add('server')
         self._subscribe_facilities.add('sink')
         connector = SinkStateConnector(self.pulse)
@@ -432,7 +432,7 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
-    def default_source_volume(self) -> Connectable[PulseVolumeRaw]:
+    def default_source_volume(self) -> "SourceVolumeConnector":
         self._subscribe_facilities.add('source')
         self._subscribe_facilities.add('server')
         connector = SourceVolumeConnector(self.pulse, self._register_origin_callback)
