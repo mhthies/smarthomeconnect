@@ -30,7 +30,7 @@ if libpulse_available:
 class PulseVolumeTests(unittest.TestCase):
     def test_stereo_volume_conversion(self) -> None:
         vol = shc.interfaces.pulse.PulseVolumeRaw([1.0, 0.5], [1, 2])
-        vol_split = shc.interfaces.pulse.PulseVolumeBalance.from_channels(vol)
+        vol_split = shc.interfaces.pulse.PulseVolumeComponents.from_channels(vol)
         self.assertEqual(vol.map, vol_split.map)
         self.assertAlmostEqual(-0.5, vol_split.balance)
         self.assertEqual(1.0, vol_split.volume)
@@ -48,7 +48,7 @@ class PulseVolumeTests(unittest.TestCase):
 
     def test_5_1_volume_conversion(self) -> None:
         vol = shc.interfaces.pulse.PulseVolumeRaw([0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [1, 2, 5, 6, 3, 7])
-        vol_split = shc.interfaces.pulse.PulseVolumeBalance.from_channels(vol)
+        vol_split = shc.interfaces.pulse.PulseVolumeComponents.from_channels(vol)
         self.assertEqual(vol.map, vol_split.map)
         self.assertAlmostEqual(1-0.2/0.3, vol_split.balance, places=4)
         self.assertAlmostEqual(0.6, vol_split.volume, places=4)

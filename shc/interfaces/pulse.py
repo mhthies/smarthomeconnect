@@ -20,19 +20,40 @@ logger = logging.getLogger(__name__)
 
 class PulseVolumeRaw(NamedTuple):
     """
-    TODO
+    "raw" representation of the volume setting of a Pulseaudio sink or source with individual channel volume values.
+
+    :param values: List of float values of the volume setting of each individual channel of the sink/source from 0.0 to
+        1.0
+    :param map: Pulseaudio channel map as a list of integer channel positions, according to the libpulse
+        `pa_channel_position` enum. E.g. [0] for mono; [1, 2] for normal stereo (left, right); [1, 2, 5, 6, 3, 7] for
+        typical 5.1 surround devices. See https://freedesktop.org/software/pulseaudio/doxygen/channelmap_8h.html for
+        reference. This is required for converting into the component-based :class:`PulseVolumeComponents`
+        representation.
     """
     values: list = []
     map: list = []
 
 
-class PulseVolumeBalance(NamedTuple):
+class PulseVolumeComponents(NamedTuple):
     """
-    TODO
+    abstract "component-based" representation of the volume setting of a Pulseaudio sink or source
 
     .. warning:
         Conversion methods :meth:`as_channels` and :meth:`from_channels`, which are used as default converters into/from
-        PulseVolumeRaw objects, require the libpulse shared library.
+        :class:`PulseVolumeRaw` objects, require the libpulse shared library. This might be a problem when using and
+        converting these datatypes on a remote SHC server, different from the SHC instance running the
+        :class:`PulseAudioInterface`.
+
+    :param volume: Master volume of the sink/source. Corresponds to the maximum individual channel volume
+    :param balance: left/right balance (-1.0 means 100% left, +1.0 means 100% right).
+    :param fade: rear/front balance (-1.0 means 100% rear speakers, +1.0 means 100% front speakers). If no surround
+        channels are present, it is always 0.0.
+    :param lfe_balance: subwoofer balance (-1.0 means no subwoofer, +1.0 means only subwoofer). If no subwoofer/LFE
+        channel is present, the value is always 0.0
+    :param map: Pulseaudio channel map as a list of integer channel positions, according to the libpulse
+        `pa_channel_position` enum. E.g. [0] for mono; [1, 2] for normal stereo (left, right); [1, 2, 5, 6, 3, 7] for
+        typical 5.1 surround devices. See https://freedesktop.org/software/pulseaudio/doxygen/channelmap_8h.html for
+        reference. This is required for the conversion functions to/from :class:`PulseVolumeRaw`.
     """
     volume: RangeFloat1 = RangeFloat1(1.0)
     balance: Balance = Balance(0.0)
@@ -42,6 +63,15 @@ class PulseVolumeBalance(NamedTuple):
     map: list = []
 
     def as_channels(self) -> PulseVolumeRaw:
+        """
+        Assemble a :class:`PulseVolumeRaw` volume object from the component-based representation and the additional
+        derivations in the `normalized_values` field.
+
+        This method uses C function bindings from libpulse to calculate apply the balance, face, etc. to the channel
+        volume values, using the channel map. Thus, the `libpulse` C shared library is required to use this method.
+
+        This method is the SHC default converter from :class:`PulseVolumeComponents` to :class:`PulseVolumeRaw`.
+        """
         from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM  # type: ignore
         from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
             pa_cvolume_set_balance, pa_cvolume_scale  # type: ignore
@@ -56,7 +86,15 @@ class PulseVolumeBalance(NamedTuple):
         return PulseVolumeRaw([v / PA_VOLUME_NORM for v in cvolume.values[:cvolume.channels]], self.map)
 
     @classmethod
-    def from_channels(cls, raw_volume: PulseVolumeRaw) -> "PulseVolumeBalance":
+    def from_channels(cls, raw_volume: PulseVolumeRaw) -> "PulseVolumeComponents":
+        """
+        Convert a :class:`PulseVolumeRaw` volume object into the component-based representation.
+
+        This method uses C function bindings from libpulse to calculate the balance, face, etc. from the channel volume
+        values and the channel map. Thus, the `libpulse` C shared library is required to use this method.
+
+        This method is the SHC default converter from :class:`PulseVolumeRaw` to :class:`PulseVolumeComponents`.
+        """
         from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
         from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
             pa_cvolume_set_balance, pa_cvolume_scale, pa_cvolume_max, pa_cvolume_get_balance, pa_cvolume_get_fade, \
@@ -78,14 +116,76 @@ class PulseVolumeBalance(NamedTuple):
                    list(cvolume.values)[:num_channels], raw_volume.map)
 
 
-shc.conversion.register_converter(PulseVolumeRaw, PulseVolumeBalance, PulseVolumeBalance.from_channels)
-shc.conversion.register_converter(PulseVolumeBalance, PulseVolumeRaw, lambda v: v.as_channels())
+shc.conversion.register_converter(PulseVolumeRaw, PulseVolumeComponents, PulseVolumeComponents.from_channels)
+shc.conversion.register_converter(PulseVolumeComponents, PulseVolumeRaw, lambda v: v.as_channels())
 
 
 class PulseAudioInterface(SupervisedClientInterface):
     """
     Interface for controlling a Pulseaudio server and receiving status feedback, esp. sink and source volumes, muting,
     and level monitoring.
+
+    The interface is based on the pulsectl and pulsectl-asyncio python packages, which internally use C function
+    bindings to the Pulseaudio client shared library `libpulse`. Thus, this library must be installed on the system
+    where SHC is running, for the PulseAudio interface to work. In Debian and Ubuntu, its contained in the `libpulse0`
+    package, on Arch Linux the package is named `libpulse`.
+
+    Currently the interface provides connectors for the following tasks:
+
+    - subscribe to, read and change volume of a Pulseaudio sink (output device) or source (input device)
+    - subscribe to, read and change mute state of a Pulseaudio sink or source
+    - subscribe to and read state (running vs. idle/suspended) of a sink or source
+    - monitor audio level of a sink or source
+    - subscribe to, read and change the current default sink or default source by name
+
+    All of the sink/source connectors are available in two different flavors: They can either be bound to a specific
+    sink/source by name or follow the current default sink/source of the Pulseaudio server. Reading from connectors with
+    a fixed sink/source name will raise an :class`shc.UninitializedError` if no such sink/source is present. They will
+    automatically become active as soon as the sink/source appears. Default sink/source connectors will always publish
+    the new respective value when the default sink/source changes on the server.
+
+    Named sink/source connectors:
+
+    - :meth:`sink_volume`
+    - :meth:`sink_muted`
+    - :meth:`sink_running`
+    - :meth:`sink_peak_monitor`
+    - :meth:`source_volume`
+    - :meth:`source_muted`
+    - :meth:`source_running`
+    - :meth:`source_peak_monitor`
+
+    Default sink/source connectors:
+
+    - :meth:`default_sink_volume`
+    - :meth:`default_sink_muted`
+    - :meth:`default_sink_running`
+    - :meth:`default_sink_peak_monitor`
+    - :meth:`default_source_volume`
+    - :meth:`default_source_muted`
+    - :meth:`default_source_running`
+    - :meth:`default_source_peak_monitor`
+
+    Server state connectors:
+
+    - :meth:`default_sink_name`
+    - :meth:`default_source_name`
+
+    All *_volume connectors use the :class:`PulseVolumeRaw` type for representing the sink's/source's volume setting,
+    which contains a float volume setting for each individual channel of the sink/source (e.g. 6 individual values for a
+    5.1 surround codec). Typically, you'll want to show and control the volume in more tangible components like
+    *master volume*, *balance*, *fade* (front/rear) and subwoofer balance. For this, the raw volume can be converted
+    into the :class:`PulseVolumeComponents` type, representing these components as separate fields (but still keeping
+    the information about any further derivations in the individual channels). Thus, a typical application of the
+    volume connectors would look like this::
+
+        interface = PulseAudioInterface()
+        volume_components = shc.Variable(PulseVolumeComponents)\\
+            .connect(interface.default_sink_volume(), convert=True)  # convert PulseVolumeRaw and PulseVolumeComponents
+
+        slider = shc.web.widgets.Slider("Volume").connect(volume_components.volume)
+        balance_slider = shc.web.widgets.Slider("Balance").connect(volume_components.balance, convert=True)
+
 
     :param pulse_client_name: Client name reported to the Pulseaudio server when connecting.
     :param pulse_server_socket: Address of the Pulseaudio server socket, e.g. "unix:/run/user/1000/pulse/native". If not
