@@ -106,6 +106,23 @@ class AngleUInt8(int):
     pass
 
 
+class Balance(float):
+    """
+    A balance between to extreme positions, e.g. left-right, front-rear, channel 1-channel 2, etc., represented as a
+    floating point number between -1.0 and 1.0. Thus, 0.0 represents the "center"/"balanced"/"normal" value.
+
+    -1.0 typically means:
+    - left (audio balance)
+    - front (surround audio balance)
+    - no LFE (surround audio balance)
+    """
+    pass
+
+
+register_converter(RangeFloat1, Balance, lambda v: Balance(v * 2 - 1))
+register_converter(Balance, RangeFloat1, lambda v: RangeFloat1(v / 2 + 0.5))
+
+
 class RGBUInt8(NamedTuple):
     """
     A 24bit color in RGB colorspace, composed of three :class:`RangeUInt8` values `red`, `green` and `blue`

@@ -174,7 +174,11 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
                 subscribe_exception = subscribe_task.exception()
                 if subscribe_exception is not None:
                     await self._disconnect()
-                    await run_task
+                    try:
+                        await run_task
+                    except Exception as e:
+                        logger.debug("Ignoring Exception %s in run task of interface %s, during shutdown due to "
+                                     "exception in _subscribe task", repr(e), self)
                     raise subscribe_exception
 
                 logger.debug("Starting up interface %s completed", self)
@@ -205,7 +209,7 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
             # Return if we are stopping
             if self._stopping.is_set():
                 if exception:
-                    logger.debug("Ignoring exception %s in interface %s while stopping", str(exception), self)
+                    logger.debug("Ignoring exception %s in interface %s while stopping", repr(exception), self)
                 return
 
             # Shut down SHC if no auto_reconnect shall be attempted

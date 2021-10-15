@@ -18,7 +18,7 @@ jobs:
         python-version: 3.7
     - name: Install APT depenencies
       run: |
-        sudo apt-get -y install mosquitto
+        sudo apt-get -y install mosquitto libpulse0 pulseaudio
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
