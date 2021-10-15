@@ -26,6 +26,7 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
     * MIDI
     * MQTT
     * [Tasmota](https://github.com/arendst/tasmota/) (currently: relais, RGB+CCW lights, IR receiver, power sensors; more features will be added on demand)
+    * Pulseaudio
 * websocket-based web user interface (using *aiohttp*, *Jinja2* and *Semantic UI*)
     * widgets: buttons, text display, text/number inputs, dropdowns, images with placeable buttons, charts, etc., … 
 * configuration of data points/variables and automation rules in plain Python
