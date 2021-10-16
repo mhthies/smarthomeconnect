@@ -55,7 +55,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         _ALL_VARIABLES.append(self)
 
     def field(self, name: str) -> "VariableField":
-        if not issubclass(self.type, NamedTuple):
+        if not issubclass(self.type, tuple) or not self.type.__annotations__:
             raise TypeError(f"{self.type.__name__} is not a NamedTuple, but Variable.field() only works with "
                             f"NamedTuple-typed Variables.")
         return self._variable_fields[name]
@@ -119,7 +119,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                 self._variable_fields[name] = variable_field
 
     def field(self, name: str) -> "VariableField":
-        if not issubclass(self.type, NamedTuple):
+        if not issubclass(self.type, tuple) or not self.type.__annotations__:
             raise TypeError(f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
                             f"NamedTuple-typed VariableFields.")
         return self._variable_fields[name]
