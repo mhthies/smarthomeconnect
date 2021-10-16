@@ -11,6 +11,7 @@
 
 import asyncio
 import logging
+import warnings
 from typing import Generic, Type, Optional, List, Any, Union, Dict, NamedTuple
 
 from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
@@ -50,7 +51,6 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
                 self._variable_fields[name] = variable_field
-                setattr(self, name, variable_field)
 
         _ALL_VARIABLES.append(self)
 
@@ -59,6 +59,14 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
             raise TypeError(f"{self.type.__name__} is not a NamedTuple, but Variable.field() only works with "
                             f"NamedTuple-typed Variables.")
         return self._variable_fields[name]
+
+    def __getattr__(self, item: str):
+        if item in self._variable_fields:
+            warnings.warn("Retrieving VariableFields via dynamic attribute names is deprecated. Use .field() instead.",
+                          DeprecationWarning, 2)
+            return self._variable_fields[item]
+        else:
+            raise AttributeError()
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         old_value = self._value
@@ -109,13 +117,20 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
                 self._variable_fields[name] = variable_field
-                setattr(self, name, variable_field)
 
     def field(self, name: str) -> "VariableField":
         if not issubclass(self.type, NamedTuple):
             raise TypeError(f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
                             f"NamedTuple-typed VariableFields.")
         return self._variable_fields[name]
+
+    def __getattr__(self, item: str):
+        if item in self._variable_fields:
+            warnings.warn("Retrieving VariableFields via dynamic attribute names is deprecated. Use .field() instead.",
+                          DeprecationWarning, 2)
+            return self._variable_fields[item]
+        else:
+            raise AttributeError()
 
     def _recursive_publish(self, new_value: T, old_value: T, origin: List[Any]):
         if old_value != new_value:
