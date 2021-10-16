@@ -78,7 +78,7 @@ class TestHandler(unittest.TestCase):
         a = ExampleSubscribable(int)
         handler = AsyncMock()
         handler.__name__ = "handler_mock"
-        wrapped_handler = base.handler()(handler)  # type: ignore
+        wrapped_handler = base.handler()(handler)
         a.trigger(wrapped_handler)
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         await asyncio.sleep(0.01)
@@ -172,7 +172,7 @@ class TestBlockingHandler(unittest.TestCase):
 
         handler = unittest.mock.Mock(side_effect=save_thread)
         handler.__name__ = "handler_mock"
-        wrapped_handler = base.blocking_handler()(handler)  # type: ignore
+        wrapped_handler = base.blocking_handler()(handler)
         a.trigger(wrapped_handler)
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         await asyncio.sleep(0.01)

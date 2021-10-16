@@ -280,7 +280,7 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
         self.addr = addr
 
     def update_from_bus(self, data: knxdclient.EncodedData, origin: List[Any]) -> None:
-        value: T = knxdclient.decode_value(data, self.knx_major_dpt)  # type: ignore
+        value: T = knxdclient.decode_value(data, self.knx_major_dpt)
         if type(value) is not self.type:
             value = self.type(value)  # type: ignore
         logger.debug("Got new value %s for KNX Group variable %s from bus", value, self.addr)
