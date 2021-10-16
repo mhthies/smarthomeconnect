@@ -25,13 +25,12 @@ class TasmotaInterfaceTest(unittest.TestCase):
         self.client_runner = InterfaceThreadRunner(shc.interfaces.mqtt.MQTTClientInterface, "localhost", 42883)
         self.client = self.client_runner.interface
         self.interface: shc.interfaces.tasmota.TasmotaInterface = \
-            asyncio.run_coroutine_threadsafe(_construct(self.client, 'test-device'), loop=self.client_runner.loop)\
-            .result()
+            self.client_runner.run_coro(_construct(self.client, 'test-device'))
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
         time.sleep(0.25)
 
     def tearDown(self) -> None:
-        asyncio.run_coroutine_threadsafe(self.interface.stop(), loop=self.client_runner.loop).result()
+        self.client_runner.run_coro(self.interface.stop())
         self.client_runner.stop()
         self.broker_process.terminate()
         self.broker_process.wait()
@@ -44,7 +43,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
         try:
             target_offline = ExampleWritable(bool).connect(self.interface.online())
             self.client_runner.start()
-            asyncio.run_coroutine_threadsafe(self.interface.start(), loop=self.client_runner.loop).result()
+            self.client_runner.run_coro(self.interface.start())
             await asyncio.sleep(0.25)
 
             target_offline._write.assert_called_once_with(True, unittest.mock.ANY)
@@ -76,7 +75,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
         try:
             self.client_runner.start()
-            asyncio.run_coroutine_threadsafe(self.interface.start(), loop=self.client_runner.loop).result()
+            self.client_runner.run_coro(self.interface.start())
 
             await asyncio.sleep(0.25)
             target_color._write.assert_called_once_with(construct_color(0, 0, 0, 0), unittest.mock.ANY)
@@ -110,7 +109,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
         try:
             self.client_runner.start()
-            asyncio.run_coroutine_threadsafe(self.interface.start(), loop=self.client_runner.loop).result()
+            self.client_runner.run_coro(self.interface.start())
 
             await asyncio.sleep(0.25)
             target_color._write.assert_called_once_with(construct_color(0, 0, 0, 0), unittest.mock.ANY)
@@ -138,7 +137,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
         target_ir = ExampleWritable(bytes).connect(conn_ir)
 
         self.client_runner.start()
-        asyncio.run_coroutine_threadsafe(self.interface.start(), loop=self.client_runner.loop).result()
+        self.client_runner.run_coro(self.interface.start())
         await asyncio.sleep(0.25)
 
         target_ir._write.assert_not_called()
@@ -170,7 +169,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
         target_total = ExampleWritable(float).connect(conn_total)
 
         self.client_runner.start()
-        asyncio.run_coroutine_threadsafe(self.interface.start(), loop=self.client_runner.loop).result()
+        self.client_runner.run_coro(self.interface.start())
         await asyncio.sleep(0.25)
 
         target_power._write.assert_not_called()

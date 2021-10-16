@@ -185,7 +185,7 @@ class WebWidgetsTest(AbstractWebTest):
                 '//*[normalize-space(text()) = "Main Power"]/..//input')
             self.assertTrue(checkbox_element.is_selected())
 
-            asyncio.run_coroutine_threadsafe(switch_widget.write(False, [self]), loop=self.server_runner.loop).result()
+            self.server_runner.run_coro(switch_widget.write(False, [self]))
             time.sleep(0.05)
             publish_mock.reset_mock()
             self.assertFalse(checkbox_element.is_selected())
@@ -256,14 +256,14 @@ class WebWidgetsTest(AbstractWebTest):
             self.assertIn('red', b4_element.get_attribute('class'))
 
             # Check state updates
-            asyncio.run_coroutine_threadsafe(b1.write(False, [self]), loop=self.server_runner.loop).result()
+            self.server_runner.run_coro(b1.write(False, [self]))
             time.sleep(0.05)
             self.assertNotIn('yellow', b1_element.get_attribute('class'))
             self.assertIn('blue', b2_element.get_attribute('class'))
             self.assertIn('red', b4_element.get_attribute('class'))
 
-            asyncio.run_coroutine_threadsafe(b2.write(False, [self]), loop=self.server_runner.loop).result()
-            asyncio.run_coroutine_threadsafe(b4.write(56, [self]), loop=self.server_runner.loop).result()
+            self.server_runner.run_coro(b2.write(False, [self]))
+            self.server_runner.run_coro(b4.write(56, [self]))
             time.sleep(0.05)
             b1_publish.reset_mock()
             b3_publish.reset_mock()
@@ -345,7 +345,7 @@ class WebWidgetsTest(AbstractWebTest):
         value_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//*[@data-id]')
         self.assertEqual("42 lux", value_element.text.strip())
 
-        asyncio.run_coroutine_threadsafe(text_widget.write(56, [self]), loop=self.server_runner.loop).result()
+        self.server_runner.run_coro(text_widget.write(56, [self]))
         time.sleep(0.05)
         self.assertEqual("56 lux", value_element.text.strip())
 
@@ -361,7 +361,7 @@ class WebWidgetsTest(AbstractWebTest):
             input_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//input')
             self.assertEqual("42", input_element.get_attribute("value"))
 
-            asyncio.run_coroutine_threadsafe(input_widget.write(56, [self]), loop=self.server_runner.loop).result()
+            self.server_runner.run_coro(input_widget.write(56, [self]))
             time.sleep(0.05)
             publish_mock.reset_mock()
             self.assertEqual("56", input_element.get_attribute("value"))
@@ -398,8 +398,7 @@ class WebWidgetsTest(AbstractWebTest):
                 '//*[normalize-space(text()) = "Message of the Day"]/..//input')
             self.assertEqual("Hello, World!", input_element.get_attribute("value"))
 
-            asyncio.run_coroutine_threadsafe(input_widget.write("Foobar", [self]), loop=self.server_runner.loop)\
-                .result()
+            self.server_runner.run_coro(input_widget.write("Foobar", [self]))
             time.sleep(0.05)
             publish_mock.reset_mock()
             self.assertEqual("Foobar", input_element.get_attribute("value"))
@@ -477,9 +476,9 @@ class WebWidgetsTest(AbstractWebTest):
             publish_mock.assert_called_once_with(True, unittest.mock.ANY)
 
             # Swap the rows
-            asyncio.run_coroutine_threadsafe(foo_row.write(False, [self]), loop=self.server_runner.loop).result()
-            asyncio.run_coroutine_threadsafe(bar_row.write(False, [self]), loop=self.server_runner.loop).result()
-            asyncio.run_coroutine_threadsafe(foobar_row.write(True, [self]), loop=self.server_runner.loop).result()
+            self.server_runner.run_coro(foo_row.write(False, [self]))
+            self.server_runner.run_coro(bar_row.write(False, [self]))
+            self.server_runner.run_coro(foobar_row.write(True, [self]))
             time.sleep(1)
             self.assertFalse(foo_row_element.is_displayed())
             self.assertFalse(bar_row_element.is_displayed())
@@ -655,6 +654,8 @@ class TestAPI(unittest.TestCase):
             await api_object.write(value, [self])
 
         tic = time.time()
+        # The `scheduled_update()` coroutine shall run in parallel with our request below. Thus, we cannot use
+        # InterfaceThreadRunner.run_coro(), which waits for the coroutine to return.
         asyncio.run_coroutine_threadsafe(scheduled_update(56), self.server_runner.loop)
 
         response: http.client.HTTPResponse = urllib.request.urlopen(
@@ -686,6 +687,8 @@ class TestAPI(unittest.TestCase):
 
         # A GET request with matching ETag and wait parameter. It should wait for the next value
         tic = time.time()
+        # The `scheduled_update()` coroutine shall run in parallel with our request below. Thus, we cannot use
+        # InterfaceThreadRunner.run_coro(), which waits for the coroutine to return.
         asyncio.run_coroutine_threadsafe(scheduled_update(56), self.server_runner.loop)
 
         request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object?wait=0.5",
@@ -893,8 +896,8 @@ class WebSocketAPITest(unittest.TestCase):
         self.assertNotIn('value', data)
 
         self.ws_callback.reset_mock()
-        asyncio.run_coroutine_threadsafe(api_object.write(56, [self]), self.server_runner.loop)
-        asyncio.run_coroutine_threadsafe(api_object2.write(56, [self]), self.server_runner.loop)
+        self.server_runner.run_coro(api_object.write(56, [self]))
+        self.server_runner.run_coro(api_object2.write(56, [self]))
         await asyncio.sleep(0.05)
 
         self.assertEqual(2, self.ws_callback.call_count)

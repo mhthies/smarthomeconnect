@@ -60,8 +60,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.assertIsInstance(bar_target._write.call_args[0][0], ExampleType)
         bar_target._write.reset_mock()
 
-        asyncio.run_coroutine_threadsafe(bar_source.publish(ExampleType(56, False), [self]),
-                                         loop=self.server_runner.loop).result()
+        self.server_runner.run_coro(bar_source.publish(ExampleType(56, False), [self]))
         time.sleep(0.05)
         bar_target._write.assert_called_once_with(ExampleType(56, False), [client_bar])
 
@@ -103,9 +102,9 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.client_runner.start()
 
         with self.assertRaises(shc.base.UninitializedError):
-            asyncio.run_coroutine_threadsafe(client_foo.read(), loop=self.client_runner.loop).result()
+            self.client_runner.run_coro(client_foo.read())
 
-        result = asyncio.run_coroutine_threadsafe(client_bar.read(), loop=self.client_runner.loop).result()
+        result = self.client_runner.run_coro(client_bar.read())
         self.assertIsInstance(result, ExampleType)
         self.assertEqual(ExampleType(42, True), result)
 
@@ -118,8 +117,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.server_runner.start()
         self.client_runner.start()
 
-        asyncio.run_coroutine_threadsafe(client_bar.write(ExampleType(42, True), [self]),
-                                         loop=self.client_runner.loop).result()
+        self.client_runner.run_coro(client_bar.write(ExampleType(42, True), [self]))
         time.sleep(0.05)
         target._write.assert_called_once_with(ExampleType(42, True), unittest.mock.ANY)
         self.assertIsInstance(target._write.call_args[0][0], ExampleType)

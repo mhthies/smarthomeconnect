@@ -128,7 +128,7 @@ class MIDIInputTest(unittest.TestCase):
             time.sleep(0.05)
             publish_mock.assert_called_once_with(False, unittest.mock.ANY)
 
-            asyncio.run_coroutine_threadsafe(var1.write(True, [self]), self.interface_runner.loop)
+            self.interface_runner.run_coro(var1.write(True, [self]))
             time.sleep(0.05)
 
             # Toggle off again
@@ -162,7 +162,7 @@ class MIDIOutputTest(unittest.TestCase):
         time.sleep(0.05)
 
         # Note on
-        asyncio.run_coroutine_threadsafe(var1.write(True, [self]), self.interface_runner.loop)
+        self.interface_runner.run_coro(var1.write(True, [self]))
         time.sleep(0.05)
         self.callback.assert_called_once()
         message = self.callback.call_args[0][0]
@@ -174,7 +174,7 @@ class MIDIOutputTest(unittest.TestCase):
 
         # Note off
         self.callback.reset_mock()
-        asyncio.run_coroutine_threadsafe(var1.write(False, [self]), self.interface_runner.loop)
+        self.interface_runner.run_coro(var1.write(False, [self]))
         time.sleep(0.05)
         self.callback.assert_called_once()
         message = self.callback.call_args[0][0]
@@ -186,7 +186,7 @@ class MIDIOutputTest(unittest.TestCase):
 
         # Note on (velocity)
         self.callback.reset_mock()
-        asyncio.run_coroutine_threadsafe(var2.write(RangeUInt8(42), [self]), self.interface_runner.loop)
+        self.interface_runner.run_coro(var2.write(RangeUInt8(42), [self]))
         time.sleep(0.05)
         self.callback.assert_called_once()
         message = self.callback.call_args[0][0]
@@ -198,7 +198,7 @@ class MIDIOutputTest(unittest.TestCase):
 
         # Note off (velocity)
         self.callback.reset_mock()
-        asyncio.run_coroutine_threadsafe(var2.write(RangeUInt8(0), [self]), self.interface_runner.loop)
+        self.interface_runner.run_coro(var2.write(RangeUInt8(0), [self]))
         time.sleep(0.05)
         self.callback.assert_called_once()
         message = self.callback.call_args[0][0]
@@ -210,7 +210,7 @@ class MIDIOutputTest(unittest.TestCase):
 
         # Control change
         self.callback.reset_mock()
-        asyncio.run_coroutine_threadsafe(var3.write(RangeUInt8(56), [self]), self.interface_runner.loop)
+        self.interface_runner.run_coro(var3.write(RangeUInt8(56), [self]))
         time.sleep(0.05)
         self.callback.assert_called_once()
         message = self.callback.call_args[0][0]

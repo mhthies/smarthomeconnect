@@ -99,16 +99,14 @@ class MQTTClientTest(unittest.TestCase):
 
             self.client_runner.start()
 
-            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(conn_raw.write(b'"500"', [self]),
-                                                                       loop=self.client_runner.loop))
+            await self.client_runner.run_coro_async(conn_raw.write(b'"500"', [self]))
             # Write might not wait until the message is published
             await asyncio.sleep(0.1)
             self.assertEqual(1, len(MESSAGES))
             self.assertEqual(b'"500"', MESSAGES[-1].payload)
             self.assertEqual('test/topic', MESSAGES[-1].topic)
 
-            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(conn_str.write('a test with »«', [self]),
-                                                                       loop=self.client_runner.loop))
+            await self.client_runner.run_coro_async(conn_str.write('a test with »«', [self]))
             # Due to the local subscriber, write() should wait until the message has been received
             target_str._write.assert_called_once_with('a test with »«', [self, conn_str])
             await asyncio.sleep(0.01)
@@ -116,8 +114,7 @@ class MQTTClientTest(unittest.TestCase):
             self.assertEqual('a test with »«'.encode('utf-8'), MESSAGES[-1].payload)
             self.assertEqual('test/another/topic', MESSAGES[-1].topic)
 
-            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(conn_json.write('text', [self]),
-                                                                       loop=self.client_runner.loop))
+            await self.client_runner.run_coro_async(conn_json.write('text', [self]))
             # Du to the forced subscription, write() should wait until the message has been received
             await asyncio.sleep(0.01)
             self.assertEqual(3, len(MESSAGES))

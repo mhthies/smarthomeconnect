@@ -6,7 +6,7 @@ import threading
 import time
 import unittest.mock
 import datetime
-from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List, Union, Tuple, Set, Optional
+from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List, Union, Tuple, Set, Optional, Coroutine
 
 from shc import base
 
@@ -257,11 +257,14 @@ class InterfaceThreadRunner(Generic[IT]):
 
     The interface will most probably not be thread-safe internally (as SHC usually runs in only one AsyncIO event loop
     in a single thread). Thus, its methods/coroutines must only be called within the `InterfaceThreadRunner`s AsnycIO
-    event loop. For convenience, there is a :meth:`start` method that calls the interface's start method correctly::
+    event loop. For convenience, there is a :meth:`start` method that calls the interface's start method correctly, as
+    well as two methods :meth:`run_coro` and :meth:`run_coro_async` to run any coroutine in the context of the event
+    loop and return its result (or raise any exceptions):
 
         runner = InterfaceThreadRunner(SomeSHCInterfaceClass, "arg1", "arg2")
         runner.start()
-        asyncio.run_coroutine_threadsafe(interface.some_coro(*args), loop=runner.loop).result()
+        runner.run_coro(interface.some_coro(*args))
+        # or: await runner.run_coro_async(interface.some_coro(*args))
         runner.loop.call_soon_threadsafe(interface.some_method(*args))
         runner.stop()
 
@@ -313,3 +316,9 @@ class InterfaceThreadRunner(Generic[IT]):
         stop_future.result(timeout=5)
         self.loop.call_soon_threadsafe(self._stopped_event.set)
         self.future.result(timeout=5)
+
+    def run_coro(self, coroutine: Coroutine[None, None, T]) -> T:
+        return asyncio.run_coroutine_threadsafe(coroutine, loop=self.loop).result()
+
+    async def run_coro_async(self, coroutine: Coroutine[None, None, T]) -> T:
+        return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coroutine, loop=self.loop))

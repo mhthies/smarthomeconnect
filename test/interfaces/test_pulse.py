@@ -98,15 +98,12 @@ class SinkConnectorTests(unittest.TestCase):
         self.interface_runner.start()
 
         # Read sink volumes
-        value1 = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector1.read(),
-                                                                            loop=self.interface_runner.loop))
+        value1 = await self.interface_runner.run_coro_async(volume_connector1.read())
         self.assertAlmostEqual(0.9, value1.values[0], places=3)
-        value2 = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector2.read(),
-                                                                            loop=self.interface_runner.loop))
+        value2 = await self.interface_runner.run_coro_async(volume_connector2.read())
         self.assertAlmostEqual(1.0, value2.values[0], places=3)
         with self.assertRaises(shc.base.UninitializedError):
-            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector3.read(),
-                                                                       loop=self.interface_runner.loop))
+            await self.interface_runner.run_coro_async(volume_connector3.read())
 
         # External volume change to testsink2
         target1._write.reset_mock()
@@ -131,13 +128,11 @@ class SinkConnectorTests(unittest.TestCase):
         await self._run_pactl('unload-module', str(module_id))
         await asyncio.sleep(0.05)
         with self.assertRaises(shc.base.UninitializedError):
-            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector3.read(),
-                                                                       loop=self.interface_runner.loop))
+            await self.interface_runner.run_coro_async(volume_connector3.read())
 
         # Write to testsink1's volume
         value1_new = value1._replace(values=[0.8, 0.7])
-        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector1.write(value1_new, [self]),
-                                                                   loop=self.interface_runner.loop))
+        await self.interface_runner.run_coro_async(volume_connector1.write(value1_new, [self]))
         await asyncio.sleep(0.05)
         target1._write.assert_called_once()
         self.assertEqual([self, volume_connector1], target1._write.call_args[0][1])
@@ -157,8 +152,7 @@ class SinkConnectorTests(unittest.TestCase):
         self.interface_runner.start()
 
         # Read sink volumes
-        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.read(),
-                                                                           loop=self.interface_runner.loop))
+        value = await self.interface_runner.run_coro_async(mute_connector.read())
         self.assertIs(value, False)
 
         # External mute change to testsink1
@@ -181,8 +175,7 @@ class SinkConnectorTests(unittest.TestCase):
 
         # Write to default sink's (testsink2's) mute
         target._write.reset_mock()
-        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.write(True, [self]),
-                                                                   loop=self.interface_runner.loop))
+        await self.interface_runner.run_coro_async(mute_connector.write(True, [self]))
         await asyncio.sleep(0.05)
         target._write.assert_called_once_with(True, [self, mute_connector])
         self.assertIn("yes", (await self._pactl_get_data('sink', 'testsink2'))['Mute'])
@@ -205,8 +198,7 @@ class SinkConnectorTests(unittest.TestCase):
         await asyncio.sleep(3)
 
         # No output to the sink yet
-        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(state_connector.read(),
-                                                                           loop=self.interface_runner.loop))
+        value = await self.interface_runner.run_coro_async(state_connector.read())
         self.assertIs(value, False)
         state_target._write.assert_called_with(False, unittest.mock.ANY)
         peak_target._write.assert_called_with(0.0, unittest.mock.ANY)
@@ -245,15 +237,12 @@ class SinkConnectorTests(unittest.TestCase):
         self.interface_runner.start()
 
         # Read source volumes
-        value1 = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector1.read(),
-                                                                            loop=self.interface_runner.loop))
+        value1 = await self.interface_runner.run_coro_async(volume_connector1.read())
         self.assertAlmostEqual(0.9, value1.values[0], places=3)
-        value2 = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector2.read(),
-                                                                            loop=self.interface_runner.loop))
+        value2 = await self.interface_runner.run_coro_async(volume_connector2.read())
         self.assertAlmostEqual(1.0, value2.values[0], places=3)
         with self.assertRaises(shc.base.UninitializedError):
-            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector3.read(),
-                                                                       loop=self.interface_runner.loop))
+            await self.interface_runner.run_coro_async(volume_connector3.read())
 
         # External volume change to testsource2
         target1._write.reset_mock()
@@ -278,13 +267,11 @@ class SinkConnectorTests(unittest.TestCase):
         await self._run_pactl('unload-module', str(module_id))
         await asyncio.sleep(0.05)
         with self.assertRaises(shc.base.UninitializedError):
-            await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector3.read(),
-                                                                       loop=self.interface_runner.loop))
+            await self.interface_runner.run_coro_async(volume_connector3.read())
 
         # Write to testsource1's volume
         value1_new = value1._replace(values=[0.8, 0.7])
-        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(volume_connector1.write(value1_new, [self]),
-                                                                   loop=self.interface_runner.loop))
+        await self.interface_runner.run_coro_async(volume_connector1.write(value1_new, [self]))
         await asyncio.sleep(0.05)
         target1._write.assert_called_once()
         self.assertEqual([self, volume_connector1], target1._write.call_args[0][1])
@@ -304,8 +291,7 @@ class SinkConnectorTests(unittest.TestCase):
         self.interface_runner.start()
 
         # Read source volumes
-        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.read(),
-                                                                           loop=self.interface_runner.loop))
+        value = await self.interface_runner.run_coro_async(mute_connector.read())
         self.assertIs(value, False)
 
         # External mute change to testsource1
@@ -328,8 +314,7 @@ class SinkConnectorTests(unittest.TestCase):
 
         # Write to default source's (testsource2's) mute
         target._write.reset_mock()
-        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(mute_connector.write(True, [self]),
-                                                                   loop=self.interface_runner.loop))
+        await self.interface_runner.run_coro_async(mute_connector.write(True, [self]))
         await asyncio.sleep(0.05)
         target._write.assert_called_once_with(True, [self, mute_connector])
         self.assertIn("yes", (await self._pactl_get_data('source', 'testsource2'))['Mute'])
@@ -373,8 +358,7 @@ class SinkConnectorTests(unittest.TestCase):
         self.interface_runner.start()
 
         # No output to the source yet
-        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(state_connector.read(),
-                                                                           loop=self.interface_runner.loop))
+        value = await self.interface_runner.run_coro_async(state_connector.read())
         self.assertIs(value, False)
         state_target._write.assert_called_with(False, unittest.mock.ANY)
 
@@ -385,8 +369,7 @@ class SinkConnectorTests(unittest.TestCase):
         # Check source state and source monitor
         await asyncio.sleep(0.1)
         state_target._write.assert_called_with(True, unittest.mock.ANY)
-        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(state_connector.read(),
-                                                                           loop=self.interface_runner.loop))
+        value = await self.interface_runner.run_coro_async(state_connector.read())
         self.assertIs(value, True)
 
         # Stop recording and noise playback
@@ -410,11 +393,9 @@ class SinkConnectorTests(unittest.TestCase):
 
         sink_target._write.assert_called_with('testsink1', unittest.mock.ANY)
         source_target._write.assert_called_with('testsource1', unittest.mock.ANY)
-        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(default_sink_connector.read(),
-                                                                           loop=self.interface_runner.loop))
+        value = await self.interface_runner.run_coro_async(default_sink_connector.read())
         self.assertEqual('testsink1', value)
-        value = await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(default_source_connector.read(),
-                                                                           loop=self.interface_runner.loop))
+        value = await self.interface_runner.run_coro_async(default_source_connector.read())
         self.assertEqual('testsource1', value)
 
         # External change of default sink/source
@@ -428,8 +409,7 @@ class SinkConnectorTests(unittest.TestCase):
         source_target._write.assert_called_with('testsource2', unittest.mock.ANY)
 
         # Change from SHC
-        await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(default_sink_connector.write('testsink1', [self]),
-                                                                   loop=self.interface_runner.loop))
+        await self.interface_runner.run_coro_async(default_sink_connector.write('testsink1', [self]))
         await asyncio.sleep(0.1)
         sink_target._write.assert_called_with('testsink1', [self, default_sink_connector])
         await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(
