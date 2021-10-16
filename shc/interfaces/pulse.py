@@ -183,8 +183,8 @@ class PulseAudioInterface(SupervisedClientInterface):
         volume_components = shc.Variable(PulseVolumeComponents)\\
             .connect(interface.default_sink_volume(), convert=True)  # convert PulseVolumeRaw and PulseVolumeComponents
 
-        slider = shc.web.widgets.Slider("Volume").connect(volume_components.volume)
-        balance_slider = shc.web.widgets.Slider("Balance").connect(volume_components.balance, convert=True)
+        slider = shc.web.widgets.Slider("Volume").connect(volume_components.field('volume'))
+        balance_slider = shc.web.widgets.Slider("Balance").connect(volume_components.field('balance'), convert=True)
 
 
     :param pulse_client_name: Client name reported to the Pulseaudio server when connecting.

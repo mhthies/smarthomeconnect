@@ -25,9 +25,9 @@ Simple usage example::
     # ...
 
     rgb_par = shc.Variable(RGBUInt8, "LED PAR")
-    rgb_par.red.connect(dmx_interface.address(7))
-    rgb_par.green.connect(dmx_interface.address(8))
-    rgb_par.blue.connect(dmx_interface.address(9))
+    rgb_par.field('red').connect(dmx_interface.address(7))
+    rgb_par.field('green').connect(dmx_interface.address(8))
+    rgb_par.field('blue').connect(dmx_interface.address(9))
 
 (see :ref:`variables.tuple_field_access` for an explanation why accessing the RGB colors works this way.)
 """

@@ -135,11 +135,11 @@ color_page.add_item(ColorChoser().connect(yak_color))
 color_page.new_segment("Other things")
 color_page.add_item(Slider("Yak wool", color='black').connect(yak_wool, convert=True))
 color_page.add_item(Slider("Red", color='red')
-                    .connect(yak_color.red, convert=True))  # type: ignore
+                    .connect(yak_color.field('red'), convert=True))  # type: ignore
 color_page.add_item(Slider("Green", color='green')
-                    .connect(yak_color.green, convert=True))  # type: ignore
+                    .connect(yak_color.field('green'), convert=True))  # type: ignore
 color_page.add_item(Slider("Blue", color='blue')
-                    .connect(yak_color.blue, convert=True))  # type: ignore
+                    .connect(yak_color.field('blue'), convert=True))  # type: ignore
 
 
 #############################################################################################

@@ -46,7 +46,7 @@ Tuple Field Access
 ^^^^^^^^^^^^^^^^^^
 
 When Variables are used with a value type based on :class:`typing.NamedTuple`, they provide a special feature to access the individual fields of the tuple value:
-For each (type hinted) field of the named tuple type, a :class:`VariableField` is created as an attribute of the *Variable* object, named after the tuple field.
+For each (type hinted) field of the named tuple type, a :class:`VariableField` is created and can be accessed via the :meth:`Variable.field` method.
 These objects are *Connectable* (taking their ``type`` attribute from the NamedTuple field's type hint), which allows to subscribe other objects to that field's value or let the field be updated from another *Subscribable* object::
 
     from typing import NamedTuple
@@ -56,10 +56,10 @@ These objects are *Connectable* (taking their ``type`` attribute from the NamedT
         y: float
 
     var1 = shc.Variable(Coordinate, initial_value=Coordinate(0.0, 0.0))
-    # `var1` automatically gains two attributes 'x' and 'y' to access the value's 'x' and 'y' fields.
+    # `var1` includes two VariableField objects to access the value's 'x' and 'y' fields.
     # They are Connectables of `float` type, so we can connect them to a KNX GroupVariable with DPT 9:
-    var1.x.connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 0), dpt="9"))
-    var1.y.connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 1), dpt="9"))
+    var1.field('x').connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 0), dpt="9"))
+    var1.field('y').connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 1), dpt="9"))
 
     @var1.trigger
     @shc.handler()
@@ -70,6 +70,8 @@ These objects are *Connectable* (taking their ``type`` attribute from the NamedT
         if value.x > value.y:
             print("Value is in lower right half of the coordinate plane")
 
+If the Variable's type consists of nested NamedTuples types, the VariableField objects may include VariableFields of the respective sub-field's type recursively.
+Equally, they can be retrieved via the :meth:`VariableField.field` method.
 
 .. _expressions:
 
