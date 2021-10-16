@@ -8,8 +8,8 @@ import unittest.mock
 from contextlib import suppress
 from typing import List
 
-import asyncio_mqtt  # type: ignore
-from paho.mqtt.client import MQTTMessage  # type: ignore
+import asyncio_mqtt
+from paho.mqtt.client import MQTTMessage
 
 import shc.interfaces.mqtt
 

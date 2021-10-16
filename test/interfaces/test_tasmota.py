@@ -8,7 +8,7 @@ import unittest.mock
 from contextlib import suppress
 from typing import Dict, Any
 
-import asyncio_mqtt  # type: ignore
+import asyncio_mqtt
 
 import shc.interfaces.mqtt
 import shc.interfaces.tasmota

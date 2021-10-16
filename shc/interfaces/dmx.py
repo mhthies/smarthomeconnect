@@ -37,7 +37,7 @@ import enum
 import logging
 from typing import List, Any, NamedTuple, Optional
 
-import serial_asyncio  # type: ignore
+import serial_asyncio
 import asyncio
 
 from ..base import Writable

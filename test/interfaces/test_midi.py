@@ -3,7 +3,7 @@ import time
 import unittest
 import unittest.mock
 
-import mido  # type: ignore
+import mido
 import shc.interfaces.midi
 from shc.datatypes import RangeUInt8
 

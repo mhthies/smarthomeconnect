@@ -14,7 +14,7 @@ import logging
 import threading
 from typing import List, Any, Tuple, Dict, Optional, Union, Iterable
 
-import mido  # type: ignore
+import mido
 
 from ..base import Subscribable, Writable, T
 from ..datatypes import RangeUInt8

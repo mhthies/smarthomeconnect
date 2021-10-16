@@ -57,7 +57,7 @@ jobs:
         pip install -r requirements.txt
     - name: Check typing with MyPy
       run: |
-        mypy shc/ test/ example/
+        mypy
     - name: Check code style with PyCodestyle
       run: |
         pycodestyle --max-line-length 120 shc/ test/ example/

@@ -12,11 +12,11 @@ import http.client
 from pathlib import Path
 
 import aiohttp
-from selenium import webdriver  # type: ignore
-import selenium.webdriver.firefox.options  # type: ignore
-from selenium.webdriver.common.alert import Alert  # type: ignore
-from selenium.webdriver.common.keys import Keys  # type: ignore
-from selenium.webdriver import ActionChains  # type: ignore
+from selenium import webdriver
+import selenium.webdriver.firefox.options
+from selenium.webdriver.common.alert import Alert
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver import ActionChains
 
 import shc.web
 import shc.web.widgets

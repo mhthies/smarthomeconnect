@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Optional, Type, Generic, List, Tuple, Any, Dict
 
-import aiomysql  # type: ignore
+import aiomysql
 import pymysql
 
 from ..base import T

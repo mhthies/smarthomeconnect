@@ -16,9 +16,9 @@ import json
 import logging
 from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Tuple, Union, Dict, Deque
 
-from paho.mqtt.client import MQTTMessage, MQTTv311  # type: ignore
-from asyncio_mqtt import Client, MqttError, ProtocolVersion  # type: ignore
-from paho.mqtt.matcher import MQTTMatcher  # type: ignore
+from paho.mqtt.client import MQTTMessage, MQTTv311
+from asyncio_mqtt import Client, MqttError, ProtocolVersion
+from paho.mqtt.matcher import MQTTMatcher
 
 from ._helper import SupervisedClientInterface
 from ..base import Writable, Subscribable, T, S, LogicHandler

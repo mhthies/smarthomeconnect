@@ -5,10 +5,10 @@ from collections import defaultdict, deque
 from typing import NamedTuple, List, Optional, Generic, Type, Any, DefaultDict, Tuple, Callable, Deque, Set
 import ctypes as c
 
-from pulsectl import (  # type: ignore
+from pulsectl import (
     PulseEventInfo, PulseEventFacilityEnum, PulseEventTypeEnum, PulseSinkInfo, PulseSourceInfo, PulseServerInfo,
     PulseVolumeInfo, PulseStateEnum, PulseDisconnected)
-from pulsectl_asyncio import PulseAsync  # type: ignore
+from pulsectl_asyncio import PulseAsync
 
 import shc.conversion
 from shc.base import Connectable, Subscribable, Readable, T, UninitializedError, Writable
@@ -72,9 +72,9 @@ class PulseVolumeComponents(NamedTuple):
 
         This method is the SHC default converter from :class:`PulseVolumeComponents` to :class:`PulseVolumeRaw`.
         """
-        from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM  # type: ignore
+        from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
         from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
-            pa_cvolume_set_balance, pa_cvolume_scale  # type: ignore
+            pa_cvolume_set_balance, pa_cvolume_scale
 
         num_channels = len(self.normalized_values)
         cvolume = PA_CVOLUME(num_channels, (pa_volume_t * PA_CHANNELS_MAX)(*self.normalized_values))

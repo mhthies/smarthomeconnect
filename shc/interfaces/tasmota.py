@@ -17,7 +17,7 @@ import logging
 import time
 from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple, cast, Optional
 
-from paho.mqtt.client import MQTTMessage  # type: ignore
+from paho.mqtt.client import MQTTMessage
 
 from ..base import Writable, Subscribable, T, Readable
 from .mqtt import MQTTClientInterface
