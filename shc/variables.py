@@ -11,7 +11,7 @@
 
 import asyncio
 import logging
-from typing import Generic, Type, Optional, List, Any, Union
+from typing import Generic, Type, Optional, List, Any, Union, Dict, NamedTuple
 
 from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
 from .expressions import ExpressionWrapper
@@ -43,16 +43,22 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         super().__init__()
         self.name = name
         self._value: Optional[T] = initial_value
-        self._variable_fields: List["VariableField"] = []
+        self._variable_fields: Dict[str, "VariableField"] = {}
 
         # Create VariableFields for each typeannotated field of the type if it is typing.NamedTuple-based.
         if issubclass(type_, tuple) and type_.__annotations__:
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
-                self._variable_fields.append(variable_field)
+                self._variable_fields[name] = variable_field
                 setattr(self, name, variable_field)
 
         _ALL_VARIABLES.append(self)
+
+    def field(self, name: str) -> "VariableField":
+        if not issubclass(self.type, NamedTuple):
+            raise TypeError(f"{self.type.__name__} is not a NamedTuple, but Variable.field() only works with "
+                            f"NamedTuple-typed Variables.")
+        return self._variable_fields[name]
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         old_value = self._value
@@ -60,9 +66,9 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         if old_value != value:  # if a single field is different, the full value will also be different
             logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
             self._publish(value, origin)
-            for field in self._variable_fields:
-                field._recursive_publish(getattr(value, field.field),
-                                         None if old_value is None else getattr(old_value, field.field),
+            for name, field in self._variable_fields.items():
+                field._recursive_publish(getattr(value, name),
+                                         None if old_value is None else getattr(old_value, name),
                                          origin)
 
     async def read(self) -> T:
@@ -90,43 +96,49 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     _stateful_publishing = True
 
-    def __init__(self, parent: Union[Variable, "VariableField"], field: str, type_: Type[T]):
+    def __init__(self, parent: Union[Variable, "VariableField"], field_name: str, type_: Type[T]):
         self.type = type_
         super().__init__()
         self.parent = parent
         self.variable: Variable = parent.variable if hasattr(parent, 'variable') else parent  # type: ignore
-        self.field: str = field
-        self._variable_fields: List["VariableField"] = []
+        self.field_name: str = field_name
+        self._variable_fields: Dict[str, "VariableField"] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
         if issubclass(type_, tuple) and type_.__annotations__:
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
-                self._variable_fields.append(variable_field)
+                self._variable_fields[name] = variable_field
                 setattr(self, name, variable_field)
+
+    def field(self, name: str) -> "VariableField":
+        if not issubclass(self.type, NamedTuple):
+            raise TypeError(f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
+                            f"NamedTuple-typed VariableFields.")
+        return self._variable_fields[name]
 
     def _recursive_publish(self, new_value: T, old_value: T, origin: List[Any]):
         if old_value != new_value:
             self._publish(new_value, origin)
-            for field in self._variable_fields:
-                field._recursive_publish(getattr(new_value, field.field),
-                                         None if old_value is None else getattr(old_value, field.field),
+            for name, field in self._variable_fields.items():
+                field._recursive_publish(getattr(new_value, name),
+                                         None if old_value is None else getattr(old_value, name),
                                          origin)
 
     @property
     def _value(self):
-        return None if self.parent._value is None else getattr(self.parent._value, self.field)
+        return None if self.parent._value is None else getattr(self.parent._value, self.field_name)
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.parent._value is None:
             raise UninitializedError("Cannot set field {} within Variable {}, since it is uninitialized"
-                                     .format(self.field, self.variable))
-        await self.parent._write(self.parent._value._replace(**{self.field: value}), origin + [self])
+                                     .format(self.field_name, self.variable))
+        await self.parent._write(self.parent._value._replace(**{self.field_name: value}), origin + [self])
 
     async def read(self) -> T:
         if self.parent._value is None:
             raise UninitializedError("Variable {} is not initialized yet.", repr(self.variable))
-        return getattr(self.parent._value, self.field)
+        return getattr(self.parent._value, self.field_name)
 
     @property
     def EX(self) -> ExpressionWrapper:
