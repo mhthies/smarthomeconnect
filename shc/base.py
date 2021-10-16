@@ -14,7 +14,7 @@ import asyncio
 import contextvars
 import functools
 import logging
-from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Dict
+from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Dict, Set
 
 from . import conversion
 
@@ -153,12 +153,15 @@ class UninitializedError(RuntimeError):
     pass
 
 
+SubscriberListType = Tuple[Writable[S], Optional[Callable[[T_co], S]]]
+
+
 class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
     _stateful_publishing: bool = False
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._subscribers: List[Tuple[Writable[S], Optional[Callable[[T_co], S]]]] = []
+        super().__init__(*args, **kwargs)  # type: ignore
+        self._subscribers: List[SubscriberListType] = []
         self._triggers: List[Tuple[LogicHandler, bool]] = []
         self._pending_updates: Dict[int, Set[asyncio.Task]] = {}
 
@@ -170,7 +173,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
         finally:
             if use_pending:
-                self._pending_updates[id(subscriber)].discard(asyncio.current_task())
+                self._pending_updates[id(subscriber)].discard(asyncio.current_task())  # type: ignore
 
     async def __publish_trigger(self, target: LogicHandler, value: T_co,
                                 origin: List[Any], use_pending: bool):
@@ -180,7 +183,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
         finally:
             if use_pending:
-                self._pending_updates[id(target)].discard(asyncio.current_task())
+                self._pending_updates[id(target)].discard(asyncio.current_task())  # type: ignore
 
     def _publish(self, value: T_co, origin: List[Any]):
         """
@@ -331,12 +334,15 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         return target
 
 
+DefaultProviderType = Tuple[Readable[S], Optional[Callable[[S], T_con]]]
+
+
 class Reading(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
     is_reading_optional: bool = True
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._default_provider: Optional[Tuple[Readable[S], Optional[Callable[[S], T_con]]]] = None
+        super().__init__(*args, **kwargs)  # type: ignore
+        self._default_provider: Optional[DefaultProviderType] = None
 
     def set_provider(self, provider: Readable[S], convert: Union[Callable[[S], T_con], bool] = False):
         converter: Optional[Callable[[S], T_con]]
