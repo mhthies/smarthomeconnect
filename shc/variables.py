@@ -11,6 +11,7 @@
 
 import asyncio
 import logging
+import warnings
 from typing import Generic, Type, Optional, List, Any, Union, Dict, NamedTuple
 
 from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
@@ -61,6 +62,8 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     def __getattr__(self, item: str):
         if item in self._variable_fields:
+            warnings.warn("Retrieving VariableFields via dynamic attribute names is deprecated. Use .field() instead.",
+                          DeprecationWarning, 2)
             return self._variable_fields[item]
         else:
             raise AttributeError()
@@ -123,6 +126,8 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
     def __getattr__(self, item: str):
         if item in self._variable_fields:
+            warnings.warn("Retrieving VariableFields via dynamic attribute names is deprecated. Use .field() instead.",
+                          DeprecationWarning, 2)
             return self._variable_fields[item]
         else:
             raise AttributeError()
