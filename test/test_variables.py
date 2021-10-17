@@ -178,9 +178,12 @@ class VariableFieldsTest(unittest.TestCase):
         await asyncio.sleep(0.01)
         subscriber._write.assert_called_once_with(ExampleRecursiveTupleType(ExampleTupleType(21, 3.1416), 7),
                                                   [self, var.field('a').field('a'), var.field('a'), var])
-        intermediate_subscriber._write.assert_called_once_with(ExampleTupleType(21, 3.1416),
-                                                               [self, var.field('a').field('a'), var.field('a'), var.field('a')])
-        field_subscriber._write.assert_called_once_with(21, [self, var.field('a').field('a'), var.field('a'), var.field('a').field('a')])
+        intermediate_subscriber._write.assert_called_once_with(
+            ExampleTupleType(21, 3.1416),
+            [self, var.field('a').field('a'), var.field('a'), var.field('a')])
+        field_subscriber._write.assert_called_once_with(
+            21,
+            [self, var.field('a').field('a'), var.field('a'), var.field('a').field('a')])
         other_field_subscriber._write.assert_not_called()
         another_field_subscriber._write.assert_not_called()
 
