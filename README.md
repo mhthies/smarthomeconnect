@@ -172,6 +172,8 @@ They can be installed automatically via pip, by specifying the relevant 'extras'
 * MQTT interface `[mqtt]`:
     * `paho-mqtt` (Eclipse Public License v1.0 *or* Eclipse Distribution License v1.0)
     * `asyncio-mqtt` (BSD-3-Clause License)
+* Pulseaudio interface `[pulse]`:
+    * `pulsectl` and `pulsectl-asyncio` (MIT License)
 
 In addition, the following Javascript libraries from NPM are required for the web UI frontend.
 They are not included in this repository or in source distribution packages of SHC.
