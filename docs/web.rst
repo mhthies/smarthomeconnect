@@ -21,7 +21,7 @@ See :ref:`web.widgets` and :ref:`web.log_widgets` for a reference of the pre-def
 
 
 
-TODO filling the navigation bar
+TODO filling the navigation bar (:meth:`WebServer.add_menu_entry`)
 
 
 .. toctree::
@@ -60,7 +60,7 @@ Allowing interaction with an SHC Variable object via HTTP REST and websocket, is
     web_server.api(int, 'foo').connect(foo_variable)
 
 This will allow you to get the variable's value with a *GET* request to ``http://localhost:8080/api/v1/object/foo``.
-The variable will be encoded with SHC's default json encoding for the datatype, which is just the decimal integer representation in this case.
+The variable will be encoded with SHC's :ref:`default json encoding <datatypes.json>` for the datatype, which is just the decimal integer representation in this case.
 In the same way, the value can be updated via a *POST* request to the same URL.
 Read more about that in the reference below.
 
@@ -113,6 +113,7 @@ Javascript Side
 .. autoclass:: WebServer
 
     .. automethod:: page
+    .. automethod:: add_menu_entry
     .. automethod:: api
     .. automethod:: serve_static_file
     .. automethod:: add_js_file
@@ -135,6 +136,8 @@ Javascript Side
     .. automethod:: from_websocket
     .. automethod:: _websocket_before_subscribe
     .. automethod:: _websocket_publish
+
+.. autoclass:: WebApiObject
 
 .. autoclass:: WebDisplayDatapoint
 

@@ -94,7 +94,7 @@ This list is used by *Subscribable* objects to avoid recursive feedback loops:
 When publishing a value, all subscribers which are already included in ``origin`` are automatically skipped, as they took part in causing this publishing event and probably will cause the same event again, closing the feedback loop.
 
 When calling :meth:`Writable.write` from within a logic handler, decorated with the :func:`shc.handler` decorator, the ``origin`` argument may omitted, since it is magically provided via a hidden environment variable.
-See the following section for more details.
+See section ":ref:`base.logic-handlers`" below for more details.
 
 
 .. _base.typing:

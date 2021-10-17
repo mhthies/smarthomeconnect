@@ -4,7 +4,7 @@ Datatypes and Type Conversions
 
 SHC's *Connectable* objects are designed to work with simple ("scalar") Python types, basic structured types, specifically NamedTuples, and Enums.
 Basically, thanks to Python's dynamic nature, any Python type can be used as a value type by connectable objects.
-However, some of SHC's features work much better with simple types, e.g. the :ref:`dynamic type checking and automatic type conversions <base.typing>`, builtin :ref:`JSON serialization<datatypes.json>` (e.g. for the :ref:`REST API <web.rest>` and :meth:`MQTT <shc.interfaces.mqtt.MQTTClientInterface.topic_json>`).
+However, some of SHC's features work much better with simple types, e.g. the :ref:`dynamic type checking and automatic type conversions <base.typing>` and the builtin :ref:`JSON serialization<datatypes.json>` (e.g. for the :ref:`REST API <web.rest>` and :meth:`MQTT <shc.interfaces.mqtt.MQTTClientInterface.topic_json>`).
 
 Examples for well supported Python builtin types and standard-library types:
 
