@@ -56,9 +56,9 @@ index_page.add_item(Slider("Dimmer").connect(dimmer))
 
 # Add UI controls for the the RGB color components
 index_page.new_segment()
-index_page.add_item(Slider("Rot", color='red').connect(color.red, convert=True))  # type: ignore
-index_page.add_item(Slider("Grün", color='green').connect(color.green, convert=True))  # type: ignore
-index_page.add_item(Slider("Blau", color='blue').connect(color.blue, convert=True))  # type: ignore
+index_page.add_item(Slider("Rot", color='red').connect(color.field('red'), convert=True))
+index_page.add_item(Slider("Grün", color='green').connect(color.field('green'), convert=True))
+index_page.add_item(Slider("Blau", color='blue').connect(color.field('blue'), convert=True))
 
 
 if __name__ == '__main__':

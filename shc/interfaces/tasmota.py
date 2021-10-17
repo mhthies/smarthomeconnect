@@ -617,7 +617,7 @@ class TasmotaOnlineConnector(Readable[bool], Subscribable[bool]):
 
     def __init__(self):
         super().__init__()
-        self.value = None
+        self.value = False
 
     def _update_from_mqtt(self, msg: MQTTMessage) -> None:
         self.value = msg.payload == b'Online'

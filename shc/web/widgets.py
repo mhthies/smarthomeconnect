@@ -37,7 +37,7 @@ from markupsafe import Markup
 
 from .interface import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer,\
     WebUIConnector, WebPage, WebServer
-from ..base import T, ConnectableWrapper
+from ..base import T, ConnectableWrapper, Connectable
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1, RGBUInt8
 
@@ -506,6 +506,7 @@ class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
 
     def connect(self, *args, **kwargs):
         for button in self.buttons:
+            assert isinstance(button, Connectable)
             button.connect(*args, **kwargs)
         return self
 

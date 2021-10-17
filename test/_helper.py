@@ -188,8 +188,8 @@ class ClockMock:
         for p in self.patches:
             p.__exit__(exc_type, exc_val, exc_tb)
 
-        datetime.datetime = self.original_datetime
-        datetime.date = self.original_date
+        datetime.datetime = self.original_datetime  # type: ignore
+        datetime.date = self.original_date  # type: ignore
 
 
 # ###########################

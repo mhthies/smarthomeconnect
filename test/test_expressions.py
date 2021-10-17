@@ -5,7 +5,7 @@ import unittest.mock
 
 from shc import variables, expressions
 from shc.base import UninitializedError
-from shc.expressions import not_, or_, and_
+from shc.expressions import not_, or_, and_, ExpressionHandler
 from test._helper import async_test, ExampleWritable
 
 
@@ -34,9 +34,10 @@ class TestExpressions(unittest.TestCase):
         var1 = variables.Variable(float, initial_value=17.0)
         var2 = variables.Variable(int, initial_value=7)
         expression = (var2.EX * 10) // (var1.EX - 7)
-        expression2 = expression > 5
+        expression2: ExpressionHandler[bool] = expression > 5
         expression3 = not_(var1.EX < 10)
-        expression4 = expression2.and_(expression3)
+        assert isinstance(expression3, ExpressionHandler)
+        expression4: ExpressionHandler[bool] = expression2.and_(expression3)
 
         self.assertEqual(7, await expression.read())
         self.assertEqual(True, await expression2.read())
@@ -52,9 +53,11 @@ class TestExpressions(unittest.TestCase):
         expression3 = 320 / (10 - var2.EX)
         expression4 = and_(True, (8 + var2.EX == 50))
 
+        assert isinstance(expression, ExpressionHandler)
         self.assertEqual(True, await expression.read())
         self.assertEqual(210, await expression2.read())
         self.assertEqual(-10.0, await expression3.read())
+        assert isinstance(expression4, ExpressionHandler)
         self.assertEqual(True, await expression4.read())
 
     @async_test
