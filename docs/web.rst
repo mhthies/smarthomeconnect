@@ -31,6 +31,7 @@ TODO filling the navigation bar
    web/log_widgets
 
 
+.. _web.rest:
 
 Configuring the HTTP REST + Websocket API
 -----------------------------------------

@@ -787,7 +787,7 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         of the datatype cannot render the resulting number of steps/frames.
     :param enable_ramp: Optional bypass: If a bool-typed *readable* object is provided, it is read at the beginning of
         each received value update. If its value evaluates to `False`, the ramp is bypassed and the new target value is
-        republished immediately. If the value is `True, the ramp generator is enabled. If no object is given, the ramp
+        republished immediately. If the value is `True`, the ramp generator is enabled. If no object is given, the ramp
         generator is always on.
     """
     is_reading_optional = False

@@ -108,7 +108,7 @@ The object's type is indicated by its ``type`` attribute, which may be a class a
 
 The instance-specific ``type`` of generic *Connectable* classes may either be given to each object explicitly (as an argument to its *__init__* method as for :class:`shc.Variable`) or derived from other properties of the object (like the KNX Datapoint Type of :class:`shc.interfaces.knx.KNXGroupVar` objects).
 
-When connecting two *Connectable* objects using :meth:`Connectable.conect`, :meth:`Subscribable.subscribe` or :meth:`Reading.set_provider`, the consistency of the two objects' ``type`` attributes are checked and a *TypeError* is raised if they don't match.
+When connecting two *Connectable* objects using :meth:`Connectable.connect`, :meth:`Subscribable.subscribe` or :meth:`Reading.set_provider`, the consistency of the two objects' ``type`` attributes are checked and a *TypeError* is raised if they don't match.
 In many cases, you'll still want to connect those objects and make sure, the value is adequately converted when being written to/read from the other object.
 For this purpose, the *connect*, *subscribe* and *set_provider* methods provide an optional argument ``convert``.
 

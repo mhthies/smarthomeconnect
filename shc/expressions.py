@@ -221,7 +221,7 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
     def convert(self, type_: Type[S], converter: Optional[Callable[[T], S]] = None) -> "UnaryExpressionHandler[S]":
         """
         Returns an ExpressionHandler that wraps this object to convert values to another type using a given converter
-        function or the :func:`default converter <conversion.get_converter>` for those two types.
+        function or the :ref:`default converter <datatypes.default_converters>` for those two types.
 
         Example::
 
