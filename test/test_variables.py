@@ -176,9 +176,9 @@ class VariableFieldsTest(unittest.TestCase):
 
         with warnings.catch_warnings(record=True):  # There seems to be a bug, that record=False breaks the catching
             with self.assertRaises(AttributeError):
-                var_c = var.c  # type: ignore
+                var_c = var.c
             with self.assertRaises(AttributeError):
-                var_c = var.a.c  # type: ignore
+                var_c = var.a.c
 
             with self.assertRaises(base.UninitializedError):
                 await var.a.a.write(21, [self])
