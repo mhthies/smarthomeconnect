@@ -6,6 +6,7 @@ import time
 import unittest
 import unittest.mock
 from contextlib import suppress
+from pathlib import Path
 from typing import List
 
 import asyncio_mqtt
@@ -21,7 +22,8 @@ class MQTTClientTest(unittest.TestCase):
     def setUp(self) -> None:
         self.client_runner = InterfaceThreadRunner(shc.interfaces.mqtt.MQTTClientInterface, "localhost", 42883)
         self.client = self.client_runner.interface
-        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
+        self.broker_config_file = Path(__file__).parent.parent / 'assets' / 'mosquitto.conf'
+        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", '-c', str(self.broker_config_file)])
         time.sleep(0.25)
 
     def tearDown(self) -> None:
@@ -150,7 +152,7 @@ class MQTTClientTest(unittest.TestCase):
         self.assertIn("Connection refused", ctx.output[0])
 
         # Restart server
-        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
+        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", '-c', str(self.broker_config_file)])
 
         # Wait for second reconnect attempt
         with unittest.mock.patch.object(self.client.client, 'connect', new=AsyncMock()) as connect_mock:
@@ -179,7 +181,7 @@ class MQTTClientTest(unittest.TestCase):
         self.assertIn("Connection refused", ctx.output[0])
 
         # Restart server
-        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
+        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", '-c', str(self.broker_config_file)])
         time.sleep(0.25)
         asyncio.get_event_loop().run_until_complete(self._send_retained_test_message())
 

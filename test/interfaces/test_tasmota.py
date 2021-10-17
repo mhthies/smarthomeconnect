@@ -6,6 +6,7 @@ import time
 import unittest
 import unittest.mock
 from contextlib import suppress
+from pathlib import Path
 from typing import Dict, Any
 
 import asyncio_mqtt
@@ -26,7 +27,8 @@ class TasmotaInterfaceTest(unittest.TestCase):
         self.client = self.client_runner.interface
         self.interface: shc.interfaces.tasmota.TasmotaInterface = \
             self.client_runner.run_coro(_construct(self.client, 'test-device'))
-        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883"])
+        broker_config_file = Path(__file__).parent.parent / 'assets' / 'mosquitto.conf'
+        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", '-c', str(broker_config_file)])
         time.sleep(0.25)
 
     def tearDown(self) -> None:
