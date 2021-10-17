@@ -92,6 +92,10 @@ class VariableFieldsTest(unittest.TestCase):
         field_subscriber = ExampleWritable(int)
         var.field('a').subscribe(field_subscriber)
 
+        with self.assertRaises(TypeError):
+            var2 = variables.Variable(float)
+            await var2.field('c')  # type: ignore
+
         with self.assertRaises(KeyError):
             await var.field('c')  # type: ignore
 
