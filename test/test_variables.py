@@ -1,6 +1,7 @@
 import asyncio
 import unittest
 import unittest.mock
+import warnings
 from typing import NamedTuple
 
 from shc import variables, base, expressions
@@ -88,6 +89,9 @@ class VariableFieldsTest(unittest.TestCase):
         field_subscriber = ExampleWritable(int)
         var.field('a').subscribe(field_subscriber)
 
+        with self.assertRaises(KeyError):
+            await var.field('c')  # type: ignore
+
         with self.assertRaises(base.UninitializedError):
             await var.field('a').read()
 
@@ -133,6 +137,9 @@ class VariableFieldsTest(unittest.TestCase):
         field_subscriber = ExampleWritable(int)
         var.field('a').field('a').subscribe(field_subscriber)
 
+        with self.assertRaises(KeyError):
+            await var.field('a').field('c')  # type: ignore
+
         with self.assertRaises(base.UninitializedError):
             await var.field('a').field('a').read()
 
@@ -145,6 +152,54 @@ class VariableFieldsTest(unittest.TestCase):
         await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 3.1416), 6), [self])
         await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 2.719), 6), [self])
         field_subscriber._write.assert_not_called()
+
+    @async_test
+    async def test_recursive_field_writing_legacy(self):
+        var = variables.Variable(ExampleRecursiveTupleType)
+        subscriber = ExampleWritable(ExampleRecursiveTupleType)
+        intermediate_subscriber = ExampleWritable(ExampleTupleType)
+        field_subscriber = ExampleWritable(int)
+        other_field_subscriber = ExampleWritable(float)
+        another_field_subscriber = ExampleWritable(int)
+
+        with warnings.catch_warnings(record=True) as w:
+            var.subscribe(subscriber)
+            var.a.subscribe(intermediate_subscriber)
+            var.a.a.subscribe(field_subscriber)
+            var.a.b.subscribe(other_field_subscriber)
+            var.b.subscribe(another_field_subscriber)
+        self.assertGreaterEqual(len(w), 4)
+        self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+
+        with warnings.catch_warnings(record=True):  # There seems to be a bug, that record=False breaks the catching
+            with self.assertRaises(AttributeError):
+                var_c = var.c  # type: ignore
+            with self.assertRaises(AttributeError):
+                var_c = var.a.c  # type: ignore
+
+            with self.assertRaises(base.UninitializedError):
+                await var.a.a.write(21, [self])
+
+            await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 3.1416), 7), [self])
+            await asyncio.sleep(0.01)
+
+            subscriber._write.reset_mock()
+            intermediate_subscriber._write.reset_mock()
+            field_subscriber._write.reset_mock()
+            other_field_subscriber._write.reset_mock()
+            another_field_subscriber._write.reset_mock()
+
+            await var.a.a.write(21, [self])
+            self.assertEqual(21, await var.a.a.read())
+            self.assertEqual(ExampleTupleType(21, 3.1416), await var.a.read())
+            await asyncio.sleep(0.01)
+            subscriber._write.assert_called_once_with(ExampleRecursiveTupleType(ExampleTupleType(21, 3.1416), 7),
+                                                      [self, var.a.a, var.a, var])
+            intermediate_subscriber._write.assert_called_once_with(
+                ExampleTupleType(21, 3.1416), [self, var.a.a, var.a, var.a])
+            field_subscriber._write.assert_called_once_with(21, [self, var.a.a, var.a, var.a.a])
+            other_field_subscriber._write.assert_not_called()
+            another_field_subscriber._write.assert_not_called()
 
     @async_test
     async def test_recursive_field_writing(self):
