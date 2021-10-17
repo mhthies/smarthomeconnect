@@ -73,6 +73,15 @@ These objects are *Connectable* (taking their ``type`` attribute from the NamedT
 If the Variable's type consists of nested NamedTuples types, the VariableField objects may include VariableFields of the respective sub-field's type recursively.
 Equally, they can be retrieved via the :meth:`VariableField.field` method.
 
+.. tip::
+    If you use Python MyPy to statically typecheck your SHC-based application, MyPy will by default not be able to figure out the value type of the `VariableField` objects retrieved via :meth:`.field <VariableField.field>` (i.e. it defaults to `Any`).
+    Thus, it can only warn you about general issues with the usage of the VariableField, but it can not warn you about a type mismatch with a *Connectable* object connected to it.
+    To add this missing value type inference (which cannot be expressed with Python type hints – as far as I know), SHC comes with a little MyPy plugin.
+
+    To enable the MyPy plugin, create a MyPy config file (see `https://mypy.readthedocs.io/en/stable/config_file.html <https://mypy.readthedocs.io/en/stable/config_file.html>`_) and set ``plugins = shc.util.mypy_variable_plugin`` in the ``[mypy]`` section.
+    The plugin will only work if the tuple field name is passed to `.field()` as a string literal, like in the example above.
+
+
 .. _expressions:
 
 Expressions
