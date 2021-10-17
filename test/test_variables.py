@@ -2,7 +2,10 @@ import asyncio
 import unittest
 import unittest.mock
 import warnings
+from pathlib import Path
 from typing import NamedTuple
+
+import mypy.api
 
 from shc import variables, base, expressions
 from ._helper import async_test, ExampleReadable, ExampleWritable, AsyncMock
@@ -283,3 +286,19 @@ class ConnectedVariablesTest(unittest.TestCase):
         self.assertLessEqual(writable3._write.call_count, 3)
         # 1st arg of 2nd call shall be equal
         self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])
+
+
+class MyPyPluginTest(unittest.TestCase):
+    def test_mypy_plugin(self) -> None:
+        asset_dir = Path(__file__).parent / 'assets' / 'mypy_plugin_test'
+        result = mypy.api.run(['--config-file',
+                               str(asset_dir / 'mypy.ini'),
+                               str(asset_dir / 'variable_typing_example.py')])
+        self.assertIn("variable_typing_example.py:22: error", result[0])
+        self.assertNotIn("variable_typing_example.py:23: error", result[0])
+        self.assertIn("variable_typing_example.py:25: error", result[0])
+        self.assertNotIn("variable_typing_example.py:26: error", result[0])
+        self.assertIn("variable_typing_example.py:27: error", result[0])
+        self.assertIn("variable_typing_example.py:28: error", result[0])
+        self.assertIn("variable_typing_example.py:29: error", result[0])
+        self.assertEqual(1, result[2])
