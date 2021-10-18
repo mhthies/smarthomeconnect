@@ -222,8 +222,8 @@ class SHCWebClient(SupervisedClientInterface):
         Create a `Connectable` object for communicating with an API object on the remote SHC server.
 
         The returned object is `Subscribable`, `Readable` and `Writable`. Read and write calls are basically forwarded
-        to the corresponding :class:`shc.web.WebApiObject`; new values, pushed from the server, are published to the
-        object's subscribers.
+        to the corresponding :class:`WebApiObject <shc.web.interface.WebApiObject>` of the server; new values, pushed
+        from the server, are published to the object's subscribers.
 
         :param type_: The data type of the server's API object. This is also the `type` of the returned `Connectable`
             object.
