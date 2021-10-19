@@ -727,7 +727,7 @@ class RampTest(unittest.TestCase):
             writable1._write.assert_called_once_with(datatypes.RangeUInt8(128), [ramp1, variable1])
             writable1._write.reset_mock()
 
-            # Let's interrupt the ramp be sending a new value directly to the varible
+            # Let's interrupt the ramp be sending a new value directly to the Variable
             await asyncio.sleep(0.25)
             await variable1.write(datatypes.RangeUInt8(192), [self])
 
@@ -741,3 +741,46 @@ class RampTest(unittest.TestCase):
             writable1._write.assert_called_once_with(datatypes.RangeUInt8(96), [ramp1, variable1])
             await asyncio.sleep(0.5)
             writable1._write.assert_called_with(datatypes.RangeUInt8(0), [ramp1, variable1])
+
+    @async_test
+    async def test_fade_step_ramp(self) -> None:
+        begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
+
+        subscribable1 = ExampleSubscribable(datatypes.FadeStep)
+        ramp1 = timer.FadeStepRamp(subscribable1, datetime.timedelta(seconds=1), max_frequency=2,
+                                   dynamic_duration=False)
+        variable1 = shc.Variable(datatypes.RangeFloat1).connect(ramp1)
+        writable1 = ExampleWritable(datatypes.RangeFloat1).connect(variable1)
+
+        with ClockMock(begin, actual_sleep=0.05) as clock:
+            with self.assertLogs() as l:
+                await subscribable1.publish(datatypes.FadeStep(0.5), [self])
+                await asyncio.sleep(0.05)
+            self.assertIn("Cannot apply FadeStep", l.records[0].msg)
+            writable1._write.assert_not_called()
+            writable1._write.reset_mock()
+
+            await variable1.write(datatypes.RangeFloat1(0.0), [self])
+            await asyncio.sleep(0.05)
+            writable1._write.reset_mock()
+
+            await subscribable1.publish(datatypes.FadeStep(0.5), [self])
+            await asyncio.sleep(0.05)
+            # Assert first step
+            writable1._write.assert_called_once_with(datatypes.RangeFloat1(0.25), [ramp1, variable1])
+            writable1._write.reset_mock()
+
+            # Let's interrupt the ramp be sending a new value directly to the varible
+            await asyncio.sleep(0.25)
+            await variable1.write(datatypes.RangeFloat1(0.75), [self])
+
+            await asyncio.sleep(1.0)
+            writable1._write.assert_called_once_with(datatypes.RangeFloat1(0.75), [self, variable1])
+            writable1._write.reset_mock()
+
+            # And now, let's do a new ramp to 0.25, which should start at 0.75
+            await subscribable1.publish(datatypes.FadeStep(-0.5), [self])
+            await asyncio.sleep(0.05)
+            writable1._write.assert_called_once_with(datatypes.RangeFloat1(0.5), [ramp1, variable1])
+            await asyncio.sleep(0.5)
+            writable1._write.assert_called_with(datatypes.RangeFloat1(0.25), [ramp1, variable1])
