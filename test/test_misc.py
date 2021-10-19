@@ -142,10 +142,10 @@ class MiscTests(unittest.TestCase):
         variable1 = shc.Variable(shc.datatypes.RangeFloat1)\
             .connect(shc.misc.FadeStepAdapter(subscribable1))
 
-        with self.assertLogs() as l:
+        with self.assertLogs() as logs:
             await subscribable1.publish(shc.datatypes.FadeStep(0.5), [self])
             await asyncio.sleep(0.05)
-        self.assertIn("Cannot apply FadeStep", l.records[0].msg)
+        self.assertIn("Cannot apply FadeStep", logs.records[0].msg)
 
         await variable1.write(shc.datatypes.RangeFloat1(0.5), [self])
         await asyncio.sleep(0.05)

@@ -753,10 +753,10 @@ class RampTest(unittest.TestCase):
         writable1 = ExampleWritable(datatypes.RangeFloat1).connect(variable1)
 
         with ClockMock(begin, actual_sleep=0.05) as clock:
-            with self.assertLogs() as l:
+            with self.assertLogs() as logs:
                 await subscribable1.publish(datatypes.FadeStep(0.5), [self])
                 await asyncio.sleep(0.05)
-            self.assertIn("Cannot apply FadeStep", l.records[0].msg)
+            self.assertIn("Cannot apply FadeStep", logs.records[0].msg)
             writable1._write.assert_not_called()
             writable1._write.reset_mock()
 

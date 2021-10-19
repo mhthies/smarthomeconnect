@@ -1074,7 +1074,7 @@ class RGBHSVRamp(AbstractRamp[RGBUInt8]):
         super().__init__(RGBUInt8, *args, **kwargs)
         if wrapped is not None:
             wrapped.trigger(self.ramp_to, synchronous=True)
-    
+
     def _calculate_ramp(self, begin: RGBUInt8, target: RGBUInt8) -> Tuple[float, int]:
         begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.as_float()),
                                                     HSVFloat1.from_rgb(target.as_float()))
