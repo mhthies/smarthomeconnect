@@ -867,7 +867,8 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
             if not enabled:
                 if self.__task:
                     self.__task.cancel()
-                await self._publish_and_wait(step.apply_to(self._current_value), origin)
+                self._current_value = step.apply_to(self._current_value)
+                await self._publish_and_wait(self._current_value, origin)
                 return
 
         self.__new_target_value = step.apply_to(self._current_value)
