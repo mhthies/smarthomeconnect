@@ -8,11 +8,12 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
-
+import abc
 import logging
 import math
-from typing import NamedTuple, Union, overload
+from typing import NamedTuple, Union, overload, Generic
 
+from shc.base import T
 from shc.conversion import register_converter, get_converter
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,34 @@ class Balance(float):
 
 register_converter(RangeFloat1, Balance, lambda v: Balance(v * 2 - 1))
 register_converter(Balance, RangeFloat1, lambda v: RangeFloat1(v / 2 + 0.5))
+
+
+class AbstractStep(Generic[T], metaclass=abc.ABCMeta):
+    """
+    Abstract base class for all difference/step types, that represent a step within an associated range type
+    """
+    @abc.abstractmethod
+    def apply_to(self, value: T) -> T:
+        """
+        Apply this step to a given value of the associated range type
+
+        :param value: The old value
+        :return: The new value, when this step is applied to the old value
+        """
+        pass
+
+
+class FadeStep(float, AbstractStep[RangeFloat1]):
+    """
+    A dimmer or fader change step in the range -1.0 to 1.0. It can be applied to a :class:`RangeFloat1` adding it to the
+    step to the current value and clipping the result to the range 0..1.0.
+
+    See :class:`shc.misc.FadeStepAdapter` to do this to SHC.
+    """
+    pass
+
+    def apply_to(self, value: RangeFloat1) -> RangeFloat1:
+        return RangeFloat1(min(1.0, max(0.0, value + self)))
 
 
 class RGBUInt8(NamedTuple):

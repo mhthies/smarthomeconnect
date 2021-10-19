@@ -54,6 +54,7 @@ List of New Types included with SHC:
 - :class:`shc.datatypes.RangeInt0To100`
 - :class:`shc.datatypes.AngleUInt8`
 - :class:`shc.datatypes.Balance`
+- :class:`shc.datatypes.FadeStep`
 
 
 .. _datatypes.default_converters:
