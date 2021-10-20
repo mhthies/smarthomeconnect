@@ -146,6 +146,11 @@ class Writable(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
 class Readable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def read(self) -> T_co:
+        """
+        Get the current value of this Connectable object.
+
+        :raises UninitializedError: If the value is not (yet) specified
+        """
         pass
 
 
@@ -326,7 +331,11 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
 
         :param target: The handler function/coroutine to be triggered on updates. Must comply with the requirements
             mentioned above.
-        :return: The ``target`` function (unchanged)
+        :param synchronous: If True, the target coroutine is triggered synchronously, i.e. :meth:`_publish_and_wait`
+            will wait for it to return. This SHALL be used for internal triggering methods that re-publish the value
+            updates of this Subscribable object. For logic handlers that might require substantial time to return, it
+            SHALL not be used!
+        :return: The ``target`` function (unchanged) – this allows decorator-style usage of this method
         """
         self._triggers.append((target, synchronous))
         if synchronous and self._stateful_publishing:
