@@ -12,13 +12,14 @@ import abc
 import asyncio
 import logging
 from collections import defaultdict, deque
-from typing import NamedTuple, List, Optional, Generic, Type, Any, DefaultDict, Tuple, Callable, Deque, Set
+from typing import (
+    NamedTuple, List, Optional, Generic, Type, Any, DefaultDict, Tuple, Callable, Deque, Set, TYPE_CHECKING)
 import ctypes as c
 
-from pulsectl import (
-    PulseEventInfo, PulseEventFacilityEnum, PulseEventTypeEnum, PulseSinkInfo, PulseSourceInfo, PulseServerInfo,
-    PulseVolumeInfo, PulseStateEnum, PulseDisconnected)
-from pulsectl_asyncio import PulseAsync
+if TYPE_CHECKING:
+    from pulsectl import (
+        PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo, PulseVolumeInfo, PulseDisconnected)
+    from pulsectl_asyncio import PulseAsync
 
 import shc.conversion
 from shc.base import Connectable, Subscribable, Readable, T, UninitializedError, Writable
@@ -213,6 +214,8 @@ class PulseAudioInterface(SupervisedClientInterface):
     def __init__(self, pulse_client_name: str = "smarthomeconnect", pulse_server_socket: Optional[str] = None,
                  auto_reconnect: bool = True, failsafe_start: bool = False):
         super().__init__(auto_reconnect, failsafe_start)
+        from pulsectl_asyncio import PulseAsync
+
         self.pulse = PulseAsync(pulse_client_name, server=pulse_server_socket)
         self.sink_connectors_by_id: DefaultDict[int, List["SinkConnector"]] = defaultdict(list)
         self.sink_connectors_by_name: DefaultDict[Optional[str], List["SinkConnector"]] = defaultdict(list)
@@ -279,8 +282,10 @@ class PulseAudioInterface(SupervisedClientInterface):
             except Exception as e:
                 logger.error("Error while dispatching PulseAudio event %s", event, exc_info=e)
 
-    async def _dispatch_pulse_event(self, event: PulseEventInfo) -> None:
+    async def _dispatch_pulse_event(self, event: "PulseEventInfo") -> None:
+        from pulsectl import PulseEventTypeEnum, PulseEventFacilityEnum
         logger.debug("Dispatching Pulse audio event: %s", event)
+
         if event.t is PulseEventTypeEnum.new:
             if event.facility is PulseEventFacilityEnum.sink:
                 data = await self.pulse.sink_info(event.index)
@@ -479,7 +484,7 @@ class SinkConnector(metaclass=abc.ABCMeta):
         super().__init__()
         self.current_id: Optional[int] = None
 
-    def on_change(self, data: PulseSinkInfo, origin: List[Any]) -> None:
+    def on_change(self, data: "PulseSinkInfo", origin: List[Any]) -> None:
         pass
 
     def change_id(self, index: Optional[int]) -> None:
@@ -491,7 +496,7 @@ class SourceConnector(metaclass=abc.ABCMeta):
         super().__init__()
         self.current_id: Optional[int] = None
 
-    def on_change(self, data: PulseSourceInfo, origin: List[Any]) -> None:
+    def on_change(self, data: "PulseSourceInfo", origin: List[Any]) -> None:
         pass
 
     def change_id(self, index: Optional[int]) -> None:
@@ -499,16 +504,16 @@ class SourceConnector(metaclass=abc.ABCMeta):
 
 
 class SinkAttributeConnector(Subscribable[T], Readable[T], SinkConnector, Generic[T], metaclass=abc.ABCMeta):
-    def __init__(self, pulse: PulseAsync, type_: Type[T]):
+    def __init__(self, pulse: "PulseAsync", type_: Type[T]):
         self.type = type_
         super().__init__()
         self.pulse = pulse
 
-    def on_change(self, data: PulseSinkInfo, origin: List[Any]) -> None:
+    def on_change(self, data: "PulseSinkInfo", origin: List[Any]) -> None:
         self._publish(self._convert_from_pulse(data), origin)
 
     @abc.abstractmethod
-    def _convert_from_pulse(self, data: PulseSinkInfo) -> T:
+    def _convert_from_pulse(self, data: "PulseSinkInfo") -> T:
         pass
 
     async def read(self) -> T:
@@ -519,16 +524,16 @@ class SinkAttributeConnector(Subscribable[T], Readable[T], SinkConnector, Generi
 
 
 class SourceAttributeConnector(Subscribable[T], Readable[T], SourceConnector, Generic[T], metaclass=abc.ABCMeta):
-    def __init__(self, pulse: PulseAsync, type_: Type[T]):
+    def __init__(self, pulse: "PulseAsync", type_: Type[T]):
         self.type = type_
         super().__init__()
         self.pulse = pulse
 
-    def on_change(self, data: PulseSourceInfo, origin: List[Any]) -> None:
+    def on_change(self, data: "PulseSourceInfo", origin: List[Any]) -> None:
         self._publish(self._convert_from_pulse(data), origin)
 
     @abc.abstractmethod
-    def _convert_from_pulse(self, data: PulseSourceInfo) -> T:
+    def _convert_from_pulse(self, data: "PulseSourceInfo") -> T:
         pass
 
     async def read(self) -> T:
@@ -539,10 +544,12 @@ class SourceAttributeConnector(Subscribable[T], Readable[T], SourceConnector, Ge
 
 
 class SinkStateConnector(SinkAttributeConnector[bool]):
-    def __init__(self, pulse: PulseAsync):
+    def __init__(self, pulse: "PulseAsync"):
         super().__init__(pulse, bool)
 
-    def _convert_from_pulse(self, data: PulseSinkInfo) -> bool:
+    def _convert_from_pulse(self, data: "PulseSinkInfo") -> bool:
+        from pulsectl import PulseStateEnum
+
         return data.state == PulseStateEnum.running
 
     def change_id(self, index: Optional[int]) -> None:
@@ -552,10 +559,12 @@ class SinkStateConnector(SinkAttributeConnector[bool]):
 
 
 class SourceStateConnector(SourceAttributeConnector[bool]):
-    def __init__(self, pulse: PulseAsync):
+    def __init__(self, pulse: "PulseAsync"):
         super().__init__(pulse, bool)
 
-    def _convert_from_pulse(self, data: PulseSinkInfo) -> bool:
+    def _convert_from_pulse(self, data: "PulseSinkInfo") -> bool:
+        from pulsectl import PulseStateEnum
+
         return data.state == PulseStateEnum.running
 
     def change_id(self, index: Optional[int]) -> None:
@@ -565,11 +574,11 @@ class SourceStateConnector(SourceAttributeConnector[bool]):
 
 
 class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
-    def __init__(self, pulse: PulseAsync, register_origin_callback: Callable[[str, int, List[Any]], None]):
+    def __init__(self, pulse: "PulseAsync", register_origin_callback: Callable[[str, int, List[Any]], None]):
         super().__init__(pulse, bool)
         self.register_origin_callback = register_origin_callback
 
-    def _convert_from_pulse(self, data: PulseSinkInfo) -> bool:
+    def _convert_from_pulse(self, data: "PulseSinkInfo") -> bool:
         return bool(data.mute)
 
     async def _write(self, value: T, origin: List[Any]) -> None:
@@ -580,11 +589,11 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
 
 
 class SourceMuteConnector(SourceAttributeConnector[bool], Writable[bool]):
-    def __init__(self, pulse: PulseAsync, register_origin_callback: Callable[[str, int, List[Any]], None]):
+    def __init__(self, pulse: "PulseAsync", register_origin_callback: Callable[[str, int, List[Any]], None]):
         super().__init__(pulse, bool)
         self.register_origin_callback = register_origin_callback
 
-    def _convert_from_pulse(self, data: PulseSinkInfo) -> bool:
+    def _convert_from_pulse(self, data: "PulseSinkInfo") -> bool:
         return bool(data.mute)
 
     async def _write(self, value: T, origin: List[Any]) -> None:
@@ -595,14 +604,16 @@ class SourceMuteConnector(SourceAttributeConnector[bool], Writable[bool]):
 
 
 class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[PulseVolumeRaw]):
-    def __init__(self, pulse: PulseAsync, register_origin_callback: Callable[[str, int, List[Any]], None]):
+    def __init__(self, pulse: "PulseAsync", register_origin_callback: Callable[[str, int, List[Any]], None]):
         super().__init__(pulse, PulseVolumeRaw)
         self.register_origin_callback = register_origin_callback
 
-    def _convert_from_pulse(self, data: PulseSinkInfo) -> PulseVolumeRaw:
+    def _convert_from_pulse(self, data: "PulseSinkInfo") -> PulseVolumeRaw:
         return PulseVolumeRaw(data.volume.values, data.channel_list_raw)
 
     async def _write(self, value: PulseVolumeRaw, origin: List[Any]) -> None:
+        from pulsectl import PulseVolumeInfo
+
         if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
         self.register_origin_callback('sink', self.current_id, origin)
@@ -610,14 +621,16 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
 
 
 class SourceVolumeConnector(SourceAttributeConnector[PulseVolumeRaw], Writable[PulseVolumeRaw]):
-    def __init__(self, pulse: PulseAsync, register_origin_callback: Callable[[str, int, List[Any]], None]):
+    def __init__(self, pulse: "PulseAsync", register_origin_callback: Callable[[str, int, List[Any]], None]):
         super().__init__(pulse, PulseVolumeRaw)
         self.register_origin_callback = register_origin_callback
 
-    def _convert_from_pulse(self, data: PulseSinkInfo) -> PulseVolumeRaw:
+    def _convert_from_pulse(self, data: "PulseSinkInfo") -> PulseVolumeRaw:
         return PulseVolumeRaw(data.volume.values, data.channel_list_raw)
 
     async def _write(self, value: PulseVolumeRaw, origin: List[Any]) -> None:
+        from pulsectl import PulseVolumeInfo
+
         if self.current_id is None:
             raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
         self.register_origin_callback('source', self.current_id, origin)
@@ -627,7 +640,7 @@ class SourceVolumeConnector(SourceAttributeConnector[PulseVolumeRaw], Writable[P
 class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
     type = RangeFloat1
 
-    def __init__(self, pulse: PulseAsync, frequency: int):
+    def __init__(self, pulse: "PulseAsync", frequency: int):
         super().__init__()
         self.pulse = pulse
         self.frequency = frequency
@@ -655,7 +668,7 @@ class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
 class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
     type = RangeFloat1
 
-    def __init__(self, pulse: PulseAsync, frequency: int):
+    def __init__(self, pulse: "PulseAsync", frequency: int):
         super().__init__()
         self.pulse = pulse
         self.frequency = frequency
@@ -683,13 +696,13 @@ class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
 class DefaultNameConnector(Subscribable[str], Readable[str], Writable[str]):
     type = str
 
-    def __init__(self, pulse: PulseAsync, attr: str, register_origin_callback: Callable[[str, int, List[Any]], None]):
+    def __init__(self, pulse: "PulseAsync", attr: str, register_origin_callback: Callable[[str, int, List[Any]], None]):
         super().__init__()
         self.pulse = pulse
         self.attr = attr
         self.register_origin_callback = register_origin_callback
 
-    def _update(self, server_info: PulseServerInfo, origin: List[Any]) -> None:
+    def _update(self, server_info: "PulseServerInfo", origin: List[Any]) -> None:
         self._publish(getattr(server_info, self.attr), origin)
 
     async def read(self) -> str:
