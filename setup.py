@@ -38,7 +38,7 @@ setup(
     cmdclass={
         'build_py': custom_build_py
     },
-    packages=find_packages(),
+    packages=find_packages(exclude=("test",)),
     include_package_data=True,
     python_requires='~=3.7',
     install_requires=[
