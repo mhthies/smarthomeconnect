@@ -28,7 +28,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.md'), encoding='utf-8'
 
 setup(
     name='smarthomeconnect',
-    version='0.4.0',
+    version='0.5.0',
     description='The Smart Home Connect home automation framework based on AsyncIO',
     long_description=long_description,
     long_description_content_type='text/markdown',
