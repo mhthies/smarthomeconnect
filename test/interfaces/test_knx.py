@@ -18,10 +18,10 @@ class KNXDataTypesTest(unittest.TestCase):
         self.assertIsInstance(result, FadeStep)
         self.assertAlmostEqual(-0.25, result)
 
-        result = converter2(FadeStep(0.25))
-        self.assertIsInstance(result, knx.KNXControlDimming)
-        self.assertEqual(knx.KNXControlDimming(True, 3), result)
+        result2 = converter2(FadeStep(0.25))
+        self.assertIsInstance(result2, knx.KNXControlDimming)
+        self.assertEqual(knx.KNXControlDimming(True, 3), result2)
 
-        result = converter2(FadeStep(-0.10))  # Should be rounded to -0.125
-        self.assertIsInstance(result, knx.KNXControlDimming)
-        self.assertEqual(knx.KNXControlDimming(False, 4), result)
+        result2 = converter2(FadeStep(-0.10))  # Should be rounded to -0.125
+        self.assertIsInstance(result2, knx.KNXControlDimming)
+        self.assertEqual(knx.KNXControlDimming(False, 4), result2)

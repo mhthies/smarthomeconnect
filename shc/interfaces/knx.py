@@ -76,12 +76,13 @@ class KNXControlDimming(NamedTuple):
     @classmethod
     def from_step(cls, value: FadeStep) -> "KNXControlDimming":
         increase = True
-        if value < 0:
+        val: float = value
+        if val < 0:
             increase = False
-            value = -value
+            val = -val
         # Rounding the logarithm doesn't give us the nearest exponent of two of the original value, but it should be
         # okay in practice.
-        return cls(increase, 0 if value == 0.0 else min(7, 1 - round(math.log2(value))))
+        return cls(increase, 0 if val == 0.0 else min(7, 1 - round(math.log2(val))))
 
 
 register_converter(KNXHVACMode, int, lambda v: v.value)
