@@ -152,6 +152,9 @@ class FadeStep(float, AbstractStep[RangeFloat1]):
         return RangeFloat1(min(1.0, max(0.0, value + self)))
 
 
+register_converter(float, FadeStep, lambda v: FadeStep(min(1.0, max(-1.0, v))))
+
+
 class RGBUInt8(NamedTuple):
     """
     A 24bit color in RGB colorspace, composed of three :class:`RangeUInt8` values `red`, `green` and `blue`
