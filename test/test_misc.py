@@ -135,3 +135,36 @@ class MiscTests(unittest.TestCase):
         await pub.publish(41.4, [self])
         sub._write.assert_called_once_with(False, [self, pub, hystersis])
         self.assertEqual(False, await hystersis.read())
+
+    @async_test
+    async def test_fade_step_adapter(self) -> None:
+        subscribable1 = ExampleSubscribable(shc.datatypes.FadeStep)
+        variable1 = shc.Variable(shc.datatypes.RangeFloat1)\
+            .connect(shc.misc.FadeStepAdapter(subscribable1))
+
+        with self.assertLogs() as logs:
+            await subscribable1.publish(shc.datatypes.FadeStep(0.5), [self])
+            await asyncio.sleep(0.05)
+        self.assertIn("Cannot apply FadeStep", logs.records[0].msg)
+
+        await variable1.write(shc.datatypes.RangeFloat1(0.5), [self])
+        await asyncio.sleep(0.05)
+
+        await subscribable1.publish(shc.datatypes.FadeStep(0.25), [self])
+        await asyncio.sleep(0.05)
+        self.assertEqual(shc.datatypes.RangeFloat1(0.75), await variable1.read())
+
+        await subscribable1.publish(shc.datatypes.FadeStep(0.5), [self])
+        await asyncio.sleep(0.05)
+        self.assertEqual(shc.datatypes.RangeFloat1(1.0), await variable1.read())
+
+    @async_test
+    async def test_convert_subscription(self) -> None:
+        pub = ExampleSubscribable(shc.datatypes.RangeUInt8)
+        sub = ExampleWritable(shc.datatypes.RangeFloat1)
+
+        sub.connect(shc.misc.ConvertSubscription(pub, shc.datatypes.RangeFloat1))
+
+        await pub.publish(shc.datatypes.RangeUInt8(255), [self])
+        sub._write.assert_called_once_with(shc.datatypes.RangeFloat1(1.0), [self, pub, unittest.mock.ANY])
+        self.assertIsInstance(sub._write.call_args[0][0], shc.datatypes.RangeFloat1)

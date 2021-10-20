@@ -13,7 +13,8 @@ import asyncio
 import datetime
 import enum
 import logging
-from typing import List, Any, Dict, Tuple, Optional, Set, Generic
+import math
+from typing import List, Any, Dict, Tuple, Optional, Set, Generic, NamedTuple
 
 import knxdclient
 from ._helper import SupervisedClientInterface
@@ -21,6 +22,7 @@ from ._helper import SupervisedClientInterface
 from .. import datatypes
 from ..base import Writable, Subscribable, Reading, T
 from ..conversion import register_converter
+from ..datatypes import FadeStep
 
 KNXGAD = knxdclient.GroupAddress
 
@@ -54,16 +56,50 @@ class KNXUpDown(enum.Enum):
         return self.value
 
 
+class KNXControlDimming(NamedTuple):
+    """
+    Python NamedTuple representation of the KNX datapoint type 3.007 "DPT_Control_Dimming" or 3.008
+    "DPT_Control_Blinds".
+
+    @ivar increase: True: Increase dimmer brightness / lower blinds; False: Decrese dimmer brightness / raise blinds
+    @ivar step_exponent: 0: Break dimmming action; 1-7 define step size = 2^(1-stepcode)
+    """
+    increase: bool
+    step_exponent: int
+
+    @property
+    def step(self) -> FadeStep:
+        if not self.step_exponent:
+            return FadeStep(0.0)
+        return FadeStep((1 if self.increase else -1) * 2.0 ** (1 - self.step_exponent))
+
+    @classmethod
+    def from_step(cls, value: FadeStep) -> "KNXControlDimming":
+        increase = True
+        val: float = value
+        if val < 0:
+            increase = False
+            val = -val
+        # Rounding the logarithm doesn't give us the nearest exponent of two of the original value, but it should be
+        # okay in practice.
+        return cls(increase, 0 if val == 0.0 else min(7, 1 - round(math.log2(val))))
+
+
 register_converter(KNXHVACMode, int, lambda v: v.value)
 register_converter(int, KNXHVACMode, lambda v: KNXHVACMode(v))
 register_converter(KNXUpDown, bool, lambda v: v.value)
 register_converter(bool, KNXUpDown, lambda v: KNXUpDown(v))
+register_converter(KNXControlDimming, FadeStep, lambda v: v.step)
+register_converter(KNXControlDimming, float, lambda v: v.step)
+register_converter(FadeStep, KNXControlDimming, lambda v: KNXControlDimming.from_step(v))
+register_converter(float, KNXControlDimming, lambda v: KNXControlDimming.from_step(FadeStep(min(1.0, max(-1.0, v)))))
 register_converter(datetime.datetime, knxdclient.KNXTime, knxdclient.KNXTime.from_datetime)
 
 
 KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
     '1': (bool, knxdclient.KNXDPT.BOOLEAN),
     '1.008': (KNXUpDown, knxdclient.KNXDPT.BOOLEAN),
+    '3': (KNXControlDimming, knxdclient.KNXDPT.BOOLEAN_UINT3),
     '4': (str, knxdclient.KNXDPT.CHAR),
     '5': (int, knxdclient.KNXDPT.UINT8),
     '5.001': (datatypes.RangeUInt8, knxdclient.KNXDPT.UINT8),
@@ -164,6 +200,8 @@ class KNXConnector(SupervisedClientInterface):
         | '1'      | :class:`bool`                         |
         +----------+---------------------------------------+
         | '1.008'  | :class:`KNXUpDown`                    |
+        +----------+---------------------------------------+
+        | '3'      | :class:`KNXControlDimming`            |
         +----------+---------------------------------------+
         | '4'      | :class:`str`                          |
         +----------+---------------------------------------+
@@ -282,7 +320,7 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
     def update_from_bus(self, data: knxdclient.EncodedData, origin: List[Any]) -> None:
         value: T = knxdclient.decode_value(data, self.knx_major_dpt)
         if type(value) is not self.type:
-            value = self.type(value)  # type: ignore
+            value = self.type(*value) if issubclass(self.type, tuple) else self.type(value)  # type: ignore
         logger.debug("Got new value %s for KNX Group variable %s from bus", value, self.addr)
         self._publish(value, origin)
 

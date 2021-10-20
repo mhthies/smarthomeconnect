@@ -10,11 +10,16 @@
 # specific language governing permissions and limitations under the License.
 
 import datetime
-from typing import Generic, Type, List, Any
+import logging
+from typing import Generic, Type, List, Any, Optional, Callable
 
-from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError
+from shc import conversion
+from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError, Reading, S
+from shc.datatypes import RangeFloat1, FadeStep
 from shc.expressions import ExpressionWrapper
 from shc.timer import Every
+
+logger = logging.getLogger(__name__)
 
 """
 This module contains some helper/adapter classes to support special patterns of interconnection of :class:`Connectable`
@@ -210,3 +215,71 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
     @property
     def EX(self) -> ExpressionWrapper[bool]:
         return ExpressionWrapper(self)
+
+
+class FadeStepAdapter(Subscribable[RangeFloat1], Reading[RangeFloat1]):
+    """
+    An adapter to connect a Subscribable object which publishes :class:`shc.datatypes.FadeStep` values to a
+    :class:`shc.datatypes.RangeFloat1` Variable (or another Readable + Wrtiable object of type `RangeFloat1`), such that
+    the FadeSteps are applied to the current value of that object.
+
+    Example usage::
+
+        dim_up_button = shc.web.widgets.StatelessButton(FadeStep(0.1), "up")
+        dim_down_button = shc.web.widgets.StatelessButton(FadeStep(-0.1), "down")
+
+        dimmer_value = shc.Variable(RangeFloat1)\
+            .connect(FadeStepAdapter(dim_up_button))\
+            .connect(FadeStepAdapter(dim_down_button))
+
+    To apply FadeSteps as dynamic ramps of a fixed duration instead of a sudden jump, take a look at
+    :class:`shc.timer.FadeStepRamp` (see description in the documentation of :class:`shc.timer.AbstractRamp`).
+
+    :param wrapped: The Subscribable object which shall be wrapped to apply its published FadeStep values to connected
+        objects
+    """
+    type = RangeFloat1
+    is_reading_optional = False
+
+    def __init__(self, wrapped: Subscribable[FadeStep]):
+        super().__init__()
+        if not issubclass(wrapped.type, FadeStep):
+            raise TypeError("First Parameter to `FadeStepAdapter` must be a Subscribable object with value type "
+                            "`FadeStep`")
+        wrapped.trigger(self._update, synchronous=True)
+
+    async def _update(self, value: FadeStep, origin: List[Any]) -> None:
+        current_value = await self._from_provider()
+        if current_value is None:
+            logger.warning("Cannot apply FadeStep, since current value is not available.")
+            return
+        await self._publish_and_wait(value.apply_to(current_value), origin)
+
+
+class ConvertSubscription(Subscribable[T], Generic[T]):
+    """
+    An adapter, wrapping a subscribable object of value type S and converting it to a subscribable object of value type
+    T, using the default converter or a given converter function.
+
+    Typically, the following methods should be used instead of this class:
+
+    - Use :meth:`.subscribe() <shc.base.Subscribable.subscribe>`'s ``convert`` parameter
+    - Use an :ref:`SHC Expression <expressions>` and its :meth:`.convert() <shc.expressions.ExpressionBuilder.convert>`
+      method
+
+    However, they may be situations, where neither of these methods is applicable, e.g. when the subscribable object is
+    not readable (so it should not used in an expression) and it is not used with `.subscribe()` or `.connect()`
+    directly (e.g. it is passed to another object's constructor).
+    """
+
+    def __init__(self, wrapped: Subscribable[S], type_: Type[T], convert: Optional[Callable[[S], T]] = None):
+        self.type = type_
+        super().__init__()
+        if convert is None:
+            self.converter = conversion.get_converter(wrapped.type, type_)
+        else:
+            self.converter = convert
+        wrapped.trigger(self.__update, synchronous=True)
+
+    async def __update(self, value: S, origin: List[Any]):
+        await self._publish_and_wait(self.converter(value), origin)

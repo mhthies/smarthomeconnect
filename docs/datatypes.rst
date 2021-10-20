@@ -27,6 +27,7 @@ In addition, SHC specifies some derived types of these builtin types with addtio
 - :class:`shc.datatypes.RGBCCTUInt8`
 - :class:`shc.interfaces.knx.KNXHVACMode`
 - :class:`shc.interfaces.knx.KNXUpDown`
+- :class:`shc.interfaces.knx.KNXControlDimming`
 - :class:`shc.interfaces.pulse.PulseVolumeRaw`
 - :class:`shc.interfaces.pulse.PulseVolumeComponents`
 
@@ -54,6 +55,7 @@ List of New Types included with SHC:
 - :class:`shc.datatypes.RangeInt0To100`
 - :class:`shc.datatypes.AngleUInt8`
 - :class:`shc.datatypes.Balance`
+- :class:`shc.datatypes.FadeStep`
 
 
 .. _datatypes.default_converters:

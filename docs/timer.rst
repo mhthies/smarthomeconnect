@@ -61,3 +61,10 @@ Ramp Generators
 ---------------
 
 .. autoclass:: AbstractRamp
+
+.. autoclass:: IntRamp
+.. autoclass:: FloatRamp
+.. autoclass:: HSVRamp
+.. autoclass:: RGBHSVRamp
+.. autoclass:: RGBWHSVRamp
+.. autoclass:: FadeStepRamp

@@ -20,7 +20,7 @@ import weakref
 from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic, TypeVar
 
 from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError, Reading
-from .datatypes import RangeFloat1, RangeUInt8, RangeInt0To100, HSVFloat1, RGBUInt8, RGBWUInt8
+from .datatypes import RangeFloat1, RangeUInt8, RangeInt0To100, HSVFloat1, RGBUInt8, RGBWUInt8, FadeStep, AbstractStep
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
@@ -754,6 +754,17 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
     """
     Abstract base class for all ramp generators
 
+    All ramp generators create smooth transitions from incoming value updates by splitting publishing multiple timed
+    updates each doing a small step towards the target value. They are *Readable* and *Subscribable* to be used in
+    :ref:`expressions`.
+
+    In addition, the Ramp generators are *Writable* and *Reading* in order to connect them to a stateful object (like a
+    :class:`Variable <shc.variables.Variable>`) which also receives value updates from other sources. For this to work
+    flawlessly, the Ramp generator will stop the current ramp in progress, when it receives a value (via :meth:`write`)
+    from the connected object and it will *read* the current value of the connected object and use it as the start value
+    for a ramp instead of the last value received from the wrapped object. Both of these features are optional, so the
+    Ramp generator can also be connected to non-readable and non-subscribable objects.
+
     Different derived ramp generator classes for different datatypes exist:
 
     - :class:`IntRamp` (for :class:`int`, :class:`shc.datatypes.RangeUInt8` and :class:`shc.datatypes.RangeInt0To100`)
@@ -763,18 +774,16 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
     - :class:`RGBWHSVRamp` (for :class:`shc.datatypes.RGBWUInt8`; doing a linear ramp in HSV color space plus simple
       linear ramp for the white channel)
 
-    All ramp generators create smooth transitions from incoming value updates by splitting publishing multiple timed
-    updates each doing a small step towards the target value. They are *Readable* and *Subscribable* to be used in
-    :ref:`expressions`.
+    All of these ramp generator types allow to wrap a Subscribable object of one of their value types to subscribe to
+    its value updates to turn them into ramps. Alternatively, they can be initialized with only the concrete value type
+    only, so the :meth:`ramp_to` method can be triggered manually from logic handlers etc.
 
-    In addition, the Ramp generators are *Writable* and *Reading* in order to connect them to a stateful object (like a
-    :class:`Variable <shc.variables.Variable>`) which also receives value updates from other sources. For this to work
-    flawlessly, the Ramp generator will stop the current ramp in progress, when it receives a value (via :meth:`write`)
-    from the connected object and it will *read* the current value of the connected object and use it as the start value
-    for a ramp instead of the last value recived from the wrapped object. Both of these features are optional, so the
-    Ramp generator can also be connected to non-readable and non-subscribable objects.
+    As a special case, there's the :class:`FadeStepRamp`, which is a RangeFloat1-typed Connectable object, which wraps
+    a Subscribable object of type :class:`shc.datatypes.FadeStep` and creates ramps from the received fade steps
+    (similar to :class:`shc.misc.FadeStepAdapter`).
 
-    :param wrapped: The subscribable object from which the value updates are transformed into smooth ramps.
+    In addition, all of them take the following init parameters:
+
     :param ramp_duration: The duration of the generated ramp/transition. Depending on `dynamic_duration` this is either
         the fixed duration of each ramp or it is the duration of a ramp across the full value range, which is
         dynamically lowered for smaller ramps.
@@ -792,11 +801,10 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
     """
     is_reading_optional = False
 
-    def __init__(self, wrapped: Subscribable[T], ramp_duration: datetime.timedelta, dynamic_duration: bool = True,
+    def __init__(self, type_: Type[T], ramp_duration: datetime.timedelta, dynamic_duration: bool = True,
                  max_frequency: float = 25.0, enable_ramp: Optional[Readable[bool]] = None):
-        self.type = wrapped.type
+        self.type = type_
         super().__init__()
-        wrapped.trigger(self.ramp_to, synchronous=True)
         self.ramp_duration = ramp_duration
         self.dynamic_duration = dynamic_duration
         self.max_frequency = max_frequency
@@ -838,6 +846,32 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
             return
 
         self.__new_target_value = value
+        if not self.__task:
+            task = asyncio.get_event_loop().create_task(self._ramp())
+            self.__task = task
+            timer_supervisor.add_temporary_task(task)
+
+    async def ramp_by(self, step: AbstractStep[T], origin: List[Any]) -> None:
+        """
+        Start a new ramp of the given step size
+        """
+        begin = await self._from_provider()
+        if begin is not None:
+            self._current_value = begin
+        if self._current_value is None:
+            logger.warning("Cannot apply FadeStep, since current value is not available.")
+            return
+
+        if self.enable_ramp is not None:
+            enabled = await self.enable_ramp.read()
+            if not enabled:
+                if self.__task:
+                    self.__task.cancel()
+                self._current_value = step.apply_to(self._current_value)
+                await self._publish_and_wait(self._current_value, origin)
+                return
+
+        self.__new_target_value = step.apply_to(self._current_value)
         if not self.__task:
             task = asyncio.get_event_loop().create_task(self._ramp())
             self.__task = task
@@ -937,6 +971,14 @@ IntRampT = TypeVar('IntRampT', int, RangeUInt8, RangeInt0To100)
 
 
 class IntRamp(AbstractRamp[IntRampT], Generic[IntRampT]):
+    def __init__(self, wrapped_or_type: Union[Subscribable[IntRampT], Type[IntRampT]], *args, **kwargs):
+        if isinstance(wrapped_or_type, Subscribable):
+            type_: Type[IntRampT] = wrapped_or_type.type
+            wrapped_or_type.trigger(self.ramp_to, synchronous=True)
+        else:
+            type_ = wrapped_or_type
+        super().__init__(type_, *args, **kwargs)  # type: ignore  # Mypy does not understand that type_ *is*  FloatRampT
+
     def _calculate_ramp(self, begin: IntRampT, target: IntRampT) -> Tuple[float, int]:
         diff = abs(target-begin)
         height = (diff/255 if issubclass(self.type, RangeUInt8) else
@@ -955,7 +997,7 @@ class IntRamp(AbstractRamp[IntRampT], Generic[IntRampT]):
 FloatRampT = TypeVar('FloatRampT', float, RangeFloat1)
 
 
-class FloatRamp(AbstractRamp[FloatRampT], Generic[FloatRampT]):
+class AbstractFloatRamp(AbstractRamp[FloatRampT], Generic[FloatRampT]):
     def _calculate_ramp(self, begin: FloatRampT, target: FloatRampT) -> Tuple[float, int]:
         diff = abs(target-begin)
         height = diff/1.0 if issubclass(self.type, RangeFloat1) else 1.0
@@ -967,6 +1009,22 @@ class FloatRamp(AbstractRamp[FloatRampT], Generic[FloatRampT]):
 
     def _next_step(self, step: int) -> FloatRampT:
         return self.type(self._begin + self._diff * step)
+
+
+class FloatRamp(AbstractFloatRamp[FloatRampT], Generic[FloatRampT]):
+    def __init__(self, wrapped_or_type: Union[Subscribable[FloatRampT], Type[FloatRampT]], *args, **kwargs):
+        if isinstance(wrapped_or_type, Subscribable):
+            type_: Type[FloatRampT] = wrapped_or_type.type
+            wrapped_or_type.trigger(self.ramp_to, synchronous=True)
+        else:
+            type_ = wrapped_or_type
+        super().__init__(type_, *args, **kwargs)  # type: ignore  # Mypy does not understand that type_ *is*  FloatRampT
+
+
+class FadeStepRamp(AbstractFloatRamp[RangeFloat1]):
+    def __init__(self, wrapped: Subscribable[FadeStep], *args, **kwargs):
+        super().__init__(RangeFloat1, *args, **kwargs)
+        wrapped.trigger(self.ramp_by, synchronous=True)
 
 
 def _normalize_hsv_ramp(begin: HSVFloat1, target: HSVFloat1) -> Tuple[HSVFloat1, HSVFloat1]:
@@ -994,6 +1052,11 @@ def _hsv_step(begin: HSVFloat1, diff: Tuple[float, float, float], step: int) -> 
 
 
 class HSVRamp(AbstractRamp[HSVFloat1]):
+    def __init__(self, wrapped: Optional[Subscribable[HSVFloat1]], *args, **kwargs):
+        super().__init__(HSVFloat1, *args, **kwargs)
+        if wrapped is not None:
+            wrapped.trigger(self.ramp_to, synchronous=True)
+
     def _calculate_ramp(self, begin: HSVFloat1, target: HSVFloat1) -> Tuple[float, int]:
         diff = _hsv_diff(begin, target)
         height = max(abs(diff[0] * 2), abs(diff[1]), abs(diff[2]))
@@ -1008,6 +1071,11 @@ class HSVRamp(AbstractRamp[HSVFloat1]):
 
 
 class RGBHSVRamp(AbstractRamp[RGBUInt8]):
+    def __init__(self, wrapped: Optional[Subscribable[RGBUInt8]], *args, **kwargs):
+        super().__init__(RGBUInt8, *args, **kwargs)
+        if wrapped is not None:
+            wrapped.trigger(self.ramp_to, synchronous=True)
+
     def _calculate_ramp(self, begin: RGBUInt8, target: RGBUInt8) -> Tuple[float, int]:
         begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.as_float()),
                                                     HSVFloat1.from_rgb(target.as_float()))
@@ -1028,6 +1096,11 @@ class RGBHSVRamp(AbstractRamp[RGBUInt8]):
 
 
 class RGBWHSVRamp(AbstractRamp[RGBWUInt8]):
+    def __init__(self, wrapped: Optional[Subscribable[RGBWUInt8]], *args, **kwargs):
+        super().__init__(RGBWUInt8, *args, **kwargs)
+        if wrapped is not None:
+            wrapped.trigger(self.ramp_to, synchronous=True)
+
     def _calculate_ramp(self, begin: RGBWUInt8, target: RGBWUInt8) -> Tuple[float, int]:
         begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.rgb.as_float()),
                                                     HSVFloat1.from_rgb(target.rgb.as_float()))
