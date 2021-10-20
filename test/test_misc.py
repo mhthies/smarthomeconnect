@@ -157,3 +157,14 @@ class MiscTests(unittest.TestCase):
         await subscribable1.publish(shc.datatypes.FadeStep(0.5), [self])
         await asyncio.sleep(0.05)
         self.assertEqual(shc.datatypes.RangeFloat1(1.0), await variable1.read())
+
+    @async_test
+    async def test_convert_subscription(self) -> None:
+        pub = ExampleSubscribable(shc.datatypes.RangeUInt8)
+        sub = ExampleWritable(shc.datatypes.RangeFloat1)
+
+        sub.connect(shc.misc.ConvertSubscription(pub, shc.datatypes.RangeFloat1))
+
+        await pub.publish(shc.datatypes.RangeUInt8(255), [self])
+        sub._write.assert_called_once_with(shc.datatypes.RangeFloat1(1.0), [self, pub, unittest.mock.ANY])
+        self.assertIsInstance(sub._write.call_args[0][0], shc.datatypes.RangeFloat1)

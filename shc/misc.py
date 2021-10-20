@@ -11,9 +11,10 @@
 
 import datetime
 import logging
-from typing import Generic, Type, List, Any, Optional
+from typing import Generic, Type, List, Any, Optional, Callable
 
-from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError, Reading
+from shc import conversion
+from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError, Reading, S
 from shc.datatypes import RangeFloat1, FadeStep
 from shc.expressions import ExpressionWrapper
 from shc.timer import Every
@@ -253,3 +254,32 @@ class FadeStepAdapter(Subscribable[RangeFloat1], Reading[RangeFloat1]):
             logger.warning("Cannot apply FadeStep, since current value is not available.")
             return
         await self._publish_and_wait(value.apply_to(current_value), origin)
+
+
+class ConvertSubscription(Subscribable[T], Generic[T]):
+    """
+    An adapter, wrapping a subscribable object of value type S and converting it to a subscribable object of value type
+    T, using the default converter or a given converter function.
+
+    Typically, the following methods should be used instead of this class:
+
+    - Use :meth:`.subscribe() <shc.base.Subscribable.subscribe>`'s ``convert`` parameter
+    - Use an :ref:`SHC Expression <expressions>` and its :meth:`.convert() <shc.expressions.ExpressionBuilder.convert>`
+      method
+
+    However, they may be situations, where neither of these methods is applicable, e.g. when the subscribable object is
+    not readable (so it should not used in an expression) and it is not used with `.subscribe()` or `.connect()`
+    directly (e.g. it is passed to another object's constructor).
+    """
+
+    def __init__(self, wrapped: Subscribable[S], type_: Type[T], convert: Optional[Callable[[S], T]] = None):
+        self.type = type_
+        super().__init__()
+        if convert is None:
+            self.converter = conversion.get_converter(wrapped.type, type_)
+        else:
+            self.converter = convert
+        wrapped.trigger(self.__update, synchronous=True)
+
+    async def __update(self, value: S, origin: List[Any]):
+        await self._publish_and_wait(self.converter(value), origin)
