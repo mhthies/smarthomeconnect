@@ -13,6 +13,7 @@ import asyncio
 import datetime
 import enum
 import logging
+import math
 from typing import List, Any, Dict, Tuple, Optional, Set, Generic, NamedTuple
 
 import knxdclient
@@ -21,6 +22,7 @@ from ._helper import SupervisedClientInterface
 from .. import datatypes
 from ..base import Writable, Subscribable, Reading, T
 from ..conversion import register_converter
+from ..datatypes import FadeStep
 
 KNXGAD = knxdclient.GroupAddress
 
@@ -66,19 +68,30 @@ class KNXControlDimming(NamedTuple):
     step_exponent: int
 
     @property
-    def step(self) -> float:
-        """
-        :return: 0 for a break command, otherwise the (signed) step size in the range -1 .. 1
-        """
+    def step(self) -> FadeStep:
         if not self.step_exponent:
-            return 0.0
-        return (1 if self.increase else -1) * 2.0 ** (1 - self.step_exponent)
+            return FadeStep(0.0)
+        return FadeStep((1 if self.increase else -1) * 2.0 ** (1 - self.step_exponent))
+
+    @classmethod
+    def from_step(cls, value: FadeStep) -> "KNXControlDimming":
+        increase = True
+        if value < 0:
+            increase = False
+            value = -value
+        # Rounding the logarithm doesn't give us the nearest exponent of two of the original value, but it should be
+        # okay in practice.
+        return cls(increase, 0 if value == 0.0 else min(7, 1 - round(math.log2(value))))
 
 
 register_converter(KNXHVACMode, int, lambda v: v.value)
 register_converter(int, KNXHVACMode, lambda v: KNXHVACMode(v))
 register_converter(KNXUpDown, bool, lambda v: v.value)
 register_converter(bool, KNXUpDown, lambda v: KNXUpDown(v))
+register_converter(KNXControlDimming, FadeStep, lambda v: v.step)
+register_converter(KNXControlDimming, float, lambda v: v.step)
+register_converter(FadeStep, KNXControlDimming, lambda v: KNXControlDimming.from_step(v))
+register_converter(float, KNXControlDimming, lambda v: KNXControlDimming.from_step(FadeStep(min(1.0, max(-1.0, v)))))
 register_converter(datetime.datetime, knxdclient.KNXTime, knxdclient.KNXTime.from_datetime)
 
 
