@@ -54,7 +54,7 @@ class KNXUpDown(enum.Enum):
         return self.value
 
 
-class KNXDControlDimming(NamedTuple):
+class KNXControlDimming(NamedTuple):
     """
     Python NamedTuple representation of the KNX datapoint type 3.007 "DPT_Control_Dimming" or 3.008
     "DPT_Control_Blinds".
@@ -85,7 +85,7 @@ register_converter(datetime.datetime, knxdclient.KNXTime, knxdclient.KNXTime.fro
 KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
     '1': (bool, knxdclient.KNXDPT.BOOLEAN),
     '1.008': (KNXUpDown, knxdclient.KNXDPT.BOOLEAN),
-    '3': (KNXDControlDimming, knxdclient.KNXDPT.BOOLEAN_UINT3),
+    '3': (KNXControlDimming, knxdclient.KNXDPT.BOOLEAN_UINT3),
     '4': (str, knxdclient.KNXDPT.CHAR),
     '5': (int, knxdclient.KNXDPT.UINT8),
     '5.001': (datatypes.RangeUInt8, knxdclient.KNXDPT.UINT8),
@@ -187,7 +187,7 @@ class KNXConnector(SupervisedClientInterface):
         +----------+---------------------------------------+
         | '1.008'  | :class:`KNXUpDown`                    |
         +----------+---------------------------------------+
-        | '3'      | :class:`KNXDControlDimming`           |
+        | '3'      | :class:`KNXControlDimming`            |
         +----------+---------------------------------------+
         | '4'      | :class:`str`                          |
         +----------+---------------------------------------+
