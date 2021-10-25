@@ -168,7 +168,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         super().__init__(*args, **kwargs)  # type: ignore
         self._subscribers: List[SubscriberListType] = []
         self._triggers: List[Tuple[LogicHandler, bool]] = []
-        self._pending_updates: Dict[int, Set[asyncio.Task]] = {}
+        self._pending_updates: Dict[int, Dict[asyncio.Task, Optional[int]]] = {}
 
     async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T_co], S]], value: T_co,
                               origin: List[Any], use_pending: bool):
@@ -178,7 +178,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
         finally:
             if use_pending:
-                self._pending_updates[id(subscriber)].discard(asyncio.current_task())  # type: ignore
+                del self._pending_updates[id(subscriber)][asyncio.current_task()]  # type: ignore
 
     async def __publish_trigger(self, target: LogicHandler, value: T_co,
                                 origin: List[Any], use_pending: bool):
@@ -188,7 +188,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
         finally:
             if use_pending:
-                self._pending_updates[id(target)].discard(asyncio.current_task())  # type: ignore
+                del self._pending_updates[id(target)][asyncio.current_task()]  # type: ignore
 
     def _publish(self, value: T_co, origin: List[Any]):
         """
@@ -214,20 +214,22 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         """
         if self._stateful_publishing:
             for subscriber, converter in self._subscribers:
-                reset_origin = bool(self._pending_updates[id(subscriber)])
+                prev_step = id(origin[-1]) if origin else None
+                reset_origin = any(o != prev_step for o in self._pending_updates[id(subscriber)].values())
                 if reset_origin:
                     logger.info("Resetting origin from %s to %s; value=%s; origin=%s", self, subscriber, value, origin)
                 if reset_origin or not any(s is subscriber for s in origin):
                     task = asyncio.create_task(self.__publish_write(subscriber, converter, value,
                                                                     [] if reset_origin else origin, True))
-                    self._pending_updates[id(subscriber)].add(task)
+                    self._pending_updates[id(subscriber)][task] = prev_step
             for target, sync in self._triggers:
                 reset_origin = False
                 if sync:
-                    reset_origin = bool(self._pending_updates[id(target)])
+                    prev_step = origin[-1] if origin else None
+                    reset_origin = any(o != prev_step for o in self._pending_updates[id(target)].values())
                 task = asyncio.create_task(self.__publish_trigger(target, value, [] if reset_origin else origin, sync))
                 if sync:
-                    self._pending_updates[id(target)].add(task)
+                    self._pending_updates[id(target)][task] = prev_step
 
         else:
             for target, sync in self._triggers:
@@ -293,7 +295,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                             .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
         self._subscribers.append((subscriber, converter))
         if self._stateful_publishing:
-            self._pending_updates[id(subscriber)] = set()
+            self._pending_updates[id(subscriber)] = {}
 
     def trigger(self, target: LogicHandler, synchronous: bool = False) -> LogicHandler:
         """
@@ -339,7 +341,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         """
         self._triggers.append((target, synchronous))
         if synchronous and self._stateful_publishing:
-            self._pending_updates[id(target)] = set()
+            self._pending_updates[id(target)] = {}
         return target
 
 
