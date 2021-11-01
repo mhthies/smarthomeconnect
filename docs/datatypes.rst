@@ -99,7 +99,15 @@ To add support for further types, :func:`shc.conversion.register_json_conversion
 
 .. automodule:: shc.datatypes
     :members:
+    :exclude-members: RGBUInt8, RGBFloat1, HSVFloat1, RGBWUInt8, CCTUInt8, RGBCCTUInt8
     :member-order: bysource
+
+    .. autonamedtuple:: RGBUInt8
+    .. autonamedtuple:: RGBFloat1
+    .. autonamedtuple:: HSVFloat1
+    .. autonamedtuple:: RGBWUInt8
+    .. autonamedtuple:: CCTUInt8
+    .. autonamedtuple:: RGBCCTUInt8
 
 
 ``shc.conversion`` Module Reference

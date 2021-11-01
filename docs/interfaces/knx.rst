@@ -204,7 +204,7 @@ Then we can connect these group addresses to SHC variables in the following way:
         :members:
         :undoc-members:
 
-    .. autoclass:: KNXControlDimming
+    .. autonamedtuple:: KNXControlDimming
         :members:
         :undoc-members:
 

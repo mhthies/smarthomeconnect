@@ -8,6 +8,6 @@ Pulseaudio Interface
         :members:
         :undoc-members:
 
-    .. autoclass:: PulseVolumeRaw
-    .. autoclass:: PulseVolumeComponents
+    .. autonamedtuple:: PulseVolumeRaw
+    .. autonamedtuple:: PulseVolumeComponents
         :members:

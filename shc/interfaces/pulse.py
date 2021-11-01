@@ -34,12 +34,12 @@ class PulseVolumeRaw(NamedTuple):
     "raw" representation of the volume setting of a Pulseaudio sink or source with individual channel volume values.
 
     :param values: List of float values of the volume setting of each individual channel of the sink/source from 0.0 to
-        1.0
+            1.0
     :param map: Pulseaudio channel map as a list of integer channel positions, according to the libpulse
-        `pa_channel_position` enum. E.g. [0] for mono; [1, 2] for normal stereo (left, right); [1, 2, 5, 6, 3, 7] for
-        typical 5.1 surround devices. See https://freedesktop.org/software/pulseaudio/doxygen/channelmap_8h.html for
-        reference. This is required for converting into the component-based :class:`PulseVolumeComponents`
-        representation.
+            `pa_channel_position` enum. E.g. [0] for mono; [1, 2] for normal stereo (left, right); [1, 2, 5, 6, 3, 7]
+            for typical 5.1 surround devices. See https://freedesktop.org/software/pulseaudio/doxygen/channelmap_8h.html
+            for reference. This is required for converting into the component-based :class:`PulseVolumeComponents`
+            representation.
     """
     values: list = []
     map: list = []
@@ -58,13 +58,16 @@ class PulseVolumeComponents(NamedTuple):
     :param volume: Master volume of the sink/source. Corresponds to the maximum individual channel volume
     :param balance: left/right balance (-1.0 means 100% left, +1.0 means 100% right).
     :param fade: rear/front balance (-1.0 means 100% rear speakers, +1.0 means 100% front speakers). If no surround
-        channels are present, it is always 0.0.
+            channels are present, it is always 0.0.
     :param lfe_balance: subwoofer balance (-1.0 means no subwoofer, +1.0 means only subwoofer). If no subwoofer/LFE
-        channel is present, the value is always 0.0
+            channel is present, the value is always 0.0
+    :param normalized_values: The channel values after resetting the master volume, balance, fade and lfe_balance
+            to their default values. This allows to modify these volume components but keep additional individual
+            channel differences intact.
     :param map: Pulseaudio channel map as a list of integer channel positions, according to the libpulse
-        `pa_channel_position` enum. E.g. [0] for mono; [1, 2] for normal stereo (left, right); [1, 2, 5, 6, 3, 7] for
-        typical 5.1 surround devices. See https://freedesktop.org/software/pulseaudio/doxygen/channelmap_8h.html for
-        reference. This is required for the conversion functions to/from :class:`PulseVolumeRaw`.
+            `pa_channel_position` enum. E.g. [0] for mono; [1, 2] for normal stereo (left, right); [1, 2, 5, 6, 3, 7]
+            for typical 5.1 surround devices. See https://freedesktop.org/software/pulseaudio/doxygen/channelmap_8h.html
+            for reference. This is required for the conversion functions to/from :class:`PulseVolumeRaw`.
     """
     volume: RangeFloat1 = RangeFloat1(1.0)
     balance: Balance = Balance(0.0)

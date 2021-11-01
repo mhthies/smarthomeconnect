@@ -61,8 +61,8 @@ class KNXControlDimming(NamedTuple):
     Python NamedTuple representation of the KNX datapoint type 3.007 "DPT_Control_Dimming" or 3.008
     "DPT_Control_Blinds".
 
-    @ivar increase: True: Increase dimmer brightness / lower blinds; False: Decrese dimmer brightness / raise blinds
-    @ivar step_exponent: 0: Break dimmming action; 1-7 define step size = 2^(1-stepcode)
+    :param increase: True: Increase dimmer brightness / lower blinds; False: Decrese dimmer brightness / raise blinds
+    :param step_exponent: 0: Break dimmming action; 1-7 define step size = 2^(1-stepcode)
     """
     increase: bool
     step_exponent: int
