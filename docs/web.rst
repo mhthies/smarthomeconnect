@@ -91,6 +91,15 @@ REST API reference
     used with the `If-None-Match` request header. It will make the endpoint respond immediately with the current value,
     if it has changed since the state identified by the ETag.
 
+    A typical example for long polling in a Python application, using the `requests` library, would look like this::
+
+        e_tag = None
+        while True:
+            response = requests.get('http://localhost:8080/api/v1/object/foo?wait', headers={'If-None-Match': e_tag})
+            e_tag = response.headers['ETag']
+            print("New value: ", response.json())
+
+
     :query wait: If given, the server will not respond with the current object value immediately, but instead waits for
         the next value update to be received and returns the new value. If no value is received up to a certain timeout,
         the server returns an emtpy response with HTTP 304 status code. The timeout can be provided as an optional value
