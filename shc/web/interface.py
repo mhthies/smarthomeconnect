@@ -918,7 +918,7 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
 
         # If waiting for next value: Await future using timeout
         try:
-            value = await asyncio.wait_for(self.future, timeout=timeout)
+            value = await asyncio.wait_for(asyncio.shield(self.future), timeout=timeout)
             return True, value, str(id(self.future))
         except (asyncio.TimeoutError, asyncio.CancelledError):
             return False, None, str(id(self.future))

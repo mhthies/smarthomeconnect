@@ -3,6 +3,7 @@ import enum
 import json
 import math
 import shutil
+import socket
 import time
 import unittest
 import unittest.mock
@@ -710,6 +711,33 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(42, json.loads(response.read()))
         self.assertEqual(etag2, response.headers['ETag'])
         self.assertAlmostEqual(0, toc-tic, delta=0.02)
+
+    def test_rest_get_wait_abort(self) -> None:
+        """ Test, that an aborted long poll to the API does not destroy any internal state """
+        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        self.server_runner.start()
+
+        async def scheduled_update(value):
+            await asyncio.sleep(0.2)
+            await api_object.write(value, [self])
+
+        request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object?wait=0.5")
+        with self.assertRaises(socket.timeout):
+            urllib.request.urlopen(request, timeout=0.25)
+
+        # Check that everything still works:
+        self.server_runner.run_coro(scheduled_update(56))
+
+        tic = time.time()
+        # The `scheduled_update()` coroutine shall run in parallel with our request below. Thus, we cannot use
+        # InterfaceThreadRunner.run_coro(), which waits for the coroutine to return.
+        asyncio.run_coroutine_threadsafe(scheduled_update(128), self.server_runner.loop)
+
+        response: http.client.HTTPResponse = urllib.request.urlopen(
+            "http://localhost:42080/api/v1/object/the_api_object?wait=0.5")
+        toc = time.time()
+        self.assertEqual(128, json.loads(response.read()))
+        self.assertAlmostEqual(0.2, toc-tic, delta=0.02)
 
     def test_rest_post(self) -> None:
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
