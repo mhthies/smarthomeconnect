@@ -16,3 +16,4 @@ paho-mqtt>=1.5.1,<2
 pulsectl_asyncio>=0.1.10,<0.2
 mypy
 sphinx-toolbox~=2.15.0
+sphinxcontrib-httpdomain~=1.8.0

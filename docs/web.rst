@@ -76,7 +76,58 @@ For a quick test, you can use cURL:
 REST API reference
 ^^^^^^^^^^^^^^^^^^
 
-TODO
+.. http:get:: /api/v1/object/(str:object_name)
+
+    Read the current value of the Readable object connected to the WebApiObject's with the given name (= its
+    :ref:`default_provider <base.connectable_objects>`) or wait for the next value update received by the WebApiObject.
+
+    The values are provided in the HTTP response body as an UTF-8 encoded JSON document, using the
+    :ref:`SHC default JSON encoding <datatypes.json>` of the WebApiObject's value type.
+
+    Without any parameters, the GET endpoint will read and return the current value of the connected object. If the
+    `wait` query parameter is provided (optionally with a timeout), it will wait for the next value update instead
+    (`"Long Polling" <https://en.wikipedia.org/wiki/Push_technology#Long_polling>`_). To avoid missing value updates
+    while reconnecting for the next long poll, the GET endpoint always provides an `ETag` header in the response to be
+    used with the `If-None-Match` request header. It will make the endpoint respond immediately with the current value,
+    if it has changed since the state identified by the ETag.
+
+    :query wait: If given, the server will not respond with the current object value immediately, but instead waits for
+        the next value update to be received and returns the new value. If no value is received up to a certain timeout,
+        the server returns an emtpy response with HTTP 304 status code. The timeout can be provided as an optional value
+        to the `wait` parameter in seconds (e.g. ``?wait=60``). Otherwise it defaults to 30 seconds.
+    :reqheader If-None-Match: If given and equal to the ETag value from a previous request, the server will respond with
+        HTTP 304 status code and an empty response body if no new value update has been received sind this previous
+        request. If a new value *has* been published in the meantime, the server will respond with the new value and
+        HTTP status 200 immediately, even if the `wait` query parameter is given.
+    :resheader ETag: The "entity tag" of the current value. It can be used as value of the `If-None-Match` request
+        header in a subsequent request to detect intermittent changes of the value. This is especially useful to receive
+        missed value updates when using long polling via the `wait` parameter.
+    :resheader Content-Type: application/json
+    :statuscode 200: no error
+    :statuscode 304: value has not been changed since given ETag and has not changed within poll timeout (if given)
+    :statuscode 400: parameters are not valid (esp. the value of the `wait` query parameter
+    :statuscode 404: object with given object_name does not exist
+    :statuscode 409: no value is available yet
+
+.. http:post:: /api/v1/object/(str:object_name)
+
+    Send a new value to the SHC server to be published by the `WebApiObject` with the given object name.
+
+    The value must be submitted in the HTTP request body, as a plain UTF-8 encoded JSON document (no form-encoding),
+    using the default JSON SHC encoding of the WebApiObject's value type.
+
+    :statuscode 204: no error
+    :statuscode 400: request body could not be parsed as a JSON document
+    :statuscode 404: object with given object_name does not exist
+    :statuscode 422: value has wrong datatype or has an invalid value for processing in the connected objects
+
+.. http:get:: /api/v1/ws
+
+    The websocket endpoint to connect to the Websocket API that allows true asynchronous interaction with the
+    WebApiObjects (see below).
+
+    :statuscode 101: no error, upgrading to WebSocket connection
+
 
 Websocket API reference
 ^^^^^^^^^^^^^^^^^^^^^^^

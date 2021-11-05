@@ -30,6 +30,7 @@ author = 'Michael Thies'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx_toolbox.more_autodoc.autonamedtuple',
+    'sphinxcontrib.httpdomain',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
