@@ -36,7 +36,7 @@ TODO filling the navigation bar (:meth:`WebServer.add_menu_entry`)
 Configuring the HTTP REST + Websocket API
 -----------------------------------------
 
-The REST + Websocket API is automatically included with every :class:`WebServer` instance and can be configured by creating :class:`WebApiObject`s through :meth:`WebServer.api`.
+The REST + Websocket API is automatically included with every :class:`WebServer` instance and can be configured by creating :class:`WebApiObject` s through :meth:`WebServer.api`.
 Each `WebApiObject` constitutes an API endpoint (i.e. "ressource" or path) of the REST API and an identifiable ressource in the Websocket API to interact with.
 The REST API supports normal *GET* and *POST* requests as well as `"Long Polling" <https://en.wikipedia.org/wiki/Push_technology#Long_polling>`_ to let a client wait for value updates.
 
