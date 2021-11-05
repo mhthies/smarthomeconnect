@@ -175,7 +175,7 @@ The 'status' fields is a HTTP status code indicating the result of the action:
 +------------+----------------------+--------------------------------------------------+
 | 204        | post, subscribe      | success, no 'value' field present                |
 +------------+----------------------+--------------------------------------------------+
-| 400        | post                 | request message is not a valid JSON string       |
+| 400        | get, post, subscribe | request message is not a valid JSON string       |
 +------------+----------------------+--------------------------------------------------+
 | 404        | get, post, subscribe | not `WebApiObject` with the given name does exist|
 +------------+----------------------+--------------------------------------------------+
