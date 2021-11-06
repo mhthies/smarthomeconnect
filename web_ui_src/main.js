@@ -18,7 +18,14 @@ var jquery = require("jquery");
 window.$ = window.jQuery = jquery;
 require('fomantic-ui-css/semantic.js');
 
+// Load SHC widget JS functionality
 require('./shc_base.js');
 require('./widgets/basic_widgets');
 require('./widgets/colorchoser_widget');
 require('./widgets/log_widgets');
+
+// Set up UI with Semantic UI components
+$(function() {
+    $('.main-menu .ui.dropdown').dropdown();
+    $('.ui.sidebar').sidebar({transition: 'overlay'}).sidebar('attach events', '#mobile_item');
+});

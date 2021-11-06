@@ -243,3 +243,16 @@ WIDGET_TYPES.set('text-display', TextDisplayWidget);
 WIDGET_TYPES.set('text-input', TextInputWidget);
 WIDGET_TYPES.set('slider', SliderWidget);
 WIDGET_TYPES.set('hiderow', HideRowWidget);
+
+
+// Setup popup for image-container widgets
+$(function() {
+    $('.shc.image-container .with-popup>*').each(function(){
+        $(this).popup({
+            on: 'click',
+            popup: $(this).parent().attr('data-popup-id'),
+            position: $(this).parent().attr('data-popup-position'),
+            movePopup: false,
+            forcePosition: true});
+    });
+});
