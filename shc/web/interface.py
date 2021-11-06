@@ -538,33 +538,43 @@ class WebServer(AbstractInterface):
 
         return self.root_url + final_url
 
-    def add_js_file(self, path: pathlib.Path) -> None:
+    def add_static_directory(self, path: pathlib.Path, js_files: List[str] = (), css_files: List[str] = ()) -> str:
         """
-        Register an additional static JavaScript file to be included in the web UI served by this server.
+        Register an additional directory of static files served by this server, optionally with a list of JavaScript and
+        CSS files to be loaded in each page's HTML head.
 
-        This method adds the given path as a static file to the webserver and includes its URL into every web UI page
-        using a `<script>` tag in the HTML head.
-        If the same file has already been added as a static file to the webserver, this method does nothing.
+        This method adds the given path as a static directory to be served by this webserver. The root URL of the served
+        directory is automatically determined, based on the file's name and existing static files. If the same path has
+        already been added as a static file, its existing static URL is returned instead of creating a new one.
 
-        :param path: Local filesystem path of the JavaScript file to be included
+        The given `js_files` and `css_files` are interpreted as relative URL references of files within the directory,
+        that will be served by the HTTP server at the directory's root URL + this path. Make sure to use '/' as path
+        separator and URL-encode these strings if necessary.
+
+        :param path: Local filesystem path of directory to be served
+        :param js_files: list of relative URLs within the directory to be included as Javascript files into UI pages
+        :param css_files: list of relative URLs within the directory to be included as CSS files into UI pages
+        :return: The HTTP root URL where the directory is served, including the server's root_url, such that it is
+            represented an absolute URL or absolute-path reference (relative to the HTTP server root)
         """
+        path = path.absolute()
         if path in self.static_files:
-            return
-        self._js_files.append(self.serve_static_file(path))
+            final_url = '/addon/{}'.format(self.static_files[path])
+        else:
+            final_file_name = path.name
+            i = 0
+            while final_file_name in self.static_files.values():
+                final_file_name = "{}_{:04d}.{}".format(path.stem, i, path.suffix)
 
-    def add_css_file(self, path: pathlib.Path) -> None:
-        """
-        Register an additional static CSS file to be included in the web UI served by this server.
+            self.static_files[path] = final_file_name
+            final_url = '/addon/{}'.format(final_file_name)
 
-        This method adds the given path as a static file to the webserver and includes its URL into every web UI page
-        using a `<link rel="stylesheet">` tag in the HTML head.
-        If the same file has already been added as a static file to the webserver, this method does nothing.
+            self._app.add_routes([aiohttp.web.static(final_url, path)])
 
-        :param path: Local filesystem path of the CSS file to be included
-        """
-        if path in self.static_files:
-            return
-        self._css_files.append(self.serve_static_file(path))
+        self._css_files.extend((f"{final_url}/{file}" for file in css_files))
+        self._js_files.extend((f"{final_url}/{file}" for file in js_files))
+
+        return f"{self.root_url}{final_url}/"
 
     def __repr__(self) -> str:
         return "{}(host={}, port={})".format(self.__class__.__name__, self.host, self.port)
