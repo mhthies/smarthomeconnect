@@ -36,6 +36,10 @@ class BasicTest(unittest.TestCase):
     def test_pulseaudio_sink_example(self) -> None:
         import example.pulseaudio_sink  # type: ignore
 
+    def test_custom_ui_widet_example(self) -> None:
+        import example.custom_ui_widget.main  # type: ignore
+        # TODO add selenium test for actual position of the indicator
+
     @classmethod
     def setUpClass(cls) -> None:
         shc.supervisor._REGISTERED_INTERFACES.clear()
