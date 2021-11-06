@@ -12,6 +12,7 @@ import {
     _adapters,
     PointElement
 } from 'chart.js';
+import {WIDGET_TYPES} from "../shc_base";
 
 Chart.register(
   LineElement,

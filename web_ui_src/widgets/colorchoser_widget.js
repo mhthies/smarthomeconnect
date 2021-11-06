@@ -11,6 +11,7 @@
  */
 
 import iro from '@jaames/iro';
+import {WIDGET_TYPES} from "../shc_base";
 
 function ColorChoserWidget(domElement, writeValue) {
     const id = parseInt(domElement.getAttribute('data-id'));

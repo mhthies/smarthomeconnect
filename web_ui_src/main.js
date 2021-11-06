@@ -18,6 +18,7 @@ var jquery = require("jquery");
 window.$ = window.jQuery = jquery;
 require('fomantic-ui-css/semantic.js');
 
-window.WIDGET_TYPES = new Map();
 require('./shc_base.js');
-require('./log.js');
+require('./widgets/basic_widgets');
+require('./widgets/colorchoser_widget');
+require('./widgets/log_widgets');

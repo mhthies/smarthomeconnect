@@ -33,6 +33,8 @@ function ws_path(path) {
     }
 }
 
+export let WIDGET_TYPES = new Map();
+
 (function () {
     let widgetMap = new Map();
     let ws;

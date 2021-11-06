@@ -11,6 +11,7 @@
  */
 
 import $ from 'jquery';
+import {WIDGET_TYPES} from "../shc_base";
 
 function forEachNodeRecursive(node, func) {
     /**
