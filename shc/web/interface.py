@@ -516,8 +516,9 @@ class WebServer(AbstractInterface):
         :meth:`WebPageItem.register_with_server` method. It is meant for serving configuration-specific images etc.
 
         :param path: The path of the local file to be served as a static file
-        :return: The URL of the static file, as a path, relative to the server's root URL, with leading slash. For
-            using it within the web UI's HTML code, the server's `root_url` must be prepended.
+        :return: The URL of the static file, including the server's root_url, such that it is represented an absolute
+            URL or absolute-path reference (relative to the HTTP server root), which can be used in <img>, <link> tags,
+            etc.
         """
         path = path.absolute()
         if path in self.static_files:
@@ -534,7 +535,7 @@ class WebServer(AbstractInterface):
             return aiohttp.web.FileResponse(path)
         self._app.add_routes([aiohttp.web.get(final_url, send_file)])
 
-        return final_url
+        return self.root_url + final_url
 
     def add_js_file(self, path: pathlib.Path) -> None:
         """

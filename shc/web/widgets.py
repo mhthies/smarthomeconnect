@@ -588,7 +588,7 @@ class ImageMap(WebPageItem):
 
     def register_with_server(self, _page: WebPage, server: WebServer) -> None:
         if not self.image_url:
-            self.image_url = server.root_url + server.serve_static_file(pathlib.Path(self.image))
+            self.image_url = server.serve_static_file(pathlib.Path(self.image))
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         for x, y, item, sub_items in self.items:
