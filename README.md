@@ -211,7 +211,7 @@ npm run build
 ```
 When working on the web UI source files themselves (which are located in `web_ui_src`), you'll probably want to run Parcel.js in monitor mode, providing automatic re-packing and reload on every change:
 ```bash
-npx parcel web_ui_src/main.js --out-dir shc/web/static/pack --public-url ./
+npx parcel web_ui_src/main.js --dist-dir shc/web/static/pack --public-url ./
 ```
 
 Please make sure that all the unittests are passing, when submitting a Pull Request:

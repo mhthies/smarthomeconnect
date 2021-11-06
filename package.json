@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "parcel-bundler": "^1.12.5"
+    "parcel": "^2.0.0"
   },
   "dependencies": {
     "@jaames/iro": "^5.5.1",
@@ -8,6 +8,6 @@
     "fomantic-ui-css": "^2.8.8"
   },
   "scripts": {
-    "build": "parcel build web_ui_src/main.js --out-dir shc/web/static/pack --public-url ./"
+    "build": "parcel build web_ui_src/main.js --dist-dir shc/web/static/pack --public-url ./"
   }
 }
