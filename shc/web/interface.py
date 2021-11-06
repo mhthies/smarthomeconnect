@@ -538,7 +538,8 @@ class WebServer(AbstractInterface):
 
         return self.root_url + final_url
 
-    def add_static_directory(self, path: pathlib.Path, js_files: List[str] = (), css_files: List[str] = ()) -> str:
+    def add_static_directory(self, path: pathlib.Path, js_files: Iterable[str] = (), css_files: Iterable[str] = ()
+                             ) -> str:
         """
         Register an additional directory of static files served by this server, optionally with a list of JavaScript and
         CSS files to be loaded in each page's HTML head.
