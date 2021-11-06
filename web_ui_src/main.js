@@ -24,6 +24,10 @@ require('./widgets/basic_widgets');
 require('./widgets/colorchoser_widget');
 require('./widgets/log_widgets');
 
+// Make SHC_WIDGET_TYPES Map accessible for adding custom widgets from JavaScript sources
+import {WIDGET_TYPES} from "./shc_base";
+window.SHC_WIDGET_TYPES = WIDGET_TYPES;
+
 // Set up UI with Semantic UI components
 $(function() {
     $('.main-menu .ui.dropdown').dropdown();
