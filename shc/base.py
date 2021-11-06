@@ -225,7 +225,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             for target, sync in self._triggers:
                 reset_origin = False
                 if sync:
-                    prev_step = origin[-1] if origin else None
+                    prev_step = id(origin[-1]) if origin else None
                     reset_origin = any(o != prev_step for o in self._pending_updates[id(target)].values())
                 task = asyncio.create_task(self.__publish_trigger(target, value, [] if reset_origin else origin, sync))
                 if sync:
