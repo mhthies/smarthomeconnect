@@ -513,7 +513,7 @@ class WebServer(AbstractInterface):
         creating a new one.
 
         This method should primarily be used by WebPageItem implementations within their
-        :meth:`WebPageItem.register_with_server` method.
+        :meth:`WebPageItem.register_with_server` method. It is meant for serving configuration-specific images etc.
 
         :param path: The path of the local file to be served as a static file
         :return: The URL of the static file, as a path, relative to the server's root URL, with leading slash. For
@@ -522,19 +522,19 @@ class WebServer(AbstractInterface):
         path = path.absolute()
         if path in self.static_files:
             return self.static_files[path]
-        final_file_name = path.name
+        final_url = path.name
         i = 0
-        while final_file_name in self.static_files:
+        while final_url in self.static_files.values():
             final_file_name = "{}_{:04d}.{}".format(path.stem, i, path.suffix)
-        final_path = '/addon/{}'.format(final_file_name)
-        self.static_files[path] = final_path
+            final_url = '/addon/{}'.format(final_file_name)
+        self.static_files[path] = final_url
 
         # Unfortunately, aiohttp.web.static can only serve directories. We want to serve a single file here.
         async def send_file(_request):
             return aiohttp.web.FileResponse(path)
-        self._app.add_routes([aiohttp.web.get(final_path, send_file)])
+        self._app.add_routes([aiohttp.web.get(final_url, send_file)])
 
-        return final_path
+        return final_url
 
     def add_js_file(self, path: pathlib.Path) -> None:
         """
