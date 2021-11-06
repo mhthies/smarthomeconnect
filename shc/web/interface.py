@@ -522,13 +522,14 @@ class WebServer(AbstractInterface):
         """
         path = path.absolute()
         if path in self.static_files:
-            return self.static_files[path]
-        final_url = path.name
+            return f"{self.root_url}/addon/{self.static_files[path]}"
+
+        final_file_name = path.name
         i = 0
-        while final_url in self.static_files.values():
+        while final_file_name in self.static_files.values():
             final_file_name = "{}_{:04d}.{}".format(path.stem, i, path.suffix)
-            final_url = '/addon/{}'.format(final_file_name)
-        self.static_files[path] = final_url
+        self.static_files[path] = final_file_name
+        final_url = '/addon/{}'.format(final_file_name)
 
         # Unfortunately, aiohttp.web.static can only serve directories. We want to serve a single file here.
         async def send_file(_request):
