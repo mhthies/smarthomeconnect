@@ -1,6 +1,7 @@
 __pycache__/
 /.idea/
 /.cache/
+/.parcel-cache/
 /venv/
 /node_modules/
 /shc/web/static/pack/
