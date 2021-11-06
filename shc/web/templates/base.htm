@@ -19,14 +19,14 @@
     <title>{{ html_title }}</title>
 
     {% for css_file in css_files %}
-        <link rel="stylesheet" type="text/css" href="{{root_url}}/{{ css_file }}" />
+        <link rel="stylesheet" type="text/css" href="{{root_url}}{{ css_file }}" />
     {% endfor %}
     <script>
         const shcRootURL = "{{root_url|safe}}";
         const shcServerToken = {{ server_token }};
     </script>
     {% for js_file in js_files %}
-        <script src="{{root_url}}/{{ js_file }}"></script>
+        <script src="{{root_url}}{{ js_file }}"></script>
     {% endfor %}
 </head>
 <body>
