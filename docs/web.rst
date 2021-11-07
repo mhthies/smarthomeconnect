@@ -267,13 +267,29 @@ Note, that there is no 'action' or 'handle' field in these messages, as they do 
 Creating Custom Widgets
 -----------------------
 
+SHC allows to extend the web interface functionality with custom widget types.
+A widget type consists of
+
+- a Python class derived from :class:`WebPageItem`, that provides a method for rendering the widget's HTML code,
+- and (optionally) Python classes derived from :class:`WebUIConnector` and a matching JavaScript constructor function for dynamic or interactive behaviour through SHC's websocket connection.
+
+In most cases, the Python widget class can be derived from `WebPageItem` **and** `WebUIConnector`, such that the widget object can also serve as the websocket communication endpoint for the widget.
+Only in cases that require multiple communication endpoints for the same widget (like the ButtonGroup widget, which has a *Connectable* websocket communication endpoint for each button), additional objects should be used.
+
+The connection between an individual widget's JavaScript object and the corresponding Python `WebUIConnector` (s) is automatically established by the SHC web framework.
+It uses the Python object id (obtained by `id(foo)` in Python) for identifying the individual `WebUIConnector`.
+The WebUIConnector's object id is typically rendered into the widget's HTML code as an HTML attribute by the `WebPageItem` object, then obtained by the JavaScript constructor function and provided to the client-side SHC framework via the object's `subscribeIds` attribute and as a parameter of the `writeValue` function.
+
+Each widget's JavaScript object of the correct widget type is automatically constructed upon page load by the SHC framework.
+For this purpose, each widget needs to have the `data-widget` attribute on some of it's HTML elements, specifying the widget type name, which is mapped to a type-specific constructor function via the global `SHC_WIDGET_TYPES` Map in JavaScript.
+
 
 Python Side
 ^^^^^^^^^^^
 
 TODO rendering via :class:`WebPageItem`
 
-TODO static files via :meth:`WebServer.serve_static_file`, :meth:`WebServer.add_js_file`, :meth:`WebServer.add_css_file`
+TODO static files via :meth:`WebServer.serve_static_file`, :meth:`WebServer.add_static_directory`
 
 TODO websocket service via :class:`WebUIConnector` or :class:`WebDisplayDatapoint`/:class:`WebActionDatapoint`
 
@@ -281,8 +297,9 @@ TODO websocket service via :class:`WebUIConnector` or :class:`WebDisplayDatapoin
 Javascript Side
 ^^^^^^^^^^^^^^^
 
-* TODO: ``WIDGET_TYPES``
+* TODO: ``SHC_WIDGET_TYPES``
 * TODO widget constructor arguments
+    * TODO: ``writeValue()``
 * TODO: ``subscribeIds``
 * TODO: ``update()``
 
