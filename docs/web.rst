@@ -296,8 +296,7 @@ Javascript Side
     .. automethod:: add_menu_entry
     .. automethod:: api
     .. automethod:: serve_static_file
-    .. automethod:: add_js_file
-    .. automethod:: add_css_file
+    .. automethod:: add_static_directory
 
 
 .. autoclass:: WebPage
