@@ -13,15 +13,78 @@ Each instance of :class:`WebServer` creates an HTTP server, listening on a speci
 Configuring the User Interface
 ------------------------------
 
-TODO creating a page (:meth:`WebServer.page`)
+Each page of the web user interface consists of one or more visual segments, each of them forming a vertical stack of different widgets.
+By default, segments are placed alternating in two colums of equal width.
+Optionally, they can be configured to span both columns.
+On small screens (e.g. mobile devices) the columns are stacked vertically, such that the segments and widgets span the full screen width.
 
-TODO page segments (:meth:`WebPage.new_segment`)
+Each web page has a name for identification and linking and a title to be displayed as a heading.
+To **create a new page** on a WebServer interface, use :meth:`WebServer.page`.
+The page will be accessible at `http://<webserver.root_url>/page/<page.name>/`, e.g. `http://localhost:8080/page/index/`.
 
-See :ref:`web.widgets` and :ref:`web.log_widgets` for a reference of the pre-defined ui widget types.
+Different UI widget types are represented as Python classes derived from :class:`WebPageItem`.
+Each instance of such a class represents a single widget on one web page.
+They can be added to the web page via the :meth:`WebPage.add_item` method.
+Typically, widgets are somehow dynamic or interactive, in a form that they are SHC *connectable* objects (or contain *connectable* objects) to be updated from subscribable objects or publish value updates from user interaction.
 
+Widgets (WebPageItems), added via :meth:`WebPage.add_item`, are always added to the latest segment.
+To start a new segment, for visually separating the following widgets, use :meth:`WebPage.new_segment`.
+If :meth:`WebPage.new_segment` is called before adding a WebPageItem, it configures the first segment of the page.
 
+The following example demonstrates the setup of a simple web UI page.
+For a more full-blown example, take a look at the `ui_showcase.py` example script::
 
-TODO filling the navigation bar (:meth:`WebServer.add_menu_entry`)
+    import shc
+    from shc.web import WebServer
+    from shc.web.widgets import ButtonGroup, Switch, ToggleButton, icon
+
+    server = WebServer('localhost', 8080)
+    index_page = server.page('index', "Main page")
+
+    state_variable = shc.Variable(bool, initial_value=False)
+
+    # .connect() returns the object itself after connecting; so we can do connecting to the variable and adding to the
+    # web page in a single line
+    index_page.add_item(Switch(label="Foobar on/off").connect(state_variable))
+
+    index_page.new_segment()
+
+    # `ButtonGroup` is not connectable itself, but it takes a list of connectable Button spec objects
+    index_page.add_item(ButtonGroup(label="Foobar on/off again", buttons=[
+        ToggleButton(icon('power off')).connect(state_variable)
+    ]))
+
+See :ref:`web.widgets` and :ref:`web.log_widgets` for a reference of the available UI widget types.
+See `Creating Custom Widgets` below for a detailed explanation of how widgets work and how to create custom widget types.
+
+The WebServer can add a redirection from the root URL (e.g. `http://localhost:8080`) to one of the UI pages as an **index page**.
+This index page can be configured via the `index_name` init parameter of the WebServer, e.g.::
+
+    server = WebServer('localhost', 8080, index_name='index')
+
+If it is not given (like in the example above), this redirection is not available and all pages are only accessible directly via their individual URL.
+
+For navigating between pages, the WebServer can add a **navigation bar** to each page.
+The navigation bar supports two nested menu layers:
+Navigation links can either be placed in the navigation bar directly or in a labelled drop down menu of the navigation bar.
+Each navigation bar entry (including dropdown menus) and each drop down menu entry has a label and an optional icon.
+
+To add navigation bar entries manually, use :meth:`WebServer.add_menu_entry`, e.g.::
+
+    server.add_menu_entry('index', "Main page", icon='home')
+    server.add_menu_entry('another_page', "A submenu of rooms", 'boxes', "My other room", 'couch')
+
+See https://fomantic-ui.com/elements/icon.html for a reference of available icons and their names.
+The navigation bar is automatically added to every page, if there are any menu entries.
+
+As shortcut, navigation bar entries can automatically added when creating a new page::
+
+    bathroom_page = server.page(
+        'bathroom', "Bathroom",
+        menu_entry="A submenu of rooms", menu_icon='boxes',
+        menu_sub_label="bathroom", menu_sub_icon='bath')
+
+The `menu_entry` can also be set to `True`, in which case the page's title is used for the navigation bar entry label as well
 
 
 .. toctree::
