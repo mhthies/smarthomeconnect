@@ -33,3 +33,20 @@ Web UI Widgets
     ------
 
     .. autoclass:: Slider
+
+    HideRows
+    --------
+
+    .. autoclass:: HideRowBox
+    .. autoclass:: HideRow
+
+    ColorChooser
+    ------------
+
+    .. autoclass:: ColorChoser
+
+    ImageMap
+    --------
+
+    .. autoclass:: ImageMap
+    .. autoclass:: ImageMapLabel
