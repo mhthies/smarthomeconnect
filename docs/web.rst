@@ -287,11 +287,48 @@ For this purpose, each widget needs to have the `data-widget` attribute on some 
 Python Side
 ^^^^^^^^^^^
 
-TODO rendering via :class:`WebPageItem`
+A :class:`WebPageItem` class for representing a type of item in the Python script must implement/override two methods:
 
-TODO static files via :meth:`WebServer.serve_static_file`, :meth:`WebServer.add_static_directory`
+- :meth:`render() <WebPageItem.render>` for generating the Widget's HTML code.
+  Typically, a template engine like Jinja2 is used to fill dynamic values (such as the WebUIConnector's object id) into a static HTML string.
+  However, for simple widgets, a simple Python format string (or f-string literal) might be sufficient.
 
-TODO websocket service via :class:`WebUIConnector` or :class:`WebDisplayDatapoint`/:class:`WebActionDatapoint`
+- :meth:`get_connectors() <WebPageItem.get_connectors>`, returning a list of all `WebUIConnector` objects of the widget to make them known to the server, so that incoming subscriptions from the client can be routed to the objects.
+
+  For typical widgets, where the `WebPageItem` is the (only) `WebUIConnector` of the widget at the same time, this method would simply return ``[self]``.
+  More complex widgets might return other objects (additionally) or even call this method recursively when other widgets are embedded.
+  For a static, non-interactive widget, an empty list can be returned.
+
+In addition, the following method **can** be implemented:
+
+- :meth:`register_with_server() <WebPageItem.register_with_server>`
+  This method is called once on each widget object of the widget class, when the widget is added to a web page.
+  It receives a reference to the :class:`WebServer` object and the :class:`WebPage` object, so that the widget can retrieve information about the server or page or register static files to be served by the server.
+
+  An example use case for this method is demonstrated by SHC's :class:`ImageMap <shc.web.widgets.ImageMap>` widget:
+  Each instance of this widget class has a user-defined background image file.
+  The widget uses `register_with_server()` to register this file to be served as a static file, so it can be referenced in an ``<img />`` tag in the HTML code.
+
+
+Within `register_with_server()` the widget will typically use the following methods of the web server:
+
+- :meth:`WebServer.serve_static_file` for serving a single static file and/or
+- :meth:`WebServer.add_static_directory` for serving a full directory of static files and optionally adding CSS stylesheets and JavaScript files to all web pages of the server.
+
+As already discussed, the websocket communication of interactive widgets is handled at the server through :class:`WebUIConnector`.
+It provides two basic methods for handling new connections of clients (i.e. instances of the widget instance in different browsers or browser tabs) and handling incoming messages from the widget.
+In addition it has a method to publish a message to all current clients (client widget instances).
+
+In most usecases these communication methods are used to implement a *Writable* SHC object that forwards value updates to all clients to update the UI state, or — the other way round — to implement a *Subscribable* SHC object, publishing values received from the clients upon user interaction.
+For these common cases, there are two classes, which handle all the client subscription management and forwarding of value updates:
+
+- :class:`WebDisplayDatapoint` is the base class for `Writable` objects, that transmit the SHC value updates to the clients
+- :class:`WebActionDatapoint` is the base class for `Subscribable` objects that publish values received from the clients
+
+Both of them can be combined via multi-inheritance, creating a `Writable` **and** `Subscribable` class for two-way interactive widgets.
+They only require minor adjustments if the SHC value type of the value updates differs from the JSON data transferred to/from the clients.
+By default, the values are encoded/decoded to/from JSON using :ref:`SHC's default JSON conversion <datatypes.json>` for the type specified by the object's ``type`` attribute.
+To adjust that, override :meth:`WebDisplayDatapoint.convert_to_ws_value` resp. :meth:`WebActionDatapoint.convert_from_ws_value`.
 
 
 Javascript Side
@@ -326,6 +363,7 @@ Javascript Side
 
     .. automethod:: render
     .. automethod:: register_with_server
+    .. automethod:: get_connectors
 
 .. autoclass:: WebUIConnector
 
