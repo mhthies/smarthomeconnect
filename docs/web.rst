@@ -276,12 +276,14 @@ A widget type consists of
 In most cases, the Python widget class can be derived from `WebPageItem` **and** `WebUIConnector`, such that the widget object can also serve as the websocket communication endpoint for the widget.
 Only in cases that require multiple communication endpoints for the same widget (like the ButtonGroup widget, which has a *Connectable* websocket communication endpoint for each button), additional objects should be used.
 
-The connection between an individual widget's JavaScript object and the corresponding Python `WebUIConnector` (s) is automatically established by the SHC web framework.
+The connection between an individual widget's JavaScript object and the corresponding Python `WebUIConnector` is automatically established by the SHC web framework.
 It uses the Python object id (obtained by `id(foo)` in Python) for identifying the individual `WebUIConnector`.
 The WebUIConnector's object id is typically rendered into the widget's HTML code as an HTML attribute by the `WebPageItem` object, then obtained by the JavaScript constructor function and provided to the client-side SHC framework via the object's `subscribeIds` attribute and as a parameter of the `writeValue` function.
 
 Each widget's JavaScript object of the correct widget type is automatically constructed upon page load by the SHC framework.
 For this purpose, each widget needs to have the `data-widget` attribute on some of it's HTML elements, specifying the widget type name, which is mapped to a type-specific constructor function via the global `SHC_WIDGET_TYPES` Map in JavaScript.
+
+A full-blown example of all the required parts for creating a custom widget is shown in the `custom_ui_widget´ example in the `example` directory of the SHC repository.
 
 
 Python Side
@@ -334,11 +336,46 @@ To adjust that, override :meth:`WebDisplayDatapoint.convert_to_ws_value` resp. :
 Javascript Side
 ^^^^^^^^^^^^^^^
 
-* TODO: ``SHC_WIDGET_TYPES``
-* TODO widget constructor arguments
-    * TODO: ``writeValue()``
-* TODO: ``subscribeIds``
-* TODO: ``update()``
+On the client, SHC takes care of constructing a JavaScript object for each widget instance.
+For this purpose, a constructor function for each widget type must be provided, by inserting it into the global ``SHC_WIDGET_TYPES`` map:
+
+.. code-block:: javascript
+
+    function MyWidgetTypeConstructor(domElement, writeValue) {
+        this.subscribeIds = [];  // TODO
+
+        // TODO
+
+        this.update = function(value, for_id) {
+            // TODO
+        }
+    }
+
+    SHC_WIDGET_TYPES.set('my-widget-type', MyWidgetTypeConstructor);
+
+
+For the constructor to be executed, the widget's top-level HTML DOM element must have the `data-widget` attribute with the widget type name from the map; i.e. ``data-widget="my-widget-type"`` for the example above.
+
+Each widget constructor function must take two parameters:
+
+- ``domElement``: The widget's DOM element for which the widget object is constructed
+- ``writeValue``: A callback function, which can be saved in the object and later be used to send value updates to the server.
+  It takes two arguments: The object id of the `WebUIConnector` to send the value to and the value as a simple JavaScript object.
+  The value is automatically JSON-encoded for sending it to the server.
+
+The constructor function must create at least two attributes on the constructed object (``this``):
+
+- ``subscribeIds``: a list of the Python object ids of all `WebUIConnector` objects to subscribe to.
+  The SHC web framework will ensure to send a subscription request to these objects at the server, as soon as the websocket connection has been established.
+  As the object ids are dynamic (i.e. they change with each restart of the SHC server application), they are typically provided as an additional HTML attribute in each widget's HTML code to be retrieved by the JavaScript:
+
+  .. code-block:: javascript
+
+    this.subscribeIds = [parseInt(domElement.getAttribute('data-id'))];
+
+- ``update``: a method to be called when an update from the server is received for one of the subscribeIds.
+  It takes two arguments: The received value and the object id of the publishing Python object.
+  The object id can be used to differentiate between the different subscriptions for widgets that subscribe to more than one `WebUIConnector`.
 
 
 ``web`` Module Reference
