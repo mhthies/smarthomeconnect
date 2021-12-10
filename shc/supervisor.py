@@ -25,7 +25,7 @@ _REGISTERED_INTERFACES: Set["AbstractInterface"] = set()
 
 event_loop = asyncio.get_event_loop()
 _EXIT_CODE = 0
-_SHC_STOPPED = asyncio.Event(loop=event_loop)
+_SHC_STOPPED = asyncio.Event()
 _SHC_STOPPED.set()
 
 
