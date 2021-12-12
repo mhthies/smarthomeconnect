@@ -52,7 +52,7 @@ setup(
         'dmx': ['pyserial-asyncio>=0.3,<=0.5'],
         'midi': ['mido>=1.2.9,<2', 'python-rtmidi>=1.4.6,<2'],
         'mqtt': ['paho-mqtt>=1.5.1,<2', 'asyncio-mqtt>=0.10.0,<0.11'],
-        'pulse': ['pulsectl_asyncio>=0.1.10,<0.2'],
+        'pulse': ['pulsectl_asyncio~=0.2.0'],
     },
     classifiers=[
         'Development Status :: 3 - Alpha',
