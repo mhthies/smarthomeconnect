@@ -191,12 +191,12 @@ class ClockMock:
             unittest.mock.patch('datetime.date.today', new=self.today),
         )
         for p in self.patches:
-            p.__enter__()
+            p.__enter__()  # type: ignore  # MyPy does not seem to get the _patch objects right
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         for p in self.patches:
-            p.__exit__(exc_type, exc_val, exc_tb)
+            p.__exit__(exc_type, exc_val, exc_tb)  # type: ignore
 
         datetime.datetime = self.original_datetime  # type: ignore
         datetime.date = self.original_date  # type: ignore
