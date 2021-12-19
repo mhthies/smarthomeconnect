@@ -36,7 +36,8 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         """
         :param auto_reconnect: If True (default), the supervisor tries to reconnect the interface automatically with
             exponential backoff (`backoff_base` * `backoff_exponent` ^ n seconds sleep), when `_run` exits unexpectedly
-            lost. Otherwise, the complete SHC system is shut down on connection errors.
+            or any of _connect, _run or _subscribe raise an exception. Otherwise, the complete SHC system is shut down
+            on connection errors.
         :param failsafe_start: If True and auto_reconnect is True, the interface allows SHC to start up, even if the
             `_connect` or `_subscribe` fails in the first try. The connection is retried in background with exponential
             backoff (see `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not
