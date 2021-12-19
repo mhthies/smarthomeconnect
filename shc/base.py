@@ -165,7 +165,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
     _stateful_publishing: bool = False
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)  # type: ignore
+        super().__init__(*args, **kwargs)
         self._subscribers: List[SubscriberListType] = []
         self._triggers: List[Tuple[LogicHandler, bool]] = []
         self._pending_updates: Dict[int, Dict[asyncio.Task, Optional[int]]] = {}
@@ -352,7 +352,7 @@ class Reading(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
     is_reading_optional: bool = True
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)  # type: ignore
+        super().__init__(*args, **kwargs)
         self._default_provider: Optional[DefaultProviderType] = None
 
     def set_provider(self, provider: Readable[S], convert: Union[Callable[[S], T_con], bool] = False):

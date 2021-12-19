@@ -301,7 +301,7 @@ class InterfaceThreadRunner(Generic[IT]):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         try:
-            self.interface = interface_class(*args, **kwargs)  # type: ignore
+            self.interface = interface_class(*args, **kwargs)
             self._server_constructed_future.set_result(None)
         except Exception as e:
             self._server_constructed_future.set_exception(e)
