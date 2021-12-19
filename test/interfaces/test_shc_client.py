@@ -138,8 +138,8 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
             self.server_runner.stop()
-        self.assertIn("Unexpected shutdown", ctx.output[0])
-        self.assertIn("SHCWebClient", ctx.output[0])
+        self.assertIn("Unexpected shutdown", ctx.output[0])  # type: ignore
+        self.assertIn("SHCWebClient", ctx.output[0])  # type: ignore
 
         # Re-setup server
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
@@ -150,8 +150,8 @@ class SHCWebsocketClientTest(unittest.TestCase):
         # Wait for first reconnect attempt
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
             time.sleep(1.1)
-        self.assertIn("Error in interface SHCWebClient", ctx.output[0])
-        self.assertIn("Cannot connect to host", ctx.output[0])
+        self.assertIn("Error in interface SHCWebClient", ctx.output[0])  # type: ignore
+        self.assertIn("Cannot connect to host", ctx.output[0])  # type: ignore
 
         # Start server
         self.server_runner.start()
@@ -174,8 +174,8 @@ class SHCWebsocketClientTest(unittest.TestCase):
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
             self.client_runner.start()
             time.sleep(0.5)
-        self.assertIn("Error in interface SHCWebClient", ctx.output[0])
-        self.assertIn("Cannot connect to host", ctx.output[0])
+        self.assertIn("Error in interface SHCWebClient", ctx.output[0])  # type: ignore
+        self.assertIn("Cannot connect to host", ctx.output[0])  # type: ignore
 
         # Start server
         self.server_runner.start()
@@ -183,8 +183,8 @@ class SHCWebsocketClientTest(unittest.TestCase):
         # Client should still fail due to missing API object
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
             time.sleep(0.6)
-        self.assertIn("Error in interface SHCWebClient", ctx.output[0])
-        self.assertIn("Failed to subscribe SHC API object 'bar'", ctx.output[0])
+        self.assertIn("Error in interface SHCWebClient", ctx.output[0])  # type: ignore
+        self.assertIn("Failed to subscribe SHC API object 'bar'", ctx.output[0])  # type: ignore
 
         # Re-setup server
         self.server_runner.stop()

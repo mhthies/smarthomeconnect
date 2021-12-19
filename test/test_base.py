@@ -40,7 +40,7 @@ class TestSubscribe(unittest.TestCase):
         a.subscribe(b)
         with self.assertLogs(level=logging.ERROR) as ctx:
             await a.publish(TOTALLY_RANDOM_NUMBER, [self])
-        self.assertIn("unexpected error in _write", "\n".join(ctx.output))
+        self.assertIn("unexpected error in _write", "\n".join(ctx.output))  # type: ignore
 
     @async_test
     async def test_type_conversion(self) -> None:
@@ -158,7 +158,7 @@ class TestHandler(unittest.TestCase):
         with self.assertLogs(level=logging.ERROR) as ctx:
             await a.publish(TOTALLY_RANDOM_NUMBER, [self])
             await asyncio.sleep(0.01)
-        self.assertIn("unexpected error in _write", "\n".join(ctx.output))
+        self.assertIn("unexpected error in _write", "\n".join(ctx.output))  # type: ignore
 
 
 class TestBlockingHandler(unittest.TestCase):

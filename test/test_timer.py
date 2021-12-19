@@ -756,7 +756,7 @@ class RampTest(unittest.TestCase):
             with self.assertLogs() as logs:
                 await subscribable1.publish(datatypes.FadeStep(0.5), [self])
                 await asyncio.sleep(0.05)
-            self.assertIn("Cannot apply FadeStep", logs.records[0].msg)
+            self.assertIn("Cannot apply FadeStep", logs.records[0].msg)  # type: ignore
             writable1._write.assert_not_called()
             writable1._write.reset_mock()
 

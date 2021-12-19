@@ -142,14 +142,14 @@ class MQTTClientTest(unittest.TestCase):
             self.broker_process.terminate()
             self.broker_process.wait()
             time.sleep(0.2)
-        self.assertIn("Disconnected", ctx.output[0])
-        self.assertIn("MQTTClientInterface", ctx.output[0])
+        self.assertIn("Disconnected", ctx.output[0])  # type: ignore
+        self.assertIn("MQTTClientInterface", ctx.output[0])  # type: ignore
 
         # Wait for first reconnect attempt
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
             time.sleep(1.1)
-        self.assertIn("Error in interface MQTTClientInterface", ctx.output[0])
-        self.assertIn("Connection refused", ctx.output[0])
+        self.assertIn("Error in interface MQTTClientInterface", ctx.output[0])  # type: ignore
+        self.assertIn("Connection refused", ctx.output[0])  # type: ignore
 
         # Restart server
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", '-c', str(self.broker_config_file)])
@@ -177,8 +177,8 @@ class MQTTClientTest(unittest.TestCase):
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
             self.client_runner.start()
             time.sleep(0.5)
-        self.assertIn("Error in interface MQTTClientInterface", ctx.output[0])
-        self.assertIn("Connection refused", ctx.output[0])
+        self.assertIn("Error in interface MQTTClientInterface", ctx.output[0])  # type: ignore
+        self.assertIn("Connection refused", ctx.output[0])  # type: ignore
 
         # Restart server
         self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", '-c', str(self.broker_config_file)])
