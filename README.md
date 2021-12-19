@@ -73,7 +73,7 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
   
    shc.main()
    ```
-   When running this script (`python3 my_home_authomation.py`), SHC should start and exit (successfully) immediately, since no interfaces are defined.
+   When running this script (`python3 my_home_authomation.py`), SHC should start up and run idle until you terminate it (e.g. with Ctrl+C).
    See the code below for an example with the Web UI and the KNX interface.
 
 3. Read about the basic concepts of SHC and available interfaces in the [SHC documentation](https://smarthomeconnect.readthedocs.io/en/latest/).
