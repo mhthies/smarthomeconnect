@@ -262,15 +262,22 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
         super().__init__()
         self.client = client
         self.name = name
+        self.pending_sends = 0
 
     async def read(self) -> T:
         return from_json(self.type, await self.client._read_value(self.name))
 
-    async def _write(self, value: T, origin: List[Any]) -> None:
+    async def _write(self, value: T, origin: List[Any], _reflected_from_server: bool = False) -> None:
         # Asynchronous local feedback publishing. This ensures that conflicting updates, which are currently waiting for
         # local processing by a subscriber can be corrected by resetting this update's origin.
         self._publish(value, origin)
-        await self.client._send_value(self.name, value)
+        if not _reflected_from_server:
+            self.pending_sends += 1
+        try:
+            await self.client._send_value(self.name, value)
+        finally:
+            if not _reflected_from_server:
+                self.pending_sends -= 1
 
     def new_value(self, value: Any) -> None:
         """
@@ -280,6 +287,10 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
         :param value: The received, json-decoded value. It will be processed using :meth:`shc.conversion.from_json`.
         """
         try:
+            # Return value to server if we have sent a (conflicting) value recently (with the acknowledge still pending)
+            # to prevent inconsistent state on server and client.
+            if self.pending_sends:
+                asyncio.create_task(self._write(value, [], _reflected_from_server=True))
             self._publish(from_json(self.type, value), [])
             logger.debug("Received new value %s for SHC API object %s", value, self.name)
         except Exception as e:
