@@ -201,3 +201,27 @@ class SHCWebsocketClientTest(unittest.TestCase):
         time.sleep(0.3)
 
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
+
+
+class SHCWebsocketClientConcurrentUpdateTest(unittest.TestCase):
+    @async_test
+    async def test_concurrent_update(self) -> None:
+        server = shc.web.WebServer("localhost", 42080)
+        client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
+
+        foo_api = server.api(int, 'foo')
+        server_var = shc.Variable(int, initial_value=0).connect(foo_api)
+        foo_client = client.object(int, 'foo')
+        client_var = shc.Variable(int).connect(foo_client)
+
+        await server.start()
+        await client.start()
+        await asyncio.sleep(0.1)
+
+        self.assertEqual(0, await client_var.read())
+
+        await asyncio.gather(foo_api.write(42, [self]),
+                             foo_client.write(56, [self]))
+        await asyncio.sleep(0.1)
+        self.assertEqual(await client_var.read(),
+                         await server_var.read())
