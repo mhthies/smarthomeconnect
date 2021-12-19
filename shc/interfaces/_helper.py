@@ -194,6 +194,8 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
                 logger.debug("Starting up interface %s completed", self)
                 if not self._started.done():
                     self._started.set_result(None)
+                # Reset reconnect backoff interval
+                sleep_interval = self.backoff_base
 
                 # Wait for run task to return (due to stopping or error)
                 await run_task
