@@ -204,18 +204,24 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
 
 class SHCWebsocketClientConcurrentUpdateTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.server = shc.web.WebServer("localhost", 42080)
+        self.client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
+
+    def tearDown(self) -> None:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.client.stop())
+        loop.run_until_complete(self.server.stop())
+
     @async_test
     async def test_concurrent_update(self) -> None:
-        server = shc.web.WebServer("localhost", 42080)
-        client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
-
-        foo_api = server.api(int, 'foo')
+        foo_api = self.server.api(int, 'foo')
         server_var = shc.Variable(int, initial_value=0).connect(foo_api)
-        foo_client = client.object(int, 'foo')
+        foo_client = self.client.object(int, 'foo')
         client_var = shc.Variable(int).connect(foo_client)
 
-        await server.start()
-        await client.start()
+        await self.server.start()
+        await self.client.start()
         await asyncio.sleep(0.1)
 
         self.assertEqual(0, await client_var.read())
