@@ -373,7 +373,7 @@ class IfThenElse(ExpressionHandler, Generic[T]):
         self.otherwise = self._wrap_static_value(otherwise)
 
     async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
-        return ((received_value if received_from is self.then else await self.then.read())
+        return ((received_value if received_from is self.then else await self.then.read())  # type: ignore
                 if (received_value if received_from is self.condition else await self.condition.read())
                 else (received_value if received_from is self.otherwise else await self.otherwise.read()))
 
