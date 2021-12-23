@@ -277,17 +277,17 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
                 operand.trigger(self.on_change, synchronous=True)
 
     @abc.abstractmethod
-    async def evaluate(self) -> T:
+    async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
         pass
 
-    async def on_change(self, _value, origin):
+    async def on_change(self, value, origin):
         try:
-            await self._publish_and_wait(await self.evaluate(), origin)
+            await self._publish_and_wait(await self.evaluate(value, origin[-1]), origin)
         except UninitializedError:
             pass
 
     async def read(self) -> T:
-        return await self.evaluate()
+        return await self.evaluate(None, None)
 
     @staticmethod
     def _wrap_static_value(val: Union[S, Readable[S]]) -> Readable[S]:
@@ -316,16 +316,17 @@ class BinaryExpressionHandler(ExpressionHandler[T], Generic[T]):
         self.operator = operator_
         super().__init__(type_, (a, b))
 
-    async def evaluate(self) -> T:
-        return self.operator(await self.a.read(), await self.b.read())
+    async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
+        return self.operator(received_value if received_from is self.a else await self.a.read(),
+                             received_value if received_from is self.b else await self.b.read())
 
     def __repr__(self) -> str:
         return "{}[{}({}, {})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a), repr(self.b))
 
 
 class BinaryCastExpressionHandler(BinaryExpressionHandler[T]):
-    async def evaluate(self) -> T:
-        return self.type(await super().evaluate())  # type: ignore
+    async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
+        return self.type(await super().evaluate(received_value, received_from))  # type: ignore
 
 
 class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
@@ -334,16 +335,16 @@ class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
         self.operator = operator_
         super().__init__(type_, (a,))
 
-    async def evaluate(self) -> T:
-        return self.operator(await self.a.read())
+    async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
+        return self.operator(received_value if received_from is self.a else await self.a.read())
 
     def __repr__(self) -> str:
         return "{}[{}({})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a))
 
 
 class UnaryCastExpressionHandler(UnaryExpressionHandler[T]):
-    async def evaluate(self) -> T:
-        return self.type(await super().evaluate())  # type: ignore
+    async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
+        return self.type(await super().evaluate(received_value, received_from))  # type: ignore
 
 
 # ############################# #
@@ -371,8 +372,10 @@ class IfThenElse(ExpressionHandler, Generic[T]):
         self.then = self._wrap_static_value(then)
         self.otherwise = self._wrap_static_value(otherwise)
 
-    async def evaluate(self) -> T:
-        return (await self.then.read()) if (await self.condition.read()) else (await self.otherwise.read())
+    async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
+        return ((received_value if received_from is self.then else await self.then.read())
+                if (received_value if received_from is self.condition else await self.condition.read())
+                else (received_value if received_from is self.otherwise else await self.otherwise.read()))
 
 
 class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]):
@@ -537,8 +540,14 @@ def expression(func: Callable[..., T]) -> Type[ExpressionFunctionHandler[T]]:
 
             super().__init__(type_, args)
 
-        async def evaluate(self) -> T:
-            return func(*(await asyncio.gather(*(a.read() for a in self.args))))
+        async def _get_arg_value(self, arg, received_value, received_from):
+            return received_value if received_from is arg else await arg.read()
+
+        async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
+            return func(
+                *(await asyncio.gather(
+                    *(self._get_arg_value(a, received_value, received_from)
+                      for a in self.args))))
 
         def __repr__(self) -> str:
             return "@expression[{}({})]".format(func.__name__, repr(self.args))
