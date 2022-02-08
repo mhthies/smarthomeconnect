@@ -25,3 +25,12 @@ class CommandTest(unittest.TestCase):
         with self.assertRaises(UninitializedError):
             await command4.read()
 
+    @async_test
+    async def test_command_exit_code(self) -> None:
+        command1 = command.CommandExitCode(["true"])
+        command2 = command.CommandExitCode(["false"])
+        command3 = command.CommandExitCode("definitely-not-a-command-on-your-computer", shell=True)
+
+        self.assertEqual(0, await command1.read())
+        self.assertEqual(1, await command2.read())
+        self.assertNotEqual(0, await command3.read())

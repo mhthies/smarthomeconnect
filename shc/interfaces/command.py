@@ -56,3 +56,40 @@ class Command(Readable[str]):
         std_out_str = std_out.decode().strip()
         logger.debug("Command output: %s", std_out)
         return std_out_str
+
+
+class CommandExitCode(Readable[int]):
+    """
+    A *Readable* object that executes a (fixed) given command returns the its exit code when being read.
+
+    This *readable* object can easily be combined with the :class:`shc.misc.PeriodicReader` to periodically publish the
+    command's exit code::
+
+        # Publish 1 every 5seconds (the hard way ;) )
+        PeriodicReader(Command(['false']), datetime.timedelta(seconds=5))
+
+    The parameters are similar to subprocess.run()'s:
+
+    :param command: The command to execute incl. arguments and parameters. A single str, when `shell` is True, otherwise
+        it should be list of the command and its individual command line arguments.
+    :param shell: If True, the command will be within a shell, otherwise it will be started as a plain subprocess
+    """
+    type = str
+
+    def __init__(self, command: Union[str, List[str]], shell=False):
+        """Initalize the command interface."""
+        super().__init__()
+        self.command = command
+        self.shell = shell
+
+    async def read(self) -> int:
+        kwargs = dict(
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        command_process = await (asyncio.create_subprocess_shell(self.command, **kwargs)
+                                 if self.shell
+                                 else asyncio.create_subprocess_exec(*self.command, **kwargs))
+
+        result = await command_process.wait()
+        return result
