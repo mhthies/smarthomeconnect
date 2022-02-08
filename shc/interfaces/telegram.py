@@ -2,7 +2,7 @@ import abc
 import asyncio
 import logging
 import re
-from typing import Generic, TypeVar, Set, Type, Optional, List, Pattern, Tuple, Dict, Any
+from typing import Generic, TypeVar, Set, Type, Optional, List, Pattern, Tuple, Dict, Any, Callable
 
 import aiogram
 
@@ -45,7 +45,8 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def stop(self) -> None:
         self.dp.stop_polling()
-        await self.poll_task
+        if self.poll_task:
+            await self.poll_task
         await self.dp.storage.close()
         await self.dp.storage.wait_closed()
         session = await self.dp.bot.get_session()
@@ -126,7 +127,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _do_set(self, message: aiogram.types.Message, user: UserT) -> None:
         """
-
+        TODO
 
         :param message:
         :param user:
@@ -181,8 +182,8 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         return [var
                 for name, var in self.variables.items()
                 if regex.search(name) and (
-                    self.auth_provider.has_user_role(user, var.read_roles)
-                    or self.auth_provider.has_user_role(user, var.set_roles))]
+                    self.auth_provider.has_user_role(user, var.read_roles) and var.is_readable()
+                    or self.auth_provider.has_user_role(user, var.set_roles) and var.is_settable())]
 
     async def _handle_callback_query(self, query: aiogram.types.CallbackQuery) -> None:
         """
@@ -207,34 +208,118 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         else:
             await self.bot.send_message(chat_id, "Nothing to do.", reply_markup=aiogram.types.ReplyKeyboardRemove())
 
-    def generic_variable(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                         send_users: Set[UserT] = set(), alternative_names: Optional[Pattern] = None,
-                         options: Optional[List[Tuple[str, str]]] = None) -> "TelegramVariableConnector[str]":
+    def generic_variable(self, type_: Type[T], name: str,
+                         to_message: Callable[[T], str], parse_value: Callable[[str], T],
+                         read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
+                         send_users: Set[UserT] = set(), options: Optional[List[str]] = None
+                         ) -> "TelegramVariableConnector[T, RoleT]":
+        """
+        TODO
+
+        :param type_:
+        :param name:
+        :param to_message:
+        :param parse_value:
+        :param read_roles:
+        :param set_roles:
+        :param send_users:
+        :param options:
+        :return:
+        """
+        if name in self.variables:
+            raise ValueError(f"Variable with name {name} already exists in this Telegram bot.")
+        var = TelegramVariableConnector(
+            self, type_, name, read_roles, send_users,
+            set_roles if set_roles is not None else read_roles,
+            "Change to?", parse_value,
+            lambda x: f"{name} is currently {to_message(x)}", lambda x: f"{name} is now {to_message(x)}",
+            options)
+        self.variables[name] = var
+        return var
+
+    def str_variable(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
+                     send_users: Set[UserT] = set()) -> "TelegramVariableConnector[str, RoleT]":
         """
         TODO
 
         :param name:
         :param read_roles:
         :param set_roles:
-        :param send_roles:
-        :param alternative_names:
-        :param options:
+        :param send_users:
         :return:
         """
         if name in self.variables:
             raise ValueError(f"Variable with name {name} already exists in this Telegram bot.")
-        var = TelegramVariableConnector(self, str, name, read_roles, send_users,
-                                        set_roles if set_roles is not None else read_roles)
+        var = TelegramVariableConnector(
+            self, str, name, read_roles, send_users,
+            set_roles if set_roles is not None else read_roles,
+            "Change to?", lambda x: x,
+            lambda x: f"{name} is currently {x}", lambda x: f"{name} is now {x}",
+            None)
         self.variables[name] = var
         return var
 
     def on_off_variable(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                         send_users: Set[UserT] = set(), alternative_names: Optional[Pattern] = None,
-                         options: Optional[List[Tuple[str, str]]] = None) -> "TelegramVariableConnector[bool]":
+                        send_users: Set[UserT] = set()) -> "TelegramVariableConnector[bool, RoleT]":
+        """
+        TODO
+
+        :param name:
+        :param read_roles:
+        :param set_roles:
+        :param send_users:
+        :return:
+        """
         if name in self.variables:
             raise ValueError(f"Variable with name {name} already exists in this Telegram bot.")
-        var = OnOffVariable(self, name, read_roles, send_users,
-                            set_roles if set_roles is not None else read_roles)
+
+        def parse_value(x: str) -> bool:
+            if x == "on":
+                return True
+            elif x == "off":
+                return False
+            else:
+                raise ValueError("Invalid on/off value.")
+
+        var = TelegramVariableConnector(
+            self, bool, name, read_roles, send_users,
+            set_roles if set_roles is not None else read_roles,
+            "Switch?",
+            parse_value,
+            lambda x: f"{name} is currently {'on' if x else 'off'}.",
+            lambda x: f"{name} is now {'on' if x else 'off'}",
+            ['off', 'on'])
+        self.variables[name] = var
+        return var
+
+    def trigger_variable(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
+                         send_users: Set[UserT] = set()) -> "TelegramVariableConnector[None, RoleT]":
+        """
+        TODO
+
+        :param name:
+        :param read_roles:
+        :param set_roles:
+        :param send_users:
+        :return:
+        """
+        if name in self.variables:
+            raise ValueError(f"Variable with name {name} already exists in this Telegram bot.")
+
+        def parse_value(x: str) -> None:
+            if x == "do":
+                return None
+            else:
+                raise ValueError("Invalid value. Must be 'do'. Otherwise, use /cancel to cancel triggering.")
+
+        var = TelegramVariableConnector(
+            self, type(None), name, read_roles, send_users,
+            set_roles if set_roles is not None else read_roles,
+            "Trigger?",
+            parse_value,
+            lambda x: "",
+            lambda x: f"{name} has been triggered",
+            ['do'])
         self.variables[name] = var
         return var
 
@@ -258,9 +343,12 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
                                for chat_id in chat_ids | user_chats))
 
 
-class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T]):
+class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T],
+                                metaclass=abc.ABCMeta):
     def __init__(self, interface: TelegramBot, type_: Type[T], name: str, read_roles: Set[RoleT],
-                 send_users: Set[UserT], set_roles: Set[RoleT]):
+                 send_users: Set[UserT], set_roles: Set[RoleT], set_message: str, parse_value: Callable[[str], T],
+                 format_value_read: Callable[[T], str], format_value_send: Callable[[T], str],
+                 options: Optional[List[str]]):
         self.type = type_
         super().__init__()
         self.interface = interface
@@ -268,9 +356,25 @@ class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], 
         self.read_roles = read_roles
         self.send_users = send_users
         self.set_roles = set_roles
+
+        self.set_message = set_message
+        self.parse_value_fn = parse_value
+        self.format_value_read_fn = format_value_read
+        self.format_value_send_fn = format_value_send
+        if options:
+            self.keyboard = aiogram.types.ReplyKeyboardMarkup(
+                [[aiogram.types.KeyboardButton(o)
+                  for o in options[i:i+2]]
+                 for i in range(0, len(options), 2)]
+                + [[aiogram.types.KeyboardButton("/cancel")]])
+        else:
+            self.keyboard = None
     
     def is_settable(self) -> bool:
         return bool(self._subscribers or self._triggers)
+
+    def is_readable(self) -> bool:
+        return self._default_provider is not None
 
     async def _write(self, value: T, _origin: List[Any]) -> None:
         await self.interface.send_message(message=self._format_value_send(value), users=self.send_users)
@@ -283,44 +387,19 @@ class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], 
         return None
 
     def from_telegram(self, value: str) -> None:
-        self._publish(self._parse_value(value), [])
+        self._publish(self.parse_value_fn(value), [])
     
-    def get_setting_keyboard(self) -> Optional[aiogram.types.ReplyKeyboardMarkup]:
-        return None
+    def get_setting_keyboard(self) -> aiogram.types.ReplyKeyboardMarkup:
+        return self.keyboard
+
+    def get_set_message(self) -> str:
+        return self.set_message
 
     def _format_value_select(self, value) -> str:
-        return f"{self.name} is currently {value}"
+        return self.format_value_read_fn(value)
 
     def _format_value_send(self, value) -> str:
-        return f"{self.name} is now {value}"
-
-    def get_set_message(self) -> str:
-        return "Set it to?"
-
-    def _parse_value(self, value: str) -> T:
-        return self.type(value)
-
-
-class OnOffVariable(TelegramVariableConnector[bool, RoleT], Generic[RoleT]):
-    def __init__(self, interface: TelegramBot, name: str, read_roles: Set[RoleT], send_users: Set[UserT],
-                 set_roles: Set[RoleT]):
-        super().__init__(interface, bool, name, read_roles, send_users, set_roles)
-
-    def get_setting_keyboard(self) -> aiogram.types.ReplyKeyboardMarkup:
-        return aiogram.types.ReplyKeyboardMarkup(
-            [[aiogram.types.KeyboardButton("off"), aiogram.types.KeyboardButton("on")],
-             [aiogram.types.KeyboardButton("/cancel")]])
-
-    def get_set_message(self) -> str:
-        return "Switch?"
-
-    def _parse_value(self, value: str) -> bool:
-        if value == "on":
-            return True
-        elif value == "off":
-            return False
-        else:
-            raise ValueError("Invalid on/off value.")
+        return self.format_value_send_fn(value)
 
 
 class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
@@ -349,7 +428,7 @@ class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
     def has_user_role(self, user: UserT, roles: Set[RoleT]) -> Optional[bool]:
         pass
 
-    def get_telegram_chat_of_user(self, user: UserT) -> Optional[UserT]:
+    def get_telegram_chat_of_user(self, user: UserT) -> Optional[int]:
         return None
 
 

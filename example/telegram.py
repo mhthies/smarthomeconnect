@@ -67,8 +67,15 @@ telegram_bot = TelegramBot("XXX", telegram_auth)
 telegram_bot.on_off_variable("Foo", {'michael'}).connect(foo, read=True)
 telegram_bot.on_off_variable("Bar", {'michael'}).connect(bar, read=True)
 telegram_bot.on_off_variable("Foobar", {'michael'}).connect(foobar, read=True)
-telegram_bot.generic_variable("Yak Name", {'michael'}).connect(yak_name, read=True)
-telegram_bot.generic_variable("Yak Number", {'michael'}).connect(number_of_yaks, convert=(int, str), read=True)
+telegram_bot.str_variable("Yak Name", {'michael'}).connect(yak_name, read=True)
+telegram_bot.str_variable("Yak Number", {'michael'}).connect(number_of_yaks, convert=(int, str), read=True)
+
+
+@telegram_bot.trigger_variable("Random Yaks", {'michael'}).trigger
+@shc.handler()
+async def random_yaks(_v, _o):
+    await number_of_yaks.write(random.randint(0, 255))
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
