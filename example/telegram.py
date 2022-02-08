@@ -62,7 +62,7 @@ index_page.add_item(TextInput(str, "Yak's name")
 
 # The Telegram bot
 telegram_auth = SimpleTelegramAuth({'michael': 123})
-telegram_bot = TelegramBot("XXX", telegram_auth)
+telegram_bot = TelegramBot("123456789:exampleTokenXXX", telegram_auth)
 
 telegram_bot.on_off_variable("Foo", {'michael'}).connect(foo, read=True)
 telegram_bot.on_off_variable("Bar", {'michael'}).connect(bar, read=True)
