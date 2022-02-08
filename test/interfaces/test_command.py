@@ -1,30 +1,27 @@
 """Test for the command binary interface."""
-import asyncio
 import unittest
 import unittest.mock
 
+from shc.base import UninitializedError
 from shc.interfaces import command
-from test._helper import async_test, ExampleSubscribable, ExampleWritable
+from test._helper import async_test
 
 
 class CommandTest(unittest.TestCase):
-    """Test cases for the command interface."""
+    """Test cases for the command readable object."""
 
     @async_test
     async def test_command(self) -> None:
-        """Test the command interface."""
-        timer_mock = ExampleSubscribable(type(None))
+        """Test the command readable object."""
 
-        with unittest.mock.patch('shc.interfaces.command.Every', return_value=timer_mock):
-            command1 = command.Command("echo available")
-            command2 = command.Command("echo not_available")
-            command2 = command.Command("echo not_available")
+        command1 = command.Command(["echo", "Hello, World!"])
+        command2 = command.Command("f=World; echo Hello, $f\\!", shell=True)
+        command3 = command.Command("definitely-not-a-command-on-your-computer", shell=True)
+        command4 = command.Command("definitely-not-a-command-on-your-computer", shell=True, check=True)
 
-        target_1 = ExampleWritable(str).connect(command1)
-        target_2 = ExampleWritable(str).connect(command2)
+        self.assertEqual("Hello, World!", await command1.read())
+        self.assertEqual("Hello, World!", await command2.read())
+        self.assertEqual("", await command3.read())
+        with self.assertRaises(UninitializedError):
+            await command4.read()
 
-        await timer_mock.publish(None, [self])
-        await asyncio.sleep(1.0)
-
-        target_1._write.assert_called_once_with("available", [command1])
-        target_2._write.assert_called_once_with("not_available", [command2])

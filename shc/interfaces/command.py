@@ -1,43 +1,58 @@
 """Command interface."""
 import asyncio
-import datetime
 import logging
+from typing import List, Union
 
-from shc.base import Subscribable
-from shc.timer import Every
+from shc.base import Readable, UninitializedError
 
 logger = logging.getLogger(__name__)
 
 
-class Command(Subscribable[str]):
+class Command(Readable[str]):
     """
-    A *Subscribable* object that periodically executes a given command and publishes the result.
+    A *Readable* object that executes a (fixed) given command returns the result when being read.
 
-    :param command: The command to execute incl. arguments and parameters.
-    :param interval: The interval in which the command will be executed.
+    This *readable* object can easily be combined with the :class:`shc.misc.PeriodicReader` to periodically publish the
+    command's output::
+
+        # Publish "Hello, world!" every 5seconds (the hard way ;) )
+        PeriodicReader(Command(['echo', 'Hello, world!']), datetime.timedelta(seconds=5))
+
+    The parameters are similar to subprocess.run()'s:
+
+    :param command: The command to execute incl. arguments and parameters. A single str, when `shell` is True, otherwise
+        it should be list of the command and its individual command line arguments.
+    :param shell: If True, the command will be within a shell, otherwise it will be started as a plain subprocess
+    :param include_std_err: If True, stderr output from the command will be included in the output. This is similar to
+        adding '2>&1' to your shell command
+    :param check: If True, the exit code of the command will be checked the read() method raises an UninitializedError
+        instead of returning the output of the command in case of a non-zero exit code.
     """
     type = str
 
-    def __init__(self, command: str, interval: datetime.timedelta = datetime.timedelta(seconds=5)):
+    def __init__(self, command: Union[str, List[str]], shell=False, include_std_err=False, check=False):
         """Initalize the command interface."""
         super().__init__()
         self.command = command
-        self._timer = Every(interval)
-        self._timer.trigger(self._exec)
+        self.shell = shell
+        self.include_std_err = include_std_err
+        self.check = check
 
-    async def _exec(self, _v, _o) -> None:
-        """Execute the given command."""
-        command_process = await asyncio.create_subprocess_shell(
-            self.command,
+    async def read(self) -> str:
+        kwargs = dict(
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.STDOUT if self.include_std_err else asyncio.subprocess.DEVNULL,
         )
+        command_process = await (asyncio.create_subprocess_shell(self.command, **kwargs)
+                                 if self.shell
+                                 else asyncio.create_subprocess_exec(*self.command, **kwargs))
 
         std_out, _std_err = await command_process.communicate()
+        if self.check:
+            if command_process.returncode != 0:
+                logger.warning("Subprocess %s returned non-zero exit code %s", self.command, command_process.returncode)
+                raise UninitializedError()
 
-        if _std_err is not None:
-            return
-
-        logger.debug("Command output: %s", std_out.decode())
-
-        self._publish(std_out.strip().decode(), [])
+        std_out_str = std_out.decode().strip()
+        logger.debug("Command output: %s", std_out)
+        return std_out_str
