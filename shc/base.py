@@ -37,12 +37,39 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
     """
     type: Type[T]
 
-    def connect(self: C, other: "Connectable",
+    def connect(self: C, other: "Connectable[S]",
                 send: Optional[bool] = None,
                 receive: Optional[bool] = None,
                 read: Optional[bool] = None,
                 provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> C:
+                convert: Union[bool, Tuple[Callable[[T], S], Callable[[S], T]]] = False) -> C:
+        """
+        Subscribe self to other and set as default_provider and vice versa (depending on the two object's capabilities,
+        optionalities and given parameters).
+
+        :param other: The other *Connectable* object to connect with
+        :param send: Send value updates to `other` (i.e. subscribe `other` to `self`).
+            Requires `self` to be :class:`Subscribable` and other to be :class:`Writable`. In this case, defaults to
+            True if not specified.
+        :param receive: Receive value updates from `other` (i.e. subscribe `self` to `other`).
+            Requires `self` to be :class:`Writable` and other to be :class:`Subscribable`. In this case, defaults to
+            True if not specified.
+        :param read: Read values from `other` (i.e. set `other` as default provider for `self`).
+            Requires `self` to be :class:`Reading` and `other` to be :class:`Readable`.
+            If not specified, defaults to False unless `self.is_reading_optional` is set to False.
+        :param provide: Provide values to `other` for reading (i.e. set `self` as default provider for `other`).
+            Requires `self` to be :class:`Readable` and `other` to be :class:`Reading`.
+            If not specified, defaults to False unless `other.is_reading_optional` is set to False.
+        :param convert: Enable built-in type conversion for the created subscriptions/default_providers:
+            Either a boolean or a tuple of two conversion functions. Defaults to ``False``, i.e. a type mismatch will
+            result in a TypeError instead of implicit conversion. Set to ``True``, to choose the appropriate
+            conversion function automatically. Raises a TypeError if no default conversion for one of the two directions
+            is available and that direction is used.
+            For custom conversion functions, pass a tuple ``(to_other, to_self)``, where ``to_other`` is a (non-async)
+            callable for converting `self`'s value type into `other`'s value type and ``to_self`` does the conversion
+            the other way round.
+        :return: Returns self to allow functional-style chaining
+        """
         if isinstance(other, ConnectableWrapper):
             # If other object is not connectable itself but wraps one or more connectable objects (like, for example, a
             # `web.widgets.ValueButtonGroup`), let it use its special implementation of `connect()`.
