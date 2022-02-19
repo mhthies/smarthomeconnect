@@ -125,15 +125,19 @@ class SHCWebsocketClientTest(unittest.TestCase):
     def test_reconnect(self) -> None:
         self.server.api(ExampleType, "bar")\
             .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        foo_server_target = ExampleWritable(int).connect(self.server.api(int, "foo"))
 
         client_bar = self.client.object(ExampleType, 'bar')
         bar_target = ExampleWritable(ExampleType).connect(client_bar)
+        client_foo = self.client.object(int, 'foo')\
+            .connect(ExampleReadable(int, 56), read=True)
 
         self.server_runner.start()
         self.client_runner.start()
 
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
         bar_target._write.reset_mock()
+        foo_server_target._write.assert_called_once_with(56, unittest.mock.ANY)
         # We cannot use ClockMock here, since it does not support asyncio.wait()
 
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
@@ -146,6 +150,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.server = self.server_runner.interface
         self.server.api(ExampleType, "bar")\
             .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        foo_server_target = ExampleWritable(int).connect(self.server.api(int, "foo"))
 
         # Wait for first reconnect attempt
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
@@ -163,6 +168,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         time.sleep(0.3)
 
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
+        foo_server_target._write.assert_called_once_with(56, unittest.mock.ANY)
 
     def test_initial_reconnect(self) -> None:
         self.client.failsafe_start = True

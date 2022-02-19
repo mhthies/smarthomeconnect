@@ -18,7 +18,7 @@ from typing import Type, Dict, Generic, List, Any, Optional
 import aiohttp
 
 from ._helper import SupervisedClientInterface
-from ..base import T, Subscribable, Writable, Readable, UninitializedError
+from ..base import T, Subscribable, Writable, Readable, UninitializedError, Reading
 from ..conversion import SHCJsonEncoder, from_json
 from ..supervisor import register_interface, stop
 
@@ -88,10 +88,13 @@ class SHCWebClient(SupervisedClientInterface):
         self._ws = await self._session.ws_connect(self.server + '/api/v1/ws')
 
     async def _subscribe(self) -> None:
+        # First send the value all objects with a default_provider to the server
+        await asyncio.gather(*(obj._read_and_send()
+                               for obj in self._api_objects.values()))
+        # then subscribe all objects with subscribers for updates from the server
         await asyncio.gather(*(self._subscribe_and_wait(name)
                                for name, obj in self._api_objects.items()
                                if obj._subscribers or obj._triggers))
-        # TODO gather results and give a better error description
 
     async def _disconnect(self) -> None:
         logger.info("Closing client websocket to %s ...", self.server)
@@ -244,7 +247,7 @@ class SHCWebClient(SupervisedClientInterface):
         return "{}(server={})".format(self.__class__.__name__, self.server)
 
 
-class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
+class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Reading[T], Generic[T]):
     """
     A `Connectable` object to communicate with a single API object of a remote SHC websocket API.
 
@@ -254,8 +257,14 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
 
     Thus, this class inherits from :class:`shc.base.Readable`, :class:`shc.base.Wrtiable` and
     :class:`shc.base.Subscribable`.
+
+    In addition, the class inherits from :class:`shc.base.Reading` (but with `is_reading_optional = True`). This is used
+    to (optionally) read a local provider's value and send it to the server upon (re)connection. This is done **before**
+    subscribing for updates from the server to ensure that the local value prevails over the server's value in case of
+    diverged values in the unconnected time.
     """
     _stateful_publishing = True
+    is_reading_optional = True
 
     def __init__(self, client: SHCWebClient, type_: Type[T], name: str):
         self.type = type_
@@ -278,6 +287,17 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Generic[T]):
         finally:
             if not _reflected_from_server:
                 self.pending_sends -= 1
+
+    async def _read_and_send(self) -> None:
+        """
+        If a default_provider is set, read its current value and send it to the server.
+
+        This is usually called by the :meth:`SHCWebClient._subscribe` to send the current local value to the server upon
+        (re)connect.
+        """
+        value = await self._from_provider()
+        if value is not None:
+            await self._write(value, [])
 
     def new_value(self, value: Any) -> None:
         """
