@@ -48,6 +48,7 @@ class BasicTest(unittest.TestCase):
         except RuntimeError:
             shc.supervisor.event_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(shc.supervisor.event_loop)
+            shc.supervisor._SHC_STOPPED = asyncio.Event()
 
         shc.supervisor._REGISTERED_INTERFACES.clear()
         shc.timer.timer_supervisor.supervised_timers.clear()
