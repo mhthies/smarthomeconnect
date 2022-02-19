@@ -42,6 +42,13 @@ class BasicTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        # Create a new event loop if required.
+        try:
+            shc.supervisor.event_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            shc.supervisor.event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(shc.supervisor.event_loop)
+
         shc.supervisor._REGISTERED_INTERFACES.clear()
         shc.timer.timer_supervisor.supervised_timers.clear()
 

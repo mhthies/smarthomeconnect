@@ -33,8 +33,14 @@ def async_test(f: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
     """
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(f(*args, **kwargs))
+        try:
+            event_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(event_loop)
+        # We don't want to use asyncio.run() here, since it shuts down the event loop after running the coroutine,
+        # but we sometimes still need it for a graceful cleanup
+        event_loop.run_until_complete(f(*args, **kwargs))
     return wrapper
 
 

@@ -23,7 +23,16 @@ logger = logging.getLogger(__name__)
 
 _REGISTERED_INTERFACES: Set["AbstractInterface"] = set()
 
-event_loop = asyncio.get_event_loop()
+# asyncio.get_event_loop() will not create a event loop automatically in future Python versions,
+# so we need to take care of this here.
+# For some SHC classes (e.g. all interfaces inheriting from `SupervisedClientInterface`), it's important that an event
+# loop is available at construction time. By importing this module, you should be safe to construct them.
+try:
+    event_loop = asyncio.get_running_loop()
+except RuntimeError:
+    event_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(event_loop)
+
 _EXIT_CODE = 0
 _SHC_STOPPED = asyncio.Event()
 _SHC_STOPPED.set()
