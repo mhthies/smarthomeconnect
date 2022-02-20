@@ -425,7 +425,7 @@ class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], 
         return self._default_provider is not None
 
     async def _write(self, value: T, _origin: List[Any]) -> None:
-        await self.interface.send_message(message=self._format_value_send(value), users=self.send_users)
+        await self.interface.send_message(message=self.format_value_send_fn(value), users=self.send_users)
     
     async def read_message(self) -> Optional[str]:
         """ Create a response to a read-request from Telegram.
@@ -435,7 +435,7 @@ class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], 
         value = await self._from_provider()
         res = []
         if value is not None:
-            res.append(self._format_value_select(value))
+            res.append(self.format_value_read_fn(value))
         return None
 
     def from_telegram(self, value: str) -> None:
@@ -446,12 +446,6 @@ class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], 
 
     def get_set_message(self) -> str:
         return self.set_message
-
-    def _format_value_select(self, value) -> str:
-        return self.format_value_read_fn(value)
-
-    def _format_value_send(self, value) -> str:
-        return self.format_value_send_fn(value)
 
 
 class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
