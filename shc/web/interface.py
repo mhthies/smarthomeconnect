@@ -39,6 +39,8 @@ jinja_env = jinja2.Environment(
 )
 jinja_env.filters['id'] = id
 
+LastWillT = Tuple["WebApiObject[T]", T]
+
 
 class WebServer(AbstractInterface):
     """
@@ -79,6 +81,8 @@ class WebServer(AbstractInterface):
         self._websockets: weakref.WeakSet[aiohttp.web.WebSocketResponse] = weakref.WeakSet()
         # a set of all open tasks to close on graceful shutdown
         self._associated_tasks: weakref.WeakSet[asyncio.Task] = weakref.WeakSet()
+        # last will (object, value) per API websocket client (if set)
+        self._api_ws_last_will: Dict[aiohttp.web.WebSocketResponse, LastWillT] = {}
         # data structure of the user interface's main menu
         # The structure looks as follows:
         # [('Label', 'icon', 'page_name'),
@@ -303,6 +307,9 @@ class WebServer(AbstractInterface):
             self._websockets.discard(ws)
             for api_object in self._api_objects.values():
                 api_object.websocket_close(ws)
+            if ws in self._api_ws_last_will:
+                obj, value = self._api_ws_last_will.pop(ws)
+                await obj.http_post(value, ws)
             return ws
 
     async def _api_websocket_dispatch(self, request: aiohttp.web.Request, ws: aiohttp.web.WebSocketResponse,
@@ -365,6 +372,28 @@ class WebServer(AbstractInterface):
                                        "%s): %s", name, request.remote, e, value)
                         result['status'] = 422
                         result['error'] = "Could not use provided value to update API object: {}".format(e)
+
+            # lastwill action
+            elif action == "lastwill":
+                value_exists = False
+                try:
+                    value = message["value"]
+                    value_exists = True
+                except KeyError:
+                    result['status'] = 422
+                    result['error'] = "message does not include a 'value' field"
+                    logger.warning("Websocket API LASTWILL message from %s without 'value' field: %s", request.remote,
+                                   message)
+                if value_exists:
+                    logger.debug("got LASTWILL request for API object %s via websocket from %s with value %s",
+                                 name, request.remote, value)
+                    try:
+                        self._api_ws_last_will[ws] = (obj, obj._check_last_will(value))
+                    except (ValueError, TypeError) as e:
+                        logger.warning("Error while setting last will of websocket client %s for API object %s (error"
+                                       "was %s): %s", name, request.remote, e, value)
+                        result['status'] = 422
+                        result['error'] = "Could not use provided value to set last will: {}".format(e)
 
             # get action
             elif action == "get":
@@ -867,6 +896,24 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
     async def http_post(self, value: Any, origin: Any) -> None:
         self._publish(from_json(self.type, value), [origin])
         await self._publish_http(value, origin)
+
+    def _check_last_will(self, value: Any) -> T:
+        """
+        Check and convert a value that has been send by an API client as a last will for this object.
+
+        We do this synchronously when the client set its last will, so we can inform it if the value is invalid.
+
+        :param value: The decoded json value from the client
+        :return: The converted value to be stored for later use as a last will
+        """
+        return from_json(self.type, value)
+
+    async def _post_last_will(self, value: T, ws: aiohttp.web.WebSocketResponse) -> None:
+        """
+        Post the stored last will of a client
+        """
+        self._publish(from_json(self.type, value), [ws])
+        await self._publish_http(value, ws)
 
     async def _publish_http(self, value: T, skip_websocket: Optional[object] = None) -> None:
         """

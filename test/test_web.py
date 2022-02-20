@@ -933,3 +933,41 @@ class WebSocketAPITest(unittest.TestCase):
         self.assertIn(data['name'], ('the_api_object', 'the_other_api_object'))
         self.assertEqual(56, data['value'])
         self.assertEqual(200, data['status'])
+
+    @async_test
+    async def test_last_will(self) -> None:
+        api_object = self.server.api(int, "the_api_object")
+        self.server_runner.start()
+        await self.start_websocket()
+
+        with unittest.mock.patch.object(api_object, '_publish') as publish_mock:
+            # First lastwill request is broken (wrong value type)
+            await self.ws.send_json({'action': 'lastwill', 'name': 'the_api_object', 'value': "hello, world!"})
+            await asyncio.sleep(0.05)
+
+            publish_mock.assert_not_called()
+
+            self.ws_callback.assert_called_once()
+            data = json.loads(self.ws_callback.call_args[0][0])
+            self.assertEqual('lastwill', data['action'])
+            self.assertEqual('the_api_object', data['name'])
+            self.assertEqual(422, data['status'])
+            self.ws_callback.reset_mock()
+
+            # Now, a correct lastwill request. It should still not publish any value at the server
+            await self.ws.send_json({'action': 'lastwill', 'name': 'the_api_object', 'value': 56})
+            await asyncio.sleep(0.05)
+
+            publish_mock.assert_not_called()
+
+            self.ws_callback.assert_called_once()
+            data = json.loads(self.ws_callback.call_args[0][0])
+            self.assertEqual('lastwill', data['action'])
+            self.assertEqual('the_api_object', data['name'])
+            self.assertEqual(204, data['status'])
+
+            # Now, let the client disconnect. This should trigger publishing the value at the server
+            await self.ws.close()
+            await asyncio.sleep(0.1)
+
+            publish_mock.assert_called_once_with(56, unittest.mock.ANY)

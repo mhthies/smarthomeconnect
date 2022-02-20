@@ -205,6 +205,7 @@ Websocket API reference
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 The Websocket interface basically resembles the HTTP REST API, but offers better performance by using a single TCP connection and provides a true asynchronous publish-subscribe mechanism to receive value updates.
+In addition, it provides a “last will” mechanism, similar to `MQTT <https://www.hivemq.com/blog/mqtt-essentials-part-9-last-will-and-testament/>`_, allowing the client to deposit a value to be automatically published in the server when the client disconnects.
 Though Websocket would allow binary messages, we still use JSON-formatted messages in UTF-8 encoding, for simplicity reasons.
 (If this turns out to be a performance-bottleneck, SHC might be in general the wrong tool for your use case.)
 
@@ -215,10 +216,10 @@ Each request message to the server has the following structure:
 
     {"action": "ACTION", "name": "WEBAPI_OBJECT_NAME", "handle": "ANY_DATA"}
 
-'ACTION' must be one of 'get', 'post' or 'subscribe'.
+'ACTION' must be one of 'get', 'post', 'subscribe' or 'lastwill'.
 'handle' is an optional field, that can contain any valid JSON data (it doesn't need to be a string).
 If a 'handle' is provided it is copied into the respective response message by the server to allow the client matching requests and response messages.
-`post` messages must have an additional 'value' field, containing the JSON encoded value to be send to the WebApiObject.
+`post` and `lastwill` messages must have an additional 'value' field, containing the JSON encoded value to be send to the WebApiObject.
 
 Each response messages has the following structure:
 
@@ -231,25 +232,25 @@ If no 'handle' has been provided in the request, 'handle' is null.
 Response messages from the 'get' action additionally contain a 'value' field, containing the JSON-encoded object value.
 The 'status' fields is a HTTP status code indicating the result of the action:
 
-+------------+----------------------+--------------------------------------------------+
-| 'status'   | actions              | meaning                                          |
-+============+======================+==================================================+
-| 200        | get                  | success, 'value' field present                   |
-+------------+----------------------+--------------------------------------------------+
-| 204        | post, subscribe      | success, no 'value' field present                |
-+------------+----------------------+--------------------------------------------------+
-| 400        | get, post, subscribe | request message is not a valid JSON string       |
-+------------+----------------------+--------------------------------------------------+
-| 404        | get, post, subscribe | not `WebApiObject` with the given name does exist|
-+------------+----------------------+--------------------------------------------------+
-| 409        | get                  | no value is available yet                        |
-+------------+----------------------+--------------------------------------------------+
-| 422        | –                    | 'action' is not a valid action                   |
-+            +----------------------+--------------------------------------------------+
-|            | post                 | or POST'ed value has invalid type or value       |
-+------------+----------------------+--------------------------------------------------+
-| 500        | get, post, subscribe | Unexpected exception while processing the action |
-+------------+----------------------+--------------------------------------------------+
++------------+--------------------------------+--------------------------------------------------+
+| 'status'   | actions                        | meaning                                          |
++============+================================+==================================================+
+| 200        | get                            | success, 'value' field present                   |
++------------+--------------------------------+--------------------------------------------------+
+| 204        | post, subscribe, lastwill      | success, no 'value' field present                |
++------------+--------------------------------+--------------------------------------------------+
+| 400        | get, post, subscribe, lastwill | request message is not a valid JSON string       |
++------------+--------------------------------+--------------------------------------------------+
+| 404        | get, post, subscribe, lastwill | not `WebApiObject` with the given name does exist|
++------------+--------------------------------+--------------------------------------------------+
+| 409        | get                            | no value is available yet                        |
++------------+--------------------------------+--------------------------------------------------+
+| 422        | –                              | 'action' is not a valid action                   |
++            +--------------------------------+--------------------------------------------------+
+|            | post, lastwill                 | or POST'ed value has invalid type or value       |
++------------+--------------------------------+--------------------------------------------------+
+| 500        | get, post, subscribe, lastwill | Unexpected exception while processing the action |
++------------+--------------------------------+--------------------------------------------------+
 
 If the action resulted in an error (any status code other than 200 or 204), the response message contains an additional 'error' field with a textual description.
 
