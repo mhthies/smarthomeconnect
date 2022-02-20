@@ -122,6 +122,28 @@ class SHCWebsocketClientTest(unittest.TestCase):
         target._write.assert_called_once_with(ExampleType(42, True), unittest.mock.ANY)
         self.assertIsInstance(target._write.call_args[0][0], ExampleType)
 
+    def test_client_online_object(self) -> None:
+        server_bar = self.server.api(bool, "bar")
+        target = ExampleWritable(bool).connect(server_bar)
+
+        # a bit hacky, but IMHO, it's okay to not test the constructor propertly ;)
+        self.client.client_online_object = "bar"
+
+        self.server_runner.start()
+        self.client_runner.start()
+
+        time.sleep(0.05)
+        target._write.assert_called_once_with(True, unittest.mock.ANY)
+
+        self.client_runner.stop()
+        time.sleep(0.05)
+        target._write.assert_called_with(False, unittest.mock.ANY)
+
+        # Test raising of an error on startup if the object does not exist at the server
+        another_client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080', client_online_object="foobar")
+        with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
+            asyncio.get_event_loop().run_until_complete(another_client.start())
+
     def test_reconnect(self) -> None:
         self.server.api(ExampleType, "bar")\
             .connect(ExampleReadable(ExampleType, ExampleType(42, True)))

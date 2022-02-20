@@ -47,10 +47,16 @@ class SHCWebClient(SupervisedClientInterface):
         connection can not be established in the first try. The connection is retried in background with exponential
         backoff (see `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not
         retried and will shutdown the SHC application on failure, even if `auto_reconnect` is True.
+    :param client_online_object: The (optional) name of an API object of the SHC API server to be used as a server-side
+        online indicator for this client. The object must be of bool type. The client will automatically send a `True`
+        value to this object when (re)connecting and use the server's ‘last will’ feature to let a `False` value be
+        published when the websocket connection is lost.
     """
-    def __init__(self, server: str, auto_reconnect: bool = True, failsafe_start: bool = False) -> None:
+    def __init__(self, server: str, auto_reconnect: bool = True, failsafe_start: bool = False,
+                 client_online_object: Optional[str] = None) -> None:
         super().__init__(auto_reconnect, failsafe_start)
         self.server = server
+        self.client_online_object = client_online_object
         self._api_objects: Dict[str, WebApiClientObject] = {}
 
         self._session: aiohttp.ClientSession
@@ -95,6 +101,9 @@ class SHCWebClient(SupervisedClientInterface):
         await asyncio.gather(*(self._subscribe_and_wait(name)
                                for name, obj in self._api_objects.items()
                                if obj._subscribers or obj._triggers))
+        if self.client_online_object is not None:
+            await self._set_last_will(self.client_online_object, False)
+            await self._send_value(self.client_online_object, True)
 
     async def _disconnect(self) -> None:
         logger.info("Closing client websocket to %s ...", self.server)
@@ -184,6 +193,37 @@ class SHCWebClient(SupervisedClientInterface):
             logger.debug("Writing value to SHC API object %s succeeded", name)
         else:
             raise WebSocketAPIError("Writing value to SHC API failed with error {}: {}"
+                                    .format(result['status'], result.get('error')))
+
+    async def _set_last_will(self, name: str, value: Any) -> None:
+        """
+        Coroutine for setting a last will at the SHC server
+
+        The method awaits the receipt of the server's answer or a timeout of TIMEOUT seconds. In case of a server side
+        error or a response timeout, an exception is raised.
+
+        The parameters are similar to :meth:`_send_value`:
+
+        :param name: Name of the API object to set the last will for
+        :param value: The last will value to be stored at the server. The value's type must match the server-side API
+            object's type and be encodable with the SHCJsonEncoder
+        :raises WebSocketAPIError: when setting the last will fails on the server side (i.e. the API's return code is
+            not in the 200-range). This may be caused by a type or object name mismatch.
+        :raises asyncio.TimeoutError: when no response is received from the server within TIMEOUT seconds
+        """
+        if self._ws is None:
+            raise RuntimeError("Websocket of SHC client for API at {} has not been connected yet".format(self.server))
+        future = asyncio.get_event_loop().create_future()
+        self._waiting_futures[id(future)] = future
+        logger.debug("Setting last will at SHC API for object name %s ...", name)
+        await self._ws.send_str(json.dumps({'action': 'lastwill', 'name': name, 'value': value, 'handle': id(future)},
+                                           cls=SHCJsonEncoder))
+
+        result = await asyncio.wait_for(future, TIMEOUT)
+        if 200 <= result['status'] < 300:
+            logger.debug("Setting last will at SHC API for object %s succeeded", name)
+        else:
+            raise WebSocketAPIError("Setting last will at SHC API failed with error {}: {}"
                                     .format(result['status'], result.get('error')))
 
     async def _read_value(self, name: str) -> Any:
