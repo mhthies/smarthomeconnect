@@ -55,8 +55,6 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     async def _handle_start(self, message: aiogram.types.Message):
         """
         Handler function for /start command messages
-
-        :param message: The aiogram Message object representing the incoming message
         """
         # TODO logging
         await message.reply("Hi!\nI'm an SHC bot!", reply=False)
@@ -69,8 +67,6 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     async def _handle_select(self, message: aiogram.types.Message) -> None:
         """
         Handler function for /s command messages for selecting (and reading) a variable
-
-        :param message: The aiogram Message object representing the incoming message
         """
         # TODO logging
         chat_id = message.chat.id
@@ -98,8 +94,6 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     async def _handle_cancel(self, message: aiogram.types.Message) -> None:
         """
         Handler function for /cancel command messages for cancelling the current chat context
-
-        :param message: The aiogram Message object representing the incoming message
         """
         logger.debug("Received /cancel format for Telegram chat %s", message.chat.id)
         await self._do_cancel(message.chat.id)
@@ -108,9 +102,8 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         """
         Handler function for all incoming Telegram messages that are not recognized as a command.
 
-        The message is
-
-        :param message: The aiogram Message object representing the incoming message
+        The message is interpreted as a variable search or a new value for the selected variable, depending on the
+        current chat state.
         """
         chat_id = message.chat.id
         user = self.auth_provider.get_telegram_user(chat_id)
@@ -127,10 +120,14 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _do_set(self, message: aiogram.types.Message, user: UserT) -> None:
         """
-        TODO
+        Use the given Telegram message as a new value for the currently selected variable in the message's chat
 
-        :param message:
-        :param user:
+        This method must should only be called, if the message's chat is known to have a selected variable/context
+        (chat_state) and the chat is known to belong to an authenticated user. The user's authorization for the variable
+        is checked by this method.
+
+        :param message: The Telegram message to be handled as a new value
+        :param user: The identified user, related to the chat
         """
         chat_id = message.chat.id
         context = self.chat_state.get(chat_id)
@@ -172,11 +169,10 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     def _find_matching_variables(self, search_term: str, user: UserT) -> List["TelegramVariableConnector"]:
         """
-        TODO
+        Search for variables of this bot, matching a given search term, entered by the user, and being accessible for
+        the given user.
 
-        :param search_term:
-        :param user:
-        :return:
+        This method is used to present a variable selection list to the user, when they enter a search term.
         """
         regex = re.compile(re.escape(search_term), re.IGNORECASE)
         return [var
@@ -187,8 +183,9 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _handle_callback_query(self, query: aiogram.types.CallbackQuery) -> None:
         """
-        TODO
-        :param query:
+        Handler function to be called when an inline button callback query is received from Telegram.
+
+        This is currently only used for "cancel" inline keyboard buttons.
         """
         logger.debug("Received CallbackQuery")
         if query.message is None:
@@ -323,14 +320,17 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.variables[name] = var
         return var
 
-    async def send_message(self, message, users: Set[UserT], chat_ids: Set[int] = set()) -> None:
+    async def send_message(self, text: str, users: Set[UserT], chat_ids: Set[int] = set()) -> None:
         """
-        TODO
+        Send a message to one or more Telegram chats, identified by either the Telegram chat id or a user of the given
+        auth_provider
 
-        :param message:
-        :param users:
-        :param chat_ids:
-        :return:
+        Currently, only unformatted text messages are supported.
+
+        :param message: The message text
+        :param users: A set of users of this bot's auth_provider to send the message to
+        :param chat_ids: A set of (additional) telegram chat ids to send the message to. If a specific chat is part of
+            both sets, the message is still only sent once.
         """
         user_chats = set()
         for user in users:
@@ -339,7 +339,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
                 logger.warning("Could not resolve user %s to Telegram chat_id for sending message to them", user)
             else:
                 user_chats.add(chat)
-        await asyncio.gather(*(self.bot.send_message(chat_id, message)
+        await asyncio.gather(*(self.bot.send_message(chat_id, text)
                                for chat_id in chat_ids | user_chats))
 
 
@@ -371,15 +371,21 @@ class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], 
             self.keyboard = None
     
     def is_settable(self) -> bool:
+        """ Returns True, if the connector has subscribers, i.e. it is meaningfully readable from Telegram """
         return bool(self._subscribers or self._triggers)
 
     def is_readable(self) -> bool:
+        """ Returns True, if the connector has a default_provider, i.e. it is meaningfully writable from Telegram """
         return self._default_provider is not None
 
     async def _write(self, value: T, _origin: List[Any]) -> None:
         await self.interface.send_message(message=self._format_value_send(value), users=self.send_users)
     
     async def read_message(self) -> Optional[str]:
+        """ Create a response to a read-request from Telegram.
+
+        :return: A message with the current value from the default_provider, using the :attr:`format_value_read_fn` or
+        """
         value = await self._from_provider()
         res = []
         if value is not None:
@@ -418,7 +424,7 @@ class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
     functionality based on the given set of role objects.
 
     Provided implementations by SHC:
-    * :cls:`SimpleTelegramAuth`
+    * :class:`SimpleTelegramAuth`
     """
     @abc.abstractmethod
     def get_telegram_user(self, chat_id: int) -> Optional[UserT]:
@@ -434,7 +440,7 @@ class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
 
 class SimpleTelegramAuth(TelegramAuthProvider[str, str]):
     """
-    A simple implementation of a :cls:`TelegramAuthProvider`.
+    A simple implementation of a :class:`TelegramAuthProvider`.
 
     It uses a fixed dict for mapping user id strings and telegram chat ids and uses the user id strings themselves as
     role definitions. Thus, it does not have a concept of user groups; you always need to specify the set of all
