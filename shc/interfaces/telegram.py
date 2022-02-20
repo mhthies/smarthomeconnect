@@ -36,6 +36,9 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.poll_task: Optional[asyncio.Task] = None
         #: Current state/context of each chat. Either None (init state selected) or
         self.chat_state: Dict[int, TelegramVariableConnector] = {}
+        #: Maps chat ids to a message id of a messages with an active inline keyboard in that chat, if any.
+        #: Used to clean up inline keyboards, when cancelled.
+        self.message_with_inline_keyboard: Dict[int, int] = {}
 
     async def start(self) -> None:
         self.poll_task = asyncio.create_task(self._run())
@@ -74,22 +77,41 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         if user is None:
             await message.reply("Not authorized!")
             return
+
+        # Cancel ongoing value setting (if any)
+        if chat_id in self.chat_state:
+            await self._do_cancel(chat_id, silent=True)
+
         variable_id = message.text[3:]  # strip the '/select ' prefix
         if variable_id not in self.variables:
             await message.reply("Unknown variable/connector")
             return
         variable = self.variables[variable_id]
+
         # Read value
         if self.auth_provider.has_user_role(user, variable.read_roles):
             read_message = await variable.read_message()
             if read_message:
                 await message.reply(read_message, reply=False)
+
         # Prepare setting value
         if variable.is_settable() and self.auth_provider.has_user_role(user, variable.set_roles):
+            # Create custom keyboard/inline keyboard markup
             keyboard = variable.get_setting_keyboard()
-            # TODO add inline keyboard for cancelling
-            await message.reply(variable.get_set_message(), reply=False, reply_markup=keyboard)
+            # If no options/custom keyboard is provided, we create an inline keyboard of cancelling the value setting.
+            # Otherwise, we add a `/cancel` button to the bottom of the keyboard.
+            if keyboard is None:
+                keyboard = aiogram.types.InlineKeyboardMarkup(
+                    [[aiogram.types.InlineKeyboardButton("cancel", callback_data="cancel")]])
+                inline_keyboard = True
+            else:
+                keyboard.keyboard.append([aiogram.types.KeyboardButton("/cancel")])
+                inline_keyboard = False
+
+            reply_message = await message.reply(variable.get_set_message(), reply=False, reply_markup=keyboard)
             self.chat_state[message.chat.id] = variable
+            if inline_keyboard:
+                self.message_with_inline_keyboard[chat_id] = reply_message.message_id
 
     async def _handle_cancel(self, message: aiogram.types.Message) -> None:
         """
@@ -192,18 +214,43 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             logger.warning("Received CallbackQuery without message, so the originating chat cannot be identified.")
             return
         if query.data == 'cancel':
+            # Remove inline keyboard. Just to be sure. (Should also be done by _do_cancel(), when chat state is tracked
+            # correctly)
+            chat_id = query.message.chat.id
+            message_id = query.message.message_id
+            await self.bot.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
+            if self.message_with_inline_keyboard.get(chat_id) == message_id:
+                del self.message_with_inline_keyboard[chat_id]
+            # Now, the actual action cancelling
             await self._do_cancel(query.message.chat.id)
 
-    async def _do_cancel(self, chat_id: int) -> None:
+    async def _do_cancel(self, chat_id: int, silent: bool = False) -> None:
         """
-        TODO
-        :param chat_id:
+        Cancel the variable setting in progress in the given chat
+
+        This means:
+
+        * reset the chat_state/unselect the selected variable (so following input is not interpreted as a value for
+          this variable)
+        * remove the custom keyboard (if any)
+        * remove the inline keyboard (if any)
+
+        :param chat_id: The Telegram chat id of the chat to be resetted
+        :param silent: If True, a message is only sent to the chat if a variable is actually selected in this chat. If
+            **there is** a variable selected, a message is sent nonetheless. As a side effect, if no message is sent,
+            we cannot reset the custom keyboard either. However, this *should* not be required in this case, if we
+            tracked the state correctly.
         """
+        if chat_id in self.message_with_inline_keyboard:
+            message_id = self.message_with_inline_keyboard[chat_id]
+            await self.bot.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
+            del self.message_with_inline_keyboard[chat_id]
         if chat_id in self.chat_state:
             del self.chat_state[chat_id]
             await self.bot.send_message(chat_id, "Action cancelled", reply_markup=aiogram.types.ReplyKeyboardRemove())
-        else:
-            await self.bot.send_message(chat_id, "Nothing to do.", reply_markup=aiogram.types.ReplyKeyboardRemove())
+        elif not silent:
+            await self.bot.send_message(chat_id, "No action in progress.",
+                                        reply_markup=aiogram.types.ReplyKeyboardRemove())
 
     def generic_variable(self, type_: Type[T], name: str,
                          to_message: Callable[[T], str], parse_value: Callable[[str], T],
@@ -365,8 +412,7 @@ class TelegramVariableConnector(Generic[T, RoleT], Reading[T], Subscribable[T], 
             self.keyboard = aiogram.types.ReplyKeyboardMarkup(
                 [[aiogram.types.KeyboardButton(o)
                   for o in options[i:i+2]]
-                 for i in range(0, len(options), 2)]
-                + [[aiogram.types.KeyboardButton("/cancel")]])
+                 for i in range(0, len(options), 2)])
         else:
             self.keyboard = None
     
