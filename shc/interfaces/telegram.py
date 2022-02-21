@@ -392,6 +392,8 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
 class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T],
                         metaclass=abc.ABCMeta):
+    is_reading_optional = False
+
     def __init__(self, interface: TelegramBot, type_: Type[T], name: str, read_roles: Set[RoleT],
                  send_users: Set[UserT], set_roles: Set[RoleT], set_message: str, parse_value: Callable[[str], T],
                  format_value_read: Callable[[T], str], format_value_send: Callable[[T], str],
