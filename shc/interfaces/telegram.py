@@ -254,10 +254,10 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
                                         reply_markup=aiogram.types.ReplyKeyboardRemove())
 
     def generic_connector(self, type_: Type[T], name: str,
-                         to_message: Callable[[T], str], parse_value: Callable[[str], T],
-                         read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                         send_users: Set[UserT] = set(), options: Optional[List[str]] = None
-                         ) -> "TelegramConnector[T, RoleT]":
+                          to_message: Callable[[T], str], parse_value: Callable[[str], T],
+                          read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
+                          send_users: Set[UserT] = set(), options: Optional[List[str]] = None
+                          ) -> "TelegramConnector[T, RoleT]":
         """
         TODO
 
@@ -283,7 +283,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         return var
 
     def str_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                     send_users: Set[UserT] = set()) -> "TelegramConnector[str, RoleT]":
+                      send_users: Set[UserT] = set()) -> "TelegramConnector[str, RoleT]":
         """
         TODO
 
@@ -305,7 +305,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         return var
 
     def on_off_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                        send_users: Set[UserT] = set()) -> "TelegramConnector[bool, RoleT]":
+                         send_users: Set[UserT] = set()) -> "TelegramConnector[bool, RoleT]":
         """
         TODO
 
@@ -338,7 +338,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         return var
 
     def trigger_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                         send_users: Set[UserT] = set()) -> "TelegramConnector[None, RoleT]":
+                          send_users: Set[UserT] = set()) -> "TelegramConnector[None, RoleT]":
         """
         TODO
 
@@ -375,7 +375,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
         Currently, only unformatted text messages are supported.
 
-        :param message: The message text
+        :param text: The message text
         :param users: A set of users of this bot's auth_provider to send the message to
         :param chat_ids: A set of (additional) telegram chat ids to send the message to. If a specific chat is part of
             both sets, the message is still only sent once.
