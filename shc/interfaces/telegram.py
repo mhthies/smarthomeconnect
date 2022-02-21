@@ -102,7 +102,8 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             # Otherwise, we add a `/cancel` button to the bottom of the keyboard.
             if keyboard is None:
                 keyboard = aiogram.types.InlineKeyboardMarkup(
-                    [[aiogram.types.InlineKeyboardButton("cancel", callback_data="cancel")]])
+                    row_width=1,
+                    inline_keyboard=[[aiogram.types.InlineKeyboardButton("cancel", callback_data="cancel")]])
                 inline_keyboard = True
             else:
                 keyboard.keyboard.append([aiogram.types.KeyboardButton("/cancel")])
@@ -427,7 +428,7 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         return self._default_provider is not None
 
     async def _write(self, value: T, _origin: List[Any]) -> None:
-        await self.interface.send_message(message=self.format_value_send_fn(value), users=self.send_users)
+        await self.interface.send_message(text=self.format_value_send_fn(value), users=self.send_users)
     
     async def read_message(self) -> Optional[str]:
         """ Create a response to a read-request from Telegram.
@@ -435,9 +436,8 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         :return: A message with the current value from the default_provider, using the :attr:`format_value_read_fn` or
         """
         value = await self._from_provider()
-        res = []
         if value is not None:
-            res.append(self.format_value_read_fn(value))
+            return self.format_value_read_fn(value)
         return None
 
     def from_telegram(self, value: str) -> None:
