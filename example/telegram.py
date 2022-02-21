@@ -64,14 +64,14 @@ index_page.add_item(TextInput(str, "Yak's name")
 telegram_auth = SimpleTelegramAuth({'michael': 123})
 telegram_bot = TelegramBot("123456789:exampleTokenXXX", telegram_auth)
 
-telegram_bot.on_off_variable("Foo", {'michael'}).connect(foo, read=True)
-telegram_bot.on_off_variable("Bar", {'michael'}).connect(bar, read=True)
-telegram_bot.on_off_variable("Foobar", {'michael'}).connect(foobar, read=True)
-telegram_bot.str_variable("Yak Name", {'michael'}).connect(yak_name, read=True)
-telegram_bot.str_variable("Yak Number", {'michael'}).connect(number_of_yaks, convert=(int, str), read=True)
+telegram_bot.on_off_connector("Foo", {'michael'}).connect(foo, read=True)
+telegram_bot.on_off_connector("Bar", {'michael'}).connect(bar, read=True)
+telegram_bot.on_off_connector("Foobar", {'michael'}).connect(foobar, read=True)
+telegram_bot.str_connector("Yak Name", {'michael'}).connect(yak_name, read=True)
+telegram_bot.str_connector("Yak Number", {'michael'}).connect(number_of_yaks, convert=(int, str), read=True)
 
 
-@telegram_bot.trigger_variable("Random Yaks", {'michael'}).trigger
+@telegram_bot.trigger_connector("Random Yaks", {'michael'}).trigger
 @shc.handler()
 async def random_yaks(_v, _o):
     await number_of_yaks.write(random.randint(0, 255))
