@@ -78,8 +78,12 @@ class MQTTClientInterface(SupervisedClientInterface):
     async def _connect(self) -> None:
         logger.info("Connecting MQTT client interface ...")
         # TODO this is a dirty hack to work around asyncio-mqtt's reconnect issues
-        self.client._connected = asyncio.Future()
-        self.client._disconnected = asyncio.Future()
+        if self.client._disconnected.done():
+            exc = self.client._disconnected.exception()
+            if exc:
+                logger.warning("MQTT client has been disconnected with exception:", exc_info=exc)
+            self.client._connected = asyncio.Future()
+            self.client._disconnected = asyncio.Future()
         await self.client.connect()
 
     async def _subscribe(self) -> None:
