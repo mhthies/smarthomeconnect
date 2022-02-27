@@ -5,6 +5,7 @@ import re
 from typing import Generic, TypeVar, Set, Type, Optional, List, Pattern, Tuple, Dict, Any, Callable
 
 import aiogram
+from aiogram.bot.api import TelegramAPIServer, TELEGRAM_PRODUCTION
 
 from ..base import Writable, Subscribable, Reading, T
 from ..supervisor import AbstractInterface
@@ -20,11 +21,12 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     TODO
     """
 
-    def __init__(self, api_token: str, auth_provider: "TelegramAuthProvider[UserT, RoleT]"):
+    def __init__(self, api_token: str, auth_provider: "TelegramAuthProvider[UserT, RoleT]",
+                 telegram_server: TelegramAPIServer = TELEGRAM_PRODUCTION):
         super().__init__()
         self.auth_provider = auth_provider
 
-        self.bot = aiogram.Bot(token=api_token)
+        self.bot = aiogram.Bot(token=api_token, server=telegram_server)
         self.dp = aiogram.Dispatcher(self.bot)
         self.dp.register_message_handler(self._handle_start, commands=["start"])
         self.dp.register_message_handler(self._handle_cancel, commands=["cancel"])
