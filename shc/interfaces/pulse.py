@@ -18,7 +18,7 @@ import ctypes as c
 
 if TYPE_CHECKING:
     from pulsectl import (
-        PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo, PulseVolumeInfo, PulseDisconnected)
+        PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo, PulseVolumeInfo)
     from pulsectl_asyncio import PulseAsync
 
 import shc.conversion
@@ -658,6 +658,8 @@ class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
             self.task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
+        from pulsectl import PulseDisconnected
+
         data = await self.pulse.sink_info(self.current_id)
         try:
             async for value in self.pulse.subscribe_peak_sample(data.monitor_source_name, self.frequency):
@@ -686,6 +688,8 @@ class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
             self.task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
+        from pulsectl import PulseDisconnected
+
         data = await self.pulse.source_info(self.current_id)
         try:
             async for value in self.pulse.subscribe_peak_sample(data.name, self.frequency):
