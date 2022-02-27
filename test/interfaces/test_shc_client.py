@@ -87,8 +87,11 @@ class SHCWebsocketClientTest(unittest.TestCase):
         another_client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
         foobar = another_client.object(int, 'foobar')
         foobar.subscribe(ExampleWritable(int))
-        with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
-            await another_client.start()
+        try:
+            with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
+                await another_client.start()
+        finally:
+            await another_client.stop()
 
     def test_read(self) -> None:
         self.server.api(int, "foo")
@@ -141,8 +144,11 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
         # Test raising of an error on startup if the object does not exist at the server
         another_client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080', client_online_object="foobar")
-        with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
-            asyncio.get_event_loop().run_until_complete(another_client.start())
+        try:
+            with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
+                asyncio.get_event_loop().run_until_complete(another_client.start())
+        finally:
+            asyncio.get_event_loop().run_until_complete(another_client.stop())
 
     def test_reconnect(self) -> None:
         self.server.api(ExampleType, "bar")\

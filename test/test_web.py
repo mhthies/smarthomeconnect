@@ -65,6 +65,7 @@ class AbstractWebTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.driver.close()
+        cls.driver.quit()
 
 
 class SimpleWebTest(AbstractWebTest):
@@ -968,6 +969,7 @@ class WebSocketAPITest(unittest.TestCase):
 
             # Now, let the client disconnect. This should trigger publishing the value at the server
             await self.ws.close()
+            await self.client_session.close()
             await asyncio.sleep(0.1)
 
             publish_mock.assert_called_once_with(56, unittest.mock.ANY)
