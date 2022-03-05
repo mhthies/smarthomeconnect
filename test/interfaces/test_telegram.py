@@ -178,6 +178,127 @@ class TelegramBotTest(unittest.TestCase):
         self.assertIn("authorized", self.api_mock.method_calls[-1][1]['text'])
         self.api_mock.reset_mock()
 
+    @async_test
+    async def test_read(self) -> None:
+        foo = self.client.str_connector("Foo", {'max'}, {'max', 'tim'})\
+            .connect(ExampleWritable(str))\
+            .connect(ExampleReadable(str, "hello, world!"))
+        foobar = self.client.generic_connector(int, "Foobar", lambda x: str(x), lambda x: int(x), {'max', 'alice'},
+                                               options=["0", "5", "15"])\
+            .connect(ExampleWritable(int))\
+            .connect(ExampleReadable(int, 42))
+        bar = self.client.generic_connector(str, "Bar", lambda x: x, lambda x: x, {'alice', 'max'}, {'alice'})\
+            .connect(ExampleWritable(str))
+
+        await self.api_mock.start()
+        self.client_runner.start()
+        await asyncio.sleep(0.05)
+        self.api_mock.reset_mock()
+
+        # Search for 'Foo'
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 30).timestamp(),
+                                                      'text': "Foo"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        self.assertListEqual([[{'text': "/s Foo"}], [{'text': "/s Foobar"}]],
+                             json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])['keyboard'])
+        self.api_mock.reset_mock()
+
+        # Select 'Foobar'
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
+                                                      'text': "/s Foobar"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654123")
+        self.assertIn("42", self.api_mock.method_calls[-2][1]['text'])
+        reply_markup = json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])
+        self.assertListEqual([[{'text': "0"}, {'text': "5"}], [{'text': "15"}], [{'text': "/cancel"}]],
+                             reply_markup['keyboard'])
+        self.api_mock.reset_mock()
+
+        # Cancel and select 'Foo'
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 42).timestamp(),
+                                                      'text': "/cancel"}})
+
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 42, 30).timestamp(),
+                                                      'text': "/s Foo"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654123")
+        self.assertIn("hello, world", self.api_mock.method_calls[-2][1]['text'])
+        reply_markup = json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])
+        self.assertListEqual([[{'text': "cancel", 'callback_data': 'cancel'}]], reply_markup['inline_keyboard'])
+        inline_keyboard_message_id = self.api_mock.method_calls[-1][2]['message_id']
+        self.api_mock.reset_mock()
+
+        # Directly (without cancel) select Foobar
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345791,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 43).timestamp(),
+                                                      'text': "/s Foobar"}})
+
+        await asyncio.sleep(0.3)
+        self.assertEqual("editMessageReplyMarkup", self.api_mock.method_calls[0][0])
+        self.assertEqual(str(inline_keyboard_message_id), self.api_mock.method_calls[0][1]['message_id'])
+
+        self.assertEqual("987654123", self.api_mock.method_calls[1][1]['chat_id'])
+        self.assertIn("cancelled", self.api_mock.method_calls[1][1]['text'])
+
+        self.assertEqual("987654123", self.api_mock.method_calls[2][1]['chat_id'])
+        self.assertIn("42", self.api_mock.method_calls[2][1]['text'])
+        self.api_mock.reset_mock()
+
+        # Tim can select (and write) but not read
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345792,
+                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name:': "Tim"},
+                                                      'chat': {'id': 987654789, 'type': 'private', 'first_name': "Tim"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 44).timestamp(),
+                                                      'text': "/s Foobar"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654789")
+        self.assertNotIn("42", self.api_mock.method_calls[-1][1]['text'])
+        self.api_mock.reset_mock()
+
+        # Max should not see 'Bar', because its not readable, but he es not allowed to write
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345793,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 45).timestamp(),
+                                                      'text': "/cancel"}})
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345794,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 45, 20).timestamp(),
+                                                      'text': "Bar"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654123")
+        self.assertListEqual([[{'text': "/s Foobar"}]],
+                             json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])['keyboard'])
+        self.api_mock.reset_mock()
+
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345795,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 45).timestamp(),
+                                                      'text': "/s Bar"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        self.assertIn("authorized", self.api_mock.method_calls[-1][1]['text'])
+        self.api_mock.reset_mock()
+
 
 class TelegramAPIMock:
     def __init__(self, port: int, user_object: Dict[str, JSON_TYPE]):
@@ -195,7 +316,7 @@ class TelegramAPIMock:
         self._pending_updates: List[Dict[str, JSON_TYPE]] = []
         self._updates_pending = asyncio.Event()
         self._runner = aiohttp.web.AppRunner(self._app)
-        self.method_calls: List[Tuple[str, Dict[str, JSON_TYPE]]] = []
+        self.method_calls: List[Tuple[str, Dict[str, JSON_TYPE], JSON_TYPE]] = []
         self._next_update_id = 1
 
     async def start(self) -> None:
@@ -262,14 +383,19 @@ class TelegramAPIMock:
     async def _any_method(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         method = request.match_info['method']
         data = await self.__get_args(request)
-        self.method_calls.append((method, data))
         if method == "sendMessage":
-            return aiohttp.web.json_response({'ok': True, 'result': self._create_send_message_response(data)})
+            result = self._create_send_message_response(data)
+            self.method_calls.append((method, data, result))
+            return aiohttp.web.json_response({'ok': True, 'result': result})
         if method == "editMessageReplyMarkup":
-            return aiohttp.web.json_response({})  # We can't create a correct response, b/c we didn't store the message
+            # We can't create a correct response, b/c we didn't store the message
+            self.method_calls.append((method, data, True))
+            return aiohttp.web.json_response({'ok': True, 'result': True})
         if method == "deleteWebhook":
+            self.method_calls.append((method, data, True))
             return aiohttp.web.json_response({'ok': True, 'result': True})
         else:
+            self.method_calls.append((method, data, None))
             raise aiohttp.web.HTTPNotImplemented(text=f"Method {method} not implemented.")
 
     def _create_send_message_response(self, data: Dict[str, JSON_TYPE]) -> Dict[str, JSON_TYPE]:
