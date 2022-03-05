@@ -9,6 +9,11 @@ Each instance of :class:`WebServer` creates an HTTP server, listening on a speci
 * a web user interface, consisting of multiple pages with interactive *Connectable* widgets, allowing users to interact with SHC from any device with a modern web browser
 * an HTTP/REST + websocket API for accessing and updating values within the SHC instance from other applications or devices
 
+.. image:: web_scr1.png
+  :width: 600
+  :align: center
+  :alt: Screenshot of the SHC web user interface, configured as a showcase with many different widgets on a single page
+
 
 Configuring the User Interface
 ------------------------------
