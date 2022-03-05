@@ -89,15 +89,18 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             await message.reply("Unknown connector/object")
             return
         connector = self.connectors[connector_id]
+        not_authorized = True
 
         # Read value
-        if self.auth_provider.has_user_role(user, connector.read_roles):
+        if connector.is_readable() and self.auth_provider.has_user_role(user, connector.read_roles):
+            not_authorized = False
             read_message = await connector.read_message()
             if read_message:
                 await message.reply(read_message, reply=False)
 
         # Prepare setting value
         if connector.is_settable() and self.auth_provider.has_user_role(user, connector.set_roles):
+            not_authorized = False
             # Create custom keyboard/inline keyboard markup
             keyboard = connector.get_setting_keyboard()
             # If no options/custom keyboard is provided, we create an inline keyboard of cancelling the value setting.
@@ -115,6 +118,9 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             self.chat_state[message.chat.id] = connector
             if inline_keyboard:
                 self.message_with_inline_keyboard[chat_id] = reply_message.message_id
+
+        if not_authorized:
+            await message.reply("Not authorized!")
 
     async def _handle_cancel(self, message: aiogram.types.Message) -> None:
         """
