@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import random
 import unittest
 from typing import Any, Union, Dict, List, Tuple
@@ -8,7 +9,7 @@ import aiohttp.web
 from aiogram.bot.api import TelegramAPIServer
 
 import shc.interfaces.telegram
-from test._helper import async_test, InterfaceThreadRunner, ExampleSubscribable, ExampleReadable
+from test._helper import async_test, InterfaceThreadRunner, ExampleSubscribable, ExampleReadable, ExampleWritable
 
 JSON_TYPE_1 = Union[None, bool, int, float, str, Dict[str, Any], List[Any]]
 JSON_TYPE = Union[None, bool, int, float, str, Dict[str, JSON_TYPE_1], List[JSON_TYPE_1]]
@@ -31,7 +32,7 @@ class TelegramBotTest(unittest.TestCase):
     @async_test
     async def test_subscribe(self) -> None:
         foo_source = ExampleSubscribable(bool)\
-            .connect(self.client.on_off_connector("Foo", set(), send_users={'user1'}))
+            .connect(self.client.on_off_connector("Foo", set(), send_users={'max'}))
 
         await self.api_mock.start()
         self.client_runner.start()
@@ -66,6 +67,116 @@ class TelegramBotTest(unittest.TestCase):
         self.api_mock.assert_method_call_count(3)
         self.api_mock.assert_method_called_with("sendMessage", chat_id="987654125")
         self.assertIn("Unauthorized", self.api_mock.method_calls[-1][1]['text'])
+
+    @async_test
+    async def test_write(self) -> None:
+        foo = self.client.on_off_connector("Foo", {'max', 'tim'})
+        foo_target = ExampleWritable(bool)\
+            .connect(foo)
+        foobar = self.client.generic_connector(int, "Foobar", lambda x: str(x), lambda x: int(x), {'max', 'alice'})
+        foobar_target = ExampleWritable(int)\
+            .connect(foobar)
+
+        await self.api_mock.start()
+        self.client_runner.start()
+        await asyncio.sleep(0.05)
+        self.api_mock.reset_mock()
+
+        # Search for 'Foo'
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 30).timestamp(),
+                                                      'text': "Foo"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        self.assertListEqual([[{'text': "/s Foo"}], [{'text': "/s Foobar"}]],
+                             json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])['keyboard'])
+        self.api_mock.reset_mock()
+
+        # Select 'Foobar'
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
+                                                      'text': "/s Foobar"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        self.assertNotIn("current", self.api_mock.method_calls[-1][1]['text'])
+        reply_markup = json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])
+        self.assertListEqual([[{'text': "cancel", 'callback_data': 'cancel'}]], reply_markup['inline_keyboard'])
+        self.api_mock.reset_mock()
+
+        # Test invalid value
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345791,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 40).timestamp(),
+                                                      'text': "Foo"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        self.assertIn("invalid literal", self.api_mock.method_calls[-1][1]['text'])
+        self.assertNotIn("reply_markup", self.api_mock.method_calls[-1][1])
+        self.api_mock.reset_mock()
+
+        # Concurrent search by Tim
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345792,
+                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name:': "Tim"},
+                                                      'chat': {'id': 987654789, 'type': 'private', 'first_name': "Tim"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 40, 20).timestamp(),
+                                                      'text': "Foo"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654789")
+        self.assertListEqual([[{'text': "/s Foo"}]],
+                             json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])['keyboard'])
+        self.api_mock.reset_mock()
+
+        # Max writes value 25
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345793,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 41).timestamp(),
+                                                      'text': "25"}})
+
+        await asyncio.sleep(0.3)
+        foobar_target._write.assert_called_once_with(25, [foobar])
+        self.api_mock.reset_mock()
+
+        # Search again for Foo
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 42).timestamp(),
+                                                      'text': "Foo"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        self.assertListEqual([[{'text': "/s Foo"}], [{'text': "/s Foobar"}]],
+                             json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])['keyboard'])
+        self.api_mock.reset_mock()
+
+        # Two authentication errors
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
+                                                      'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 43).timestamp(),
+                                                      'text': "/s Foo"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654125")
+        self.assertIn("authorized", self.api_mock.method_calls[-1][1]['text'])
+        self.api_mock.reset_mock()
+
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345792,
+                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name:': "Tim"},
+                                                      'chat': {'id': 987654789, 'type': 'private', 'first_name': "Tim"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 44).timestamp(),
+                                                      'text': "/s Foobar"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654789")
+        self.assertIn("authorized", self.api_mock.method_calls[-1][1]['text'])
+        self.api_mock.reset_mock()
 
 
 class TelegramAPIMock:
@@ -108,7 +219,7 @@ class TelegramAPIMock:
         for arg, val in kwargs.items():
             assert arg in self.method_calls[-1][1], f"Expected {arg} in Telegram API method call parameters"
             assert val == self.method_calls[-1][1][arg],\
-                f"Wrong value {self.method_calls[-1][1][arg]} for Parameter {arg}, expected {val}"
+                f"Wrong value '{self.method_calls[-1][1][arg]}' for Parameter {arg}, expected '{val}'"
 
     def assert_method_call_count(self, count: int) -> None:
         actual_count = len(self.method_calls)
