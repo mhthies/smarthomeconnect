@@ -81,7 +81,7 @@ class PulseVolumeComponents(NamedTuple):
         Assemble a :class:`PulseVolumeRaw` volume object from the component-based representation and the additional
         derivations in the `normalized_values` field.
 
-        This method uses C function bindings from libpulse to calculate apply the balance, face, etc. to the channel
+        This method uses C function bindings from libpulse to apply the balance, face, etc. to the channel
         volume values, using the channel map. Thus, the `libpulse` C shared library is required to use this method.
 
         This method is the SHC default converter from :class:`PulseVolumeComponents` to :class:`PulseVolumeRaw`.
@@ -185,7 +185,7 @@ class PulseAudioInterface(SupervisedClientInterface):
     - :meth:`default_sink_name`
     - :meth:`default_source_name`
 
-    All *_volume connectors use the :class:`PulseVolumeRaw` type for representing the sink's/source's volume setting,
+    All \*_volume connectors use the :class:`PulseVolumeRaw` type for representing the sink's/source's volume setting,
     which contains a float volume setting for each individual channel of the sink/source (e.g. 6 individual values for a
     5.1 surround codec). Typically, you'll want to show and control the volume in more tangible components like
     *master volume*, *balance*, *fade* (front/rear) and subwoofer balance. For this, the raw volume can be converted
