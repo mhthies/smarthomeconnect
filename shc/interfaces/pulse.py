@@ -185,7 +185,7 @@ class PulseAudioInterface(SupervisedClientInterface):
     - :meth:`default_sink_name`
     - :meth:`default_source_name`
 
-    All \*_volume connectors use the :class:`PulseVolumeRaw` type for representing the sink's/source's volume setting,
+    All \\*_volume connectors use the :class:`PulseVolumeRaw` type for representing the sink's/source's volume setting,
     which contains a float volume setting for each individual channel of the sink/source (e.g. 6 individual values for a
     5.1 surround codec). Typically, you'll want to show and control the volume in more tangible components like
     *master volume*, *balance*, *fade* (front/rear) and subwoofer balance. For this, the raw volume can be converted
