@@ -474,6 +474,7 @@ class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
     functionality based on the given set of role objects.
 
     Provided implementations by SHC:
+
     * :class:`SimpleTelegramAuth`
     """
     @abc.abstractmethod
