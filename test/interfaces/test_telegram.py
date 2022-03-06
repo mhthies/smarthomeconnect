@@ -316,7 +316,7 @@ class TelegramAPIMock:
         self._pending_updates: List[Dict[str, JSON_TYPE]] = []
         self._updates_pending = asyncio.Event()
         self._runner = aiohttp.web.AppRunner(self._app)
-        self.method_calls: List[Tuple[str, Dict[str, JSON_TYPE], JSON_TYPE]] = []
+        self.method_calls: List[Tuple[str, Dict[str, Any], Any]] = []   # let's keep the types simple here
         self._next_update_id = 1
 
     async def start(self) -> None:
@@ -369,7 +369,7 @@ class TelegramAPIMock:
         if offset is not None:
             self._pending_updates = [update for update in self._pending_updates
                                      if update['update_id'] > int(offset)]  # type: ignore
-        timeout = int(data.get('timeout', 0))
+        timeout = int(data.get('timeout', 0))  # type:  ignore
         timeout = min(timeout, 1)  # cap timeout to 1 second for faster stopping of tests
         if not self._pending_updates:
             self._updates_pending.clear()
