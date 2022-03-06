@@ -18,7 +18,23 @@ logger = logging.getLogger(__name__)
 
 class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     """
-    TODO
+    The Telegram Bot interface.
+
+    An instance of this class represents a single Telegram chat bot.
+
+    :param api_token: The API token for connecting to the Telegram Bot API. It can be retrieved from Telegram's
+        "BotFather" after registering the bot.
+    :param auth_provider: An authentication provider to authenticate users by their Telegram user id, check
+        authorization and find the chat id of a given user to send them a message.
+
+        When creating connector objects, user role objects that are compatible with the the `auth_provider` must be used
+        for authorization. For the :class:`SimpleTelegramAuth` user roles are simple str objects representing the
+        authorized users' names, but other `TelegramAuthProvider` implemantations may use more sophisticated user/group
+        role objects.
+    :param telegram_server: The Telegram Bot API server to connect to. Usually, Telegram's official servers should be
+        used (the default value). However, you may also run a local HTTP API, communicating with Telegram's
+        network (see https://core.telegram.org/bots/api#using-a-local-bot-api-server). We also use this option for
+        testing purposes.
     """
 
     def __init__(self, api_token: str, auth_provider: "TelegramAuthProvider[UserT, RoleT]",
@@ -153,7 +169,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         """
         Use the given Telegram message as a new value for the currently selected connector in the message's chat
 
-        This method must should only be called, if the message's chat is known to have a selected connector/context
+        This method must only be called, if the message's chat is known to have a selected connector/context
         (chat_state) and the chat is known to belong to an authenticated user. The user's authorization for the
         connector is checked by this method.
 
@@ -183,10 +199,14 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _do_connector_search(self, message: aiogram.types.Message, user: UserT) -> None:
         """
-        TODO
+        Use the given Telegram message as a search term for searching connector objects and ask the user to select
+        a connector from the list matching connectors
 
-        :param message:
-        :param user:
+        This method should only be called, if the message's chat is known to have no a selected connector/context
+        (chat_state) yet and the chat is known to belong to an authenticated user.
+
+        :param message: The Telegram message to be handled as a search term
+        :param user: The identified user, related to the chat
         """
         connectors = self._find_matching_connectors(message.text, user)
         if connectors:
@@ -267,17 +287,27 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
                           send_users: Set[UserT] = set(), options: Optional[List[str]] = None
                           ) -> "TelegramConnector[T, RoleT]":
         """
-        TODO
+        Create a new connector object with any type, using the given formatting and parsing callback functions
 
-        :param type_:
-        :param name:
-        :param to_message:
-        :param parse_value:
-        :param read_roles:
-        :param set_roles:
-        :param send_users:
-        :param options:
-        :return:
+        :param type_: The value type of this connector. Will be used as the `.type` attribute, used for SHC's static
+            type checking
+        :param name: The connector's name, which users will use for searching and selecting the connector to read and
+            write its value.
+        :param to_message: A formatting function, used for converting a value into a string, when read by the user or
+            sent to the user by subscription
+        :param parse_value: A function for parsing values sent by the user for publishing in SHC
+        :param read_roles: A set of user roles which are allowed to read the current value from the connector. The role
+            objects must be valid authorization roles of the `auth_provider` of this bot interface.
+        :param set_roles: A set of user roles which are allowed to send value updates via Telegram to the connector,
+            i.e. to change the value of *connected* objects. The role objects must be valid authorization roles of the
+            `auth_provider` of this bot interface.
+        :param send_users: A set of users which shall receive a Telegram message for every value update published to the
+            connector within SHC. The role objects must be valid user objects of the `auth_provider` of this bot
+            interface.
+        :param options: A list of values the user can select from for sending a new value. They are used to create a
+            custom keyboard, which is shows to the user when selecting this connector. The options must be strings,
+            which are supported to be parsed by the `parse_value` function. If this parameter is omitted, no custom
+            keyboard is shown, i.e. the user is expected to use the normal text keyboard.
         """
         if name in self.connectors:
             raise ValueError(f"Connector with name {name} already exists in this Telegram bot.")
@@ -293,13 +323,18 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     def str_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
                       send_users: Set[UserT] = set()) -> "TelegramConnector[str, RoleT]":
         """
-        TODO
+        Create a new connector object with string type values
 
-        :param name:
-        :param read_roles:
-        :param set_roles:
-        :param send_users:
-        :return:
+        :param name: The connector's name, which users will use for searching and selecting the connector to read and
+            write its value.
+        :param read_roles: A set of user roles which are allowed to read the current value from the connector. The role
+            objects must be valid authorization roles of the `auth_provider` of this bot interface.
+        :param set_roles: A set of user roles which are allowed to send value updates via Telegram to the connector,
+            i.e. to change the value of *connected* objects. The role objects must be valid authorization roles of the
+            `auth_provider` of this bot interface.
+        :param send_users: A set of users which shall receive a Telegram message for every value update published to the
+            connector within SHC. The role objects must be valid user objects of the `auth_provider` of this bot
+            interface.
         """
         if name in self.connectors:
             raise ValueError(f"Connector with name {name} already exists in this Telegram bot.")
@@ -315,13 +350,18 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     def on_off_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
                          send_users: Set[UserT] = set()) -> "TelegramConnector[bool, RoleT]":
         """
-        TODO
+        Create a new connector object with bool values, represented to the user as 'on' and 'off'
 
-        :param name:
-        :param read_roles:
-        :param set_roles:
-        :param send_users:
-        :return:
+        :param name: The connector's name, which users will use for searching and selecting the connector to read and
+            write its value.
+        :param read_roles: A set of user roles which are allowed to read the current value from the connector. The role
+            objects must be valid authorization roles of the `auth_provider` of this bot interface.
+        :param set_roles: A set of user roles which are allowed to send value updates via Telegram to the connector,
+            i.e. to change the value of *connected* objects. The role objects must be valid authorization roles of the
+            `auth_provider` of this bot interface.
+        :param send_users: A set of users which shall receive a Telegram message for every value update published to the
+            connector within SHC. The role objects must be valid user objects of the `auth_provider` of this bot
+            interface.
         """
         if name in self.connectors:
             raise ValueError(f"Connector with name {name} already exists in this Telegram bot.")
@@ -348,13 +388,27 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     def trigger_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
                           send_users: Set[UserT] = set()) -> "TelegramConnector[None, RoleT]":
         """
-        TODO
+        Create a new connector object None-type values
 
-        :param name:
-        :param read_roles:
-        :param set_roles:
-        :param send_users:
-        :return:
+        This connector type is primarily meant to trigger handler functions. When a user with `set` authorization
+        selects such a connector, they will be asked "Trigger?" and presented with a custom keyboard with a "do" and a
+        "/cancel" button. Sending "do" will make the connector publish a None value (which is valid for triggering
+        handlers via :meth:`.trigger() <TelegramConnector.trigger>`).
+
+        The connector can also be used to send info messages to users: When :meth:`.write() <TelegramConnector.write>`
+        is called, it will send a message "{name} has been triggered" to all users in the `send_users` set. However, the
+        connector does not support reading values.
+
+        :param name: The connector's name, which users will use for searching and selecting the connector to read and
+            write its value.
+        :param read_roles: A set of user roles which are allowed to read the current value from the connector. The role
+            objects must be valid authorization roles of the `auth_provider` of this bot interface.
+        :param set_roles: A set of user roles which are allowed to send value updates via Telegram to the connector,
+            i.e. to change the value of *connected* objects. The role objects must be valid authorization roles of the
+            `auth_provider` of this bot interface.
+        :param send_users: A set of users which shall receive a Telegram message for every value update published to the
+            connector within SHC. The role objects must be valid user objects of the `auth_provider` of this bot
+            interface.
         """
         if name in self.connectors:
             raise ValueError(f"Connector with name {name} already exists in this Telegram bot.")
