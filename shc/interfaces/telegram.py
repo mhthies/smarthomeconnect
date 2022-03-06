@@ -49,7 +49,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.dp.register_message_handler(self._handle_select, commands=["s"])
         self.dp.register_callback_query_handler(self._handle_callback_query)
         self.dp.register_message_handler(self._handle_other)
-    
+
         self.connectors: Dict[str, "TelegramConnector"] = {}
         self.poll_task: Optional[asyncio.Task] = None
         #: Current state/context of each chat. Either None (init state selected) or
@@ -480,7 +480,7 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
                  for i in range(0, len(options), 2)])
         else:
             self.keyboard = None
-    
+
     def is_settable(self) -> bool:
         """ Returns True, if the connector has subscribers, i.e. it is meaningfully readable from Telegram """
         return bool(self._subscribers or self._triggers)
@@ -491,7 +491,7 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
 
     async def _write(self, value: T, _origin: List[Any]) -> None:
         await self.interface.send_message(text=self.format_value_send_fn(value), users=self.send_users)
-    
+
     async def read_message(self) -> Optional[str]:
         """ Create a response to a read-request from Telegram.
 
@@ -504,7 +504,7 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
 
     def from_telegram(self, value: str) -> None:
         self._publish(self.parse_value_fn(value), [])
-    
+
     def get_setting_keyboard(self) -> aiogram.types.ReplyKeyboardMarkup:
         return self.keyboard
 
@@ -520,7 +520,7 @@ class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
     specific functions of the TelegramBot interface based on a custom 'Role' type. The AuthProvider's Role type is used
     to define the set of authorized roles for each individual function of the TelegramBot interface. The set of roles is
     treated as a black box by the bot and only passed to the AuthProvider to check authorization.
-    
+
     When a user interacts with the bot, the bot authenticates them by their chat id using :meth:`get_telegram_user`. If
     the method returns `None`, the user is rejected. Otherwise, the authenticated user is returned, represented as an
     (arbitrary) unique user id string. For each interaction with a Bot functionality, the AuthProvider's
@@ -556,7 +556,7 @@ class SimpleTelegramAuth(TelegramAuthProvider[str, str]):
     def __init__(self, users: Dict[str, int]):
         self.users = users
         self.user_by_id = {v: k for k, v in users.items()}
-    
+
     def get_telegram_user(self, chat_id: int) -> Optional[str]:
         try:
             return self.user_by_id[chat_id]
