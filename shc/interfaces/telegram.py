@@ -77,11 +77,12 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         """
         Handler function for /start command messages
         """
-        # TODO logging
+        logger.debug("Received /start command for object from Telegram chat %s", message.chat.id)
         await message.reply("Hi!\nI'm an SHC bot!", reply=False)
         chat_id = message.chat.id
         user = self.auth_provider.get_telegram_user(chat_id)
         if user is None:
+            logger.warning("Telegram chat %s is not authorized to do /start", chat_id)
             await message.reply(f"Unauthorized! Please make sure that this Telegram chat's ID ({chat_id}) is "
                                 f"authorized to interact with this bot.", reply=False)
 
@@ -89,10 +90,11 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         """
         Handler function for /s command messages for selecting (and reading) a connector
         """
-        # TODO logging
         chat_id = message.chat.id
+        logger.debug("Received /s (select) command for object for Telegram chat %s", chat_id)
         user = self.auth_provider.get_telegram_user(chat_id)
         if user is None:
+            logger.warning("Telegram chat %s is not authorized to do /s", chat_id)
             await message.reply("Not authorized!")
             return
 
@@ -102,6 +104,8 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
         connector_id = message.text[3:]  # strip the '/select ' prefix
         if connector_id not in self.connectors:
+            logger.debug("Received /s (select) command for non-existing object '%s' for Telegram chat %s", connector_id,
+                         message.chat.id)
             await message.reply("Unknown connector/object")
             return
         connector = self.connectors[connector_id]
