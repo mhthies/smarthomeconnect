@@ -71,8 +71,12 @@ telegram_bot.str_connector("Yak Name", {'michael'}).connect(yak_name)
 telegram_bot.generic_connector(int, "Yak Number", lambda x: str(x), lambda x: int(x), {'michael'})\
     .connect(number_of_yaks)
 
+# For Python 3.7 compatibility, we store the trigger in a variable first, before applying it as a decorator to the logic
+#   handler function. From Python 3.8 on, you can simply write the full expression as a decorator.
+random_yaks_trigger = telegram_bot.trigger_connector("Random Yaks", {'michael'}).trigger
 
-@telegram_bot.trigger_connector("Random Yaks", {'michael'}).trigger
+
+@random_yaks_trigger
 @shc.handler()
 async def random_yaks(_v, _o):
     await number_of_yaks.write(random.randint(0, 255))
