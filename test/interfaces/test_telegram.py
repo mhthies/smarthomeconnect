@@ -245,7 +245,7 @@ class TelegramBotTest(unittest.TestCase):
                                                       'text': "/s Foo"}})
         await asyncio.sleep(0.3)
         self.api_mock.assert_method_called_with("sendMessage", chat_id="987654125")
-        foo_error_message =  self.api_mock.method_calls[-1][1]['text']
+        foo_error_message = self.api_mock.method_calls[-1][1]['text']
         self.assertIn("authorized", foo_error_message)
         self.api_mock.reset_mock()
 
