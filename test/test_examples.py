@@ -33,6 +33,9 @@ class BasicTest(unittest.TestCase):
     def test_tasmota_led_example(self) -> None:
         import example.tasmota_led_ir_with_ui  # type: ignore
 
+    def test_telegram_example(self) -> None:
+        import example.telegram  # type: ignore
+
     def test_pulseaudio_sink_example(self) -> None:
         import example.pulseaudio_sink  # type: ignore
 
