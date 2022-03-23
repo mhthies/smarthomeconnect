@@ -3,6 +3,7 @@ import datetime
 import json
 import random
 import unittest
+import unittest.mock
 from typing import Any, Union, Dict, List, Tuple
 
 import aiohttp.web
@@ -157,17 +158,7 @@ class TelegramBotTest(unittest.TestCase):
                              json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])['keyboard'])
         self.api_mock.reset_mock()
 
-        # Two authentication errors
-        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
-                                                      'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
-                                                      'date': datetime.datetime(2021, 1, 25, 17, 43).timestamp(),
-                                                      'text': "/s Foo"}})
-        await asyncio.sleep(0.3)
-        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654125")
-        self.assertIn("authorized", self.api_mock.method_calls[-1][1]['text'])
-        self.api_mock.reset_mock()
-
+        # Two authentication error: Tim is not allowed to select Foobar at all
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345792,
                                                       'from': {'id': 987654789, 'is_bot': False, 'first_name:': "Tim"},
                                                       'chat': {'id': 987654789, 'type': 'private', 'first_name': "Tim"},
@@ -177,6 +168,157 @@ class TelegramBotTest(unittest.TestCase):
         self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654789")
         self.assertIn("authorized", self.api_mock.method_calls[-1][1]['text'])
         self.api_mock.reset_mock()
+
+    @async_test
+    async def test_inline_cancel(self) -> None:
+        foo = self.client.on_off_connector("Foo", {'max', 'tim'})\
+            .connect(ExampleReadable(bool, False))
+        foobar = self.client.generic_connector(int, "Foobar", lambda x: str(x), lambda x: int(x), {'max', 'alice'})\
+            .connect(ExampleReadable(int, 42))\
+            .connect(ExampleWritable(int))
+
+        await self.api_mock.start()
+        self.client_runner.start()
+        await asyncio.sleep(0.05)
+        self.api_mock.reset_mock()
+
+        # Select 'Foobar'
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
+                                                      'text': "/s Foobar"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654123")
+        reply_markup = json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])
+        self.assertListEqual([[{'text': "cancel", 'callback_data': 'cancel'}]], reply_markup['inline_keyboard'])
+        message_data = self.api_mock.method_calls[-1][2]
+        self.api_mock.reset_mock()
+
+        # Cancel using callback button
+        self.api_mock.add_update_for_bot({'callback_query': {
+            'id': 12345790,
+            'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+            'message': message_data,
+            'chat_instance': "xyz",
+            'data': 'cancel',
+        }})
+
+        await asyncio.sleep(0.3)
+        # We expect to API method calls: Removing the inline keyboard and sending a "Action cancelled" message
+        self.api_mock.assert_method_call_count(2)
+        self.assertEqual("editMessageReplyMarkup", self.api_mock.method_calls[0][0])
+        self.assertEqual(str(message_data['message_id']), self.api_mock.method_calls[0][1]['message_id'])
+        self.assertNotIn('reply_markup', self.api_mock.method_calls[0][1])
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654123")
+        self.assertIn("cancelled", self.api_mock.method_calls[1][1]['text'])
+        self.api_mock.reset_mock()
+
+        # Search again for Foo
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 42).timestamp(),
+                                                      'text': "Foo"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        self.assertNotIn("invalid", self.api_mock.method_calls[-1][1]['text'])
+        self.assertListEqual([[{'text': "/s Foo"}], [{'text': "/s Foobar"}]],
+                             json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])['keyboard'])
+
+    @async_test
+    async def test_auth_errors(self) -> None:
+        foo = self.client.on_off_connector("Foo", {'max', 'tim'})
+
+        await self.api_mock.start()
+        self.client_runner.start()
+        await asyncio.sleep(0.05)
+        self.api_mock.reset_mock()
+
+        # Eve is not allowed to select Foo
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
+                                                      'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 43).timestamp(),
+                                                      'text': "/s Foo"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654125")
+        foo_error_message =  self.api_mock.method_calls[-1][1]['text']
+        self.assertIn("authorized", foo_error_message)
+        self.api_mock.reset_mock()
+
+        # Eve is not allowed to select a non-existent object.
+        # The message should be the same as for the existant object, so we don't leak information about existant objects
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345791,
+                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
+                                                      'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 43, 1).timestamp(),
+                                                      'text': "/s Bar"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654125")
+        self.assertEqual(foo_error_message, self.api_mock.method_calls[-1][1]['text'])
+        self.api_mock.reset_mock()
+
+        # Eve is not allowed to search anything
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345791,
+                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
+                                                      'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 43, 1).timestamp(),
+                                                      'text': "Fo"}})
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_method_called_with("sendMessage", chat_id="987654125")
+        self.assertIn("authorized", self.api_mock.method_calls[-1][1]['text'])
+        self.assertNotIn("Foo", self.api_mock.method_calls[-1][1]['text'])
+        self.api_mock.reset_mock()
+
+    @async_test
+    async def test_write_on_off(self) -> None:
+        foo = self.client.on_off_connector("Foo", {'max', 'tim'})
+        foo_target = ExampleWritable(bool)\
+            .connect(foo)
+
+        await self.api_mock.start()
+        self.client_runner.start()
+        await asyncio.sleep(0.05)
+        self.api_mock.reset_mock()
+
+        # Select 'Foo'
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
+                                                      'text': "/s Foo"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        reply_markup = json.loads(self.api_mock.method_calls[-1][1]['reply_markup'])
+        self.assertListEqual([[{'text': "off"}, {'text': "on"}], [{'text': "/cancel"}]], reply_markup['keyboard'])
+        self.api_mock.reset_mock()
+
+        # Write invalid value
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 36).timestamp(),
+                                                      'text': "bla"}})
+
+        await asyncio.sleep(0.3)
+        self.api_mock.assert_one_method_called_with("sendMessage", chat_id="987654123")
+        self.assertIn('Invalid', self.api_mock.method_calls[-1][1]['text'])
+        self.assertNotIn('reply_markup', self.api_mock.method_calls[-1][1])  # No change to responseKeyboard expected
+        self.api_mock.reset_mock()
+
+        # Write valid 'on' value
+        self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
+                                                      'date': datetime.datetime(2021, 1, 25, 17, 36).timestamp(),
+                                                      'text': "on"}})
+
+        await asyncio.sleep(0.3)
+        foo_target._write.assert_called_once_with(True, unittest.mock.ANY)
 
     @async_test
     async def test_read(self) -> None:

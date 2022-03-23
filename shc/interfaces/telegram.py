@@ -249,13 +249,13 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         if query.data == 'cancel':
             # Remove inline keyboard. Just to be sure. (Should also be done by _do_cancel(), when chat state is tracked
             # correctly)
-            chat_id = query.message.chat.id
+            chat_id = int(query.message.chat.id)
             message_id = query.message.message_id
             await self.bot.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
             if self.message_with_inline_keyboard.get(chat_id) == message_id:
                 del self.message_with_inline_keyboard[chat_id]
             # Now, the actual action cancelling
-            await self._do_cancel(query.message.chat.id)
+            await self._do_cancel(chat_id)
 
     async def _do_cancel(self, chat_id: int, silent: bool = False) -> None:
         """
