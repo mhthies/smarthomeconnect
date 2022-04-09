@@ -1,19 +1,19 @@
 # All SHC dependencies
 aiohttp>=3.6,<4
-aiomysql==0.0.21
+aiomysql>=0.0.21,<=0.0.22
 jinja2>=2.11,<4
 MarkupSafe>=1.1,<3
 knxdclient~=0.4.0
-pyserial-asyncio>=0.3,<=0.5
+pyserial-asyncio>=0.3,<0.7
 mido>=1.2.9,<2
-asyncio-mqtt>=0.10.0,<0.11
+asyncio-mqtt>=0.10.0,<0.13
 paho-mqtt>=1.5.1,<2
 pulsectl_asyncio~=0.2.0
 aiogram~=2.18
 
 # Test/type-checking-only dependencies
 mypy  # required by the shc.util.mypy_variable_plugin
-selenium>=3.141,<4
+selenium>=3.141,<5
 types-PyMySQL
 types-MarkupSafe>=1.1,<3
 types-Jinja2>=2.11,<3
