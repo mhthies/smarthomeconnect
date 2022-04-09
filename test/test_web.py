@@ -16,6 +16,7 @@ import aiohttp
 from selenium import webdriver
 import selenium.webdriver.firefox.options
 from selenium.webdriver.common.alert import Alert
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
 
@@ -89,10 +90,10 @@ class SimpleWebTest(AbstractWebTest):
         self.assertIn('Home Page', self.driver.page_source)
         self.assertIn('Home Page', self.driver.title)
         self.assertIn('Another segment', self.driver.page_source)
-        button = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "Foobar"]')
-        self.assertIn("My button group", button.find_element_by_xpath('../..').text)
-        button = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "Bar"]')
-        self.assertIn("Another button group", button.find_element_by_xpath('../..').text)
+        button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Foobar"]')
+        self.assertIn("My button group", button.find_element(By.XPATH, '../..').text)
+        button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Bar"]')
+        self.assertIn("Another button group", button.find_element(By.XPATH, '../..').text)
 
     def test_main_menu(self) -> None:
         self.server.page('index', menu_entry="Home", menu_icon='home')
@@ -102,21 +103,21 @@ class SimpleWebTest(AbstractWebTest):
         self.driver.get("http://localhost:42080")
 
         # Only search for the (visible) main navigation bar, instead of the hidden sidebare for mobile screens:
-        container = self.driver.find_element_by_css_selector('.pusher')
+        container = self.driver.find_element(By.CSS_SELECTOR, '.pusher')
 
-        home_link = container.find_element_by_css_selector('i.home.icon').find_element_by_xpath('..')
+        home_link = container.find_element(By.CSS_SELECTOR, 'i.home.icon').find_element(By.XPATH, '..')
         self.assertIn("Home", home_link.text)
         home_link.click()
 
-        container = self.driver.find_element_by_css_selector('.pusher')
-        submenu = container.find_element_by_xpath('.//div[contains(text(), "Foo")]')
-        submenu_entry = submenu.find_element_by_xpath('.//a[contains(@class, "item")]')
+        container = self.driver.find_element(By.CSS_SELECTOR, '.pusher')
+        submenu = container.find_element(By.XPATH, './/div[contains(text(), "Foo")]')
+        submenu_entry = submenu.find_element(By.XPATH, './/a[contains(@class, "item")]')
         self.assertFalse(submenu_entry.is_displayed())
         submenu.click()
         self.assertIn("Bar", submenu_entry.text)
         self.assertTrue(submenu_entry.is_displayed())
         self.assertEqual(submenu_entry.get_attribute('href').strip(), "http://localhost:42080/page/another_page/")
-        submenu_entry.find_element_by_css_selector('i.bars.icon')
+        submenu_entry.find_element(By.CSS_SELECTOR, 'i.bars.icon')
 
 
 class MonitoringTest(unittest.TestCase):
@@ -183,8 +184,8 @@ class WebWidgetsTest(AbstractWebTest):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
-            checkbox_element = self.driver.find_element_by_xpath(
-                '//*[normalize-space(text()) = "Main Power"]/..//input')
+            checkbox_element = self.driver.find_element(
+                By.XPATH, '//*[normalize-space(text()) = "Main Power"]/..//input')
             self.assertTrue(checkbox_element.is_selected())
 
             self.server_runner.run_coro(switch_widget.write(False, [self]))
@@ -192,7 +193,7 @@ class WebWidgetsTest(AbstractWebTest):
             publish_mock.reset_mock()
             self.assertFalse(checkbox_element.is_selected())
 
-            checkbox_container = checkbox_element.find_element_by_xpath('./..')
+            checkbox_container = checkbox_element.find_element(By.XPATH, './..')
             checkbox_container.click()
             time.sleep(0.05)
             self.assertTrue(checkbox_element.is_selected())
@@ -209,8 +210,8 @@ class WebWidgetsTest(AbstractWebTest):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
-            checkbox_container = self.driver.find_element_by_xpath(
-                '//*[normalize-space(text()) = "Some Switch"]/..//input/..')
+            checkbox_container = self.driver.find_element(
+                By.XPATH, '//*[normalize-space(text()) = "Some Switch"]/..//input/..')
 
             # Setting to true requires confirmation
             checkbox_container.click()
@@ -247,10 +248,10 @@ class WebWidgetsTest(AbstractWebTest):
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
 
-            b1_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B1"]')
-            b2_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B2"]')
-            b3_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B3"]')
-            b4_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B4"]')
+            b1_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B1"]')
+            b2_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B2"]')
+            b3_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B3"]')
+            b4_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B4"]')
 
             # Check initial states
             self.assertIn('yellow', b1_element.get_attribute('class'))
@@ -304,7 +305,7 @@ class WebWidgetsTest(AbstractWebTest):
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
 
-            button_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B1"]')
+            button_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B1"]')
 
             # Check click with alert
             self.assertNotIn('yellow', button_element.get_attribute('class'))
@@ -344,7 +345,8 @@ class WebWidgetsTest(AbstractWebTest):
         self.server_runner.start()
         self.driver.get("http://localhost:42080")
         time.sleep(0.4)
-        value_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//*[@data-id]')
+        value_element = self.driver.find_element(
+            By.XPATH, '//*[normalize-space(text()) = "Brightness"]/..//*[@data-id]')
         self.assertEqual("42 lux", value_element.text.strip())
 
         self.server_runner.run_coro(text_widget.write(56, [self]))
@@ -360,7 +362,7 @@ class WebWidgetsTest(AbstractWebTest):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
-            input_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Brightness"]/..//input')
+            input_element = self.driver.find_element(By.XPATH, '//*[normalize-space(text()) = "Brightness"]/..//input')
             self.assertEqual("42", input_element.get_attribute("value"))
 
             self.server_runner.run_coro(input_widget.write(56, [self]))
@@ -396,8 +398,8 @@ class WebWidgetsTest(AbstractWebTest):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
-            input_element = self.driver.find_element_by_xpath(
-                '//*[normalize-space(text()) = "Message of the Day"]/..//input')
+            input_element = self.driver.find_element(
+                By.XPATH, '//*[normalize-space(text()) = "Message of the Day"]/..//input')
             self.assertEqual("Hello, World!", input_element.get_attribute("value"))
 
             self.server_runner.run_coro(input_widget.write("Foobar", [self]))
@@ -420,10 +422,10 @@ class WebWidgetsTest(AbstractWebTest):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
-            container_element = self.driver.find_element_by_xpath(
-                '//*[normalize-space(text()) = "Amount of Foo"]/../..')
-            slider_element = container_element.find_element_by_css_selector('.slider')
-            handle_element = slider_element.find_element_by_css_selector(".thumb")
+            container_element = self.driver.find_element(
+                By.XPATH, '//*[normalize-space(text()) = "Amount of Foo"]/../..')
+            slider_element = container_element.find_element(By.CSS_SELECTOR, '.slider')
+            handle_element = slider_element.find_element(By.CSS_SELECTOR, ".thumb")
 
             # Center of handle should be somewhere near 30% of width of
             slider_width = slider_element.rect['width']
@@ -457,12 +459,12 @@ class WebWidgetsTest(AbstractWebTest):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
-            foo_row_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Foo"]')
-            bar_row_element = self.driver.find_element_by_xpath('//*[normalize-space(text()) = "Bar"]')
+            foo_row_element = self.driver.find_element(By.XPATH, '//*[normalize-space(text()) = "Foo"]')
+            bar_row_element = self.driver.find_element(By.XPATH, '//*[normalize-space(text()) = "Bar"]')
             # Foobar row should not be findable, since Selenium's xpath can only find DOM elements by text content if
             # they are visible
-            foobar_row_element = self.driver.find_element_by_xpath('//*[contains(text(), "Foobar")]')
-            button = foo_row_element.find_element_by_css_selector("button")
+            foobar_row_element = self.driver.find_element(By.XPATH, '//*[contains(text(), "Foobar")]')
+            button = foo_row_element.find_element(By.CSS_SELECTOR, "button")
 
             self.assertTrue(foo_row_element.is_displayed())
             self.assertTrue(bar_row_element.is_displayed())
@@ -470,7 +472,7 @@ class WebWidgetsTest(AbstractWebTest):
             self.assertIn('red', foo_row_element.get_attribute('class'))
             self.assertIn('blue', bar_row_element.get_attribute('class'))
             self.assertIn('yellow', foobar_row_element.get_attribute('class'))
-            self.assertIn('power off', button.find_element_by_css_selector('.icon').get_attribute('class'))
+            self.assertIn('power off', button.find_element(By.CSS_SELECTOR, '.icon').get_attribute('class'))
 
             # Click the button
             button.click()
@@ -496,10 +498,10 @@ class WebWidgetsTest(AbstractWebTest):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
-            wheel_element = self.driver.find_element_by_css_selector('.IroWheel')
-            wheel_handle_element = wheel_element.find_element_by_css_selector('.IroHandle>circle')
-            slider_element = self.driver.find_element_by_css_selector('.IroSlider')
-            slider_handle_element = slider_element.find_element_by_css_selector('.IroHandle>circle')
+            wheel_element = self.driver.find_element(By.CSS_SELECTOR, '.IroWheel')
+            wheel_handle_element = wheel_element.find_element(By.CSS_SELECTOR, '.IroHandle>circle')
+            slider_element = self.driver.find_element(By.CSS_SELECTOR, '.IroSlider')
+            slider_handle_element = slider_element.find_element(By.CSS_SELECTOR, '.IroHandle>circle')
 
             # The wheel handle should be in the center of the wheel ...
             wheel_rect = wheel_element.rect
@@ -553,18 +555,18 @@ class WebWidgetsTest(AbstractWebTest):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
-            container_element = self.driver.find_element_by_xpath(
-                '//*[normalize-space(text()) = "Select the Foo"]/..')
-            menu_element = container_element.find_element_by_css_selector('.selection.dropdown')
+            container_element = self.driver.find_element(
+                By.XPATH, '//*[normalize-space(text()) = "Select the Foo"]/..')
+            menu_element = container_element.find_element(By.CSS_SELECTOR, '.selection.dropdown')
 
             menu_element.click()
             second_option_element = menu_element\
-                .find_element_by_xpath('.//*[normalize-space(text()) = "SOME_OTHER_VALUE"][contains(@class, "item")]')
+                .find_element(By.XPATH, './/*[normalize-space(text()) = "SOME_OTHER_VALUE"][contains(@class, "item")]')
             self.assertIn("selected", second_option_element.get_attribute('class'))
 
             # select the third option
             third_option_element = menu_element\
-                .find_element_by_xpath('.//*[normalize-space(text()) = "YET_ANOTHER_VALUE"]')
+                .find_element(By.XPATH, './/*[normalize-space(text()) = "YET_ANOTHER_VALUE"]')
             third_option_element.click()
 
             time.sleep(0.05)
@@ -588,7 +590,7 @@ class WebWidgetsTest(AbstractWebTest):
         time.sleep(0.6)
 
         # Check that the background image is served and loaded correctly
-        background_image = self.driver.find_element_by_css_selector('.shc.image-container .background')
+        background_image = self.driver.find_element(By.CSS_SELECTOR, '.shc.image-container .background')
         self.assertTrue(self.driver.execute_script(
             "return arguments[0].complete "
             "&& typeof arguments[0].naturalWidth != \"undefined\" "
@@ -596,7 +598,7 @@ class WebWidgetsTest(AbstractWebTest):
         background_image_rect = background_image.rect
 
         # Check that there is a correctly styled button element, labeled "B1", at the right position
-        b1_element = self.driver.find_element_by_xpath('//button[normalize-space(text()) = "B1"]')
+        b1_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B1"]')
         self.assertIn('yellow', b1_element.get_attribute('class'))
         b1_rect = b1_element.rect
         self.assertAlmostEqual(background_image_rect['x'] + background_image_rect['width'] * 0.3,
@@ -605,7 +607,7 @@ class WebWidgetsTest(AbstractWebTest):
                                b1_rect['y'] + b1_rect['height']/2, delta=4)  # 4px off is okay
 
         # Check that there is a label in the right position
-        l2_element = self.driver.find_element_by_css_selector('.shc.image-container .ui.label')
+        l2_element = self.driver.find_element(By.CSS_SELECTOR, '.shc.image-container .ui.label')
         self.assertEqual("15.3", l2_element.text.strip())
         self.assertIn('red', l2_element.get_attribute('class'))
         l2_rect = l2_element.rect
