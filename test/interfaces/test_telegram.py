@@ -420,6 +420,7 @@ class TelegramBotTest(unittest.TestCase):
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 45).timestamp(),
                                                       'text': "/cancel"}})
+        await asyncio.sleep(0.15)
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345794,
                                                       'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
