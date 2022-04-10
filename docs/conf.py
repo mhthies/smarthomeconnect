@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'Smart Home Connect (SHC)'
-copyright = '2020, Michael Thies'
+copyright = '2020–2022, Michael Thies'
 author = 'Michael Thies'
 
 
