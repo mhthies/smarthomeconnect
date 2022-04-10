@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "parcel": "^2.0.0"
+    "parcel": ">=2.0.0 <2.4"
   },
   "dependencies": {
     "@jaames/iro": "^5.5.1",
