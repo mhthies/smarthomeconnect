@@ -38,8 +38,11 @@ setup(
     cmdclass={
         'build_py': custom_build_py
     },
-    packages=find_packages(exclude=("test",)),
+    packages=find_packages(exclude=["test", "test.*"]),
     include_package_data=True,
+    package_data={
+        "shc.web": ["static/pack/*"]
+    },
     python_requires='~=3.7',
     install_requires=[
         'aiohttp>=3.6,<4',

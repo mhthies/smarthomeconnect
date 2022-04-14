@@ -1,3 +1,5 @@
-include NOTICE LICENSE README.md pyproject.toml .coveragerc py.typed
-recursive-include shc/web/static *
-recursive-include shc/web/templates *
+include NOTICE LICENSE README.md pyproject.toml py.typed package.json
+exclude .coveragerc
+graft shc/web/static
+prune shc/web/static/pack
+graft web_ui_src
