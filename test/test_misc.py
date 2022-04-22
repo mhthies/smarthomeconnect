@@ -145,7 +145,7 @@ class MiscTests(unittest.TestCase):
         with self.assertLogs() as logs:
             await subscribable1.publish(shc.datatypes.FadeStep(0.5), [self])
             await asyncio.sleep(0.05)
-        self.assertIn("Cannot apply FadeStep", logs.records[0].msg)  # type: ignore
+        self.assertIn("Cannot apply FadeStep", logs.records[0].msg)
 
         await variable1.write(shc.datatypes.RangeFloat1(0.5), [self])
         await asyncio.sleep(0.05)
