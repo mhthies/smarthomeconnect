@@ -302,9 +302,10 @@ class MinMaxButtonSlider(WebPageItem, ConnectableWrapper[RangeFloat1]):
     def get_connectors(self) -> Iterable["WebUIConnector"]:
         return self.slider, self.left_button, self.right_button
 
-    def connect(self: C, other: "Connectable", send: Optional[bool] = None, receive: Optional[bool] = None,
+    def connect(self, other: "Connectable", send: Optional[bool] = None, receive: Optional[bool] = None,
                 read: Optional[bool] = None, provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> "MinMaxButtonSlider":
+                convert: Union[bool, Tuple[Callable[[RangeFloat1], Any], Callable[[Any], RangeFloat1]]] = False
+                ) -> "MinMaxButtonSlider":
         self.slider.connect(other, send, receive, read, provide, convert)
         self.left_button.connect(other, send, receive, read, provide, convert)
         self.right_button.connect(other, send, receive, read, provide, convert)
