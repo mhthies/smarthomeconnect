@@ -296,6 +296,16 @@ class AbstractButton(metaclass=abc.ABCMeta):
     and specify the layout (color, label, etc.) and functionality of a button. They also form the SHC-side interface
     for interacting with the button, i.e. they are `Subscriable` and/or `Reading`+`Writable`.
 
+    Existing concrete subclasses:
+
+    * :class:`StatelessButton` (`Subscribable`, any type): Publishes a fixed value on click (no state feedback)
+    * :class:`ValueButton` (`Subscribable`, `Writable`, `Reading`, any type): Publishes a fixed value on click. Lights
+        up, when current value of connected object equals the fixed value
+    * :class:`ToggleButton` (`Subscribable`, `Writable`, `Reading`, ``bool``): Lights up when value of connected object
+        is True. Sends the opposite boolean value on click. (Similar to :class:`Switch`)
+    * :class:`DisplayButton` (`Writable`, `Reading`, ``bool`` or any type): Lights up when value of connected object
+        equals a fixed value (`True` by default). No interaction.
+
     :var label: The label/text content of the button. Either a plain string (which should automatically be escaped for
         embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet and properly
         escaped HTML code.
