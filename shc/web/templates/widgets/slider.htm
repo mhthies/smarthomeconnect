@@ -1,5 +1,12 @@
+{% from "buttons.inc.htm" import render_button %}
 <div class="shc slider-label-container">
     <label class="shc label">{{ label }}</label>
     <div class="ui right floated {{ color or "black" }} label value-display"><i class="fitted notched circle loading icon"></i></div>
 </div>
-<div class="ui {{ color }} labeled slider" id="slider-1" data-widget="slider" data-id="{{ id }}"></div>
+<div class="ui fluid action input">
+    {% if left_button %}{{ render_button(left_button, 'icon') }}{% endif %}
+
+    <div class="ui {{ color }} labeled slider" id="slider-1" data-widget="slider" data-id="{{ id }}"></div>
+
+    {% if left_button %}{{ render_button(right_button, 'icon') }}{% endif %}
+</div>

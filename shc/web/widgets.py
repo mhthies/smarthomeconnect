@@ -49,7 +49,7 @@ __all__ = [
     'ButtonGroup', 'ValueListButtonGroup', 'EnumButtonGroup',
     'ToggleButton', 'ValueButton', 'DisplayButton', 'StatelessButton',
     'TextDisplay', 'TextInput',
-    'Slider',
+    'Slider', 'MinMaxButtonSlider',
     'HideRowBox', 'HideRow',
     'ColorChoser',
     'ImageMap', 'ImageMapLabel',
@@ -248,19 +248,67 @@ class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], 
         e.g. produced by :func:`icon`.
     :param color: Background color of the slider and the upper right label showing the current value. Must be one of
         Semantic UI's predefined slider colors: https://fomantic-ui.com/modules/slider.html#colored
+    :param left_button: An optional button descriptor to attach a button to the left end of the slider. All different
+        kinds of buttons and all layout features of :class:`AbstractButton` are supported.
+    :param right_button: An optional button descriptor to attach a button to the right end of the slider (can be used
+        independently from `left_button`).  All different kinds of buttons and all layout features of
+        :class:`AbstractButton` are supported.
     """
-    def __init__(self, label: Union[str, Markup] = '', color: str = ''):
+    def __init__(self, label: Union[str, Markup] = '', color: str = '',
+                 left_button: Optional["AbstractButton"] = None, right_button: Optional["AbstractButton"] = None, ):
         self.type = RangeFloat1
         super().__init__()
         self.label = label
         self.color = color
+        self.left_button = left_button
+        self.right_button = right_button
 
     def convert_from_ws_value(self, value: Any) -> RangeFloat1:
         return RangeFloat1(float(value))
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/slider.htm').render_async(
-            id=id(self), label=self.label, color=self.color)
+            id=id(self), label=self.label, color=self.color, left_button=self.left_button,
+            right_button=self.right_button)
+
+
+class MinMaxButtonSlider(WebPageItem, ConnectableWrapper[RangeFloat1]):
+    """
+    A pre-configured version of :class:`Slider` with left_button and right_button for quick access to 0% and 100%
+
+    This object is a ConnectableWrapper that includes the Slider object as well as the two button descriptor objects.
+    When `connecting` to it, using the :meth:`connect` method, it will connect all three objects with the given `other`
+    object.
+
+    The buttons are configured to be highlighted in the same color as the slider. They use the `circle outline` and
+    (filled) `circle` icons as label.
+
+    :param label: The label to be displayed left above the slider. Either a plain string (which is automatically
+        escaped for embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML,
+        e.g. produced by :func:`icon`.
+    :param color: Background color of the slider, the upper right label showing the current value and the two buttons
+        (when hightlighted). Must be one of Semantic UI's predefined slider colors:
+        https://fomantic-ui.com/modules/slider.html#colored
+    """
+    def __init__(self, label: Union[str, Markup] = '', color: str = ''):
+        super().__init__()
+        self.left_button = ValueButton(RangeFloat1(0), icon('circle outline'), color=color or 'black')
+        self.right_button = ValueButton(RangeFloat1(1), icon('circle'), color=color or 'black')
+        self.slider = Slider(label, color, self.left_button, self.right_button)
+
+    async def render(self) -> str:
+        return await self.slider.render()
+
+    def get_connectors(self) -> Iterable["WebUIConnector"]:
+        return self.slider, self.left_button, self.right_button
+
+    def connect(self: C, other: "Connectable", send: Optional[bool] = None, receive: Optional[bool] = None,
+                read: Optional[bool] = None, provide: Optional[bool] = None,
+                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> "MinMaxButtonSlider":
+        self.slider.connect(other, send, receive, read, provide, convert)
+        self.left_button.connect(other, send, receive, read, provide, convert)
+        self.right_button.connect(other, send, receive, read, provide, convert)
+        return self
 
 
 class ButtonGroup(WebPageItem):

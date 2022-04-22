@@ -199,7 +199,7 @@ function SliderWidget(domElement, writeValue) {
         onChange: onSliderChange
     });
     let displayBox = null;
-    forEachNodeRecursive(domElement.parentNode, function(node) {
+    forEachNodeRecursive(domElement.parentNode.parentNode, function(node) {
         if (node.nodeType === 1 && node.classList.contains('value-display')) {
             displayBox = node;
             return false;
