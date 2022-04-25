@@ -7,13 +7,20 @@
    viewBox="0 0 8.4666664 8.4666664"
    version="1.1"
    id="svg5"
-   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20, custom)"
-   sodipodi:docname="logo_idee.svg"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04, custom)"
+   sodipodi:docname="logo.svg"
+   inkscape:export-filename="/home/michael/Documents/Freizeit/Programme/python/shc2/etc/logo_idee2_32x32.png"
+   inkscape:export-xdpi="96.129997"
+   inkscape:export-ydpi="96.129997"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg">
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title
+     id="title1508">Smart Home Connect Logo</title>
   <sodipodi:namedview
      id="namedview7"
      pagecolor="#ffffff"
@@ -21,210 +28,123 @@
      borderopacity="1.0"
      inkscape:pageshadow="2"
      inkscape:pageopacity="0.0"
-     inkscape:pagecheckerboard="0"
+     inkscape:pagecheckerboard="true"
      inkscape:document-units="mm"
-     showgrid="false"
+     showgrid="true"
      width="32px"
      inkscape:object-paths="true"
      inkscape:snap-intersection-paths="true"
      inkscape:snap-smooth-nodes="true"
      inkscape:snap-midpoints="true"
      inkscape:snap-global="true"
-     inkscape:zoom="7.9592061"
-     inkscape:cx="7.9153623"
-     inkscape:cy="6.1563929"
-     inkscape:window-width="1600"
-     inkscape:window-height="843"
+     inkscape:zoom="16"
+     inkscape:cx="9.875"
+     inkscape:cy="14.5"
+     inkscape:window-width="1920"
+     inkscape:window-height="1023"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1"
      showguides="true"
      inkscape:guide-bbox="true"
-     units="px" />
+     units="px"
+     inkscape:snap-page="true"
+     inkscape:snap-bbox="true"
+     inkscape:snap-grids="false">
+    <inkscape:grid
+       type="xygrid"
+       id="grid4313"
+       spacingx="0.26458332"
+       spacingy="0.26458332" />
+  </sodipodi:namedview>
   <defs
-     id="defs2">
-    <linearGradient
-       id="lg1">
-      <stop
-         stop-color="#3778ae"
-         offset="0"
-         id="stop4027" />
-      <stop
-         stop-color="#366c99"
-         offset="1"
-         id="stop4029" />
-    </linearGradient>
-    <linearGradient
-       id="lg2">
-      <stop
-         stop-color="#fff"
-         offset="0"
-         id="stop4032" />
-      <stop
-         stop-color="#fff"
-         stop-opacity="0.165"
-         offset="1"
-         id="stop4034" />
-    </linearGradient>
-    <linearGradient
-       id="lg3">
-      <stop
-         stop-color="#ffe253"
-         offset="0"
-         id="stop4037" />
-      <stop
-         stop-color="#ffca1c"
-         offset="1"
-         id="stop4039" />
-    </linearGradient>
-    <linearGradient
-       id="lg4">
-      <stop
-         stop-color="#000"
-         offset="0"
-         id="stop4042" />
-      <stop
-         stop-color="#000"
-         stop-opacity="0"
-         offset="1"
-         id="stop4044" />
-    </linearGradient>
-    <linearGradient
-       x1="94.693001"
-       y1="112.511"
-       x2="94.693001"
-       y2="64.053001"
-       id="lg5"
-       xlink:href="#lg2"
-       gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.353878,0,0,0.353878,-17.3795,-19.412)" />
-    <linearGradient
-       x1="59.728001"
-       y1="102"
-       x2="142.62"
-       y2="102"
-       id="lg6"
-       xlink:href="#lg1"
-       gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.353878,0,0,0.353878,-17.3795,-19.412)" />
-    <linearGradient
-       x1="94.693001"
-       y1="112.511"
-       x2="94.693001"
-       y2="64.053001"
-       id="lg7"
-       xlink:href="#lg2"
-       gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.353878,0,0,0.353878,-6.29697,-7.94537)" />
-    <linearGradient
-       x1="119.191"
-       y1="89.129997"
-       x2="116.965"
-       y2="169.27901"
-       id="lg8"
-       xlink:href="#lg3"
-       gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.353878,0,0,0.353878,-16.3897,-17.997)" />
-    <radialGradient
-       cx="15.115"
-       cy="63.965"
-       r="12.289"
-       fx="15.115"
-       fy="63.965"
-       id="rg1"
-       xlink:href="#lg4"
-       gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(1.6,0,0,0.551754,-0.183975,4.83575)" />
-    <filter
-       inkscape:collect="always"
-       style="color-interpolation-filters:sRGB"
-       id="filter30983"
-       x="-0.037386642"
-       y="-0.084708812"
-       width="1.0747733"
-       height="1.1694176">
-      <feGaussianBlur
-         inkscape:collect="always"
-         stdDeviation="0.20570564"
-         id="feGaussianBlur30985" />
-    </filter>
-    <filter
-       inkscape:collect="always"
-       style="color-interpolation-filters:sRGB"
-       id="filter30987"
-       x="-0.057125736"
-       y="-0.049374153"
-       width="1.1142515"
-       height="1.0987483">
-      <feGaussianBlur
-         inkscape:collect="always"
-         stdDeviation="0.74117482"
-         id="feGaussianBlur30989" />
-    </filter>
-  </defs>
+     id="defs2" />
   <g
      inkscape:label="Ebene 1"
      inkscape:groupmode="layer"
      id="layer1">
     <path
-       id="path30943"
-       style="fill:#333333;stroke:none;stroke-width:1.05182;stroke-linecap:round;filter:url(#filter30987);stop-color:#000000;opacity:0.51181602"
-       d="M 28.109375,15.369141 12.541016,26.070312 V 51.396484 H 43.679688 V 26.070312 Z"
-       transform="matrix(0.16941615,0,0,0.16941962,-0.5296203,-0.52825093)"
-       sodipodi:nodetypes="cccccc" />
-    <path
-       style="color:#000000;fill:#cccccc;-inkscape-stroke:none;filter:url(#filter30983);opacity:0.69226494"
-       d="M 7.4375,1.3789062 0.8359375,5.9160156 1.7207031,7.2070312 7.4375,3.2773438 13.154297,7.2070312 14.041016,5.9160156 Z"
-       id="path30945"
-       transform="matrix(0.640313,0,0,0.64032614,-0.5296203,-0.52825093)" />
-    <path
        id="rect846"
-       style="fill:#b3b3bd;stroke:none;stroke-width:0.178197;stroke-linecap:round;stop-color:#000000;fill-opacity:1"
-       d="M 4.2325618,2.0755831 1.5950303,3.8885714 v 4.2907505 h 5.275394 V 3.8885714 Z"
+       style="fill:#008791;fill-opacity:1;stroke:none;stroke-width:0.19684;stroke-linecap:round;stop-color:#000000"
+       d="M 4.2325445,1.8090159 1.3190729,3.8116802 V 8.4666664 H 7.1463817 V 3.8116802 Z"
        sodipodi:nodetypes="cccccc" />
     <path
-       style="color:#000000;fill:#4d5051;stroke-width:0.64032;-inkscape-stroke:none;fill-opacity:1"
-       d="M 4.2327076,0.35469875 0.00564135,3.2599285 0.57216826,4.0865995 4.2327076,1.570318 7.8932471,4.0865995 8.4610248,3.2599285 Z"
+       style="color:#000000;fill:#008791;fill-opacity:1;stroke-width:0.64032;-inkscape-stroke:none"
+       d="M 4.2327076,0 0.00564135,2.9052298 0.57216826,3.7319008 4.2327076,1.2156192 7.8932471,3.7319008 8.4610248,2.9052298 Z"
        id="path1625" />
     <path
+       id="rect2914"
+       style="fill:#008791;fill-opacity:1;stroke:none;stroke-width:14.0939;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+       d="M 4.9863281 22 L 0 22 L 0 24 L 4.9863281 24 L 4.9863281 22 z "
+       transform="scale(0.26458333)" />
+    <path
+       id="path1426"
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:14.0939;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+       d="M 4.9863281 22 L 4.9863281 24 L 8.4648438 24 L 8.4648438 22 L 4.9863281 22 z "
+       transform="scale(0.26458333)" />
+    <path
+       id="rect2916"
+       style="fill:#008791;fill-opacity:1;stroke:none;stroke-width:14.0939;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+       d="M 27.009766 24 L 32 24 L 32 22 L 27.009766 22 L 27.009766 24 z "
+       transform="scale(0.26458333)" />
+    <path
+       id="path1431"
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:14.0939;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+       d="M 27.009766 24 L 27.009766 22 L 23.275391 22 L 23.275391 24 L 27.009766 24 z "
+       transform="scale(0.26458333)" />
+    <path
        id="path2474"
-       style="font-variation-settings:normal;fill:#3773a5;fill-opacity:1;stroke:#3773a5;stroke-width:0.34065;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
-       d="M 3.4533118,4.737133 A 1.2081613,1.2081861 0 0 0 2.2451614,5.945308 1.2081613,1.2081861 0 0 0 3.4533118,7.1534831 Z" />
+       style="font-variation-settings:normal;fill:#ffffff;fill-opacity:1;stroke:#dcdcdc;stroke-width:0.314886;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
+       d="M 3.3847508,5.0160313 A 1.1663006,1.069395 0 0 0 2.2184607,6.0854165 1.1663006,1.069395 0 0 0 3.3847508,7.1548018 Z" />
     <path
        id="path29010"
-       style="fill:#ffd737;fill-opacity:1;stroke:#ffd737;stroke-width:0.34065;stroke-linecap:butt;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
-       d="m 4.9441962,4.7371332 v 0 c 0.6672406,5.8e-6 1.2081448,0.5409209 1.2081506,1.2081748 -6.4e-6,0.6672545 -0.54091,1.20817 -1.2081506,1.2081751 z"
+       style="fill:#ffffff;fill-opacity:1;stroke:#dcdcdc;stroke-width:0.314886;stroke-linecap:butt;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
+       d="m 5.0807036,5.0160315 v 0 c 0.6441219,5.1e-6 1.1662847,0.4787822 1.1662903,1.069385 -6.1e-6,0.5906032 -0.5221684,1.0693808 -1.1662903,1.0693853 z"
        sodipodi:nodetypes="csccc" />
     <rect
-       style="fill:#3773a5;fill-opacity:1;stroke:none;stroke-width:3.50758;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
-       id="rect2914"
-       width="2.2394481"
-       height="0.46784937"
-       x="0.0056413487"
-       y="5.7113833" />
-    <rect
-       style="fill:#ffd637;fill-opacity:1;stroke:none;stroke-width:3.50758;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
-       id="rect2916"
-       width="2.3086784"
-       height="0.46784878"
-       x="6.1523466"
-       y="5.7113848" />
-    <rect
-       style="fill:#3773a5;fill-opacity:1;stroke:none;stroke-width:1.70388;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.63957;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="rect2830"
-       width="1.3451601"
-       height="0.46784937"
-       x="3.2602038"
-       y="5.0348916"
-       ry="0.23392469" />
+       height="0.45019197"
+       x="3.2265625"
+       y="5.3311539"
+       ry="0.22509599"
+       width="1.2713537" />
     <rect
-       style="fill:#3773a5;fill-opacity:1;stroke:none;stroke-width:1.70388;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.63957;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="rect2912"
-       width="1.3186762"
-       height="0.46784878"
-       x="3.2866876"
-       y="6.3970819"
-       ry="0.23392439" />
+       width="1.2713537"
+       height="0.4501915"
+       x="3.2265625"
+       y="6.3894873"
+       ry="0.22509575" />
   </g>
+  <metadata
+     id="metadata1506">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>Smart Home Connect Logo</dc:title>
+        <dc:date>2022-04-25</dc:date>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Michael Thies</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-nd/4.0/" />
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-nd/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
 </svg>
