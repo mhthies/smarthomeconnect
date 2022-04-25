@@ -11,7 +11,7 @@
 
 import datetime
 import logging
-from typing import Generic, Type, List, Any, Optional, Callable
+from typing import Generic, Type, List, Any, Optional, Callable, Dict
 
 from shc import conversion
 from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError, Reading, S
@@ -283,3 +283,66 @@ class ConvertSubscription(Subscribable[T], Generic[T]):
 
     async def __update(self, value: S, origin: List[Any]):
         await self._publish_and_wait(self.converter(value), origin)
+
+
+class UpdateExchange(Subscribable[T], Writable[T], Generic[T]):
+    """
+    A "message exchange" for distributing value updates. Similar to :class:`shc.variables.Variable` but stateless.
+
+    In contrast to a `Variable`, an UpdateExchange does not store the latest value. Thus, it is not *Readable* and it
+    forwards every single value update to all subscribers, even if the value is equal to the previous value update.
+
+    Similar to *Variable*, an *UpdateExchange* of a NamedTuple-based value type has additional connectors for each field
+    of the NamedTuple, which can retrieved via the :meth:`field` method. This can be used for splitting up tuple-typed
+    value updates, i.e. subscribing other Connectable objects to one specific field of the values published by the
+    *UpdateExchange*. In contrast to *Variable*'s fields, the *UpdateExchangeField* objects are not *Writable*; only the
+    *UpdateExchange* itself can receive value updates.
+    """
+    def __init__(self, type_: Type[T]):
+        self.type = type_
+        super().__init__()
+
+        self._fields: Dict[str, "_UpdateExchangeField"] = {}
+
+        # Create UpdateExchangeFields for each type-annotated field of the type if it is typing.NamedTuple-based.
+        if issubclass(type_, tuple) and type_.__annotations__:
+            for name, field_type in type_.__annotations__.items():
+                field = _UpdateExchangeField(name, field_type)
+                self.trigger(field._recursive_publish, synchronous=True)
+                self._fields[name] = field
+
+    async def _write(self, value: T, origin: List[Any]) -> None:
+        await self._publish_and_wait(value, origin)
+
+    def field(self, name: str) -> "_UpdateExchangeField":
+        if not issubclass(self.type, tuple) or not self.type.__annotations__:
+            raise TypeError(f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
+                            f"NamedTuple-typed VariableFields.")
+        return self._fields[name]
+
+
+class _UpdateExchangeField(Subscribable[T], Generic[T]):
+    def __init__(self, field_name: str, type_: Type[T]):
+        self.type = type_
+        super().__init__()
+
+        self.field_name = field_name
+        self._fields: Dict[str, "_UpdateExchangeField"] = {}
+
+        # Create recursive UpdateExchangeFields for each type-annotated field if the sub-type of this field is also
+        # typing.NamedTuple-based.
+        if issubclass(type_, tuple) and type_.__annotations__:
+            for name, field_type in type_.__annotations__.items():
+                field = _UpdateExchangeField(name, field_type)
+                self.trigger(field._recursive_publish, synchronous=True)
+                self._fields[name] = field
+
+    def field(self, name: str) -> "_UpdateExchangeField":
+        if not issubclass(self.type, tuple) or not self.type.__annotations__:
+            raise TypeError(
+                f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
+                f"NamedTuple-typed VariableFields.")
+        return self._fields[name]
+
+    async def _recursive_publish(self, new_value: T, origin: List[Any]):
+        await self._publish_and_wait(getattr(new_value, self.field_name), origin)
