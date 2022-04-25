@@ -39,7 +39,7 @@ When a default provider is set, they will *read* its value once, immediately aft
 The value type of a variable must be given when it is instantiated.
 Optionally, a name and and initial value can be provided:
 
-.. automethod:: shc.variables.Variable.__init__
+.. autoclass:: shc.variables.Variable
 
 .. _variables.tuple_field_access:
 

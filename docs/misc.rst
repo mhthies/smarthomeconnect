@@ -8,3 +8,5 @@ In addition to the classes provided by this module, you may want to take a look 
 
 .. automodule:: shc.misc
     :members:
+    :undoc-members:
+    :exclude-members: logger
