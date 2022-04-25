@@ -27,7 +27,8 @@ from mypy.types import Instance, Type, TupleType
 
 class SHCVariable(Plugin):
     def get_method_hook(self, fullname: str) -> Optional[Callable[[MethodContext], Type]]:
-        if fullname in ("shc.variables.Variable.field", "shc.variables.VariableField.field"):
+        if fullname in ("shc.variables.Variable.field", "shc.variables.VariableField.field",
+                        "shc.misc.UpdateExchange.field", "shc.misc._UpdateExchangeField.field"):
             return self._shc_variable_field_callback
         return None
 
@@ -39,7 +40,7 @@ class SHCVariable(Plugin):
             return context.default_return_type
         wrapped_type = context.type.args[0]
         if not isinstance(wrapped_type, TupleType) or not wrapped_type.partial_fallback.type.is_named_tuple:
-            context.api.fail(".field() can only be used with NamedTuple-typed SHC Variables or VariableFields",
+            context.api.fail(".field() can only be used with NamedTuple-typed SHC Variables, UpdateExchanges or fields",
                              context.context, code=errorcodes.MISC)
             return context.default_return_type
         field_name_expression = context.args[0][0]
@@ -52,8 +53,8 @@ class SHCVariable(Plugin):
         try:
             field_index = tuple_field_names.index(field_name)
         except ValueError:
-            context.api.fail(f"NamedTuple \"{wrapped_type}\" has no field \"{field_name}\" to create a variable field "
-                             f"for",
+            context.api.fail(f"NamedTuple \"{wrapped_type}\" has no field \"{field_name}\" to create a variable/"
+                             f"update-exchange field  for",
                              context.context, code=errorcodes.ATTR_DEFINED)
             return context.default_return_type
         field_type = wrapped_type.items[field_index]
