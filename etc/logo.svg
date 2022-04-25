@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32"
+   height="32"
+   viewBox="0 0 8.4666664 8.4666664"
+   version="1.1"
+   id="svg5"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title
+     id="title1508">Smart Home Connect Logo</title>
+  <defs
+     id="defs2" />
+  <g
+     id="layer1">
+    <path
+       id="rect846"
+       style="fill:#008791;fill-opacity:1;stroke:none;stroke-width:0.743962;stroke-linecap:round;stop-color:#000000"
+       d="M 15.998047 0 L 0.021484375 10.980469 L 2.1621094 14.105469 L 15.998047 4.59375 L 29.832031 14.105469 L 31.978516 10.980469 L 15.998047 0 z M 15.996094 6.8378906 L 4.9863281 14.40625 L 4.9863281 22 L 7.9042969 22 C 8.4023037 19.907203 10.427505 18.365254 12.792969 18.365234 L 13.390625 18.365234 L 13.390625 20.148438 L 16.148438 20.148438 C 16.619754 20.148438 17 20.528681 17 21 C 17 21.471319 16.619754 21.851563 16.148438 21.851562 L 13.390625 21.851562 L 13.390625 24.148438 L 16.148438 24.148438 C 16.619752 24.148438 17 24.528681 17 25 C 17 25.471319 16.619752 25.851562 16.148438 25.851562 L 13.390625 25.851562 L 13.390625 27.638672 L 12.792969 27.638672 C 10.426116 27.638652 8.4008002 26.094673 7.9042969 24 L 4.9863281 24 L 4.9863281 32 L 27.009766 32 L 27.009766 24 L 24.085938 24 C 23.589246 26.094027 21.567679 27.638655 19.201172 27.638672 L 18.609375 27.638672 L 18.609375 18.957031 L 18.609375 18.365234 L 19.201172 18.365234 C 21.566097 18.365253 23.585584 19.908109 24.083984 22 L 27.009766 22 L 27.009766 14.40625 L 15.996094 6.8378906 z M 27.009766 22 L 27.009766 24 L 32 24 L 32 22 L 27.009766 22 z M 4.9863281 24 L 4.9863281 22 L 0 22 L 0 24 L 4.9863281 24 z "
+       transform="scale(0.26458333)" />
+  </g>
+  <metadata
+     id="metadata1506">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>Smart Home Connect Logo</dc:title>
+        <dc:date>2022-04-25</dc:date>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Michael Thies</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-nd/4.0/" />
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-nd/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+</svg>

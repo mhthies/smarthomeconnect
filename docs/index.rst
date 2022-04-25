@@ -2,6 +2,10 @@
 Welcome to Smart Home Connect's docs!
 =====================================
 
+.. image:: ../etc/logo.svg
+    :width: 100
+    :align: right
+
 Smart Home Connect (SHC) is a Home Automation framework for Python 3, based on Python's AsyncIO modules for asynchronous event processing.
 Its purpose is to connect "smart home" devices via different communication protocols, provide means for creating automation rules/scripts and a web interface for controlling the devices via browser.
 
