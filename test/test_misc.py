@@ -39,6 +39,7 @@ class MiscTests(unittest.TestCase):
         var2 = shc.Variable(int).connect(pipe.right)
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        await asyncio.sleep(0.1)
         self.assertEqual(await var1.read(), await var2.read())
 
     @async_test
@@ -181,7 +182,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
             .connect(var2)
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
-        await asyncio.sleep(0.02)
+        await asyncio.sleep(0.1)
         self.assertEqual(await var1.read(), await var2.read())
 
     @async_test
@@ -196,7 +197,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
         exchange2.subscribe(var1)
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
-        await asyncio.sleep(0.02)
+        await asyncio.sleep(0.1)
         self.assertEqual(await var1.read(), await var2.read())
 
     @async_test
@@ -213,7 +214,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
         writable3 = ExampleWritable(int).connect(var3)
 
         await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
-        await asyncio.sleep(0.02)
+        await asyncio.sleep(0.1)
         self.assertEqual(await var1.field('a').read(), await var3.read())
 
         self.assertLessEqual(writable1._write.call_count, 3)

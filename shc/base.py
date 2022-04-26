@@ -14,6 +14,7 @@ import asyncio
 import contextvars
 import functools
 import logging
+import random
 from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Dict, Set
 
 from . import conversion
@@ -27,6 +28,7 @@ LogicHandler = Callable[[T, List[Any]], Awaitable[None]]
 logger = logging.getLogger(__name__)
 
 magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_origin')
+MAX_CONCURRENT_UPDATE_DELAY = 0.02
 
 C = TypeVar('C', bound="Connectable")
 
@@ -193,12 +195,17 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._publish_count: int = 0
         self._subscribers: List[SubscriberListType] = []
         self._triggers: List[Tuple[LogicHandler, bool]] = []
         self._pending_updates: Dict[int, Dict[asyncio.Task, Optional[int]]] = {}
 
     async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T_co], S]], value: T_co,
-                              origin: List[Any], use_pending: bool):
+                              origin: List[Any], use_pending: bool, wait_and_check: Optional[int] = None):
+        if wait_and_check is not None:
+            await asyncio.sleep(random.random() * 0.02)
+            if wait_and_check != self._publish_count:
+                return
         try:
             await subscriber.write(converter(value) if converter else value, origin + [self])  # type: ignore
         except Exception as e:
@@ -208,7 +215,11 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                 del self._pending_updates[id(subscriber)][asyncio.current_task()]  # type: ignore
 
     async def __publish_trigger(self, target: LogicHandler, value: T_co,
-                                origin: List[Any], use_pending: bool):
+                                origin: List[Any], use_pending: bool, wait_and_check: Optional[int] = None):
+        if wait_and_check is not None:
+            await asyncio.sleep(random.random() * 0.02)
+            if wait_and_check != self._publish_count:
+                return
         try:
             await target(value, origin + [self])
         except Exception as e:
@@ -224,8 +235,10 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         All logic handlers and :meth:`Writable.write` methods are called in parallel asyncio tasks, which are **not**
         awaited to return. If `_stateful_publishing` is True on this object (or class), it will keep track of the
         currently pending publishing tasks. This information is then used to mitigate state inconsistencies, caused by
-        value updates crossing over each other, by resetting the `origin` of following value updates to the respected
-        subscribers.
+        value updates crossing over each other, by resetting the `origin` of following value updates to the respective
+        subscribers. Additionally, these updates with resetted origin are delayed for a random delay up to
+        :data:`MAX_CONCURRENT_UPDATE_DELAY` seconds (and skipped if overtaken by another update in that time) to avoid
+        endless update loops of two competing value updates.
 
         `_stateful_publishing` should be enabled for all objects that are *Subscribable* and *Writable* (i.e. allows
         sending and receiving value updates) and have either internal state (like Variables) or represent an external,
@@ -239,6 +252,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         :param origin: The origin list of the new value, **excluding** this object. See :ref:`base.event-origin` for
             more details.`self` is appended automatically before calling the registered subscribers and logic handlers.
         """
+        self._publish_count += 1
         if self._stateful_publishing:
             for subscriber, converter in self._subscribers:
                 prev_step = id(origin[-1]) if origin else None
@@ -246,15 +260,19 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                 if reset_origin:
                     logger.info("Resetting origin from %s to %s; value=%s; origin=%s", self, subscriber, value, origin)
                 if reset_origin or not any(s is subscriber for s in origin):
-                    task = asyncio.create_task(self.__publish_write(subscriber, converter, value,
-                                                                    [] if reset_origin else origin, True))
+                    task = asyncio.create_task(
+                        self.__publish_write(subscriber, converter, value, [] if reset_origin else origin,
+                                             use_pending=True,
+                                             wait_and_check=self._publish_count if reset_origin else None))
                     self._pending_updates[id(subscriber)][task] = prev_step
             for target, sync in self._triggers:
                 reset_origin = False
                 if sync:
                     prev_step = id(origin[-1]) if origin else None
                     reset_origin = any(o != prev_step for o in self._pending_updates[id(target)].values())
-                task = asyncio.create_task(self.__publish_trigger(target, value, [] if reset_origin else origin, sync))
+                task = asyncio.create_task(
+                    self.__publish_trigger(target, value, [] if reset_origin else origin, use_pending=sync,
+                                           wait_and_check=(self._publish_count if reset_origin else None)))
                 if sync:
                     self._pending_updates[id(target)][task] = prev_step
 
@@ -263,7 +281,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                 asyncio.create_task(self.__publish_trigger(target, value, origin, False))
             for subscriber, converter in self._subscribers:
                 if not any(s is subscriber for s in origin):
-                    asyncio.create_task(self.__publish_write(subscriber, converter, value, origin, False))
+                    asyncio.create_task(self.__publish_write(subscriber, converter, value, origin, use_pending=False))
 
     async def _publish_and_wait(self, value: T_co, origin: List[Any]):
         """
@@ -279,6 +297,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         :param origin: The origin list of the new value, **excluding** this object. See :ref:`base.event-origin` for
             more details.`self` is appended automatically before calling the registered subscribers and logic handlers.
         """
+        self._publish_count += 1
         for target, sync in self._triggers:
             if not sync:
                 asyncio.create_task(self.__publish_trigger(target, value, origin, False))
