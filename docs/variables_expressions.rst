@@ -30,6 +30,7 @@ Thus, they are typically used as a "central connection point" for a certain valu
         some_button.connect(knx_connection.group(shc.interfaces.knx.KNXGAD(3, 2, 1), dpt="1.008"))
 
     In such cases, it is even harmful to use a variable as a middle link, since it only publishes **changes** in value and suppresses updates of an unchanged value.
+    You may want to take a look at :class:`shc.misc.UpdateExchange`, which can be used as a central exchange for value updates between multiple *connectable* objects without suppressing unchanged values.
 
 *Variables* are :class:`shc.base.Readable` (providing their current value), :class:`shc.base.Writable` (to update the value) and :class:`shc.base.Subscribable` (to publish changes of the value).
 In addition, they are optionally :class:`shc.base.Reading` for initialization purposes:
@@ -38,7 +39,7 @@ When a default provider is set, they will *read* its value once, immediately aft
 The value type of a variable must be given when it is instantiated.
 Optionally, a name and and initial value can be provided:
 
-.. automethod:: shc.variables.Variable.__init__
+.. autoclass:: shc.variables.Variable
 
 .. _variables.tuple_field_access:
 
@@ -81,6 +82,9 @@ Equally, they can be retrieved via the :meth:`VariableField.field` method.
     To enable the MyPy plugin, create a MyPy config file (see `https://mypy.readthedocs.io/en/stable/config_file.html <https://mypy.readthedocs.io/en/stable/config_file.html>`_) and set ``plugins = shc.util.mypy_variable_plugin`` in the ``[mypy]`` section.
     The plugin will only work if the tuple field name is passed to `.field()` as a string literal, like in the example above.
 
+.. tip::
+    Use :class:`shc.misc.UpdateExchange` to split up NamedTuple-based value updates in a stateless way:
+    It provides an equal way for subscribing to fields of the NamedTuple via the :meth:`shc.misc.UpdateExchange.field` method but does not store the latest value and does not suppress value updates with unchanged values.
 
 .. _expressions:
 

@@ -270,7 +270,7 @@ class ConnectedVariablesTest(unittest.TestCase):
         var2 = variables.Variable(int).connect(var1)
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.1)
         self.assertEqual(await var1.read(), await var2.read())
 
     @async_test
@@ -283,7 +283,7 @@ class ConnectedVariablesTest(unittest.TestCase):
         writable3 = ExampleWritable(int).connect(var3)
 
         await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.1)
         self.assertEqual(await var1.field('a').read(), await var3.read())
 
         self.assertLessEqual(writable1._write.call_count, 3)
@@ -293,7 +293,7 @@ class ConnectedVariablesTest(unittest.TestCase):
 
 
 class MyPyPluginTest(unittest.TestCase):
-    def test_mypy_plugin(self) -> None:
+    def test_mypy_plugin_variable(self) -> None:
         asset_dir = Path(__file__).parent / 'assets' / 'mypy_plugin_test'
         result = mypy.api.run(['--config-file',
                                str(asset_dir / 'mypy.ini'),
@@ -305,4 +305,20 @@ class MyPyPluginTest(unittest.TestCase):
         self.assertIn("variable_typing_example.py:27: error", result[0])
         self.assertIn("variable_typing_example.py:28: error", result[0])
         self.assertIn("variable_typing_example.py:29: error", result[0])
+        self.assertEqual(1, result[2])
+
+    def test_mypy_plugin_exchange(self) -> None:
+        asset_dir = Path(__file__).parent / 'assets' / 'mypy_plugin_test'
+        result = mypy.api.run(['--config-file',
+                               str(asset_dir / 'mypy.ini'),
+                               str(asset_dir / 'exchange_typing_example.py')])
+        self.assertIn("exchange_typing_example.py:24: error", result[0])
+        self.assertIn("exchange_typing_example.py:25: error", result[0])
+        self.assertNotIn("exchange_typing_example.py:26: error", result[0])
+        self.assertNotIn("exchange_typing_example.py:27: error", result[0])
+        self.assertIn("exchange_typing_example.py:28: error", result[0])
+        self.assertNotIn("exchange_typing_example.py:29: error", result[0])
+        self.assertIn("exchange_typing_example.py:30: error", result[0])
+        self.assertIn("exchange_typing_example.py:31: error", result[0])
+        self.assertIn("exchange_typing_example.py:32: error", result[0])
         self.assertEqual(1, result[2])
