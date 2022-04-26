@@ -172,6 +172,42 @@ class MiscTests(unittest.TestCase):
         self.assertIsInstance(sub._write.call_args[0][0], shc.datatypes.RangeFloat1)
 
 
+class UpdateExchangeTest(unittest.TestCase):
+    @async_test
+    async def test_simple(self) -> None:
+        target1 = ExampleWritable(int)
+        target2 = ExampleWritable(int)
+        exchange = shc.misc.UpdateExchange(int) \
+            .connect(target1)\
+            .connect(target2)
+
+        await exchange.write(42, [self])
+        await asyncio.sleep(0.05)
+        target1._write.assert_called_once_with(42, [self, exchange])
+        target2._write.assert_called_once_with(42, [self, exchange])
+
+        await exchange.write(42, [self])
+        await asyncio.sleep(0.05)
+        self.assertEqual(2, target1._write.call_count)
+        self.assertEqual(2, target2._write.call_count)
+        target1._write.assert_called_with(42, [self, exchange])
+        target2._write.assert_called_with(42, [self, exchange])
+
+    @async_test
+    async def test_field(self) -> None:
+        target1 = ExampleWritable(ExampleTupleType)
+        target2 = ExampleWritable(int)
+        exchange = shc.misc.UpdateExchange(ExampleTupleType) \
+            .connect(target1)
+        exchange.field('a')\
+            .connect(target2)
+
+        await exchange.write(ExampleTupleType(42, 3.1416), [self])
+        await asyncio.sleep(0.05)
+        target1._write.assert_called_once_with(ExampleTupleType(42, 3.1416), [self, exchange])
+        target2._write.assert_called_once_with(42, [self, exchange, exchange.field('a')])
+
+
 class ConnectedExchangeVariableTest(unittest.TestCase):
     @async_test
     async def test_simple_concurrent_update(self) -> None:
