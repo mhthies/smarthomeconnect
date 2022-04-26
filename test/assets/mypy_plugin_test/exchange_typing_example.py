@@ -24,7 +24,7 @@ async def some_function() -> None:
     await exchange.field('a').read()  # error expected (not a Readable object)
     exchange.field('a').subscribe(target, convert=convert_str)  # type error expected
     exchange.field('a').subscribe(target, convert=convert_float)  # ok
-    exchange.field(SOME_A).subscribe(target, convert=convert_float)  # cannot be detected, since field name is no str literal
+    exchange.field(SOME_A).subscribe(target, convert=convert_float)  # not checked, b/c arg is no str literal
     exchange.field('c').field('a').subscribe(target, convert=convert_str)  # type error expected
     exchange.field('c').field('a').subscribe(target, convert=convert_float)  # ok
     exchange.field('x').subscribe(target, convert=convert_float)  # attr error expected
