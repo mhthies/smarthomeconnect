@@ -339,22 +339,23 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Reading[T], 
         if value is not None:
             await self._write(value, [])
 
-    def new_value(self, value: Any) -> None:
+    def new_value(self, raw_value: Any) -> None:
         """
         Called by the associated :class:`SHCWebClient` when a new value for this object is received from the remote SHC
         server to be published to local subscribers.
 
-        :param value: The received, json-decoded value. It will be processed using :meth:`shc.conversion.from_json`.
+        :param raw_value: The received, json-decoded value. It will be processed using :meth:`shc.conversion.from_json`.
         """
         try:
             # Return value to server if we have sent a (conflicting) value recently (with the acknowledge still pending)
             # to prevent inconsistent state on server and client.
+            value: T = from_json(self.type, raw_value)
             if self.pending_sends:
                 asyncio.create_task(self._write(value, [], _reflected_from_server=True))
-            self._publish(from_json(self.type, value), [])
-            logger.debug("Received new value %s for SHC API object %s", value, self.name)
+            self._publish(value, [])
+            logger.debug("Received new value %s for SHC API object %s", raw_value, self.name)
         except Exception as e:
-            logger.error("Error while processing new value %s for API object %s", value, self.name, exc_info=e)
+            logger.error("Error while processing new value %s for API object %s", raw_value, self.name, exc_info=e)
 
 
 class WebSocketAPIError(RuntimeError):
