@@ -4,6 +4,8 @@ import json
 from typing import IO, Any, Dict, Tuple, Optional, Generic, List, Type
 from pathlib import Path
 
+import aiofile
+
 from shc.base import Readable, T, Writable
 from shc.supervisor import AbstractInterface
 
@@ -21,26 +23,24 @@ class FilePersistenceStore(AbstractInterface):
         self.file_mutex = asyncio.Lock()
         #: element name -> (offset, key_length, value_capacity)
         self.element_map: Dict[str, Tuple[int, int, int]] = {}
+        self.footer_offset = 0
         self.abandoned_lines = 0
-        self.fd: IO[bytes]
+        self.fd: aiofile.BinaryFileWrapper
 
     async def start(self) -> None:
-        # TODO make check non-blocking
-        if self.file.is_file():
-            # TODO make open non-blocking
-            self.fd: IO[bytes] = self.file.open('rb+')
+        file_exists = await asyncio.get_event_loop().run_in_executor(None, self.file.exists)
+        if file_exists:
+            self.fd = aiofile.async_open(self.file, 'rb')
+            await self.fd.file.open()
             await self.rewrite()
         else:
-            # TODO make open non-blocking
-            self.fd = self.file.open('xb')
-            # TODO make write non-blocking
-            self.fd.write(b"{\n" + FOOTER)
-            # TODO make flush non-blocking
-            self.fd.flush()
+            self.fd = aiofile.async_open(self.file, 'xb+')
+            await self.fd.file.open()
+            await self.fd.write(b"{\n" + FOOTER)
         self.file_ready.set()
 
     async def stop(self) -> None:
-        self.fd.close()
+        await self.fd.close()
 
     async def rewrite(self):
         # Create temp file
@@ -50,31 +50,29 @@ class FilePersistenceStore(AbstractInterface):
         async with self.file_mutex:
             # Read all current data in main file as JSON document
             self.fd.seek(0)
-            data = json.load(io.TextIOWrapper(self.fd, encoding="utf-8-sig"))
+            data = json.loads((await self.fd.read()).decode('utf-8'))
             assert isinstance(data, dict)
 
             # Re-write data into temp file
-            # TODO make open non-blocking
-            # TODO make writes non-blocking
-            new_fd = tmp_file.open('xb+')
-            new_fd.write(b"{\n")
+            new_fd: aiofile.BinaryFileWrapper = aiofile.async_open(tmp_file, 'xb+')
+            await new_fd.file.open()
+            await new_fd.write(b"{\n")
             new_map = {}
             for key, value in data.items():
                 if key == '_':
                     continue
                 start = new_fd.tell()
-                key_written = new_fd.write(b'"' + key.encode() + b'":')
-                value_written = new_fd.write(json.dumps(value, separators=(',', ':')).encode('utf-8')
-                                             + (b' ' * 10) + b',\n')
+                key_written = await new_fd.write(b'"' + key.encode() + b'":')
+                value_written = await new_fd.write(json.dumps(value, separators=(',', ':')).encode('utf-8')
+                                                   + (b' ' * 10) + b',\n')
                 new_map[key] = (start, key_written, value_written-2)  # Do not count the ',\n' into the available length
-            new_fd.write(FOOTER)
-            # TODO make flush non-blocking
-            new_fd.flush()
+            self.footer_offset = new_fd.tell()
+            await new_fd.write(FOOTER)
+            await new_fd.file.fsync()
 
             # Overwrite main file with temp file and replace file descriptor
-            self.fd.close()
-            # TODO make replace non-blocking
-            tmp_file.replace(self.file)
+            await self.fd.close()
+            await asyncio.get_event_loop().run_in_executor(None, tmp_file.replace, self.file)
             new_fd.seek(0)
             self.fd = new_fd
             self.element_map = new_map
@@ -87,8 +85,7 @@ class FilePersistenceStore(AbstractInterface):
                 return None
             offset, key_length, capacity = self.element_map[name]
             self.fd.seek(offset+key_length)
-            # TODO make read non-blocking
-            return json.loads(self.fd.read(capacity).decode('utf-8'))
+            return json.loads((await self.fd.read(capacity)).decode('utf-8'))
 
     async def set_element(self, name: str, value: Any) -> None:
         await self.file_ready.wait()
@@ -99,27 +96,29 @@ class FilePersistenceStore(AbstractInterface):
             if name in self.element_map:
                 offset, key_length, capacity = self.element_map[name]
                 if length > capacity:
-                    # Clear out current element line with spaces and activate appending a new line to the end of the file
+                    # Clear out current element line with spaces and activate appending a new line to the end of the
+                    # file
                     self.fd.seek(offset)
-                    self.fd.write(b' '*(key_length+capacity+1))  # overwrite ',' at the end with ' '
+                    await self.fd.write(b' '*(key_length+capacity+1))  # overwrite ',' at the end with ' '
                     self.abandoned_lines += 1
                     append = True
                 else:
                     self.fd.seek(offset+key_length)
-                    self.fd.write(data + (b' ' * (capacity-length)))
+                    await self.fd.write(data + (b' ' * (capacity-length)))
                     append = False
             else:
                 append = True
             if append:
-                self.fd.seek(-FOOTER_LEN, 2)  # overwrite full-footer at the end of the file to rewrite it later
+                self.fd.seek(self.footer_offset)  # overwrite full-footer at the end of the file to rewrite it later
                 start = self.fd.tell()
-                key_written = self.fd.write(b'"' + name.encode() + b'":')
-                value_written = self.fd.write(json.dumps(value, separators=(',', ':')).encode('utf-8')
-                                              + (b' ' * 10) + b',\n')
-                self.fd.write(FOOTER)
-                self.element_map[name] = (start, key_written, value_written - 2)  # Do not count the ',\n' into the available length
-            # TODO make flush non-blocking
-            self.fd.flush()
+                key_written = await self.fd.write(b'"' + name.encode() + b'":')
+                value_written = await self.fd.write(json.dumps(value, separators=(',', ':')).encode('utf-8')
+                                                    + (b' ' * 10) + b',\n')
+                self.footer_offset = self.fd.tell()
+                await self.fd.write(FOOTER)
+                self.element_map[name] = (start, key_written, value_written - 2)
+                # ↑ Do not count the ',\n' into the available length
+            await self.fd.file.fsync()
 
         if self.abandoned_lines > MAX_ABANDONED_LINES:
             await self.rewrite()

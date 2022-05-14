@@ -10,6 +10,7 @@ asyncio-mqtt>=0.10.0,<0.13
 paho-mqtt>=1.5.1,<2
 pulsectl_asyncio~=0.2.0
 aiogram~=2.18
+aiofile>=3.7.4,<4
 
 # Test/type-checking-only dependencies
 mypy  # required by the shc.util.mypy_variable_plugin
