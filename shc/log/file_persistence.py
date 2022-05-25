@@ -16,6 +16,33 @@ MAX_ABANDONED_LINES = 50
 
 
 class FilePersistenceStore(AbstractInterface):
+    """
+    A value persistence backend for storing values in a single JSON file
+
+    The goal is to write values to disk as fast as possible to persist them across graceful restarts and not-so-graceful
+    restarts (= crashes) of SHC or the host operating system. Any number of named and Readable+Writable Connector
+    objects are used to *write* to a specific persisted value and allow to *read* it back, typically for initialization
+    of stateful in-memory objects like Variable objects.
+
+    In this case, the values are serialized using their `canonical JSON representation <datatypes.json>`_ and written to
+    as values of a JSON object in a JSON file, indexed by the connector's name. To avoid writing overhead when updating
+    a single value, individual values are updated in-place in the JSON-file. To make this possible, we maintain a map
+    of byte-offsets of the individual fields insert some spaces as buffer for growing values after each value. In case
+    the new value representation's length exceeds the old length + buffer, we clear the whole key-value pair with spaces
+    and append it as a new line at the end of the file.
+
+    Now and then, we can rewrite the whole file (esp. at startup) to truncate those empty bloat lines. Rewriting,
+    however, is done in crash-safe way, i.e. we first rewrite the data to a new temporary file and afterwards replace
+    the original file atomically.
+
+    The file is intended to be a valid JSON file as a whole at all times (after each completed write process). However,
+    due to the occasional rewriting and replacement of the file, an open file handle to the file may not stay valid. By
+    rewriting the file right at startup, the JSON file is brought to the required formatting. Thus, it may be altered
+    arbitrarily while SHC is shut down.
+
+    :param file: Path of the JSON file to be used for persistence. Will be created if not already exists. If already
+        existent, it must be a valid JSON file with a single object as top-level structure.
+    """
     def __init__(self, file: Path):
         super().__init__()
         self.file = file
@@ -124,6 +151,13 @@ class FilePersistenceStore(AbstractInterface):
             await self.rewrite()
 
     def connector(self, type_: Type[T], name: str) -> "FilePersistenceConnector[T]":
+        """
+        Get a connector for writing and reading a specific named value to/form the persistence file.
+
+        :param type_: Data type of the values to be stored by this connector
+        :param name: The name to identify the specific value. Any string except for "_" is allowed.
+        :return: A *Writable* and *Readable* object that accesses the value identified by the given `name`.
+        """
         return FilePersistenceConnector(type_, self, name)
 
 
