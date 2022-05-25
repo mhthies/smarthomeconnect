@@ -1,0 +1,16 @@
+diff --git a/node_modules/fomantic-ui-css/semantic.css b/node_modules/fomantic-ui-css/semantic.css
+index b902300..78b2e6d 100644
+--- a/node_modules/fomantic-ui-css/semantic.css
++++ b/node_modules/fomantic-ui-css/semantic.css
+@@ -61338,11 +61338,6 @@ a.ui.nag {
+   box-shadow: none;
+ }
+ 
+-[data-tooltip][data-inverted]:after .header {
+-  background: none;
+-  color: #FFFFFF;
+-}
+-
+ /*--------------
+         Position
+     ---------------*/

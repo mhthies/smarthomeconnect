@@ -1,6 +1,7 @@
 {
   "devDependencies": {
-    "parcel": "^2.5.0"
+    "parcel": "^2.5.0",
+    "patch-package": "^6.4.7"
   },
   "dependencies": {
     "@jaames/iro": "^5.5.1",
@@ -8,6 +9,7 @@
     "fomantic-ui-css": "^2.8.8"
   },
   "scripts": {
-    "build": "parcel build web_ui_src/main.js --dist-dir shc/web/static/pack --public-url ./"
+    "build": "parcel build web_ui_src/main.js --dist-dir shc/web/static/pack --public-url ./",
+    "postinstall": "patch-package"
   }
 }

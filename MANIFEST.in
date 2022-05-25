@@ -4,3 +4,4 @@ graft shc/web/templates
 graft shc/web/static
 prune shc/web/static/pack
 graft web_ui_src
+graft patches
