@@ -185,6 +185,36 @@ Then we can connect these group addresses to SHC variables in the following way:
                  )
 
 
+Emulating a dimming actuator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With SHC, you can create a KNX dimming actuator yourself, i.e. listen for incoming "Control Dimming" telegrams (KNX datapoint type 3.007) and adjust a percentage Variable in SHC accordingly.
+This can be used to control non-KNX dimmable devices (such as a Tasmota-based LED strip) using a KNX wall switch with dimming function.
+
+In theory, the KNX "Control Dimming" datatype supports differently sized steps, which can be directly applied to the value, via a :class:`FadeStepAdapter <shc.misc.FadeStepAdapter>`. We only need to convert the KNXControlDimming values to FadeStep values (via :class:`ConvertSubscription <shc.misc.ConvertSubscription>`, in the simplest way)::
+
+    led_strip_brightness = shc.Variable(RangeFloat1, "LED strip brightness")
+    led_strip_dimming_group = knx_interface.group(KNXGAD(4, 2, 9), "3")
+
+    led_strip_brightness\
+        .connect(shc.misc.FadeStepAdapter(
+            shc.misc.ConvertSubscription(led_strip_dimming_group, FadeStep)))
+
+However, at least some KNX wall switches only send start- and stop commands for dimming, i.e. a single dimming step of
++100% or -100%. Then, they expect the dimming actuator to apply this step gradually and stop at the current value when
+a stop command is received. To emulate this behaviour with SHC, we need to replace the :class:`FadeStepAdapter <shc.misc.FadeStepAdapter>` with a
+:class:`FadeStepRamp <shc.timer.FadeStepRamp>`::
+
+    led_strip_brightness = shc.Variable(RangeFloat1, "LED strip brightness")
+    led_strip_dimming_group = knx_interface.group(KNXGAD(4, 2, 9), "3")
+
+    led_strip_brightness\
+        .connect(shc.timer.FadeStepRamp(
+            shc.misc.ConvertSubscription(led_strip_dimming_group, FadeStep),
+            ramp_duration=datetime.timedelta(seconds=5), max_frequency=5.0))
+    #           ↑ Full range dimming duration: 5 sec           ↑ max value update rate: 5 Hz    (⇒ 25 dimming steps)
+
+
 ``interfaces.knx`` Module Reference
 -----------------------------------
 
