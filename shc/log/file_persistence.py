@@ -24,7 +24,19 @@ class FilePersistenceStore(AbstractInterface):
     objects are used to *write* to a specific persisted value and allow to *read* it back, typically for initialization
     of stateful in-memory objects like Variable objects.
 
-    In this case, the values are serialized using their `canonical JSON representation <datatypes.json>`_ and written to
+    Usage example::
+
+        from pathlib import Path
+        import shc
+        from shc.log.file_persistence import FilePersistenceStore
+
+        persistence_store = FilePersistenceStore(Path("/var/lib/shc/persistence.json"))
+
+        temp_setpoint = shc.Variable(float, name="temp_setpoint")\
+            .connect(persistence_store.connector(float, "temp_setpoint"), read=True)
+
+    In this persistence store implementation, the values are serialized using their `canonical JSON representation
+    <datatypes.json>`_ and written to
     as values of a JSON object in a JSON file, indexed by the connector's name. To avoid writing overhead when updating
     a single value, individual values are updated in-place in the JSON-file. To make this possible, we maintain a map
     of byte-offsets of the individual fields insert some spaces as buffer for growing values after each value. In case
