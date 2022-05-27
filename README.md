@@ -178,6 +178,8 @@ They can be installed automatically via pip, by specifying the relevant 'extras'
     * `pulsectl` and `pulsectl-asyncio` (MIT License)
 * Telegram Bot interface `[telegram]`:
     * `aiogram` (MIT License) + its dependencies (BSD-3-Clause License + MPL 2.0)
+* file-based persistence storage `[file_persistence]`:
+    * `aiofile` & `caio` (Apache License 2.0)
 
 In addition, the following Javascript libraries from NPM are required for the web UI frontend.
 They are not included in this repository or in source distribution packages of SHC.
