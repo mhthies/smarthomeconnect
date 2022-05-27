@@ -11,7 +11,7 @@ from shc.supervisor import AbstractInterface
 
 
 FOOTER = b'"_": null\n}\n'
-FOOTER_LEN = len(FOOTER)
+NUM_BUFFER_SPACES = 10
 MAX_ABANDONED_LINES = 50
 
 
@@ -91,7 +91,7 @@ class FilePersistenceStore(AbstractInterface):
                 start = new_fd.tell()
                 key_written = await new_fd.write(b'"' + key.encode() + b'":')
                 value_written = await new_fd.write(json.dumps(value, separators=(',', ':')).encode('utf-8')
-                                                   + (b' ' * 10) + b',\n')
+                                                   + (b' ' * NUM_BUFFER_SPACES) + b',\n')
                 new_map[key] = (start, key_written, value_written-2)  # Do not count the ',\n' into the available length
             self._footer_offset = new_fd.tell()
             await new_fd.write(FOOTER)
@@ -140,7 +140,7 @@ class FilePersistenceStore(AbstractInterface):
                 start = self._fd.tell()
                 key_written = await self._fd.write(b'"' + name.encode() + b'":')
                 value_written = await self._fd.write(json.dumps(value, separators=(',', ':')).encode('utf-8')
-                                                     + (b' ' * 10) + b',\n')
+                                                     + (b' ' * NUM_BUFFER_SPACES) + b',\n')
                 self._footer_offset = self._fd.tell()
                 await self._fd.write(FOOTER)
                 self._element_map[name] = (start, key_written, value_written - 2)
