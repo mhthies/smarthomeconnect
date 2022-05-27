@@ -70,11 +70,15 @@ class FilePersistenceStore(AbstractInterface):
     async def start(self) -> None:
         file_exists = await asyncio.get_event_loop().run_in_executor(None, self.file.exists)
         if file_exists:
-            self._fd = aiofile.async_open(self.file, 'rb')
+            fd = aiofile.async_open(self.file, 'rb')
+            assert isinstance(fd, aiofile.BinaryFileWrapper)
+            self._fd = fd
             await self._fd.file.open()
             await self.rewrite()
         else:
-            self._fd = aiofile.async_open(self.file, 'xb+')
+            fd = aiofile.async_open(self.file, 'xb+')
+            assert isinstance(fd, aiofile.BinaryFileWrapper)
+            self._fd = fd
             await self._fd.file.open()
             await self._fd.write(b"{\n" + FOOTER)
             self._footer_offset = 2
@@ -95,7 +99,8 @@ class FilePersistenceStore(AbstractInterface):
             assert isinstance(data, dict)
 
             # Re-write data into temp file
-            new_fd: aiofile.BinaryFileWrapper = aiofile.async_open(tmp_file, 'xb+')
+            new_fd = aiofile.async_open(tmp_file, 'xb+')
+            assert isinstance(new_fd, aiofile.BinaryFileWrapper)
             await new_fd.file.open()
             await new_fd.write(b"{\n")
             new_map = {}
