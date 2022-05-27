@@ -6,7 +6,8 @@ from pathlib import Path
 
 import aiofile
 
-from shc.base import Readable, T, Writable
+from shc.base import Readable, T, Writable, UninitializedError
+from shc.conversion import from_json
 from shc.supervisor import AbstractInterface
 
 
@@ -184,7 +185,10 @@ class FilePersistenceConnector(Readable[T], Writable[T], Generic[T]):
         self.name = name
 
     async def read(self) -> T:
-        return await self.interface.get_element(self.name)
+        value = await self.interface.get_element(self.name)
+        if value is None:
+            raise UninitializedError()
+        return from_json(self.type, value)
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         await self.interface.set_element(self.name, value)
