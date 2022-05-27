@@ -64,6 +64,7 @@ class FilePersistenceStore(AbstractInterface):
             self._fd = aiofile.async_open(self.file, 'xb+')
             await self._fd.file.open()
             await self._fd.write(b"{\n" + FOOTER)
+            self._footer_offset = 2
         self._file_ready.set()
 
     async def stop(self) -> None:
