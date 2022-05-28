@@ -49,7 +49,7 @@ To shorten this procedure, every *Connectable* object provides the :meth:`shc.ba
 It connects two *Connectable* objects by
 
 * subscribing each to the other if applicable (i.e. it is *Writable* and the other one is *Subscribable*) and
-* setting each as the other's *default provider* if applicable (i.e. it is *Readable* and the other is *Reading*) and the other has *reading_is_mandatory*.
+* setting each as the other's *default provider* if applicable (i.e. it is *Readable* and the other is *Reading*) and the other explicitly requires reading values (as specified by the *reading_is_mandatory* attribute).
 
 The default behaviour can be customized via the ``send``/``receive`` arguments (for subscribing) resp. the ``provide``/``read`` arguments (for registering as *default provider*).
 
@@ -81,6 +81,14 @@ The default behaviour can be customized via the ``send``/``receive`` arguments (
             .connect(knx_connection.group(shc.interfaces.knx.KNXGAD(1, 2, 3), dpt="1"))
         switch_widget = shc.web.widgets.Switch("Switch Label")\
             .connect(variable)
+
+.. note::
+
+    For most *Connectable* objects, the *Reading* functionality is an optional feature and not required for normal functionality.
+    E.g., :class:`shc.Variable` can *read* for initialization at startup, :class:`shc.interfaces.knx.KNXGroupVar` can respond to GroupRead telegrams from the KNX bus, :class:`shc.interfaces.shc_client.WebApiClientObject` can do client-to-server state synchronization at client startup, etc.
+    Thus, the ``.connect()`` method does not set the *default provider* by default unless explicitly requested with the ``provide``/``read`` arguments.
+    However, some *Connectable* objects require reading from a default provider for their normal functionality, such as all :class:`WebDisplayDatapoint <shc.web.interface.WebDisplayDatapoint>`-based web UI widgets for *reading* the current value when a new client connects.
+    These classes typically have set ``is_reading_optional = False``, so ``.connect()`` will set the *default provider*, unless not explicitly disabled.
 
 
 .. _base.event-origin:
