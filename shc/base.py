@@ -492,7 +492,12 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
     return decorator
 
 
-def blocking_handler() -> Callable[[Callable[[T, List[Any]], None]], LogicHandler]:
+BlockingLogicHandlerOptionalParams = Union[Callable[[T, List[Any]], None],
+                                           Callable[[T], None],
+                                           Callable[[], None]]
+
+
+def blocking_handler() -> Callable[[BlockingLogicHandlerOptionalParams], LogicHandler]:
     """
     Decorator for custom blocking (non-async) logic handler functions.
 
@@ -506,7 +511,7 @@ def blocking_handler() -> Callable[[Callable[[T, List[Any]], None]], LogicHandle
     include special measures for preparing and passing the `origin` list or avoiding recursive execution. Still, it
     takes care of the correct number of arguments (zero to two) for calling the function.
     """
-    def decorator(f: Callable[[T, List[Any]], None]) -> LogicHandler:
+    def decorator(f: BlockingLogicHandlerOptionalParams) -> LogicHandler:
         num_args = _count_function_args(f)
 
         @functools.wraps(f)
