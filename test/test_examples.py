@@ -46,6 +46,9 @@ class BasicTest(unittest.TestCase):
         import example.custom_ui_widget.main  # type: ignore
         # TODO add selenium test for actual position of the indicator
 
+    def test_sun_position_weather_forecast_example(self) -> None:
+        import example.sun_position_weather_forecast  # type: ignore
+
     @classmethod
     def setUpClass(cls) -> None:
         shc.supervisor._REGISTERED_INTERFACES.clear()
