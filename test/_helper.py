@@ -12,6 +12,7 @@ import asyncio
 import concurrent.futures
 import functools
 import heapq
+import inspect
 import threading
 import time
 import unittest.mock
@@ -49,6 +50,11 @@ class AsyncMock(unittest.mock.MagicMock):
     The async calls are passed to the normal call/enter/exit methods of the super class to use its usual builtin
     evaluation/assertion functionality (e.g. :meth:`unittest.mock.NonCallableMock.assert_called_with`).
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not hasattr(self, "__signature__"):
+            self.__signature__ = inspect.signature(self.__call__)
+
     async def __call__(self, *args, **kwargs):
         return super().__call__(*args, **kwargs)
 

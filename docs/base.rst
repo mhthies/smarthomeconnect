@@ -181,7 +181,7 @@ Putting it all together, a logic handler may look as follows::
     @timer.trigger
     @some_variable.trigger
     @shc.handler()
-    async def my_logics(_value, origin):
+    async def my_logics(_value, _origin):
         """ Write value of `some_variable` to KNX bus every 5 minutes & when it changes, but only for values > 42 """
         # We cannot use the value provided, since it is not defined when triggered by the timer
         value = await some_variable.read()
@@ -229,6 +229,27 @@ Putting it all together, a logic handler may look as follows::
             some_result = some_cpu_heavy_calculation(value)
 
             # Unfortunately, no .write() or .read() possible here.
+
+
+.. tip::
+
+    The :func:`shc.handler` and :func:`shc.blocking_handler` decorators take care of calling the logic handler function with the correct number of arguments:
+    If you don't need the ``origin`` list, you can simply omit the second parameter of your wrapped logic handler function::
+
+        @shc.handler()
+        async def my_value_only_handler(value):
+            await some_variable.write(value + 3)
+
+    If you don't need the ``value`` either, you can also omit this parameter.
+    Hence, the logic handler from the first example above can be rewritten as::
+
+        @timer.trigger
+        @some_variable.trigger
+        @shc.handler()
+        async def my_logics():
+            value = await some_variable.read()
+            if value > 42:
+                await some_knx_object.write(value)
 
 
 ``shc.base`` Module Reference

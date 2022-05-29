@@ -13,6 +13,7 @@ import abc
 import asyncio
 import contextvars
 import functools
+import inspect
 import logging
 import random
 from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Dict, Set
@@ -433,7 +434,12 @@ class Reading(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
         return convert(val) if convert else val
 
 
-def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler], LogicHandler]:
+LogicHandlerOptionalParams = Union[LogicHandler,
+                                   Callable[[T], Awaitable[None]],
+                                   Callable[[], Awaitable[None]]]
+
+
+def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandlerOptionalParams], LogicHandler]:
     """
     Decorator for custom logic handler functions.
 
@@ -445,6 +451,10 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
     * the `origin` can magically be passed when called directly by other logic handlers
     * the execution is skipped when called recursively (i.e. the logic handler is already contained in the `origin` list
 
+    It also allows to define the logic handler function with different numbers of parameters: If the function takes two
+    parameters, the trigger *value* and the *origin* are passed. If the function takes one parameter, only the *value*
+    is passed. If the function takes no parameters, it is called without arguments.
+
     :param reset_origin: If True, the origin which is magically passed to all `write` calls, only contains the logic
         handler itself, not the previous `origin` list, which led to the handler's execution. This can be used to
         change an object's value, which triggered this logic handler. This may cause infinite recursive feedback loops,
@@ -453,7 +463,9 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
         passed values and/or the `origin` list itself to prevent infinite feedback loops via `write` calls or calls to
         other logic handlers – especiaally when used together with `reset_origin`.
     """
-    def decorator(f: LogicHandler) -> LogicHandler:
+    def decorator(f: LogicHandlerOptionalParams) -> LogicHandler:
+        num_args = _count_function_args(f)
+
         @functools.wraps(f)
         async def wrapper(value, origin: Optional[List[Any]] = None) -> None:
             if origin is None:
@@ -467,7 +479,12 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
             logger.info("Triggering logic handler %s() from %s", f.__name__, origin)
             try:
                 token = magicOriginVar.set([wrapper] if reset_origin else (origin + [wrapper]))
-                await f(value, origin)
+                if num_args == 0:
+                    await f()  # type: ignore
+                elif num_args == 1:
+                    await f(value)  # type: ignore
+                else:
+                    await f(value, origin)  # type: ignore
                 magicOriginVar.reset(token)
             except Exception as e:
                 logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
@@ -486,9 +503,12 @@ def blocking_handler() -> Callable[[Callable[[T, List[Any]], None]], LogicHandle
     Like :func:`handler`, this decorator catches and logs errors and ensures that the `origin` can magically be passed
     when called directly by other logic handlers. However, since the wrapped function is not an asynchronous coroutine,
     it is not able to call :meth:`Writable.write` or another logic handler directly. Thus, this decorator does not
-    include special measures for preparing and passing the `origin` list or avoiding recursive execution.
+    include special measures for preparing and passing the `origin` list or avoiding recursive execution. Still, it
+    takes care of the correct number of arguments (zero to two) for calling the function.
     """
     def decorator(f: Callable[[T, List[Any]], None]) -> LogicHandler:
+        num_args = _count_function_args(f)
+
         @functools.wraps(f)
         async def wrapper(value, origin: Optional[List[Any]] = None) -> None:
             if origin is None:
@@ -499,8 +519,19 @@ def blocking_handler() -> Callable[[Callable[[T, List[Any]], None]], LogicHandle
             logger.info("Triggering blocking logic handler %s() from %s", f.__name__, origin)
             try:
                 loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, f, value, origin)
+                args = (value, origin)[:num_args]
+                await loop.run_in_executor(None, f, *args)
             except Exception as e:
                 logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
         return wrapper
     return decorator
+
+
+def _count_function_args(f: Callable) -> int:
+    num_args = 0
+    for param in inspect.signature(f).parameters.values():
+        if param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+            num_args += 1
+        elif param.kind is inspect.Parameter.VAR_POSITIONAL:
+            num_args += 2**30
+    return num_args

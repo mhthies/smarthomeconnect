@@ -160,6 +160,30 @@ class TestHandler(unittest.TestCase):
             await asyncio.sleep(0.01)
         self.assertIn("unexpected error in _write", "\n".join(ctx.output))
 
+    @async_test
+    async def test_missing_parameters(self) -> None:
+        mock = AsyncMock()
+
+        @base.handler()
+        async def full_handler(value, origin) -> None:
+            await mock(value, origin)
+
+        @base.handler()
+        async def part_handler(value) -> None:
+            await mock(value)
+
+        @base.handler()
+        async def empty_handler() -> None:
+            await mock()
+
+        await full_handler(1, [self])
+        await part_handler(2, [self, object])
+        await empty_handler(3, [self, unittest.mock.sentinel])
+        await asyncio.sleep(0.01)
+        mock.assert_has_calls([unittest.mock.call(1, [self]),
+                               unittest.mock.call(2),
+                               unittest.mock.call()])
+
 
 class TestBlockingHandler(unittest.TestCase):
     @async_test
@@ -197,6 +221,30 @@ class TestBlockingHandler(unittest.TestCase):
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         await asyncio.sleep(0.01)
         mock.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
+
+    @async_test
+    async def test_missing_parameters(self) -> None:
+        mock = unittest.mock.MagicMock()
+
+        @base.blocking_handler()
+        def full_handler(value, origin) -> None:
+            mock(value, origin)
+
+        @base.blocking_handler()
+        def part_handler(value) -> None:
+            mock(value)
+
+        @base.blocking_handler()
+        def empty_handler() -> None:
+            mock()
+
+        await full_handler(1, [self])
+        await part_handler(2, [self, object])
+        await empty_handler(3, [self, unittest.mock.sentinel])
+        await asyncio.sleep(0.01)
+        mock.assert_has_calls([unittest.mock.call(1, [self]),
+                               unittest.mock.call(2),
+                               unittest.mock.call()])
 
 
 class TestReading(unittest.TestCase):
