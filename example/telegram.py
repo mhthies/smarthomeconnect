@@ -1,4 +1,4 @@
-# Copyright 2020 Michael Thies <mail@mhthies.de>
+# Copyright 2022 Michael Thies <mail@mhthies.de>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 # the License. You may obtain a copy of the License at
@@ -9,21 +9,15 @@
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 """
-A simple SHC example project with only a web interface to show all the nice ui elements on multiple pages.
+A simple SHC example project that demonstrates the TelegramBot interface.
 
-Some things to note:
-* The `shc.web.widgets.icon()` function is used to create icon labels for items, buttons, etc. It takes an icon name
-  (see https://fomantic-ui.com/elements/icon.html for reference) and an optional label text to be placed along with the
-  icon.
-* The `color` parameter typically takes one of the colors of Semantic UI. See
-  https://fomantic-ui.com/elements/button.html#colored for reference.
+To visualize and modify the state Variables, that can be accessed via the Telegram bot, an additional web UI is started
+at localhost:8080. To try this example, you need to create Telegram bot (using the "BotFather") and modify lines
+58-59 of this example script to match your bot credentials and personal Telegram chat id.
 """
 import logging
 import random
 import enum
-from pathlib import Path
-
-import markupsafe
 
 import shc
 from shc.interfaces.telegram import SimpleTelegramAuth, TelegramBot
