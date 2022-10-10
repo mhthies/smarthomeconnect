@@ -118,20 +118,26 @@ class EveryTimerTest(unittest.TestCase):
     def test_unaligned_random(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=False, random=datetime.timedelta(seconds=20))
-            self.assertGreaterEqual(every_timer._next_execution(),
+            next_execution = every_timer._next_execution()
+            assert next_execution is not None
+            self.assertGreaterEqual(next_execution,
                                     clock.now().astimezone() - datetime.timedelta(seconds=20))
-            self.assertLessEqual(every_timer._next_execution(),
+            self.assertLessEqual(next_execution,
                                  clock.now().astimezone() + datetime.timedelta(seconds=20))
             every_timer.last_execution = clock.now().astimezone()
-            self.assertGreaterEqual(every_timer._next_execution(),
+            next_execution = every_timer._next_execution()
+            assert next_execution is not None
+            self.assertGreaterEqual(next_execution,
                                     clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20))
-            self.assertLessEqual(every_timer._next_execution(),
+            self.assertLessEqual(next_execution,
                                  clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
             clock.sleep(5 * 60 + 20)
             every_timer.last_execution = clock.now().astimezone()
-            self.assertGreaterEqual(every_timer._next_execution(),
+            next_execution = every_timer._next_execution()
+            assert next_execution is not None
+            self.assertGreaterEqual(next_execution,
                                     clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20))
-            self.assertLessEqual(every_timer._next_execution(),
+            self.assertLessEqual(next_execution,
                                  clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
 
     def test_aligned(self) -> None:
@@ -186,6 +192,7 @@ class OnceTimerTest(unittest.TestCase):
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             once_timer = timer.Once(datetime.timedelta(hours=1), random=datetime.timedelta(seconds=20))
             next_execution = once_timer._next_execution()
+            assert next_execution is not None
             self.assertGreaterEqual(next_execution,
                                     clock.now().astimezone() + datetime.timedelta(hours=1, seconds=-20))
             self.assertLessEqual(next_execution,

@@ -54,8 +54,10 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertEqual(2, len(result))
         self.assertAlmostEqual(40.0, result[0][1])
         self.assertAlmostEqual(40.0, result[1][1])
-        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 10), result[0][0])
-        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 20), result[1][0])
+        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 10), result[0][0],
+                               delta=datetime.timedelta(milliseconds=10))
+        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 20), result[1][0],
+                               delta=datetime.timedelta(milliseconds=10))
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2020, 1, 1, 0, 0, 30),
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
@@ -81,8 +83,10 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertEqual(2, len(result))
         self.assertAlmostEqual(30.0, result[0][1])
         self.assertAlmostEqual(28.0, result[1][1])
-        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 10), result[0][0])
-        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 20), result[1][0])
+        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 10), result[0][0],
+                               delta=datetime.timedelta(milliseconds=10))
+        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 20), result[1][0],
+                               delta=datetime.timedelta(milliseconds=10))
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2020, 1, 1, 0, 0, 25),
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
@@ -123,8 +127,10 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertEqual(2, len(result))
         self.assertAlmostEqual(5.0, result[0][1])
         self.assertAlmostEqual(4.0, result[1][1])
-        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 10), result[0][0])
-        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 20), result[1][0])
+        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 10), result[0][0],
+                               delta=datetime.timedelta(milliseconds=10))
+        self.assertAlmostEqual(datetime.datetime(2020, 1, 1, 0, 0, 20), result[1][0],
+                               delta=datetime.timedelta(milliseconds=10))
 
         result = await variable.retrieve_aggregated_log(start_time=datetime.datetime(2020, 1, 1, 0, 0, 25),
                                                         end_time=datetime.datetime(2020, 1, 1, 0, 0, 50),
