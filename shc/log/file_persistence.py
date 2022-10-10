@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import logging
 from typing import IO, Any, Dict, Tuple, Optional, Generic, List, Type
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from shc.supervisor import AbstractInterface
 FOOTER = b'"_": null\n}\n'
 NUM_BUFFER_SPACES = 10
 MAX_ABANDONED_LINES = 50
+
+logger = logging.getLogger(__name__)
 
 
 class FilePersistenceStore(AbstractInterface):
@@ -70,12 +73,14 @@ class FilePersistenceStore(AbstractInterface):
     async def start(self) -> None:
         file_exists = await asyncio.get_event_loop().run_in_executor(None, self.file.exists)
         if file_exists:
+            logger.info("Using existing file persistence store at %s ...", self.file)
             fd = aiofile.async_open(self.file, 'rb')
             assert isinstance(fd, aiofile.BinaryFileWrapper)
             self._fd = fd
             await self._fd.file.open()
             await self.rewrite()
         else:
+            logger.info("Creating new file persistence store at %s ...", self.file)
             fd = aiofile.async_open(self.file, 'xb+')
             assert isinstance(fd, aiofile.BinaryFileWrapper)
             self._fd = fd
@@ -89,7 +94,7 @@ class FilePersistenceStore(AbstractInterface):
 
     async def rewrite(self):
         # Create temp file
-        # TODO handle errors while creating file
+        logger.info("Staring rewrite file persistence store %s ...", self.file)
         tmp_file = self.file.with_name(self.file.name + ".tmp")
 
         async with self._file_mutex:
@@ -123,6 +128,7 @@ class FilePersistenceStore(AbstractInterface):
             self._fd = new_fd
             self._element_map = new_map
             self._abandoned_lines = 0
+        logger.info("Rewrite of file persistence store %s finished.", self.file)
 
     async def get_element(self, name: str) -> Optional[Any]:
         await self._file_ready.wait()
@@ -136,6 +142,7 @@ class FilePersistenceStore(AbstractInterface):
     async def set_element(self, name: str, value: Any) -> None:
         await self._file_ready.wait()
         data = json.dumps(value, separators=(',', ':')).encode('utf-8')
+        logger.debug("Writing to file persistence store %s: %s = %s ...", name, data)
         length = len(data)
         await self._file_ready.wait()
         async with self._file_mutex:
@@ -152,6 +159,7 @@ class FilePersistenceStore(AbstractInterface):
                     self._fd.seek(offset + key_length)
                     await self._fd.write(data + (b' ' * (capacity - length)))
                     append = False
+                    logger.debug("Updated file persistence store in-place")
             else:
                 append = True
             if append:
@@ -163,11 +171,15 @@ class FilePersistenceStore(AbstractInterface):
                 self._footer_offset = self._fd.tell()
                 await self._fd.write(FOOTER)
                 self._element_map[name] = (start, key_written, value_written - 2)
+                logger.debug("Updated file persistence store with append for key %s at offset 0x%02x", name, start)
                 # ↑ Do not count the ',\n' into the available length
             await self._fd.file.fsync()
 
         if self._abandoned_lines > MAX_ABANDONED_LINES:
-            await self.rewrite()
+            try:
+                await self.rewrite()
+            except Exception as e:
+                logger.error("Error while rewriting file persistence store %s:", exc_info=e)
 
     def connector(self, type_: Type[T], name: str) -> "FilePersistenceConnector[T]":
         """
