@@ -533,7 +533,7 @@ class WebWidgetsTest(AbstractWebTest):
                 .release()\
                 .perform()
 
-            time.sleep(0.05)
+            time.sleep(0.10)
             self.assertEqual(2, publish_mock.call_count)
             latest_color = publish_mock.call_args[0][0]
             self.assertAlmostEqual(204, latest_color.red, delta=13)  # 5% off is okay
