@@ -462,7 +462,7 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
     async def _set_delayed(self, value: bool, origin: List[Any]):
         # Make sure this task is cancelled on shutdown
         current_task = asyncio.current_task()
-        assert(current_task is not None)
+        assert current_task is not None
         timer_supervisor.add_temporary_task(current_task)
         try:
             await _logarithmic_sleep(datetime.datetime.now().astimezone() + self.delay)
@@ -611,7 +611,7 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
     async def __set_delayed(self, value: T, origin: List[Any]):
         # Make sure this task is cancelled on shutdown
         current_task = asyncio.current_task()
-        assert(current_task is not None)
+        assert current_task is not None
         timer_supervisor.add_temporary_task(current_task)
         try:
             await _logarithmic_sleep(datetime.datetime.now() + self.delay)
@@ -699,7 +699,7 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
             self._publish(False, origin)
 
     async def _delayed_off(self, origin) -> None:
-        assert(self.duration is not None)
+        assert self.duration is not None
         await _logarithmic_sleep(datetime.datetime.now().astimezone() + self.duration
                                  + _random_time(self.duration_random))
         await self._off(False, origin)

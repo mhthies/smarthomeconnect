@@ -182,7 +182,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         """
         chat_id = message.chat.id
         context = self.chat_state.get(chat_id)
-        assert(context is not None)  # _do_set() should only be called if a context is present
+        assert context is not None  # _do_set() should only be called if a context is present
         if not self.auth_provider.has_user_role(user, context.set_roles):
             logger.warning("User %s is not authorized for setting Telegram connector %s", user, context.name)
             await message.reply("Not authorized!")
