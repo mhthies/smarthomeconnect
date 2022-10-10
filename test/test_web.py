@@ -518,22 +518,22 @@ class WebWidgetsTest(AbstractWebTest):
             self.assertAlmostEqual(slider_rect['x'] + slider_rect['width']/2,
                                    slider_handle_rect['x'] + slider_handle_rect['width']/2, delta=4)  # 4px off is okay
 
-            # Now, lets set a yellow color at 80% brightness
-            # Yellow is in the right lower corner of the wheel, at 120° clockwise from the top or -60° (-pi/3 rad)
-            # mathematically. (Attention: The y axis is inverted in contrast to the normal mathetmatical orientation)
+            # Now, lets set a purple color at 80% brightness
+            # Purple is in the right lower corner of the wheel, at 120° clockwise from the top or -60° (-pi/3 rad)
+            # mathematically. (Attention: The y axis is inverted in contrast to the normal mathematical orientation)
             ActionChains(self.driver)\
-                .move_to_element_with_offset(slider_element, 0.8 * slider_rect['width'], slider_rect['height']/2)\
+                .move_to_element_with_offset(slider_element, 0.3 * slider_rect['width'], 0.0)\
                 .click()\
                 .move_to_element(wheel_handle_element)\
                 .click_and_hold()\
                 .move_to_element_with_offset(
                     wheel_element,
-                    wheel_rect['width']/2 + 0.6 * math.cos(-math.pi/3) * wheel_rect['width'],
-                    wheel_rect['height']/2 + -0.6 * math.sin(-math.pi/3) * wheel_rect['height'])\
+                    0.6 * math.cos(-math.pi/3) * wheel_rect['width'],
+                    -0.6 * math.sin(-math.pi/3) * wheel_rect['height'])\
                 .release()\
                 .perform()
 
-            time.sleep(0.10)
+            time.sleep(0.05)
             self.assertEqual(2, publish_mock.call_count)
             latest_color = publish_mock.call_args[0][0]
             self.assertAlmostEqual(204, latest_color.red, delta=13)  # 5% off is okay
