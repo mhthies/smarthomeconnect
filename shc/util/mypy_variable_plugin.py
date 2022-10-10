@@ -22,7 +22,7 @@ from typing import Optional, Callable
 from mypy import errorcodes
 from mypy.nodes import StrExpr
 from mypy.plugin import Plugin, MethodContext
-from mypy.types import Instance, Type, TupleType
+from mypy.types import Instance, Type, TupleType, TypeAliasType
 
 
 class SHCVariable(Plugin):
@@ -39,8 +39,10 @@ class SHCVariable(Plugin):
         if not context.type.args:
             return context.default_return_type
         wrapped_type = context.type.args[0]
+        if isinstance(wrapped_type, TypeAliasType) and wrapped_type.alias is not None:
+            wrapped_type = wrapped_type.alias.target
         if not isinstance(wrapped_type, TupleType) or not wrapped_type.partial_fallback.type.is_named_tuple:
-            context.api.fail(".field() can only be used with NamedTuple-typed SHC Variables, UpdateExchanges or fields",
+            context.api.fail(f".field() can only be used with NamedTuple-typed SHC containers, not {wrapped_type}",
                              context.context, code=errorcodes.MISC)
             return context.default_return_type
         field_name_expression = context.args[0][0]
