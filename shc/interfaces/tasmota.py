@@ -107,7 +107,7 @@ class TasmotaInterface(AbstractInterface):
         last_telemetry_age = time.monotonic() - self._latest_telemetry_time
         if last_telemetry_age > 10 * self.telemetry_interval:
             return InterfaceStatus(ServiceStatus.CRITICAL, "No telemetry data received from Tasmota device by now")
-        indicators = {
+        metrics = {
             'telemetry_age': last_telemetry_age,
             'tasmota.UptimeSec': self._latest_telemetry.get('UptimeSec'),
             'tasmota.Heap': self._latest_telemetry.get('Heap'),
@@ -120,13 +120,13 @@ class TasmotaInterface(AbstractInterface):
             return InterfaceStatus(status=ServiceStatus.CRITICAL,
                                    message="Latest telemetry data from Tasmota device is {:.2f}s old (more than 10x the"
                                            " expected telemetry interval)".format(last_telemetry_age),
-                                   indicators=indicators)  # type: ignore
+                                   metrics=metrics)  # type: ignore
         if last_telemetry_age > 1.5 * self.telemetry_interval:
             return InterfaceStatus(status=ServiceStatus.WARNING,
                                    message="Latest telemetry data from Tasmota device is {:.2f}s old (more than 1.5x "
                                            "the expected telemetry interval)".format(last_telemetry_age),
-                                   indicators=indicators)  # type: ignore
-        return InterfaceStatus(indicators=indicators)  # type: ignore
+                                   metrics=metrics)  # type: ignore
+        return InterfaceStatus(metrics=metrics)  # type: ignore
 
     def _handle_result_or_status(self, msg: MQTTMessage, result: bool = False) -> None:
         """

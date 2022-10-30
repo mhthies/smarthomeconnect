@@ -506,7 +506,7 @@ class WebServer(AbstractInterface):
             interfaces_data[repr(iface)] = {
                 'status': status.status.value,
                 'message': status.message,
-                'indicators': status.indicators,
+                'metrics': status.metrics,
             }
             overall_status = max(overall_status, min(status.status.value, 2) - 2 + iface.criticality.value)
 

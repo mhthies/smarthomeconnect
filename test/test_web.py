@@ -152,7 +152,7 @@ class MonitoringTest(unittest.TestCase):
             self.assertEqual(1, data['status'])
             self.assertEqual(2, data['interfaces']['StatusTestInterface(Interface 1)']['status'])
             self.assertEqual("Something is wrong", data['interfaces']['StatusTestInterface(Interface 1)']['message'])
-            self.assertEqual(100, data['interfaces']['StatusTestInterface(Interface 1)']['indicators']['badness'])
+            self.assertEqual(100, data['interfaces']['StatusTestInterface(Interface 1)']['metrics']['badness'])
             self.assertEqual(0, data['interfaces']['StatusTestInterface(Interface 2)']['status'])
             self.assertEqual("", data['interfaces']['StatusTestInterface(Interface 2)']['message'])
             self.assertEqual(1, data['interfaces']['StatusTestInterface(Interface 3)']['status'])

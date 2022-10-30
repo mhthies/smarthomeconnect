@@ -110,17 +110,20 @@ class ServiceStatus(enum.Enum):
     UNKNOWN = 3
 
 
+StatusMetrics = Dict[str, Union[bool, int, float, str]]
+
+
 class InterfaceStatus(NamedTuple):
     """
     Interface status information as returned by :meth:`AbstractInterface.get_status`.
 
     Contains the overall interface status (:attr:`status`), a human readable :attr:`message`, typically describing the
-    error if any, and a map of :attr:`indicators`, which contain interface-specific performance values.
+    error if any, and a map of :attr:`metrics`, which contain interface-specific performance values.
     """
     status: ServiceStatus = ServiceStatus.OK  #: Overall status of the interface.
     message: str = ""  #: A textual description of the error. E.g. an error message, if status != ServiceStatus.OK
-    #: Additional monitoring indicators like performance values, identified by a unique string.
-    indicators: Dict[str, Union[bool, int, float, str]] = {}
+    #: Additional monitoring metrics like performance values, identified by a unique string.
+    metrics: StatusMetrics = {}
 
 
 def register_interface(interface: AbstractInterface) -> None:
@@ -154,7 +157,7 @@ class EventLoopMonitor(AbstractInterface):
     external monitoring systems to monitor the health of this application's event loop.
 
     For this purpose, when started, it regularly checks the current number of asyncio tasks and the delay of scheduled
-    function calls in the event loop. These values are reported in the indicators dict of the interface status. The
+    function calls in the event loop. These values are reported in the metrics dict of the interface status. The
     interface's service status is determined by comparing these metrics to fixed threshold values.
 
     There should only be single instance of this class, which can be accessed at
