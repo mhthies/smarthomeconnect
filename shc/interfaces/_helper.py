@@ -128,7 +128,6 @@ class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
     implemented in such a way, that it shuts down the run task.
     """
     def __init__(self, auto_reconnect: bool = True, failsafe_start: bool = False):
-        super().__init__()
         """
         :param auto_reconnect: If True (default), the supervisor tries to reconnect the interface automatically with
             exponential backoff (`backoff_base` * `backoff_exponent` ^ n seconds sleep), when `_run` exits unexpectedly
@@ -139,6 +138,7 @@ class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
             backoff (see `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not
             retried and will raise an exception from `start()` on failure, even if `auto_reconnect` is True.
         """
+        super().__init__()
         self.auto_reconnect = auto_reconnect
         self.failsafe_start = failsafe_start and auto_reconnect
         self.backoff_base = 1.0  #: First wait interval for exponential backoff in seconds

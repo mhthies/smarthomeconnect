@@ -17,8 +17,10 @@ See the following sections for more information about a specific interface:
 
     interfaces/*
 
+For creating custom SHC interfaces, see the following guideline:
 
-Creating Custom Interfaces
---------------------------
+.. toctree::
+    :maxdepth: 1
 
-TODO
+    interfaces_custom
+

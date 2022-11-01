@@ -50,7 +50,7 @@ class AbstractInterface(metaclass=abc.ABCMeta):
 
     If an interface inherits from this base class, it is automatically registered for startup via :func:`main`.
 
-    :ivar criticality: Defines to which extend the interface's status is considered when determining the overall SHC
+    :ivar criticality: Defines to which extent the interface's status is considered when determining the overall SHC
         system state, e.g. when reporting to a monitoring system or creating alerts in a user interface. A critical
         failure of a *CRITICAL* system is considered a critical state, whereas a critical failure of an *INFO* system
         only triggers an information message.
