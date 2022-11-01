@@ -502,7 +502,11 @@ class WebServer(AbstractInterface):
         interfaces_data = {}
         overall_status = 0
         for iface in get_interfaces():
-            status = await iface.get_status()
+            try:
+                conn = iface.monitoring_connector()
+            except NotImplementedError:
+                continue
+            status = await conn.read()
             interfaces_data[repr(iface)] = {
                 'status': status.status.value,
                 'message': status.message,

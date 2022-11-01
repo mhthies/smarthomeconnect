@@ -23,11 +23,12 @@ from selenium.webdriver import ActionChains
 import shc.web
 import shc.web.widgets
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
+from shc.interfaces._helper import ReadableStatusInterface
 from shc.supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
 from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
 
 
-class StatusTestInterface(AbstractInterface):
+class StatusTestInterface(ReadableStatusInterface):
     def __init__(self, name):
         super().__init__()
         self.status = InterfaceStatus()
@@ -39,7 +40,7 @@ class StatusTestInterface(AbstractInterface):
     async def stop(self) -> None:
         pass
 
-    async def get_status(self) -> "InterfaceStatus":
+    async def _get_status(self) -> "InterfaceStatus":
         return self.status
 
     def __repr__(self):

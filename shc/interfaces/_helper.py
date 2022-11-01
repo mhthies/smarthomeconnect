@@ -11,14 +11,110 @@
 import abc
 import asyncio
 import logging
-from typing import Set, Optional
+from typing import Optional
 
-from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, ServiceStatus
+from ..base import Readable, Subscribable
+from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, ServiceStatus, StatusMetrics
 
 logger = logging.getLogger(__name__)
 
 
-class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
+class ReadableStatusInterface(AbstractInterface, metaclass=abc.ABCMeta):
+    """
+    Abstract base class for :class:`interfaces <shc.supervisor.AbstractInterface>` that provide a *readable* monitoring
+    connector for an Interface.
+
+    This mixin overrides the :meth:`shc.supervisor.AbstractInterface.monitoring_connector` method to provide a
+    *readable* connector that triggers this interfaces health checks when being *read*. The health checks must be
+    implemented for each interface implementation by overriding the :meth:`_get_status` method.
+    """
+    def __init__(self):
+        super().__init__()
+        self.__status_connector: Optional[ReadableStatusConnector] = None
+
+    def monitoring_connector(self) -> "ReadableStatusConnector":
+        if not self.__status_connector:
+            self.__status_connector = ReadableStatusConnector(self)
+        return self.__status_connector
+
+    @abc.abstractmethod
+    async def _get_status(self) -> "InterfaceStatus":
+        """
+        Determine the current status of the interface for monitoring purposes.
+        """
+        return InterfaceStatus()
+
+
+class ReadableStatusConnector(Readable[InterfaceStatus]):
+    type = InterfaceStatus
+
+    def __init__(self, interface: ReadableStatusInterface):
+        super().__init__()
+        self._interface = interface
+
+    async def read(self) -> "InterfaceStatus":
+        return await self._interface._get_status()
+
+
+class SubscribableStatusInterface(AbstractInterface, metaclass=abc.ABCMeta):
+    """
+    Abstract base class for :class:`interfaces <shc.supervisor.AbstractInterface>` that provide a *readable* and
+    *subscribable* monitoring connector for an Interface.
+
+    This mixin overrides the :meth:`shc.supervisor.AbstractInterface.monitoring_connector` method to provide a connector
+    that allows to publish status changes of the interface. It also stores the latest status to provide to *read*
+    callers.
+
+    Each interface, inheriting this mixin, should monitor its health status continuously and update the status connector
+
+    :ivar _status_connector: The interface's monitoring connector
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._status_connector: SubscribableStatusConnector = SubscribableStatusConnector()
+
+    def monitoring_connector(self) -> "SubscribableStatusConnector":
+        return self._status_connector
+
+
+class SubscribableStatusConnector(Readable[InterfaceStatus], Subscribable[InterfaceStatus]):
+    type = InterfaceStatus
+
+    def __init__(self):
+        super().__init__()
+        self.status = InterfaceStatus()
+
+    def update_status(self, status: Optional[ServiceStatus] = None, message: Optional[str] = None,
+                      metrics: StatusMetrics = {}) -> None:
+        """
+        Method to be called by the interface when its monitored status changes.
+
+        The changed status is published to subscribers and stored in this connector to be returned on subsequent *read*
+        calls.
+
+        To simplify managing the interface status, this method does not take a full :class:`InterfaceStatus` tuple of
+        the new status, but instead allows to modify the individual fields of the previous status.
+
+        :param status: The new overall health status of the interface or None (default) to leave it unchanged
+        :param message: The new status message of the interface. If the interface *status* is OK, it should be ""
+            (empty string). To keep the previous message, pass None or omit this parameter.
+        :param metrics: A dict of new values for the monitoring metrics of this interface.
+        """
+        result = self.status
+        if status is not None:
+            result = result._replace(status=status)
+        if message is not None:
+            result = result._replace(message=message)
+        result = result._replace(metrics={**result.metrics, **metrics})
+        self.status = result
+        self._publish(result, [])
+
+    async def read(self) -> "InterfaceStatus":
+        return self.status
+
+
+class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
     """
     Abstract base class for client interfaces, providing run task supervision and automatic reconnects
 
@@ -67,7 +163,7 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         if self._supervise_task is not None:
             await self._supervise_task
 
-    async def get_status(self) -> InterfaceStatus:
+    async def _get_status(self) -> InterfaceStatus:
         return InterfaceStatus(ServiceStatus.OK if self._running.is_set() else ServiceStatus.CRITICAL,
                                self._last_error if not self._running.is_set() else "",
                                {})

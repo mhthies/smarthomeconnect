@@ -17,6 +17,7 @@ import logging
 import signal
 from typing import Set, NamedTuple, Dict, Any, Union, Iterable
 
+from .base import Readable
 from .timer import timer_supervisor
 from .variables import read_initialize_variables
 
@@ -89,15 +90,38 @@ class AbstractInterface(metaclass=abc.ABCMeta):
         """
         pass
 
-    async def get_status(self) -> "InterfaceStatus":
+    def monitoring_connector(self) -> Readable["InterfaceStatus"]:
         """
-        Get the current status of the interface for monitoring purposes.
+        Get a connector which represents the current status of this interface for monitoring purposes.
 
-        This is especially required for interfaces that do not shut down the SHC application via
-        :func:`interface_failure` on every disruption, but instead keep trying to recover operation. In the meantime,
-        ServiceStatus.CRITICAL shall be reported via this method.
+        The returned connector object must be of value type :class:`InterfaceStatus` and be at least *readable*. The
+        connector *may* also be *subscribable*. In this case, the interface is expected to monitor its status
+        continuously and publish any status changes asynchronously. This is typically implemented by client interfaces
+        that actively monitor a connection to some server. *Reading* from the connector shall also return the current
+        interface status.
+
+        In the case of a *readable*-only connector, the interface will typically perform its health checks on-demand
+        when the connector's ``read()`` method is called.
+
+        Concrete interface implementation should override this method to provide their own monitoring connector
+        implementation. There are different more specific interface base classes that to help with that:
+
+        - :class:`ReadableStatusInterface <shc.interfaces._helper.ReadableStatusInterface>` is a simple helper for
+          implementing a *readable* monitoring connector, calling an async health check method on the interface on
+          demand
+        - :class:`SubscribableStatusInterface <shc.interfaces._helper.SubscribableStatusInterface>` is a simple helper
+          for implementing a *subscribable* monitoring connector, which can be updated when a status change is detected
+        - :class:`SupervisedClientInterface <shc.interfaces._helper.SupervisedClientInterface>` implements logic for
+          supervision, error handling and automatic reconnect of connection clients. It provides a subscribable
+          monitoring connector.
+
+        If the interface does not allow any reasonable status monitoring (e.g. when it's completely stateless or
+        failsafe or implemented to shut down the overall SHC process on error), the default implementation of this
+        method can be used, which raises a :class:`NotImplementedError`.
+
+        :raises NotImplementedError: when the interface does not provide any health monitoring
         """
-        return InterfaceStatus()
+        raise NotImplementedError()
 
 
 class ServiceStatus(enum.Enum):
@@ -201,7 +225,7 @@ class EventLoopMonitor(AbstractInterface):
         while len(self.samples) > self.num_aggr_samples:
             self.samples.popleft()
 
-    async def get_status(self) -> "InterfaceStatus":
+    async def _get_status(self) -> "InterfaceStatus":
         lag_max, tasks_max = functools.reduce(lambda a, i: (max(a[0], i[0]), max(a[1], i[1])), self.samples, (0.0, 0))
         warning = lag_max >= self.lag_warning or tasks_max >= self.tasks_warning
         error = lag_max >= self.lag_error or tasks_max >= self.tasks_error

@@ -11,12 +11,13 @@ import pymysql
 from ..base import T
 from ..conversion import SHCJsonEncoder, from_json
 from .generic import PersistenceVariable
-from ..supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
+from ..interfaces._helper import ReadableStatusInterface
+from ..supervisor import InterfaceStatus, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
 
-class MySQLPersistence(AbstractInterface):
+class MySQLPersistence(ReadableStatusInterface):
     def __init__(self, **kwargs):
         super().__init__()
         # see https://aiomysql.readthedocs.io/en/latest/connection.html#connection for valid parameters
@@ -36,7 +37,7 @@ class MySQLPersistence(AbstractInterface):
             self.pool.close()
             await self.pool.wait_closed()
 
-    async def get_status(self) -> "InterfaceStatus":
+    async def _get_status(self) -> "InterfaceStatus":
         if not self.pool_ready.is_set():
             return InterfaceStatus(ServiceStatus.CRITICAL, "Interface not started yet")
         assert isinstance(self.pool, aiomysql.Pool)

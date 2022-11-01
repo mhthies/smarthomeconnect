@@ -19,6 +19,7 @@ from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple,
 
 from paho.mqtt.client import MQTTMessage
 
+from ._helper import ReadableStatusInterface
 from ..base import Writable, Subscribable, T, Readable
 from .mqtt import MQTTClientInterface
 from ..datatypes import RangeInt0To100, RGBUInt8, RangeUInt8, RGBWUInt8, RGBCCTUInt8, CCTUInt8
@@ -30,7 +31,7 @@ ConnType = TypeVar("ConnType", bound="AbstractTasmotaConnector")
 JSONType = Union[str, float, int, None, Dict[str, Any], List[Any]]
 
 
-class TasmotaInterface(AbstractInterface):
+class TasmotaInterface(ReadableStatusInterface):
     """
     SHC interface to connect with ESP8266-based IoT devices, running the
     `Tasmota firmware <https://tasmota.github.io/>`_, via MQTT.
@@ -93,7 +94,7 @@ class TasmotaInterface(AbstractInterface):
     async def stop(self) -> None:
         pass
 
-    async def get_status(self) -> InterfaceStatus:
+    async def _get_status(self) -> InterfaceStatus:
         # Check Tasmota online state (via Last Will message)
         if not self._online_connector.value:
             return InterfaceStatus(ServiceStatus.CRITICAL, "Tasmota device is not online")
