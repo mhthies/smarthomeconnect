@@ -481,6 +481,14 @@ class PulseAudioInterface(SupervisedClientInterface):
         self._subscribe_facilities.add('server')
         return self._default_source_name_connector
 
+    def __repr__(self) -> str:
+        args = []
+        if self.pulse.name != "smarthomeconnect":
+            args.append(f"name={self.pulse.name!r}")
+        if self.pulse.server is not None:
+            args.append(f"pulse_server_socket={self.pulse.server!r}")
+        return f"{self.__class__.__name__}{', '.join(args)}"
+
 
 class SinkConnector(metaclass=abc.ABCMeta):
     def __init__(self):
