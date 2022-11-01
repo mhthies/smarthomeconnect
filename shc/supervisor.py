@@ -15,7 +15,7 @@ import enum
 import functools
 import logging
 import signal
-from typing import Set, NamedTuple, Dict, Any, Union, Iterable
+from typing import Set, NamedTuple, Dict, Any, Union, Iterable, Deque, Tuple
 
 from .base import Readable
 from .timer import timer_supervisor
@@ -192,7 +192,7 @@ class EventLoopMonitor(AbstractInterface):
         super().__init__()
         self.interval = 5.0
         self.num_aggr_samples = 60
-        self.samples = collections.deque()
+        self.samples: Deque[Tuple[float, int]] = collections.deque()
         self.task: asyncio.Task
         self.tic = 0.0
 
