@@ -114,7 +114,7 @@ class SubscribableStatusConnector(Readable[InterfaceStatus], Subscribable[Interf
         return self.status
 
 
-class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
+class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMeta):
     """
     Abstract base class for client interfaces, providing run task supervision and automatic reconnects
 
@@ -126,6 +126,12 @@ class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
     :attr:`auto_reconnect` is enabled, reconnecting the interface via `_connect`, `_run` and `_subscribe` is attempted.
     For shutting down the interface (and stopping the run task in case of a subscribe error), `_disconnect` must be
     implemented in such a way, that it shuts down the run task.
+
+    This class inherits from :class:`SubscribableStatusInterface` to publish the current status of the supervised client
+    as monitoring status. However, it only updates the :attr:`status <shc.supervisor.InterfaceStatus.status>` and
+    :attr:`message <shc.supervisor.InterfaceStatus.message>` attributes of the `InterfaceStatus`, but does not touch the
+    `metrics`. So, you can fill the `metrics` with custom values from your derived interface class via
+    ``self._status_connector.update_status(metrics={…})``.
     """
     def __init__(self, auto_reconnect: bool = True, failsafe_start: bool = False):
         """
@@ -148,7 +154,6 @@ class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
         self._started = loop.create_future()
         self._stopping = asyncio.Event()
         self._running = asyncio.Event()
-        self._last_error: str = "Interface has not been started yet"
 
     async def start(self) -> None:
         logger.debug("Starting supervisor task for interface %s and waiting for it to come up ...", self)
@@ -162,11 +167,6 @@ class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
         await self._disconnect()
         if self._supervise_task is not None:
             await self._supervise_task
-
-    async def _get_status(self) -> InterfaceStatus:
-        return InterfaceStatus(ServiceStatus.OK if self._running.is_set() else ServiceStatus.CRITICAL,
-                               self._last_error if not self._running.is_set() else "",
-                               {})
 
     async def wait_running(self, timeout: Optional[float] = None) -> None:
         """
@@ -239,6 +239,7 @@ class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
 
     async def _supervise(self) -> None:
         sleep_interval = self.backoff_base
+        self._status_connector.update_status(status=ServiceStatus.WARNING, message="Interface has not been started yet")
 
         while True:
             exception = None
@@ -289,6 +290,7 @@ class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
                     raise subscribe_exception
 
                 logger.debug("Starting up interface %s completed", self)
+                self._status_connector.update_status(status=ServiceStatus.OK, message="")
                 if not self._started.done():
                     self._started.set_result(None)
                 # Reset reconnect backoff interval
@@ -332,10 +334,11 @@ class SupervisedClientInterface(ReadableStatusInterface, metaclass=abc.ABCMeta):
 
             if exception:
                 logger.error("Error in interface %s. Attempting reconnect ...", self, exc_info=exception)
-                self._last_error = str(exception)
+                self._status_connector.update_status(status=ServiceStatus.CRITICAL, message=str(exception))
             else:
                 logger.error("Unexpected shutdown of interface %s. Attempting reconnect ...", self)
-                self._last_error = "Unexpected shutdown of interface"
+                self._status_connector.update_status(status=ServiceStatus.CRITICAL,
+                                                     message="Unexpected shutdown of interface")
 
             # Sleep before reconnect
             logger.info("Waiting %s seconds before reconnect of interface %s ...", sleep_interval, self)
