@@ -33,6 +33,7 @@ Web UI Widgets
     ------
 
     .. autoclass:: Slider
+    .. autoclass:: MinMaxButtonSlider
 
     HideRows
     --------
