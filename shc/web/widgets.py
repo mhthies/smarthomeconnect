@@ -591,6 +591,12 @@ class EnumButtonGroup(ValueListButtonGroup):
 
 
 class HideRowBox(WebPageItem):
+    """
+    A container for a list of :class:`HideRows <HideRow>`
+
+    The HideRowBox is a *WebPageItem*, so it can be added to web pages, and takes a list of :class:`HideRow` which are
+    dynamically shown or hidden.
+    """
     def __init__(self, rows: List["HideRow"]):
         self.rows = rows
 
@@ -602,6 +608,26 @@ class HideRowBox(WebPageItem):
 
 
 class HideRow(WebDisplayDatapoint[bool], WebConnectorContainer):
+    """
+    A colorful box that is dynamically shown or hidden inside a :class:`HideRowBox`, based on a bool condition.
+
+    The HideRow is a `Connectable` widget of value type *bool* that is dynamically displayed when the `connected`
+    object's value is True and is hidden otherwise. It can be used as a kind of indicator: Create a `HideRowBox` with a
+    `HideRow` for each light in your home and connect them to the respective `Variables`. Then, the HideRowBox will
+    dynamically show a list of all turned-on lights at any time, because the `HideRows` of all turned-off lights are
+    hidden. Similiarly, you can use it to indicate a list of different errors.
+
+    Each `HideRow` can be configured with an individual label (including :func:`icons <icon>`) and an individual color.
+
+    In addition, it can take an optional :class:`button descriptor <AbstractButton>`, which defines a button to be
+    displayed on the right side of the `HideRow`, whenever it is visible. The button can be connected to any custom
+    function. Typically, it will be a :class:`StatelessButton` to turn off the light or acknowledge the error report.
+
+    :param label: The (static) label displayed in the *HideRow*
+    :param button: If not None: A button descriptor, describing (and connecting to) a button, displayed on the right
+                   side of the *HideRow* when displayed.
+    :param color: The background color of the *HideRow* when displayed. Must be one Fomantic UI's color names
+    """
     def __init__(self, label: Union[str, Markup], button: Optional[AbstractButton] = None,
                  color: str = 'blue',):
         self.type = bool
@@ -617,6 +643,13 @@ class HideRow(WebDisplayDatapoint[bool], WebConnectorContainer):
 
 
 class ColorChoser(WebActionDatapoint[RGBUInt8], WebDisplayDatapoint[RGBUInt8], WebPageItem):
+    """
+    An interactive color chooser widget in the HSV color space for selecting 24bit RGB colors (:class:`RGBUInt8`).
+
+    The *ColorChooser* widget uses the `iro.js <https://github.com/jaames/iro.js>`_ JavaScript library for displaying
+    an interactive color chooser widget. It is updated dynamically from *connected* objects and allows the user to
+    select a color, which is published by the *ColorChoser* object in SHC.
+    """
     type = RGBUInt8
 
     async def render(self) -> str:
@@ -628,6 +661,65 @@ ImageMapItem = Union[AbstractButton, "ImageMapLabel"]
 
 
 class ImageMap(WebPageItem):
+    """
+    A widget showing placeable buttons and labels on a background image.
+
+    The *ImageMap* allows to place dynamic and interactive items on a custom background image. The items are placed
+    statically at a relative x and y coordinate of the image (in percent of the image width/height). The relative
+    coordinates ensure a stable position of the items relative to the image, even when the image is automatically scaled
+    to fit different screen sizes. Typically, the *ImageMap* widget is used to show smart home devices as interactive
+    buttons at their respective location on a ground plan of the apartment.
+
+    The available items are:
+
+    - buttons, definable via any of the :class:`button descriptors <AbstractButton>`, described above
+      (The styling of the buttons is slightly different from buttons in button groups, but the customization options
+      work equivalently.)
+    - text labels with dynamic text, defined via :class:`ImageMapLabel`
+
+    Every item can carry an individual pop-up menu that is displayed, when the item is clicked. The pop-up menu can
+    contain any number and any kind of web page widgets. A typical use case is showing the basic on/off state of a
+    device as a *DisplayButton* on the *ImageMap* and providing fine-grained controls for the device in the pop-up menu,
+    as demonstrated in the following example::
+
+        web_page.add_item(
+            ImageMap(
+                Path("background.png"),
+                [
+                    # A simple ToggleButton for displaying/switching the ceiling lights
+                    (0.51, 0.665, ToggleButton(icon('lightbulb'), color='yellow', outline=True)
+                                  .connect(ceiling_lights)),
+                    # A DisplayButton with pop-up menu for controlling the stereo
+                    (
+                        0.375, 0.08,
+                        DisplayButton(label=icon('volume up'), color='blue', outline=True)
+                            .connect(stereo_power),
+                        [
+                            Switch("Power", color="blue").connect(stereo_power),
+                            Slider("Volume", color='blue').connect(stereo_input_select),
+                            EnumSelect(StereoInputOptions, "Select Input").connect(stereo_input_select),
+                        ]),
+                ]
+            ))
+
+    Currently, there are no invisible items (to create interactive "regions" on the background image) or user-definable
+    interactive graphics.
+
+    :param image: The background image. Either a local path (preferably as a :class:`pathlib.Path` object) or a URL.
+                  If a local path is given, we let the web server serve it as a static file.
+                  If an absolute URL (including the schema, like 'https://') is given, it will simply be used as the
+                  image source URL of the background image.
+    :param items: The list of items to be positioned on the ImageMap. Each list element is a tuple
+                  ``(x, y, item)`` or ``(x, y, item, [pop_up_items])``, where
+
+                  - `x` and `y` are the relative coordinates on the background image in the range 0.0 (left/top edge) to
+                    1.0 (right/bottom edge)
+                  - `item` is the item descriptor, i.e. a :class:`ImageMapLabel` or :class:`AbstractButton` object
+                  - (optional) `[pop_up_items]` is a list of :class:`web widgets <shc.web.WebPageItem>` to be displayed
+                    in the pop-up menu
+    :param max_width: If given and not None, defines the maximum width of the background image on large screens in
+                      pixels.
+    """
     def __init__(self, image: Union[PathLike, str],
                  items: Iterable[Union[Tuple[float, float, ImageMapItem],
                                        Tuple[float, float, ImageMapItem, List[WebPageItem]]]],
