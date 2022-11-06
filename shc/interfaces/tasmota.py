@@ -19,7 +19,6 @@ from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple,
 
 from paho.mqtt.client import MQTTMessage
 
-from ._helper import ReadableStatusInterface
 from ..base import Writable, Subscribable, T, Readable
 from .mqtt import MQTTClientInterface
 from ..datatypes import RangeInt0To100, RGBUInt8, RangeUInt8, RGBWUInt8, RGBCCTUInt8, CCTUInt8
@@ -31,7 +30,7 @@ ConnType = TypeVar("ConnType", bound="AbstractTasmotaConnector")
 JSONType = Union[str, float, int, None, Dict[str, Any], List[Any]]
 
 
-class TasmotaInterface(ReadableStatusInterface):
+class TasmotaInterface(AbstractInterface):
     """
     SHC interface to connect with ESP8266-based IoT devices, running the
     `Tasmota firmware <https://tasmota.github.io/>`_, via MQTT.
@@ -61,14 +60,11 @@ class TasmotaInterface(ReadableStatusInterface):
         self.mqtt_interface = mqtt_interface
         self.device_topic = device_topic
         self.topic_template = topic_template
-        self.telemetry_interval = telemetry_interval
         self._connectors_by_result_field: Dict[str, List[AbstractTasmotaConnector]] = {}
         self._connectors_by_type: Dict[Type[AbstractTasmotaConnector], AbstractTasmotaConnector] = {}
         self._pending_commands: Deque[Tuple[str, List[Any], asyncio.Event]] = collections.deque()
         self._online_connector = TasmotaOnlineConnector()
-
-        self._latest_telemetry_time: Optional[float] = None
-        self._latest_telemetry: Optional[Dict[str, JSONType]] = None
+        self._status_connector = TasmotaMonitoringConnector(telemetry_interval * 1.5, telemetry_interval * 10)
 
         # Subscribe relevant MQTT topics and register message handlers
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'RESULT',
@@ -83,7 +79,7 @@ class TasmotaInterface(ReadableStatusInterface):
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'STATUS11',
                                                   self._handle_status11, 1)
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'LWT',
-                                                  self._online_connector._update_from_mqtt, 1)
+                                                  self._handle_lwt, 1)
 
     async def start(self) -> None:
         # Send status request (for telemetry data and state) as soon as the MQTT interface is up
@@ -94,40 +90,16 @@ class TasmotaInterface(ReadableStatusInterface):
     async def stop(self) -> None:
         pass
 
-    async def _get_status(self) -> InterfaceStatus:
-        # Check Tasmota online state (via Last Will message)
-        if not self._online_connector.value:
-            return InterfaceStatus(ServiceStatus.CRITICAL, "Tasmota device is not online")
+    def monitoring_connector(self) -> "TasmotaMonitoringConnector":
+        return self._status_connector
 
-        # Check telemetry data
-        if not self._latest_telemetry:
-            if not self.telemetry_interval:
-                return InterfaceStatus()
-            return InterfaceStatus(ServiceStatus.CRITICAL, "No telemetry data received from Tasmota device by now")
-        assert self._latest_telemetry_time
-        last_telemetry_age = time.monotonic() - self._latest_telemetry_time
-        if last_telemetry_age > 10 * self.telemetry_interval:
-            return InterfaceStatus(ServiceStatus.CRITICAL, "No telemetry data received from Tasmota device by now")
-        metrics = {
-            'telemetry_age': last_telemetry_age,
-            'tasmota.UptimeSec': self._latest_telemetry.get('UptimeSec'),
-            'tasmota.Heap': self._latest_telemetry.get('Heap'),
-            'tasmota.LoadAvg': self._latest_telemetry.get('LoadAvg'),
-            'tasmota.Wifi.RSSI': self._latest_telemetry.get('Wifi', {}).get('RSSI'),  # type: ignore
-            'tasmota.Wifi.Signal': self._latest_telemetry.get('Wifi', {}).get('Signal'),   # type: ignore
-            'tasmota.Wifi.Downtime': self._latest_telemetry.get('Wifi', {}).get('Downtime'),  # type: ignore
-        }
-        if last_telemetry_age > 10 * self.telemetry_interval:
-            return InterfaceStatus(status=ServiceStatus.CRITICAL,
-                                   message="Latest telemetry data from Tasmota device is {:.2f}s old (more than 10x the"
-                                           " expected telemetry interval)".format(last_telemetry_age),
-                                   metrics=metrics)  # type: ignore
-        if last_telemetry_age > 1.5 * self.telemetry_interval:
-            return InterfaceStatus(status=ServiceStatus.WARNING,
-                                   message="Latest telemetry data from Tasmota device is {:.2f}s old (more than 1.5x "
-                                           "the expected telemetry interval)".format(last_telemetry_age),
-                                   metrics=metrics)  # type: ignore
-        return InterfaceStatus(metrics=metrics)  # type: ignore
+    def _handle_lwt(self, msg: MQTTMessage) -> None:
+        """
+        Callback function to handle incoming MQTT messages on the Last Will Topic
+        """
+        value = msg.payload == b'Online'
+        self._online_connector._update_from_mqtt(value)
+        self._status_connector.on_lwt(value)
 
     def _handle_result_or_status(self, msg: MQTTMessage, result: bool = False) -> None:
         """
@@ -204,15 +176,17 @@ class TasmotaInterface(ReadableStatusInterface):
         if event:
             event.set()
 
-        # If it seems to be (periodic) telemetry update, store it for usage by our `get_status()` method
+        # If it seems to be (periodic) telemetry update, store it and update our interface monitoring connector
         if not result and "Uptime" in data:
-            self._latest_telemetry = data
-            self._latest_telemetry_time = time.monotonic()
+            self._status_connector.on_telemetry(data)
 
     def online(self) -> "TasmotaOnlineConnector":
         """
         Returns a *readable* and *subscribable* :class:`bool`-typed Connector that will indicate the online-state of the
         Tasmota device, using its MQTT "Last Will Topic".
+
+        You can also use the *subscribable* :meth:`monitoring_connector` of this interface to receive more status
+        information.
         """
         return self._online_connector
 
@@ -620,9 +594,70 @@ class TasmotaOnlineConnector(Readable[bool], Subscribable[bool]):
         super().__init__()
         self.value = False
 
-    def _update_from_mqtt(self, msg: MQTTMessage) -> None:
-        self.value = msg.payload == b'Online'
+    def _update_from_mqtt(self, value: bool) -> None:
+        self.value = value
         self._publish(self.value, [])
 
     async def read(self) -> bool:
+        return self.value
+
+
+class TasmotaMonitoringConnector(Readable[InterfaceStatus], Subscribable[InterfaceStatus]):
+    type = InterfaceStatus
+
+    def __init__(self, warning_timeout: float, critical_timeout: float):
+        super().__init__()
+        self.value = InterfaceStatus(status=ServiceStatus.CRITICAL,
+                                     message="No Last Will or telemetry received from Tasmota device by now")
+        self.online = False
+        self.timeout_handles: Optional[Tuple[asyncio.TimerHandle, asyncio.TimerHandle]] = None
+        self.warning_timeout = warning_timeout
+        self.critical_timeout = critical_timeout
+
+    def on_telemetry(self, telemetry_data: Dict[str, JSONType]) -> None:
+        if self.online:  # ignore telemetry data, if Last Will Topic tells us, the device is offline
+            self._reset_timeouts(True)
+            self.value = InterfaceStatus(status=ServiceStatus.OK, message="", metrics={
+                'telemetry_timestamp': time.time(),
+                'tasmota.UptimeSec': telemetry_data.get('UptimeSec', ""),  # type: ignore
+                'tasmota.Heap': telemetry_data.get('Heap', ""),  # type: ignore
+                'tasmota.LoadAvg': telemetry_data.get('LoadAvg', ""),  # type: ignore
+                'tasmota.Wifi.RSSI': telemetry_data.get('Wifi', {}).get('RSSI', ""),  # type: ignore
+                'tasmota.Wifi.Signal': telemetry_data.get('Wifi', {}).get('Signal', ""),  # type: ignore
+                'tasmota.Wifi.Downtime': telemetry_data.get('Wifi', {}).get('Downtime', ""),  # type: ignore
+            })
+            self._publish(self.value, [])
+
+    def on_lwt(self, online: bool) -> None:
+        if online and not self.online:
+            self._reset_timeouts(True)
+            self.value = InterfaceStatus(status=ServiceStatus.OK, message="")
+            self._publish(self.value, [])
+        elif self.online and not online:
+            self._reset_timeouts(False)
+            self.value = InterfaceStatus(status=ServiceStatus.CRITICAL, message="Tasmota device is offline")
+            self._publish(self.value, [])
+        self.online = online
+
+    def _on_telemetry_timeout(self, critical: bool) -> None:
+        if self.online:  # should always be true, since we cancel the timeouts otherwise
+            status = ServiceStatus.CRITICAL if critical else ServiceStatus.WARNING
+            min_age = self.critical_timeout if critical else self.warning_timeout
+            self.value = self.value._replace(status=status)
+            self.value = self.value._replace(message=f"No telemetry data from Tasmota device received for more than "
+                                                     f"{min_age}s")
+            self._publish(self.value, [])
+
+    def _reset_timeouts(self, start_new: bool) -> None:
+        if self.timeout_handles:
+            for handle in self.timeout_handles:
+                handle.cancel()
+            self.timeout_handles = None
+        if start_new:
+            self.timeout_handles = (
+                asyncio.get_running_loop().call_later(self.warning_timeout, self._on_telemetry_timeout, False),
+                asyncio.get_running_loop().call_later(self.critical_timeout, self._on_telemetry_timeout, True)
+            )
+
+    async def read(self) -> InterfaceStatus:
         return self.value
