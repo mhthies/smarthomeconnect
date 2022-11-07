@@ -88,6 +88,7 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 import datetime
 import shc
 import shc.web
+import shc.web.widgets
 import shc.interfaces.knx
 
 # Configure interfaces
@@ -114,7 +115,7 @@ ceiling_lights_last_change = shc.Variable(
 
 @ceiling_lights.trigger
 @shc.handler()
-async def update_lastchange(_new_value, _source):
+async def update_lastchange():
     await ceiling_lights_last_change.write(datetime.datetime.now())
 
 web_index_page.add_item(
@@ -123,11 +124,15 @@ web_index_page.add_item(
 
 
 # close shutters via button in the web user interface (stateless event, so no Variable required) 
-web_index_page.add_item(shc.web.widgets.ButtonGroup("Shutters", [
-    shc.web.widgets.StatelessButton(shc.interfaces.knx.KNXUpDown.DOWN,
-                                    shc.web.widgets.icon("arrow down"))
-    .connect(knx_connection.group(shc.interfaces.knx.KNXGAD(3, 2, 1), dpt="1.008"))
-]))
+web_index_page.add_item(
+    shc.web.widgets.ButtonGroup(
+        "Shutters",
+        [
+            shc.web.widgets.StatelessButton(shc.interfaces.knx.KNXUpDown.DOWN,
+                                            shc.web.widgets.icon("arrow down"))
+                .connect(knx_connection.group(shc.interfaces.knx.KNXGAD(3, 2, 1), dpt="1.008"))
+        ]
+    ))
 
 # use expression syntax to switch on fan when temperature is over 25 degrees 
 temperature = shc.Variable(float, "temperature")\
