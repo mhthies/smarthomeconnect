@@ -32,14 +32,15 @@ In addition, SHC specifies some derived types of these builtin types with addtio
 - :class:`shc.interfaces.pulse.PulseVolumeComponents`
 
 
-.. _datatypes.newtype:
+.. _datatypes.semantic_derivation:
 
-Newtype paradigm in SHC
------------------------
+Inherited semantic types in SHC
+-------------------------------
 
-To make :ref:`type checking and automatic type conversions <base.typing>` more useful, SHC makes use of the "Newtype" paradigm (known e.g. from `Haskell <https://wiki.haskell.org/Newtype>`_ and `Rust <https://doc.rust-lang.org/book/ch19-04-advanced-types.html#using-the-newtype-pattern-for-type-safety-and-abstraction>`_):
+To make :ref:`type checking and automatic type conversions <base.typing>` more useful, SHC makes use of type inheritance for semantic purposes.
+This is similar to how the "Newtype" paradigm is used in `Haskell <https://wiki.haskell.org/Newtype>`_ or `Rust <https://doc.rust-lang.org/book/ch19-04-advanced-types.html#using-the-newtype-pattern-for-type-safety-and-abstraction>`_:
 When a Connectable object's values have special additional semantics, a derived type is used instead of the plain scalar type to specify these semantics.
-This allows the type checking to check for mismatched value semantics of connected objects (even with the same scalar type) and to chose the correct type converstion automatically.
+This allows the type checking to check for mismatched value semantics of connected objects (even with the same scalar type) and to chose the correct type conversion automatically.
 A good example for this method are the different integer types for 0-100% ranges provided by SHC:
 
 * :class:`RangeUInt8 <shc.datatypes.RangeUInt8>` is derived from `int` and its instances shall be values from 0 (0%) to 255 (100%)
@@ -90,7 +91,7 @@ Similar to the default converters, the :mod:`shc.conversion` module provides a g
     
       value = shc.conversion.from_json(json.loads(serialized_value), shc.datatypes.RangeFloat1)
 
-The two converters natively support simple builtin types, Enums and NamedTuples by default, as well as any derived types from these (e.g. for :ref:`Newtypes <datatypes.newtype>`).
+The two converters natively support simple builtin types, Enums and NamedTuples by default, as well as any derived types from these (e.g. for :ref:`semantic derived types <datatypes.semantic_derivation>`).
 To add support for further types, :func:`shc.conversion.register_json_conversion` can be used to register the required converter functions.
 
 
