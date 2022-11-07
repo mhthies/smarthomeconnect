@@ -54,7 +54,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
             self.client_runner.run_coro(status_connector.read()))
 
         task = asyncio.create_task(tasmota_device_mock("test-device"))
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(0.1)
 
         try:
             target_offline._write.assert_called_once_with(True, unittest.mock.ANY)
@@ -68,7 +68,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-            await asyncio.sleep(0.25)
+            await asyncio.sleep(0.1)
             target_offline._write.assert_called_with(False, unittest.mock.ANY)
             target_status._write.assert_called_with(
                 InterfaceStatus(ServiceStatus.CRITICAL, "Tasmota device is offline", unittest.mock.ANY),
@@ -80,7 +80,42 @@ class TasmotaInterfaceTest(unittest.TestCase):
                 await task
             raise
 
-    # TODO add test for telemetry timeouts
+    @async_test
+    async def test_telemetry_warning_state(self) -> None:
+        # Recreate Tasmota interface with really short telemetry timeout
+        async def _construct(*args):
+            return shc.interfaces.tasmota.TasmotaInterface(self.client, 'test-device', telemetry_interval=0.03)
+
+        self.interface = self.client_runner.run_coro(_construct())
+
+        status_connector = self.interface.monitoring_connector()
+        target_status = ExampleWritable(InterfaceStatus).connect(status_connector)
+
+        self.client_runner.start()
+        self.client_runner.run_coro(self.interface.start())
+
+        task = asyncio.create_task(tasmota_device_mock("test-device"))
+        await asyncio.sleep(0.04)
+
+        try:
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, "", unittest.mock.ANY),
+                                                    unittest.mock.ANY)
+
+            await asyncio.sleep(0.02)  # more than 1,5x 0,01s; so we should get a warning
+            target_status._write.assert_called_with(
+                InterfaceStatus(ServiceStatus.WARNING, unittest.mock.ANY, unittest.mock.ANY),
+                unittest.mock.ANY)
+
+            await asyncio.sleep(0.3)  # more than 10x 0,01s; so we should get an error
+            target_status._write.assert_called_with(
+                InterfaceStatus(ServiceStatus.CRITICAL, unittest.mock.ANY, unittest.mock.ANY),
+                unittest.mock.ANY)
+
+        except Exception:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            raise
 
     @async_test
     async def test_color_external(self) -> None:

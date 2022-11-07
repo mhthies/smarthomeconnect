@@ -55,7 +55,7 @@ class TasmotaInterface(AbstractInterface):
         This is used by the status monitoring to detect device failures. Use `0` to disable telemetry monitoring.
     """
     def __init__(self, mqtt_interface: MQTTClientInterface, device_topic: str,
-                 topic_template: str = "{prefix}/{topic}/", telemetry_interval: int = 300):
+                 topic_template: str = "{prefix}/{topic}/", telemetry_interval: float = 300):
         super().__init__()
         self.mqtt_interface = mqtt_interface
         self.device_topic = device_topic
