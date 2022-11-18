@@ -13,10 +13,6 @@ Interface Base and Helper Classes Reference
     .. autoclass:: AbstractInterface
         :members:
 
-    .. autoclass:: ServiceStatus
-
-    .. autoclass:: InterfaceStatus
-
     .. autofunction:: interface_failure
 
 

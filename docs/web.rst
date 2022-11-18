@@ -392,6 +392,7 @@ The constructor function must create at least two attributes on the constructed 
     .. automethod:: page
     .. automethod:: add_menu_entry
     .. automethod:: api
+    .. automethod:: configure_monitoring
     .. automethod:: serve_static_file
     .. automethod:: add_static_directory
 

@@ -21,6 +21,7 @@ Its purpose is to connect "smart home" devices via different communication proto
     variables_expressions
     datatypes
     timer
+    supervisor
     web
     log
     interfaces
