@@ -34,8 +34,10 @@ class EventLoopMonitor(SubscribableStatusInterface):
     external monitoring systems to monitor the health of this application's event loop.
 
     For this purpose, when started, it regularly checks the current number of asyncio tasks and the delay of scheduled
-    function calls in the event loop. These values are reported in the metrics dict of the interface status. The
-    interface's service status is determined by comparing these metrics to fixed threshold values.
+    function calls in the event loop. From these measurements, the maximum value over a number of intervals is
+    calculated for each metric. These maximum values are reported in the metrics dict of the interface status (keys
+    ``tasks_max``, ``lag_max``). The interface's service status is determined by comparing these metrics to fixed
+    threshold values.
 
     :param interval: Interval for checking the function call delay and number of tasks in seconds
     :param num_aggr_samples: Number of intervals to aggregate the measurements. For both, delay and task number, the
