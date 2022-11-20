@@ -28,6 +28,8 @@ Some interfaces, especially client interfaces inheriting from :class:`shc.interf
 As the SHC application will continue to run in these cases, it's useful to monitor the status of individual interfaces.
 
 
+.. _monitoring:
+
 Monitoring of Interface Status
 ------------------------------
 
@@ -39,24 +41,24 @@ If an interfaces does not provide monitoring capabilities, this method will rais
 In many cases, the monitoring connector object is not only *Readable* but also *Subscribable*.
 This can be used to interactively react to interface status changes, e.g. set some variables to an emergency-fallback mode when the :class:`SHC client <shc.interfaces.shc_client.SHCWebClient>` connection to a primary SHC server is lost.
 
+The :class:`shc.supervisor.InterfaceStatus` includes a basic health `status`, represented as a :class:`ServiceStatus <shc.supervisor.ServiceStatus` (OK / WARNING / CRITICAL / UNKNOWN), based on the service state representation of the *Nagios* monitoring system (and its successor, the *Icinga* monitoring system).
+In addition, a human-readable `message` can be provided by the interface, for communicating the cause of the interface problems.
+Finally, the interface can provide a dict of named `metrics`, giving additional numeric information about its state.
+
+SHC's built-in `WebServer` allows to expose the monitoring status of any number of interfaces and an overall status via a HTTP monitoring endpoint, so that external monitoring systems can check the status of the SHC application: :ref:`web.monitoring`
+
+To include some fundamental system and application metrics into the monitoring, such as the health of the Python asyncio event loop, running the SHC application, there are pseudo-interfaces available in the :mod:`shc.interfaces.system_monitoring` module.
+
+
 .. autoclass:: shc.supervisor.ServiceStatus
 
 .. autonamedtuple:: shc.supervisor.InterfaceStatus
 
 
-Monitoring via HTTP
-^^^^^^^^^^^^^^^^^^^
-
-TODO monitoring via HTTP using the WebServer
-
-TODO :meth:`shc.web.interface.WebServer.configure_monitoring`
-
-
-
 
 Monitoring Helper classes
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
-TODO :class:`shc.interfaces.system_monitoring.EventLoopMonitor`
+.. automodule:: shc.interfaces.system_monitoring
 
-
+    .. autoclass:: EventLoopMonitor

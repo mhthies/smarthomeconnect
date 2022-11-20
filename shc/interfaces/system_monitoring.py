@@ -8,6 +8,15 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
+"""
+This module provides pseudo SHC interfaces that allow to monitor fundamental system functionality, such as the Python
+asyncio event loop.
+
+These interfaces don't “interface” with anything, but they provide the usual
+:meth:`monitoring_connector() <shc.supervisor.AbstractInterface.monitoring_connector>` method to be included in the
+:ref:`SHC monitoring <monitoring>` framework and make use of the supervisor for startup and graceful shutdown.
+"""
+
 import asyncio
 import collections
 import functools
