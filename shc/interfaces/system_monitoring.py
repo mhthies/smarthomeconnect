@@ -27,12 +27,22 @@ class EventLoopMonitor(SubscribableStatusInterface):
     For this purpose, when started, it regularly checks the current number of asyncio tasks and the delay of scheduled
     function calls in the event loop. These values are reported in the metrics dict of the interface status. The
     interface's service status is determined by comparing these metrics to fixed threshold values.
+
+    :param interval: Interval for checking the function call delay and number of tasks in seconds
+    :param num_aggr_samples: Number of intervals to aggregate the measurements. For both, delay and task number, the
+        maximum from all samples is reported and compared to the threshold values. Thus, at each time, the monitoring
+        status covers a timespan of the last `num_aggr_samples` * `interval` seconds.
+    :param lag_warning: Threshold for the scheduled function call delay in seconds to report WARNING state
+    :param lag_error: Threshold for the scheduled function call delay in seconds to report CRITICAL state
+    :param tasks_warning: Threshold for the number of active/waiting asyncio Tasks to report WARNING state
+    :param tasks_error: Threshold for the number of active/waiting asyncio Tasks to report CRITICAL state
     """
-    def __init__(self, lag_warning: float = 0.005, lag_error: float = 0.02, tasks_warning: int = 1000,
-                 tasks_error: int = 10000):
+    def __init__(self, interval: float = 5.0, num_aggr_samples: int = 60,
+                 lag_warning: float = 0.005, lag_error: float = 0.02,
+                 tasks_warning: int = 1000, tasks_error: int = 10000):
         super().__init__()
-        self.interval = 5.0
-        self.num_aggr_samples = 60
+        self.interval = interval
+        self.num_aggr_samples = num_aggr_samples
         self.samples: Deque[Tuple[float, int]] = collections.deque()
         self.task: asyncio.Task
         self.tic = 0.0
@@ -66,9 +76,9 @@ class EventLoopMonitor(SubscribableStatusInterface):
         while len(self.samples) > self.num_aggr_samples:
             self.samples.popleft()
 
-        self._update_get_status()
+        self._update_status()
 
-    def _update_get_status(self):
+    def _update_status(self):
         lag_max, tasks_max = functools.reduce(lambda a, i: (max(a[0], i[0]), max(a[1], i[1])), self.samples, (0.0, 0))
         warning = lag_max >= self.lag_warning or tasks_max >= self.tasks_warning
         error = lag_max >= self.lag_error or tasks_max >= self.tasks_error
