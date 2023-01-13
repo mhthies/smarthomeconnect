@@ -6,18 +6,21 @@ TODO usage
 """
 import argparse
 import enum
+import json
+import re
+import sys
 import urllib.request
 import urllib.error
-from typing import NamedTuple, Optional, Dict, Tuple
+from typing import NamedTuple, Optional, Tuple, NoReturn, List
 
 
 def main() -> None:
     args = get_arg_parser().parse_args()
 
     # Do request
-    request = urllib.request.Request(f"{args.url}/monitoring", None, {'Accept': "application/json"})
+    request = urllib.request.Request(f"{args.url[0]}/monitoring", None, {'Accept': "application/json"})
     try:
-        response = urllib.request.urlopen(request, timeout=5.0)  # TODO SSL context
+        response = urllib.request.urlopen(request, timeout=5.0)
         status = response.status
         payload = response.read()
         headers = response.headers
@@ -29,25 +32,82 @@ def main() -> None:
     except urllib.error.URLError as e:
         exit_with_report(ServiceStatus.UNKNOWN, f"Failed to connect to SHC web server: {e}")
 
-    # TODO check HTTP status_code not in (200, 212, 513)
-        # Report UNKNOWN with HTTP error (and message?)
-    # TODO if interface:
-        # TODO if interface does not exist: Report UNKNOWN
-        # TODO do metrics checks
-        # TODO if not ignore_status:
-            # TODO result = max(metrics, interface status)
-        # TODO report result, interface message, interface metrics (with thresholds, if given)
-    # else
-        # TODO do metrics checks
-        # TODO if not ignore_status:
-            # TODO result = max(metrics, interface status)
-        # TODO report result, explicitly defined metrics (with thresholds, if given)
+    if status not in (200, 213, 513):
+        exit_with_report(ServiceStatus.UNKNOWN, f"Unexpected HTTP status code from SHC web server: {status}")
+
+    # Parse response
+    try:
+        data = json.loads(payload.decode(headers.get_content_charset()))
+    except Exception as e:
+        exit_with_report(ServiceStatus.UNKNOWN, f"HTTP Response from SHC web server was no correctly encoded JSON: {e}")
+
+    if 'interfaces' not in data or 'status' not in data:
+        invalid_result()
+
+    # If requested to check a single interface:
+    if args.interface is not None:
+        interface_name = args.interface[0]
+        if interface_name not in data["interfaces"]:
+            exit_with_report(ServiceStatus.UNKNOWN,
+                             f"Interface '{interface_name} is not present in monitoring data returned from SHC server")
+
+        interface_data = data['interfaces'][interface_name]
+        status = ServiceStatus.OK if args.ignore_status else interface_data['status']
+        metrics_check: MetricsCheck
+        missing_metrics = []
+        display_metrics = []
+        for metrics_check in args.metric or []:
+            if metrics_check.interface_name != interface_name:
+                continue
+            if metrics_check.metric_name not in interface_data['metrics']:
+                status = ServiceStatus.UNKNOWN
+                missing_metrics.append(metrics_check.metric_name)
+                display_metrics.append((metrics_check, float('NaN')))
+                continue
+            value = interface_data['metrics'][metrics_check.metric_name]
+            status = max(status, metrics_check.check_value(value))
+            display_metrics.append((metrics_check, value))
+        # Add all other metrics of the interface for displaying
+        for metric, value in interface_data['metrics'].items():
+            if metric not in {mc.metric_name for mc in args.metric if mc.interface_name == interface_name}:
+                display_metrics.append((MetricsCheck(interface_name, metric, None, None, None, None), value))
+        exit_with_report(ServiceStatus(status),
+                         f"Interface status: {ServiceStatus(interface_data['status']).to_string()}; "
+                         + interface_data['message']
+                         + (f" [missing metrics: {', '.join(missing_metrics)}]" if missing_metrics else ''),
+                         "",
+                         display_metrics)
+    else:
+        status = ServiceStatus.OK if args.ignore_status else data['status']
+        metrics_check: MetricsCheck
+        missing_metrics = []
+        display_metrics = []
+        for metrics_check in args.metric or []:
+            try:
+                value = data['interfaces'][metrics_check.interface_name]['metrics'][metrics_check.metric_name]
+                status = max(status, metrics_check.check_value(value))
+            except KeyError:
+                status = ServiceStatus.UNKNOWN
+                missing_metrics.append(metrics_check.metric_name)
+                value = float('NaN')
+            display_metrics.append((metrics_check, value))
+        exit_with_report(ServiceStatus(status),
+                         f"Overall SHC server status: {ServiceStatus(data['status']).to_string()}" + (
+                             f" [missing metrics: {', '.join(missing_metrics)}]"
+                             if missing_metrics else ''),
+                         "",
+                         display_metrics)
+
+
+def invalid_result() -> NoReturn:
+    exit_with_report(ServiceStatus.UNKNOWN, "JSON response from SHC web server is not structured as expected.")
 
 
 def exit_with_report(status: "ServiceStatus", message: str = "", long_message: str = "",
-                     metrics: Dict[str, Tuple[float, Optional[float], Optional[float]]] = {}) -> None:
-    # TODO
-    pass
+                     metrics: List[Tuple["MetricsCheck", float]] = []) -> NoReturn:
+    perf_data = " ".join(metric.format_as_perf_data(value) for metric, value in metrics)
+    print(f"{status.to_string()}: {message}|{perf_data}\n{long_message}")
+    sys.exit(status.exit_code())
 
 
 def get_arg_parser() -> argparse.ArgumentParser:
@@ -59,7 +119,7 @@ def get_arg_parser() -> argparse.ArgumentParser:
     return arg_parser
 
 
-class ServiceStatus(enum.Enum):
+class ServiceStatus(enum.IntEnum):
     OK = 0
     WARNING = 1
     CRITICAL = 2
@@ -75,13 +135,52 @@ class ServiceStatus(enum.Enum):
 class MetricsCheck(NamedTuple):
     interface_name: str
     metric_name: str
-    warning_threshold: Optional[float]
-    critical_threshold: Optional[float]
+    warning_if_lt: Optional[float]
+    warning_if_gt: Optional[float]
+    critical_if_lt: Optional[float]
+    critical_if_gt: Optional[float]
+
+    def check_value(self, value: float) -> ServiceStatus:
+        if self.critical_if_lt is not None and value < self.critical_if_lt or \
+                self.critical_if_gt is not None and value > self.critical_if_gt:
+            return ServiceStatus.CRITICAL
+        if self.warning_if_lt is not None and value < self.warning_if_lt or \
+                self.warning_if_gt is not None and value > self.warning_if_gt:
+            return ServiceStatus.WARNING
+        return ServiceStatus.OK
+
+    def format_as_perf_data(self, value: float) -> str:
+        return f"'{self.interface_name}.{self.metric_name}'" \
+               f"={value};{self._format_range(self.warning_if_lt, self.warning_if_gt)};" \
+               f"{self._format_range(self.critical_if_lt, self.critical_if_gt)}"
+
+    @staticmethod
+    def _format_range(lt: Optional[float], gt: Optional[float]) -> str:
+        if lt is None:
+            if gt is None:
+                return ""
+            else:
+                return f"~:{gt}"
+        else:
+            if gt is None:
+                return f"{lt}:"
+            elif lt < gt:
+                return f"{lt}:{gt}"
+            else:
+                return f"@{gt}:{lt}"
 
 
-ESCAPED_DOT = '\uE042'
-ESCAPED_LT = '\uE043'
-TRANSLATE_BACK = str.maketrans({ESCAPED_DOT: '.', ESCAPED_LT: '<'})
+# These unicode characters are private use and neither listed to be assigned on
+# https://www.evertype.com/standards/csur/ , nor on https://mufi.info/m.php?p=mufichars&i=2&v=E6
+ESCAPED_DOT = '\uE6D0'
+ESCAPED_LT = '\uE6D1'
+ESCAPED_GT = '\uE6D2'
+TRANSLATE_BACK = str.maketrans({ESCAPED_DOT: '.', ESCAPED_LT: '<', ESCAPED_GT: '>'})
+
+
+def pairwise(iterable):
+    a = iter(iterable)
+    return zip(a, a)
 
 
 def parse_metrics_arg(arg: str) -> MetricsCheck:
@@ -89,24 +188,24 @@ def parse_metrics_arg(arg: str) -> MetricsCheck:
     Parse a command line argument of the form "interface.metric<5.0<<10" into a `MetricsCheck` object
     """
     # Save escaped '.' and '<', using unicode private use characters
-    arg = arg.replace('\\.', ESCAPED_DOT).replace('\\<', ESCAPED_LT)
+    arg = arg.replace('\\.', ESCAPED_DOT).replace('\\<', ESCAPED_LT).replace('\\>', ESCAPED_GT)
 
     # Parse thresholds
-    segments = arg.split('<')
+    # TODO parse Nagios Range format? https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT
+    segments = re.split(r'(<<?|>>?)', arg)
     fullname = segments[0]
     next_is_critical_thresh = False
-    warning_thresh = None
-    critical_thresh = None
-    for segment in segments[1:]:
-        if not segment:  # Two directly consecutive '<'
-            next_is_critical_thresh = True
-            continue
+    thresholds = (None, None, None, None)
+    for separator, segment in pairwise(segments[1:]):
         value = float(segment)
-        if next_is_critical_thresh:
-            critical_thresh = value
-        else:
-            warning_thresh = value
-        next_is_critical_thresh = False
+        if separator == ">":
+            thresholds[0] = value
+        elif separator == "<":
+            thresholds[1] = value
+        elif separator == ">>":
+            thresholds[2] = value
+        elif separator == "<<":
+            thresholds[3] = value
 
     # Split interface and metric name
     name_parts = fullname.split(".", 1)
@@ -116,8 +215,7 @@ def parse_metrics_arg(arg: str) -> MetricsCheck:
     # Construct result
     return MetricsCheck(name_parts[0].translate(TRANSLATE_BACK),
                         name_parts[1].translate(TRANSLATE_BACK),
-                        warning_thresh,
-                        critical_thresh)
+                        *thresholds)
 
 
 if __name__ == "__main__":
