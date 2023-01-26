@@ -2,7 +2,38 @@
 """
 A Nagios compatible check script to monitor the status of an SHC application server or a single interface.
 
-TODO usage
+Usage
+-----
+
+Use check_shc.py --help for full usage information.
+
+Here are some examples:
+
+Simply monitoring the SHC server status:
+
+    check_shc.py -u http://shc-host:80/base_path
+
+Monitoring the SHC server status and exporting some metrics:
+
+    check_shc.py -u http://shc-host:80/base_path -m interface_name.metric_name -m interface_name.metric_name2
+
+Monitoring the SHC server status and monitoring some metrics with thresholds:
+
+    check_shc.py -u http://shc-host:80/base_path -m interface_name.metric_name<50<<100 \
+        -m interface_name.metric_name2>5<15
+
+Only monitoring metrics (ignoring the overall server state):
+
+    check_shc.py -u http://shc-host:80/base_path -s -m interface_name.metric_name<50<100
+
+Monitoring the state of a single SHC interface:
+
+    check_shc.py -u http://shc-host:80/base_path -i interface_name
+
+Monitoring the state of a single SHC interface and monitoring some metrics with thresholds:
+
+    check_shc.py -u http://shc-host:80/base_path -i interface_name -m interface_name.metric_name<50<<100
+
 """
 import argparse
 import enum
@@ -111,6 +142,7 @@ def exit_with_report(status: "ServiceStatus", message: str = "", long_message: s
 
 
 def get_arg_parser() -> argparse.ArgumentParser:
+    # TODO add help strings
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-u", "--url", nargs=1, required=True)
     arg_parser.add_argument("-i", "--interface", nargs=1)
