@@ -23,6 +23,7 @@ import functools
 from typing import Deque, Tuple
 
 from shc.interfaces._helper import SubscribableStatusInterface
+from shc.misc import SimpleOutputConnector
 from shc.supervisor import ServiceStatus
 
 
@@ -30,14 +31,13 @@ class EventLoopMonitor(SubscribableStatusInterface):
     """
     A special SHC interface class for monitoring the health of the asyncio Event Loop.
 
-    This interface does not provide any connectors, but only implements the :meth:`get_status` method for allowing
+    This interface only provides a :meth:`monitoring connector <monitoring_connector>`, allowing
     external monitoring systems to monitor the health of this application's event loop.
 
     For this purpose, when started, it regularly checks the current number of asyncio tasks and the delay of scheduled
     function calls in the event loop. From these measurements, the maximum value over a number of intervals is
-    calculated for each metric. These maximum values are reported in the metrics dict of the interface status (keys
-    ``tasks_max``, ``lag_max``). The interface's service status is determined by comparing these metrics to fixed
-    threshold values.
+    calculated for each metric. These maximum values are reported via the :attr:`tasks` and :attr:`lag` connectors.
+    The interface's service status is determined by comparing these metrics to fixed threshold values.
 
     :param interval: Interval for checking the function call delay and number of tasks in seconds
     :param num_aggr_samples: Number of intervals to aggregate the measurements. For both, delay and task number, the
@@ -47,6 +47,10 @@ class EventLoopMonitor(SubscribableStatusInterface):
     :param lag_error: Threshold for the scheduled function call delay in seconds to report CRITICAL state
     :param tasks_warning: Threshold for the number of active/waiting asyncio Tasks to report WARNING state
     :param tasks_error: Threshold for the number of active/waiting asyncio Tasks to report CRITICAL state
+    :ivar tasks: *readable* and *subscribable* connector, representing and publishing the current number of
+        active/waiting asyncio Tasks (maximum within the sample interval)
+    :ivar lag: *readable* and *subscribable* connector, representing and publishing the current call delay (maximum
+        within the sample interval)
     """
     def __init__(self, interval: float = 5.0, num_aggr_samples: int = 60,
                  lag_warning: float = 0.005, lag_error: float = 0.02,
@@ -54,26 +58,29 @@ class EventLoopMonitor(SubscribableStatusInterface):
         super().__init__()
         self.interval = interval
         self.num_aggr_samples = num_aggr_samples
-        self.samples: Deque[Tuple[float, int]] = collections.deque()
-        self.task: asyncio.Task
-        self.tic = 0.0
+        self._samples: Deque[Tuple[float, int]] = collections.deque()
+        self._task: asyncio.Task
+        self._tic = 0.0
 
         self.lag_warning = lag_warning
         self.lag_error = lag_error
         self.tasks_warning = tasks_warning
         self.tasks_error = tasks_error
 
+        self.tasks = SimpleOutputConnector(int, 0)
+        self.lag = SimpleOutputConnector(float, 0.0)
+
     async def start(self) -> None:
-        self.task = asyncio.create_task(self._monitor_loop())
+        self._task = asyncio.create_task(self._monitor_loop())
 
     async def stop(self) -> None:
-        self.task.cancel()
-        await self.task
+        self._task.cancel()
+        await self._task
 
     async def _monitor_loop(self) -> None:
         loop = asyncio.get_running_loop()
         while True:
-            self.tic = loop.time()
+            self._tic = loop.time()
             loop.call_soon(self._measure_delay)
             try:
                 await asyncio.sleep(self.interval)
@@ -81,25 +88,27 @@ class EventLoopMonitor(SubscribableStatusInterface):
                 return
 
     def _measure_delay(self) -> None:
-        lag = asyncio.get_running_loop().time() - self.tic
+        lag = asyncio.get_running_loop().time() - self._tic
         queue_length = sum(1 for task in asyncio.all_tasks() if not task.done())
-        self.samples.append((lag, queue_length))
-        while len(self.samples) > self.num_aggr_samples:
-            self.samples.popleft()
+        self._samples.append((lag, queue_length))
+        while len(self._samples) > self.num_aggr_samples:
+            self._samples.popleft()
 
         self._update_status()
 
     def _update_status(self):
-        lag_max, tasks_max = functools.reduce(lambda a, i: (max(a[0], i[0]), max(a[1], i[1])), self.samples, (0.0, 0))
+        lag_max, tasks_max = functools.reduce(lambda a, i: (max(a[0], i[0]), max(a[1], i[1])), self._samples, (0.0, 0))
         warning = lag_max >= self.lag_warning or tasks_max >= self.tasks_warning
         error = lag_max >= self.lag_error or tasks_max >= self.tasks_error
         self._status_connector.update_status(
-            (ServiceStatus.UNKNOWN if len(self.samples) == 0
+            (ServiceStatus.UNKNOWN if len(self._samples) == 0
              else ServiceStatus.CRITICAL if error
              else ServiceStatus.WARNING if warning
              else ServiceStatus.OK),
             ""
         )
+        self.tasks.set_generated_value(tasks_max)
+        self.lag.set_generated_value(lag_max)
 
     def __repr__(self) -> str:
         return "EventLoopMonitor"

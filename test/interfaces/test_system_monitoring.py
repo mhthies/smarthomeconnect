@@ -10,7 +10,7 @@ from .._helper import InterfaceThreadRunner, ExampleWritable, async_test
 class EventLoopMonitorTest(unittest.TestCase):
     def setUp(self) -> None:
         self.interface_runner = InterfaceThreadRunner(shc.interfaces.system_monitoring.EventLoopMonitor, interval=0.03)
-        self.interface = self.interface_runner.interface
+        self.interface: shc.interfaces.system_monitoring.EventLoopMonitor = self.interface_runner.interface
 
     def tearDown(self) -> None:
         self.interface_runner.stop()
@@ -27,3 +27,10 @@ class EventLoopMonitorTest(unittest.TestCase):
         status_target._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, ""), [connector])
         status = await connector.read()
         self.assertIsInstance(status, InterfaceStatus)
+
+        tasks = await self.interface.tasks.read()
+        lag = await self.interface.lag.read()
+        self.assertGreater(tasks, 0)
+        self.assertLess(tasks, 100)
+        self.assertGreater(lag, 0.0)
+        self.assertLess(lag, 0.1)
