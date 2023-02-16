@@ -98,11 +98,7 @@ class EventLoopMonitor(SubscribableStatusInterface):
              else ServiceStatus.CRITICAL if error
              else ServiceStatus.WARNING if warning
              else ServiceStatus.OK),
-            "",
-            {
-                'lag_max': lag_max,
-                'tasks_max': tasks_max
-            }
+            ""
         )
 
     def __repr__(self) -> str:

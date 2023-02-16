@@ -41,14 +41,13 @@ class MySQLPersistence(ReadableStatusInterface):
         if not self.pool_ready.is_set():
             return InterfaceStatus(ServiceStatus.CRITICAL, "Interface not started yet")
         assert isinstance(self.pool, aiomysql.Pool)
-        free_connections = self.pool.freesize
         try:
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute("SELECT * from `log` WHERE FALSE")
         except pymysql.err.MySQLError as e:
-            return InterfaceStatus(ServiceStatus.CRITICAL, str(e), {'free_connections': free_connections})
-        return InterfaceStatus(ServiceStatus.OK, "", {'free_connections': free_connections})
+            return InterfaceStatus(ServiceStatus.CRITICAL, str(e))
+        return InterfaceStatus(ServiceStatus.OK, "")
 
     def variable(self, type_: Type, name: str, log: bool = True) -> "MySQLPersistenceVariable":
         if name in self.variables:

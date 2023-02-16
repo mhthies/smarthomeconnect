@@ -14,7 +14,7 @@ import logging
 from typing import Optional
 
 from ..base import Readable, Subscribable
-from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, ServiceStatus, StatusMetrics
+from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +85,7 @@ class SubscribableStatusConnector(Readable[InterfaceStatus], Subscribable[Interf
         super().__init__()
         self.status = InterfaceStatus()
 
-    def update_status(self, status: Optional[ServiceStatus] = None, message: Optional[str] = None,
-                      metrics: StatusMetrics = {}) -> None:
+    def update_status(self, status: Optional[ServiceStatus] = None, message: Optional[str] = None) -> None:
         """
         Method to be called by the interface when its monitored status changes.
 
@@ -99,14 +98,12 @@ class SubscribableStatusConnector(Readable[InterfaceStatus], Subscribable[Interf
         :param status: The new overall health status of the interface or None (default) to leave it unchanged
         :param message: The new status message of the interface. If the interface *status* is OK, it should be ""
             (empty string). To keep the previous message, pass None or omit this parameter.
-        :param metrics: A dict of new values for the monitoring metrics of this interface.
         """
         result = self.status
         if status is not None:
             result = result._replace(status=status)
         if message is not None:
             result = result._replace(message=message)
-        result = result._replace(metrics={**result.metrics, **metrics})
         self.status = result
         self._publish(result, [])
 

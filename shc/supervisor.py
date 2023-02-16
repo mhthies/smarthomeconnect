@@ -127,20 +127,15 @@ class ServiceStatus(enum.Enum):
     UNKNOWN = 3
 
 
-StatusMetrics = Dict[str, Union[bool, int, float, str]]
-
-
 class InterfaceStatus(NamedTuple):
     """
     Interface status information as returned by :meth:`AbstractInterface.get_status`.
 
     Contains the overall interface status (:attr:`status`), a human readable :attr:`message`, typically describing the
-    error if any, and a map of :attr:`metrics`, which contain interface-specific performance values.
+    current status, especially the error if any.
     """
     status: ServiceStatus = ServiceStatus.OK  #: Overall status of the interface.
     message: str = ""  #: A textual description of the error. E.g. an error message, if status != ServiceStatus.OK
-    #: Additional monitoring metrics like performance values, identified by a unique string.
-    metrics: StatusMetrics = {}
 
 
 def register_interface(interface: AbstractInterface) -> None:

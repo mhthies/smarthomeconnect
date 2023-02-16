@@ -169,7 +169,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
         bar_target._write.reset_mock()
         foo_server_target._write.assert_called_once_with(56, unittest.mock.ANY)
-        self.assertEqual(shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, "", {}),
+        self.assertEqual(shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""),
                          self.client_runner.run_coro(self.client.monitoring_connector().read()))
         client_status_target._write.reset_mock()
         # We cannot use ClockMock here, since it does not support asyncio.wait()
@@ -180,8 +180,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.assertIn("SHCWebClient", ctx.output[0])
 
         expected_status = shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.CRITICAL,
-                                                         "Unexpected shutdown of interface",
-                                                         {})
+                                                         "Unexpected shutdown of interface")
         self.assertEqual(expected_status,
                          self.client_runner.run_coro(self.client.monitoring_connector().read()))
         client_status_target._write.assert_called_with(expected_status, unittest.mock.ANY)
@@ -211,10 +210,10 @@ class SHCWebsocketClientTest(unittest.TestCase):
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
         foo_server_target._write.assert_called_once_with(56, unittest.mock.ANY)
 
-        self.assertEqual(shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, "", {}),
+        self.assertEqual(shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""),
                          self.client_runner.run_coro(self.client.monitoring_connector().read()))
         client_status_target._write.assert_called_with(
-            shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, "", {}), unittest.mock.ANY)
+            shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""), unittest.mock.ANY)
 
     def test_initial_reconnect(self) -> None:
         self.client.failsafe_start = True

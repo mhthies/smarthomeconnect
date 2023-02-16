@@ -143,9 +143,8 @@ class MonitoringTest(unittest.TestCase):
 
         self.server_runner.start()
 
-        self.interface1.status = InterfaceStatus(ServiceStatus.CRITICAL, "Something is wrong", {"badness": 100})
-        self.interface3.status = InterfaceStatus(ServiceStatus.WARNING, "Be warned",
-                                                 {"info": "intervention may be required"})
+        self.interface1.status = InterfaceStatus(ServiceStatus.CRITICAL, "Something is wrong")
+        self.interface3.status = InterfaceStatus(ServiceStatus.WARNING, "Be warned")
         headers = {"Accept": "application/json"}
         async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get('http://localhost:42080/monitoring') as resp:
@@ -155,7 +154,6 @@ class MonitoringTest(unittest.TestCase):
             self.assertEqual(1, data['status'])
             self.assertEqual(2, data['interfaces']['Iface 1']['status'])
             self.assertEqual("Something is wrong", data['interfaces']['Iface 1']['message'])
-            self.assertEqual(100, data['interfaces']['Iface 1']['metrics']['badness'])
             self.assertNotIn('StatusTestInterface(Interface 2)', data['interfaces'])
             self.assertNotIn('', data['interfaces'])
             self.assertEqual(1, data['interfaces']['StatusTestInterface(Interface 3)']['status'])

@@ -24,10 +24,6 @@ class EventLoopMonitorTest(unittest.TestCase):
         self.interface_runner.start()
         await asyncio.sleep(0.1)
 
-        status_target._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, "", unittest.mock.ANY), [connector])
+        status_target._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, ""), [connector])
         status = await connector.read()
         self.assertIsInstance(status, InterfaceStatus)
-        self.assertGreater(status[2]["tasks_max"], 0)
-        self.assertLess(status[2]["tasks_max"], 100)
-        self.assertGreater(status[2]["lag_max"], 0.0)
-        self.assertLess(status[2]["lag_max"], 0.1)

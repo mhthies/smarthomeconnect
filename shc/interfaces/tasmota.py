@@ -617,15 +617,7 @@ class TasmotaMonitoringConnector(Readable[InterfaceStatus], Subscribable[Interfa
     def on_telemetry(self, telemetry_data: Dict[str, JSONType]) -> None:
         if self.online:  # ignore telemetry data, if Last Will Topic tells us, the device is offline
             self._reset_timeouts(True)
-            self.value = InterfaceStatus(status=ServiceStatus.OK, message="", metrics={
-                'telemetry_timestamp': time.time(),
-                'tasmota.UptimeSec': telemetry_data.get('UptimeSec', ""),  # type: ignore
-                'tasmota.Heap': telemetry_data.get('Heap', ""),  # type: ignore
-                'tasmota.LoadAvg': telemetry_data.get('LoadAvg', ""),  # type: ignore
-                'tasmota.Wifi.RSSI': telemetry_data.get('Wifi', {}).get('RSSI', ""),  # type: ignore
-                'tasmota.Wifi.Signal': telemetry_data.get('Wifi', {}).get('Signal', ""),  # type: ignore
-                'tasmota.Wifi.Downtime': telemetry_data.get('Wifi', {}).get('Downtime', ""),  # type: ignore
-            })
+            self.value = InterfaceStatus(status=ServiceStatus.OK, message="")
             self._publish(self.value, [])
 
     def on_lwt(self, online: bool) -> None:

@@ -49,8 +49,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
         await asyncio.sleep(0.25)
         self.assertEqual(False, self.client_runner.run_coro(offline_connector.read()))
         self.assertEqual(
-            InterfaceStatus(ServiceStatus.CRITICAL, "No Last Will or telemetry received from Tasmota device by now",
-                            unittest.mock.ANY),
+            InterfaceStatus(ServiceStatus.CRITICAL, "No Last Will or telemetry received from Tasmota device by now"),
             self.client_runner.run_coro(status_connector.read()))
 
         task = asyncio.create_task(tasmota_device_mock("test-device"))
@@ -58,10 +57,9 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
         try:
             target_offline._write.assert_called_once_with(True, unittest.mock.ANY)
-            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, "", unittest.mock.ANY),
-                                                    unittest.mock.ANY)
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, ""), unittest.mock.ANY)
             self.assertEqual(True, self.client_runner.run_coro(offline_connector.read()))
-            self.assertEqual(InterfaceStatus(ServiceStatus.OK, "", unittest.mock.ANY),
+            self.assertEqual(InterfaceStatus(ServiceStatus.OK, ""),
                              self.client_runner.run_coro(status_connector.read()))
 
             task.cancel()
@@ -71,7 +69,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
             await asyncio.sleep(0.1)
             target_offline._write.assert_called_with(False, unittest.mock.ANY)
             target_status._write.assert_called_with(
-                InterfaceStatus(ServiceStatus.CRITICAL, "Tasmota device is offline", unittest.mock.ANY),
+                InterfaceStatus(ServiceStatus.CRITICAL, "Tasmota device is offline"),
                 unittest.mock.ANY)
 
         except Exception:
@@ -98,18 +96,15 @@ class TasmotaInterfaceTest(unittest.TestCase):
         await asyncio.sleep(0.04)
 
         try:
-            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, "", unittest.mock.ANY),
-                                                    unittest.mock.ANY)
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, ""), unittest.mock.ANY)
 
             await asyncio.sleep(0.02)  # more than 1,5x 0,01s; so we should get a warning
-            target_status._write.assert_called_with(
-                InterfaceStatus(ServiceStatus.WARNING, unittest.mock.ANY, unittest.mock.ANY),
-                unittest.mock.ANY)
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.WARNING, unittest.mock.ANY),
+                                                    unittest.mock.ANY)
 
             await asyncio.sleep(0.3)  # more than 10x 0,01s; so we should get an error
-            target_status._write.assert_called_with(
-                InterfaceStatus(ServiceStatus.CRITICAL, unittest.mock.ANY, unittest.mock.ANY),
-                unittest.mock.ANY)
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.CRITICAL, unittest.mock.ANY),
+                                                    unittest.mock.ANY)
 
         except Exception:
             task.cancel()
