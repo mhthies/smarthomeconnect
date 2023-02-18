@@ -131,7 +131,8 @@ There are still limitations to this expression syntax:
   Only *Connectables* with value types covered by these rules can be used in expressions.
   Currently, such rules are only available for some basic builtin Python types and don't even support subclasses of these types.
 
-To use custom functions in SHC expressions, you can use the :func:`expression` decorator to turn any function into an :class:`ExpressionHandler` evaluating that function with the latest values.
+.. tip::
+    To use custom functions in SHC expressions, you can use the :func:`@expression <expression>` decorator to turn any function into an :class:`ExpressionHandler` evaluating that function with the latest values.
 
 
 Classes for Building Expressions
