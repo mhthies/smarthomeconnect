@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import shutil
 import subprocess
@@ -57,11 +58,10 @@ class TasmotaInterfaceTest(unittest.TestCase):
             await asyncio.sleep(0.25)
             target_offline._write.assert_called_with(False, unittest.mock.ANY)
 
-        except Exception:
+        finally:
             task.cancel()
             with suppress(asyncio.CancelledError):
                 await task
-            raise
 
     @async_test
     async def test_color_external(self) -> None:
