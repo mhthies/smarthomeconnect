@@ -293,7 +293,7 @@ class DummyIntReadSubscribable(base.Readable[int], base.Subscribable[int]):
         super().__init__()
 
     async def read(self) -> int:
-        pass
+        return 0
 
 
 class DummyFloatReadingWritable(base.Reading[float], base.Writable[float]):
