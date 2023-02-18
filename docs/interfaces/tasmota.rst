@@ -7,6 +7,7 @@ Tasmota Interface
     .. autoclass:: TasmotaInterface
 
         .. automethod:: online
+        .. automethod:: telemetry
         .. automethod:: power
         .. automethod:: dimmer
         .. automethod:: color_cct
@@ -21,3 +22,5 @@ Tasmota Interface
         .. automethod:: energy_power_factor
         .. automethod:: energy_reactive_power
         .. automethod:: energy_apparent_power
+
+    .. autonamedtuple:: TasmotaTelemetry

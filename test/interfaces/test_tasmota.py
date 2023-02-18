@@ -3,6 +3,7 @@ import json
 import shutil
 import subprocess
 import time
+import datetime
 import unittest
 import unittest.mock
 from contextlib import suppress
@@ -77,6 +78,31 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
             raise
+
+    @async_test
+    async def test_telemetry(self) -> None:
+        target_telemetry = ExampleWritable(shc.interfaces.tasmota.TasmotaTelemetry).connect(self.interface.telemetry())
+
+        task = asyncio.create_task(tasmota_device_mock("test-device"))
+        await asyncio.sleep(0.1)
+        self.client_runner.start()
+        self.client_runner.run_coro(self.interface.start())
+
+        try:
+            await asyncio.sleep(0.1)
+
+            target_telemetry._write.assert_called_once()
+            telemetry = target_telemetry._write.call_args[0][0]
+            self.assertIsInstance(telemetry, shc.interfaces.tasmota.TasmotaTelemetry)
+            self.assertEqual(26, telemetry.heap)
+            self.assertEqual(datetime.timedelta(days=7, hours=4, minutes=46, seconds=38), telemetry.uptime)
+            self.assertEqual("00:11:22:33:44:55", telemetry.wifi_bssid)
+            self.assertEqual(-62, telemetry.wifi_signal)
+            self.assertEqual(datetime.timedelta(seconds=3), telemetry.wifi_downtime)
+        finally:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
     @async_test
     async def test_telemetry_warning_state(self) -> None:

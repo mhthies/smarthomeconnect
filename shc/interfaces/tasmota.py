@@ -11,11 +11,13 @@
 import abc
 import asyncio
 import collections
+import datetime
 import functools
 import json
 import logging
+import re
 import time
-from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple, cast, Optional
+from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple, cast, Optional, NamedTuple
 
 from paho.mqtt.client import MQTTMessage
 
@@ -65,6 +67,7 @@ class TasmotaInterface(AbstractInterface):
         self._pending_commands: Deque[Tuple[str, List[Any], asyncio.Event]] = collections.deque()
         self._online_connector = TasmotaOnlineConnector()
         self._status_connector = TasmotaMonitoringConnector(telemetry_interval * 1.5, telemetry_interval * 10)
+        self._telemetry_connector = TasmotaTelemetryConnector()
 
         # Subscribe relevant MQTT topics and register message handlers
         mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'RESULT',
@@ -176,9 +179,10 @@ class TasmotaInterface(AbstractInterface):
         if event:
             event.set()
 
-        # If it seems to be (periodic) telemetry update, store it and update our interface monitoring connector
+        # If it seems to be (periodic) telemetry update, update our interface monitoring and telemetry connectors
         if not result and "Uptime" in data:
             self._status_connector.on_telemetry(data)
+            self._telemetry_connector.on_telemetry(data)
 
     def online(self) -> "TasmotaOnlineConnector":
         """
@@ -189,6 +193,13 @@ class TasmotaInterface(AbstractInterface):
         information.
         """
         return self._online_connector
+
+    def telemetry(self) -> "TasmotaTelemetryConnector":
+        """
+        Returns a *subscribable* :class:`TasmotaTelemetry`-typed Connector that will publish the general telemetry
+        information as received from the Tasmota device.
+        """
+        return self._telemetry_connector
 
     def power(self) -> "TasmotaPowerConnector":
         """
@@ -653,3 +664,56 @@ class TasmotaMonitoringConnector(Readable[InterfaceStatus], Subscribable[Interfa
 
     async def read(self) -> InterfaceStatus:
         return self.value
+
+
+class TasmotaTelemetry(NamedTuple):
+    """
+    Generic Tasmota telemetry information.
+
+    Values of this type are published by the :meth:`TasmotaInterface.telemetry` connector
+    """
+    telemetry_timestamp: datetime.datetime
+    uptime: datetime.timedelta
+    voltage: float
+    heap: int
+    load_avg: int
+    wifi_ssid: str
+    wifi_bssid: str
+    wifi_channel: int
+    wifi_rssi: int
+    wifi_signal: int
+    wifi_downtime: datetime.timedelta
+
+
+TASMOTA_TIMEDELTA_RE = re.compile(r"(\d+)T(\d+):(\d+):(\d+)")
+
+
+class TasmotaTelemetryConnector(Subscribable[TasmotaTelemetry]):
+    type = TasmotaTelemetry
+
+    def __init__(self):
+        super().__init__()
+
+    def on_telemetry(self, data: Dict[str, JSONType]) -> None:
+        wifi_downtime_match = TASMOTA_TIMEDELTA_RE.match(data.get('Wifi', {}).get('Downtime', 0))  # type: ignore
+        wifi_downtime = (datetime.timedelta(days=float(wifi_downtime_match[1]),
+                                            hours=float(wifi_downtime_match[2]),
+                                            minutes=float(wifi_downtime_match[3]),
+                                            seconds=float(wifi_downtime_match[4]))
+                         if wifi_downtime_match
+                         else datetime.timedelta(0))
+
+        value = TasmotaTelemetry(
+            datetime.datetime.now(),
+            datetime.timedelta(seconds=data.get('UptimeSec', 0)),  # type: ignore
+            data.get('Vcc', 0.0),  # type: ignore
+            data.get('Heap', 0),  # type: ignore
+            data.get('LoadAvg', 0),  # type: ignore
+            data.get('Wifi', {}).get('SSId', ""),  # type: ignore
+            data.get('Wifi', {}).get('BSSId', ""),  # type: ignore
+            data.get('Wifi', {}).get('Channel', 0),  # type: ignore
+            data.get('Wifi', {}).get('RSSI', 0),  # type: ignore
+            data.get('Wifi', {}).get('Signal', 0),  # type: ignore
+            wifi_downtime,
+        )
+        self._publish(value, [])
