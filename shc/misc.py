@@ -348,36 +348,38 @@ class _UpdateExchangeField(Subscribable[T], Generic[T]):
         await self._publish_and_wait(getattr(new_value, self.field_name), origin)
 
 
-class SimpleInputConnector(Writable[T], Generic[T]):
+class SimpleInputConnector(Reading[T], Writable[T], Generic[T]):
     """
-    A generic writable object with value caching to be used as a simple input connector for "function block" classes
+    A generic *Reading* object to be used as a simple input connector for "function block" classes
+
+    The connector is also *Writable* to invoke a value update, but it does not use the written value. Instead, the value
+    is read from the configured :meth:`default provider <shc.base.Reading.set_provider>` even then.
 
     :param type_: The value type of this connector
-    :param callback: A coroutine to be called when this connector's value is changed via the :meth:`write`
-        method. It must take two arguments `value`, `origin`, similar to :meth:`Writable._write`. The method is also
-        called when the value of this connector did not change.
+    :param callback: A coroutine to be called when a value is written to this connector :meth:`write`.
+        It must take a single argument: The `origin` list of the value update.
 
         Important: When the coroutine triggers subsequent value updates which are propagated to other connectable
         objects, make sure to pass the `origin` along when publishing these value updates and to return from this
         coroutine only as soon as the subsequent value updates have been published/written.
-
-        Note: You don't need to use the value parameter; instead you can access the :attr:`value` attribute, which is
-        updated just before this coroutine is called.
-    :param initial_value: Initial value for the :attr:`value` attribute.
-    :ivar value: Latest value, written to this connector
     """
+    is_reading_optional = False
 
-    def __init__(self, type_: Type[T], callback: Optional[Callable[[T, List[Any]], Awaitable[None]]] = None,
-                 initial_value: Optional[T] = None):
+    def __init__(self, type_: Type[T], callback: Optional[Callable[[List[Any]], Awaitable[None]]] = None):
         self.type = type_
         super().__init__()
         self.callback = callback
-        self.value = initial_value
 
-    async def _write(self, value: T, origin: List[Any]) -> None:
-        self.value = value
+    async def _write(self, _value: T, origin: List[Any]) -> None:
         if self.callback:
-            await self.callback(value, origin)
+            await self.callback(origin)
+
+    async def get_value(self):
+        """
+        Internal method to be called by the "function block" object, this connector is part of, to read the attached
+        provider's value.
+        """
+        return await self._from_provider()
 
 
 class SimpleOutputConnector(Subscribable[T], Readable[T], Generic[T]):
