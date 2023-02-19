@@ -257,3 +257,65 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
         self.assertLessEqual(writable3._write.call_count, 3)
         # 1st arg of 2nd call shall be equal
         self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])
+
+
+class ExampleAdderFunctionBlock:
+    """
+    This is a simple but bad example for a "function block" class, using SimpleInputConnector and SimpleOutputConnector
+
+    Since this class does not have any internal state and only maps two inputs to a single scalar output, it can and
+    should be created as an :ref:`SHC expression <expressions>`. Still, we can use it to test the simple connector
+    types.
+    """
+    def __init__(self):
+        self.a = shc.misc.SimpleInputConnector(int, self.__update)
+        self.b = shc.misc.SimpleInputConnector(int, self.__update)
+        self.result = shc.misc.SimpleOutputConnector(int, 0)
+
+    async def __update(self, origin):
+        await self.result.set_value((await self.a.get_value()) + (await self.b.get_value()), origin)
+
+
+class SimpleConnectorTest(unittest.TestCase):
+    @async_test
+    async def test_simple_operation(self) -> None:
+        adder = ExampleAdderFunctionBlock()
+        adder.a.connect(ExampleReadable(int, 3))
+        adder.b.connect(ExampleReadable(int, 0))
+        target = ExampleWritable(int)\
+            .connect(adder.result)
+
+        # Default value of result
+        self.assertEqual(0, await adder.result.read())
+
+        # Trigger update
+        await adder.a.write(999, [self])
+        target._write.assert_called_once_with(3, [self, adder.result])
+        self.assertEqual(3, await adder.result.read())
+        target._write.reset_mock()
+
+        # New update, but not data change
+        await adder.b.write(3, [self])
+        target._write.assert_not_called()
+        self.assertEqual(3, await adder.result.read())
+
+    @async_test
+    async def test_concurrent_update(self) -> None:
+        var1 = shc.Variable(int)
+        var2 = shc.Variable(int)
+        adder = ExampleAdderFunctionBlock()
+        adder.a.connect(var1)
+        adder.b.connect(ExampleReadable(int, 3))
+        adder.result.connect(var2)
+        subtractor = ExampleAdderFunctionBlock()
+        subtractor.a.connect(var2)
+        subtractor.b.connect(ExampleReadable(int, -3))
+        subtractor.result.connect(var1)
+
+        await var1.write(42, [])
+        await asyncio.sleep(0.1)
+        self.assertEqual(45, await var2.read())
+
+        await asyncio.gather(var1.write(42, []), var2.write(56, []))
+        await asyncio.sleep(0.1)
+        self.assertEqual(await var1.read() + 3, await var2.read())
