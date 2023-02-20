@@ -336,10 +336,12 @@ class InterfaceThreadRunner(Generic[IT]):
         if not self.started:
             return
         self.started = False
-        stop_future = asyncio.run_coroutine_threadsafe(self.interface.stop(), self.loop)
-        stop_future.result(timeout=5)
-        self.loop.call_soon_threadsafe(self._stopped_event.set)
-        self.future.result(timeout=5)
+        try:
+            stop_future = asyncio.run_coroutine_threadsafe(self.interface.stop(), self.loop)
+            stop_future.result(timeout=5)
+        finally:
+            self.loop.call_soon_threadsafe(self._stopped_event.set)
+            self.future.result(timeout=5)
 
     def run_coro(self, coroutine: Coroutine[None, None, T]) -> T:
         return asyncio.run_coroutine_threadsafe(coroutine, loop=self.loop).result()

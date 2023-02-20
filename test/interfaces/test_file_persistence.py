@@ -14,12 +14,10 @@ class FilePersistenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tempdir:
             runner = InterfaceThreadRunner(file_persistence.FilePersistenceStore, Path(tempdir) / "store.json")
             interface: file_persistence.FilePersistenceStore = runner.interface
-
-            conn1 = interface.connector(float, "conn1")
-            conn2 = interface.connector(ExampleTupleType, "conn2")
-
-            runner.start()
             try:
+                conn1 = interface.connector(float, "conn1")
+                conn2 = interface.connector(ExampleTupleType, "conn2")
+                runner.start()
                 runner.run_coro(conn1.write(0.0, [self]))
                 runner.run_coro(conn2.write(ExampleTupleType(42, 3.14), [self]))
                 runner.run_coro(conn1.write(3.14, [self]))
@@ -28,13 +26,13 @@ class FilePersistenceTest(unittest.TestCase):
 
             runner2 = InterfaceThreadRunner(file_persistence.FilePersistenceStore, Path(tempdir) / "store.json")
             interface2: file_persistence.FilePersistenceStore = runner2.interface
-
-            conn21 = interface2.connector(float, "conn1")
-            conn22 = interface2.connector(ExampleTupleType, "conn2")
-            conn23 = interface2.connector(int, "conn3")
-
-            runner2.start()
             try:
+
+                conn21 = interface2.connector(float, "conn1")
+                conn22 = interface2.connector(ExampleTupleType, "conn2")
+                conn23 = interface2.connector(int, "conn3")
+
+                runner2.start()
                 self.assertEqual(3.14, runner2.run_coro(conn21.read()))
                 self.assertEqual(ExampleTupleType(42, 3.14), runner2.run_coro(conn22.read()))
                 with self.assertRaises(shc.base.UninitializedError):
@@ -51,11 +49,11 @@ class FilePersistenceTest(unittest.TestCase):
             runner = InterfaceThreadRunner(file_persistence.FilePersistenceStore, Path(tempdir) / "store.json")
             interface: file_persistence.FilePersistenceStore = runner.interface
 
-            conn1 = interface.connector(float, "conn1")
-            conn2 = interface.connector(ExampleTupleType, "conn2")
-
-            runner.start()
             try:
+                conn1 = interface.connector(float, "conn1")
+                conn2 = interface.connector(ExampleTupleType, "conn2")
+
+                runner.start()
                 runner.run_coro(conn1.write(2.72, [self]))
                 self.assertEqual(ExampleTupleType(56, 0.0), runner.run_coro(conn2.read()))
                 self.assertEqual(2.72, runner.run_coro(conn1.read()))
@@ -72,11 +70,11 @@ class FilePersistenceTest(unittest.TestCase):
             runner = InterfaceThreadRunner(file_persistence.FilePersistenceStore, Path(tempdir) / "store.json")
             interface: file_persistence.FilePersistenceStore = runner.interface
 
-            conn1 = interface.connector(int, "conn1")
-            conn2 = interface.connector(str, "conn2")
-
-            runner.start()
             try:
+                conn1 = interface.connector(int, "conn1")
+                conn2 = interface.connector(str, "conn2")
+
+                runner.start()
                 # 100 cycles, after each 10 cycles, we check the JSON file (in a
                 # Since we abandon 1 line per cycle (see below), this should trigger at least one full rewrite
                 for i in range(1, 11):

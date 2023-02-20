@@ -100,13 +100,14 @@ class TasmotaInterfaceTest(unittest.TestCase):
         def construct_color(r, g, b, w):
             return RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
 
-        task = asyncio.create_task(tasmota_device_mock("test-device"))
         conn_color = self.interface.color_rgbw()
         target_color = ExampleWritable(RGBWUInt8).connect(conn_color)
         conn_power = self.interface.power()
         target_power = ExampleWritable(bool).connect(conn_power)
         conn_dimmer = self.interface.dimmer()
         target_dimmer = ExampleWritable(RangeInt0To100).connect(conn_dimmer)
+
+        task = asyncio.create_task(tasmota_device_mock("test-device"))
         await asyncio.sleep(0.25)
 
         try:
