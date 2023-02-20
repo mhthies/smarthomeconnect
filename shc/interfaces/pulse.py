@@ -487,7 +487,7 @@ class PulseAudioInterface(SupervisedClientInterface):
             args.append(f"name={self.pulse.name!r}")
         if self.pulse.server is not None:
             args.append(f"pulse_server_socket={self.pulse.server!r}")
-        return f"{self.__class__.__name__}{', '.join(args)}"
+        return f"{self.__class__.__name__}({', '.join(args)})"
 
 
 class SinkConnector(metaclass=abc.ABCMeta):
