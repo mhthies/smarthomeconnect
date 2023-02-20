@@ -34,7 +34,7 @@ jobs:
         npm run build
     - name: Test with coverage + unittest
       run: |
-        coverage run --source=shc,example -m unittest
+        coverage run --source=shc,example -m unittest -v
     - name: Report test coverage
       if: ${{ always() }}
       run: |
