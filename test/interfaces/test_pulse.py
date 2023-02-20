@@ -75,7 +75,7 @@ class SinkConnectorTests(unittest.TestCase):
         self.pulse_url = f"unix:{pulse_dir / 'pulse' / 'native'}"
         self.interface_runner = InterfaceThreadRunner(shc.interfaces.pulse.PulseAudioInterface,
                                                       pulse_server_socket=self.pulse_url)
-        self.interface = self.interface_runner.interface
+        self.interface: shc.interfaces.pulse.PulseAudioInterface = self.interface_runner.interface
 
     def tearDown(self) -> None:
         self.interface_runner.stop()
@@ -417,6 +417,9 @@ class SinkConnectorTests(unittest.TestCase):
             loop=self.interface_runner.loop))
         await asyncio.sleep(0.1)
         source_target._write.assert_called_with('testsource1', [self, default_source_connector])
+
+    def test_repr(self) -> None:
+        self.assertRegex(repr(self.interface), r"PulseAudioInterface\(pulse_server_socket='unix:/.*?/pulse/native'\)")
 
     async def _run_pactl(self, *args) -> str:
         proc = await asyncio.create_subprocess_exec(
