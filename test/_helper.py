@@ -135,9 +135,13 @@ class ClockMock:
             with self.mutex:
                 self.tidy_queue()
                 sleep_for = self.actually_sleep_until - self.original_time()
-                if sleep_for <= 0 and self.queue[0][2] == thread_id:
-                    heapq.heappop(self.queue)
-                    break
+                if sleep_for <= 0:
+                    if self.queue[0][2] == thread_id:
+                        heapq.heappop(self.queue)
+                        break
+                    else:
+                        # If another task is in the queue in front of us, let's sleep again to let it do its work first
+                        sleep_for = self.actual_sleep
         # Update emulated wall clock to the target sleep time
         self.current_time = target_time
 
@@ -166,9 +170,13 @@ class ClockMock:
             with self.mutex:
                 self.tidy_queue()
                 sleep_for = self.actually_sleep_until - self.original_time()
-                if sleep_for <= 0 and self.queue[0][2] is current_task:
-                    heapq.heappop(self.queue)
-                    break
+                if sleep_for <= 0:
+                    if self.queue[0][2] is current_task:
+                        heapq.heappop(self.queue)
+                        break
+                    else:
+                        # If another task is in the queue in front of us, let's sleep again to let it do its work first
+                        sleep_for = self.actual_sleep
         # Update emulated wall clock to the target sleep time
         self.current_time = target_time
 
