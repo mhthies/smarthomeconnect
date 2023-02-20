@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import aiofile.aio
+
 import shc.base
 from shc.log import file_persistence
 from .._helper import InterfaceThreadRunner
@@ -10,6 +12,13 @@ from ..test_variables import ExampleTupleType
 
 
 class FilePersistenceTest(unittest.TestCase):
+    def tearDown(self) -> None:
+        # Clean up aiofile aioc contexts after each tests to allow cleaning up the event loops
+        contexts = list(aiofile.aio.DEFAULT_CONTEXT_STORE.values())
+        for context in contexts:
+            context.close()
+            aiofile.aio.DEFAULT_CONTEXT_STORE.pop(context.loop, None)
+
     def test_simple_create(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             runner = InterfaceThreadRunner(file_persistence.FilePersistenceStore, Path(tempdir) / "store.json")
