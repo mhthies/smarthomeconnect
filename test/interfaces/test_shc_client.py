@@ -156,9 +156,12 @@ class SHCWebsocketClientTest(unittest.TestCase):
         foo_server_target = ExampleWritable(int).connect(self.server.api(int, "foo"))
 
         client_bar = self.client.object(ExampleType, 'bar')
-        bar_target = ExampleWritable(ExampleType).connect(client_bar)
+        bar_target = ExampleWritable(ExampleType)\
+            .connect(client_bar)
         client_foo = self.client.object(int, 'foo')\
             .connect(ExampleReadable(int, 56), read=True)
+        client_status_target = ExampleWritable(shc.supervisor.InterfaceStatus)\
+            .connect(self.client.monitoring_connector())
 
         self.server_runner.start()
         self.client_runner.start()
@@ -166,12 +169,21 @@ class SHCWebsocketClientTest(unittest.TestCase):
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
         bar_target._write.reset_mock()
         foo_server_target._write.assert_called_once_with(56, unittest.mock.ANY)
+        self.assertEqual(shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""),
+                         self.client_runner.run_coro(self.client.monitoring_connector().read()))
+        client_status_target._write.reset_mock()
         # We cannot use ClockMock here, since it does not support asyncio.wait()
 
         with self.assertLogs("shc.interfaces._helper", logging.ERROR) as ctx:
             self.server_runner.stop()
         self.assertIn("Unexpected shutdown", ctx.output[0])
         self.assertIn("SHCWebClient", ctx.output[0])
+
+        expected_status = shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.CRITICAL,
+                                                         "Unexpected shutdown of interface")
+        self.assertEqual(expected_status,
+                         self.client_runner.run_coro(self.client.monitoring_connector().read()))
+        client_status_target._write.assert_called_with(expected_status, unittest.mock.ANY)
 
         # Re-setup server
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
@@ -197,6 +209,11 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
         foo_server_target._write.assert_called_once_with(56, unittest.mock.ANY)
+
+        self.assertEqual(shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""),
+                         self.client_runner.run_coro(self.client.monitoring_connector().read()))
+        client_status_target._write.assert_called_with(
+            shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""), unittest.mock.ANY)
 
     def test_initial_reconnect(self) -> None:
         self.client.failsafe_start = True

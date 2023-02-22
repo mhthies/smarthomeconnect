@@ -10,12 +10,14 @@
 # specific language governing permissions and limitations under the License.
 import abc
 import asyncio
+import collections
 import enum
 import functools
 import logging
 import signal
-from typing import Set, NamedTuple, Dict, Any, Union, Iterable
+from typing import Set, NamedTuple, Dict, Any, Union, Iterable, Deque, Tuple
 
+from .base import Readable
 from .timer import timer_supervisor
 from .variables import read_initialize_variables
 
@@ -47,14 +49,7 @@ class AbstractInterface(metaclass=abc.ABCMeta):
     messages and forwarding them to *Subscribable* objects.
 
     If an interface inherits from this base class, it is automatically registered for startup via :func:`main`.
-
-    :ivar criticality: Defines to which extend the interface's status is considered when determining the overall SHC
-        system state, e.g. when reporting to a monitoring system or creating alerts in a user interface. A critical
-        failure of a *CRITICAL* system is considered a critical state, whereas a critical failure of an *INFO* system
-        only triggers an information message.
     """
-    criticality: ServiceCriticality = ServiceCriticality.CRITICAL
-
     def __init__(self):
         register_interface(self)
 
@@ -88,15 +83,38 @@ class AbstractInterface(metaclass=abc.ABCMeta):
         """
         pass
 
-    async def get_status(self) -> "InterfaceStatus":
+    def monitoring_connector(self) -> Readable["InterfaceStatus"]:
         """
-        Get the current status of the interface for monitoring purposes.
+        Get a connector which represents the current status of this interface for monitoring purposes.
 
-        This is especially required for interfaces that do not shut down the SHC application via
-        :func:`interface_failure` on every disruption, but instead keep trying to recover operation. In the meantime,
-        ServiceStatus.CRITICAL shall be reported via this method.
+        The returned connector object must be of value type :class:`InterfaceStatus` and be at least *readable*. The
+        connector *may* also be *subscribable*. In this case, the interface is expected to monitor its status
+        continuously and publish any status changes asynchronously. This is typically implemented by client interfaces
+        that actively monitor a connection to some server. *Reading* from the connector shall also return the current
+        interface status.
+
+        In the case of a *readable*-only connector, the interface will typically perform its health checks on-demand
+        when the connector's ``read()`` method is called.
+
+        Concrete interface implementation should override this method to provide their own monitoring connector
+        implementation. There are different more specific interface base classes that to help with that:
+
+        - :class:`ReadableStatusInterface <shc.interfaces._helper.ReadableStatusInterface>` is a simple helper for
+          implementing a *readable* monitoring connector, calling an async health check method on the interface on
+          demand
+        - :class:`SubscribableStatusInterface <shc.interfaces._helper.SubscribableStatusInterface>` is a simple helper
+          for implementing a *subscribable* monitoring connector, which can be updated when a status change is detected
+        - :class:`SupervisedClientInterface <shc.interfaces._helper.SupervisedClientInterface>` implements logic for
+          supervision, error handling and automatic reconnect of connection clients. It provides a subscribable
+          monitoring connector.
+
+        If the interface does not allow any reasonable status monitoring (e.g. when it's completely stateless or
+        failsafe or implemented to shut down the overall SHC process on error), the default implementation of this
+        method can be used, which raises a :class:`NotImplementedError`.
+
+        :raises NotImplementedError: when the interface does not provide any health monitoring
         """
-        return InterfaceStatus()
+        raise NotImplementedError()
 
 
 class ServiceStatus(enum.Enum):
@@ -114,12 +132,10 @@ class InterfaceStatus(NamedTuple):
     Interface status information as returned by :meth:`AbstractInterface.get_status`.
 
     Contains the overall interface status (:attr:`status`), a human readable :attr:`message`, typically describing the
-    error if any, and a map of :attr:`indicators`, which contain interface-specific performance values.
+    current status, especially the error if any.
     """
     status: ServiceStatus = ServiceStatus.OK  #: Overall status of the interface.
     message: str = ""  #: A textual description of the error. E.g. an error message, if status != ServiceStatus.OK
-    #: Additional monitoring indicators like performance values, identified by a unique string.
-    indicators: Dict[str, Union[bool, int, float, str]] = {}
 
 
 def register_interface(interface: AbstractInterface) -> None:

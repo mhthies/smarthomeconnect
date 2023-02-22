@@ -11,14 +11,107 @@
 import abc
 import asyncio
 import logging
-from typing import Set, Optional
+from typing import Optional
 
+from ..base import Readable, Subscribable
 from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
 
-class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
+class ReadableStatusInterface(AbstractInterface, metaclass=abc.ABCMeta):
+    """
+    Abstract base class for :class:`interfaces <shc.supervisor.AbstractInterface>` that provide a *readable* monitoring
+    connector for an Interface.
+
+    This mixin overrides the :meth:`shc.supervisor.AbstractInterface.monitoring_connector` method to provide a
+    *readable* connector that triggers this interfaces health checks when being *read*. The health checks must be
+    implemented for each interface implementation by overriding the :meth:`_get_status` method.
+    """
+    def __init__(self):
+        super().__init__()
+        self.__status_connector: Optional[ReadableStatusConnector] = None
+
+    def monitoring_connector(self) -> "ReadableStatusConnector":
+        if not self.__status_connector:
+            self.__status_connector = ReadableStatusConnector(self)
+        return self.__status_connector
+
+    @abc.abstractmethod
+    async def _get_status(self) -> "InterfaceStatus":
+        """
+        Determine the current status of the interface for monitoring purposes.
+        """
+        return InterfaceStatus()
+
+
+class ReadableStatusConnector(Readable[InterfaceStatus]):
+    type = InterfaceStatus
+
+    def __init__(self, interface: ReadableStatusInterface):
+        super().__init__()
+        self._interface = interface
+
+    async def read(self) -> "InterfaceStatus":
+        return await self._interface._get_status()
+
+
+class SubscribableStatusInterface(AbstractInterface, metaclass=abc.ABCMeta):
+    """
+    Abstract base class for :class:`interfaces <shc.supervisor.AbstractInterface>` that provide a *readable* and
+    *subscribable* monitoring connector for an Interface.
+
+    This mixin overrides the :meth:`shc.supervisor.AbstractInterface.monitoring_connector` method to provide a connector
+    that allows to publish status changes of the interface. It also stores the latest status to provide to *read*
+    callers.
+
+    Each interface, inheriting this mixin, should monitor its health status continuously and update the status connector
+
+    :ivar _status_connector: The interface's monitoring connector
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._status_connector: SubscribableStatusConnector = SubscribableStatusConnector()
+
+    def monitoring_connector(self) -> "SubscribableStatusConnector":
+        return self._status_connector
+
+
+class SubscribableStatusConnector(Readable[InterfaceStatus], Subscribable[InterfaceStatus]):
+    type = InterfaceStatus
+
+    def __init__(self):
+        super().__init__()
+        self.status = InterfaceStatus()
+
+    def update_status(self, status: Optional[ServiceStatus] = None, message: Optional[str] = None) -> None:
+        """
+        Method to be called by the interface when its monitored status changes.
+
+        The changed status is published to subscribers and stored in this connector to be returned on subsequent *read*
+        calls.
+
+        To simplify managing the interface status, this method does not take a full :class:`InterfaceStatus` tuple of
+        the new status, but instead allows to modify the individual fields of the previous status.
+
+        :param status: The new overall health status of the interface or None (default) to leave it unchanged
+        :param message: The new status message of the interface. If the interface *status* is OK, it should be ""
+            (empty string). To keep the previous message, pass None or omit this parameter.
+        """
+        result = self.status
+        if status is not None:
+            result = result._replace(status=status)
+        if message is not None:
+            result = result._replace(message=message)
+        self.status = result
+        self._publish(result, [])
+
+    async def read(self) -> "InterfaceStatus":
+        return self.status
+
+
+class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMeta):
     """
     Abstract base class for client interfaces, providing run task supervision and automatic reconnects
 
@@ -30,9 +123,14 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
     :attr:`auto_reconnect` is enabled, reconnecting the interface via `_connect`, `_run` and `_subscribe` is attempted.
     For shutting down the interface (and stopping the run task in case of a subscribe error), `_disconnect` must be
     implemented in such a way, that it shuts down the run task.
+
+    This class inherits from :class:`SubscribableStatusInterface` to publish the current status of the supervised client
+    as monitoring status. However, it only updates the :attr:`status <shc.supervisor.InterfaceStatus.status>` and
+    :attr:`message <shc.supervisor.InterfaceStatus.message>` attributes of the `InterfaceStatus`, but does not touch the
+    `metrics`. So, you can fill the `metrics` with custom values from your derived interface class via
+    ``self._status_connector.update_status(metrics={…})``.
     """
     def __init__(self, auto_reconnect: bool = True, failsafe_start: bool = False):
-        super().__init__()
         """
         :param auto_reconnect: If True (default), the supervisor tries to reconnect the interface automatically with
             exponential backoff (`backoff_base` * `backoff_exponent` ^ n seconds sleep), when `_run` exits unexpectedly
@@ -43,6 +141,7 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
             backoff (see `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not
             retried and will raise an exception from `start()` on failure, even if `auto_reconnect` is True.
         """
+        super().__init__()
         self.auto_reconnect = auto_reconnect
         self.failsafe_start = failsafe_start and auto_reconnect
         self.backoff_base = 1.0  #: First wait interval for exponential backoff in seconds
@@ -52,7 +151,6 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         self._started = loop.create_future()
         self._stopping = asyncio.Event()
         self._running = asyncio.Event()
-        self._last_error: str = "Interface has not been started yet"
 
     async def start(self) -> None:
         logger.debug("Starting supervisor task for interface %s and waiting for it to come up ...", self)
@@ -66,11 +164,6 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
         await self._disconnect()
         if self._supervise_task is not None:
             await self._supervise_task
-
-    async def get_status(self) -> InterfaceStatus:
-        return InterfaceStatus(ServiceStatus.OK if self._running.is_set() else ServiceStatus.CRITICAL,
-                               self._last_error if not self._running.is_set() else "",
-                               {})
 
     async def wait_running(self, timeout: Optional[float] = None) -> None:
         """
@@ -143,6 +236,7 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
 
     async def _supervise(self) -> None:
         sleep_interval = self.backoff_base
+        self._status_connector.update_status(status=ServiceStatus.WARNING, message="Interface has not been started yet")
 
         while True:
             exception = None
@@ -193,6 +287,7 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
                     raise subscribe_exception
 
                 logger.debug("Starting up interface %s completed", self)
+                self._status_connector.update_status(status=ServiceStatus.OK, message="")
                 if not self._started.done():
                     self._started.set_result(None)
                 # Reset reconnect backoff interval
@@ -236,10 +331,11 @@ class SupervisedClientInterface(AbstractInterface, metaclass=abc.ABCMeta):
 
             if exception:
                 logger.error("Error in interface %s. Attempting reconnect ...", self, exc_info=exception)
-                self._last_error = str(exception)
+                self._status_connector.update_status(status=ServiceStatus.CRITICAL, message=str(exception))
             else:
                 logger.error("Unexpected shutdown of interface %s. Attempting reconnect ...", self)
-                self._last_error = "Unexpected shutdown of interface"
+                self._status_connector.update_status(status=ServiceStatus.CRITICAL,
+                                                     message="Unexpected shutdown of interface")
 
             # Sleep before reconnect
             logger.info("Waiting %s seconds before reconnect of interface %s ...", sleep_interval, self)

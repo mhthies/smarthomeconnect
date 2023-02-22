@@ -11,7 +11,7 @@
 
 import datetime
 import logging
-from typing import Generic, Type, List, Any, Optional, Callable, Dict
+from typing import Generic, Type, List, Any, Optional, Callable, Dict, Awaitable
 
 from shc import conversion
 from shc.base import Readable, Subscribable, Writable, handler, T, ConnectableWrapper, UninitializedError, Reading, S
@@ -346,3 +346,92 @@ class _UpdateExchangeField(Subscribable[T], Generic[T]):
 
     async def _recursive_publish(self, new_value: T, origin: List[Any]):
         await self._publish_and_wait(getattr(new_value, self.field_name), origin)
+
+
+class SimpleInputConnector(Reading[T], Writable[T], Generic[T]):
+    """
+    A generic *Reading* object to be used as a simple input connector for "function block" classes
+
+    The connector is also *Writable* to invoke a value update, but it does not use the written value. Instead, the value
+    is read from the configured :meth:`default provider <shc.base.Reading.set_provider>` even then.
+
+    :param type_: The value type of this connector
+    :param callback: A coroutine to be called when a value is written to this connector :meth:`write`.
+        It must take a single argument: The `origin` list of the value update.
+
+        Important: When the coroutine triggers subsequent value updates which are propagated to other connectable
+        objects, make sure to pass the `origin` along when publishing these value updates and to return from this
+        coroutine only as soon as the subsequent value updates have been published/written.
+    """
+    is_reading_optional = False
+
+    def __init__(self, type_: Type[T], callback: Optional[Callable[[List[Any]], Awaitable[None]]] = None):
+        self.type = type_
+        super().__init__()
+        self.callback = callback
+
+    async def _write(self, _value: T, origin: List[Any]) -> None:
+        if self.callback:
+            await self.callback(origin)
+
+    async def get_value(self):
+        """
+        Internal method to be called by the "function block" object, this connector is part of, to read the attached
+        provider's value.
+        """
+        return await self._from_provider()
+
+
+class SimpleOutputConnector(Subscribable[T], Readable[T], Generic[T]):
+    """
+    A generic *readable* + *subscribable* object with value caching to be used as a simple output connector for
+    "function block" classes
+
+    Note: Under "pure functional" conditions, when exactly one output value is calculated from one or more other values,
+    without internal state or side effects, creating an :ref:`SHC expression <expressions>` is typically a better
+    choice.
+
+    :param type_: The value type of this connector
+    :param initial_value: Initial value for the :attr:`value` attribute.
+    """
+
+    def __init__(self, type_: Type[T], initial_value: Optional[T] = None):
+        self.type = type_
+        super().__init__()
+        self.value = initial_value
+
+    async def read(self) -> T:
+        if self.value is None:
+            raise UninitializedError()
+        return self.value
+
+    async def set_value(self, value: T, origin: List[Any]) -> None:
+        """
+        Set and publish the value of this output connector as a result of any received value update
+
+        The value is only published when it changes (similar to :class:`shc.Variable`).
+
+        Make sure to await the completion of this coroutine before returning from the `_write()` method, which received
+        the incoming value update to ensure correct detection of concurrent value updates via this connector. I.e. don't
+        call this method in a new asyncio Task. In addition, don't
+        """
+        if self.value != value:
+            self.value = value
+            await self._publish_and_wait(value, origin)
+
+    def set_generated_value(self, value: T) -> None:
+        """
+        Set and publish the value of this output connector from an internally generated value update
+
+        The value is only published when it changes (similar to :class:`shc.Variable`).
+
+        If the value update is the direct consequence of an incoming value update, use :meth:`set_value()` instead and
+        await its completion to ensure correct detection of concurrent value updates via this connector.
+        """
+        if self.value != value:
+            self.value = value
+            self._publish(value, [])
+
+    @property
+    def EX(self) -> ExpressionWrapper[T]:
+        return ExpressionWrapper(self)

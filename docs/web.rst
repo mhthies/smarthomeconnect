@@ -9,6 +9,8 @@ Each instance of :class:`WebServer` creates an HTTP server, listening on a speci
 * a web user interface, consisting of multiple pages with interactive *Connectable* widgets, allowing users to interact with SHC from any device with a modern web browser
 * an HTTP/REST + websocket API for accessing and updating values within the SHC instance from other applications or devices
 
+In addition, it allows monitoring the status of the SHC application and its interfaces with an external monitoring system via HTTP.
+
 .. image:: web_scr1.png
   :width: 600
   :align: center
@@ -269,6 +271,84 @@ Afterwards an asynchronous message of the following format is sent for each valu
 Note, that there is no 'action' or 'handle' field in these messages, as they do not represent a response to a request message.
 
 
+.. _web.monitoring:
+
+Monitoring via HTTP
+-------------------
+
+A `WebServer` allows to expose the monitoring status of any number of interfaces of an SHC application via a HTTP monitoring endpoint.
+It also calculates an overall status from the individual interfaces' status, considering each of them by a configurable amount (the so-called ”interface criticality“).
+This way, external monitoring systems can be used to monitor the health of the SHC application and/or individual interfaces.
+See :ref:`monitoring` for information on interface status monitoring.
+
+The :meth:`WebServer.configure_monitoring` method is used to enable the HTTP monitoring endpoint and configure the interfaces to be included in the exposed monitoring information::
+
+    mqtt = MQTTClientInterface()
+    tasmota_led = TasmotaInterface(mqtt, 'my_tasmota_device_topic')
+    web = shc.web.WebServer('localhost', 8080)
+
+    # ...
+
+    web.configure_monitoring(
+        interfaces=[
+            (mqtt, "MQTT client", ServiceCriticality.CRITICAL),
+            (tasmota_led, "Tasmota LED strip", ServiceCriticality.WARNING),
+        ],
+        other_interfaces=None)  # don't include other interfaces if there are any
+
+In this example, the ``tasmota_led`` interface's *criticality* is only WARNING, so it will cause the overall status to be WARNING at max, while a CRITICAL status of the MQTT client interface will cause the overall status to be CRTITICAL was well.
+All other interfaces (incl. the ``web`` interface) are not included in the HTTP monitoring information at all.
+
+
+Monitoring API reference
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. http:get:: /monitoring
+
+    Display the monitoring status of all interfaces configured via :meth:`configure_monitoring() <WebServer.configure_monitoring>`
+
+    The monitoring information can be displayed as human-friendly styled HTML page or as a JSON structure, depending on the `Accept` header.
+    If no `Accept` header is present in the request, it defaults to JSON.
+
+    In any case, the overall status, computed from the interfaces' individual status and their criticality, is represented in the HTTP status code (see below).
+
+    If a JSON response is requested, a JSON structure of the following form is returned in the response body:
+
+    .. code-block:: JSON
+
+        {
+            "status": 0,
+            "interfaces": {
+                "<interface_name1>": {
+                    "status": 1,
+                    "message": "Interface status message",
+                },
+
+                "<interface_name2>": {
+                    "...": "..."
+                }
+            }
+        }
+
+    The overall status (``status``) and each interface's status (``inerfaces.<interface_name>.status``) are encoded as an integer value with the following values:
+
+    * 0: OK
+    * 1: WARNING
+    * 2: CRITICAL
+    * 3: UNKNOWN
+
+    For the overall status, the value cannot be "UNKNOWN", i.e. only the integer values 0-2 are possible.
+
+
+    :reqheader Accept: application/json
+    :resheader Content-Type: application/json
+    :statuscode 200: success, overall monitoring status is OK
+    :statuscode 213: success, overall monitoring status is WARNING
+    :statuscode 513: success, overall monitoring status is CRITICAL
+    :statuscode 500: internal server error
+
+
+
 
 Creating Custom Widgets
 -----------------------
@@ -392,6 +472,7 @@ The constructor function must create at least two attributes on the constructed 
     .. automethod:: page
     .. automethod:: add_menu_entry
     .. automethod:: api
+    .. automethod:: configure_monitoring
     .. automethod:: serve_static_file
     .. automethod:: add_static_directory
 

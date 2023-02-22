@@ -23,11 +23,12 @@ from selenium.webdriver import ActionChains
 import shc.web
 import shc.web.widgets
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
+from shc.interfaces._helper import ReadableStatusInterface
 from shc.supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
 from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
 
 
-class StatusTestInterface(AbstractInterface):
+class StatusTestInterface(ReadableStatusInterface):
     def __init__(self, name):
         super().__init__()
         self.status = InterfaceStatus()
@@ -39,7 +40,7 @@ class StatusTestInterface(AbstractInterface):
     async def stop(self) -> None:
         pass
 
-    async def get_status(self) -> "InterfaceStatus":
+    async def _get_status(self) -> "InterfaceStatus":
         return self.status
 
     def __repr__(self):
@@ -124,13 +125,10 @@ class MonitoringTest(unittest.TestCase):
     def setUp(self) -> None:
         shc.supervisor._REGISTERED_INTERFACES.clear()
         self.interface1 = StatusTestInterface("Interface 1")
-        self.interface1.criticality = shc.supervisor.ServiceCriticality.INFO
         self.interface2 = StatusTestInterface("Interface 2")
-        self.interface2.criticality = shc.supervisor.ServiceCriticality.WARNING
         self.interface3 = StatusTestInterface("Interface 3")
-        self.interface3.criticality = shc.supervisor.ServiceCriticality.CRITICAL
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, 'index')
-        self.server = self.server_runner.interface
+        self.server: shc.web.WebServer = self.server_runner.interface
 
     def tearDown(self) -> None:
         self.server_runner.stop()
@@ -138,23 +136,26 @@ class MonitoringTest(unittest.TestCase):
 
     @async_test
     async def test_monitoring_json(self) -> None:
+        self.server.configure_monitoring([
+            (self.interface1, "Iface 1", shc.supervisor.ServiceCriticality.INFO),
+            (self.interface2, "", None),
+        ], shc.supervisor.ServiceCriticality.CRITICAL)
+
         self.server_runner.start()
 
-        self.interface1.status = InterfaceStatus(ServiceStatus.CRITICAL, "Something is wrong", {"badness": 100})
-        self.interface3.status = InterfaceStatus(ServiceStatus.WARNING, "Be warned",
-                                                 {"info": "intervention may be required"})
+        self.interface1.status = InterfaceStatus(ServiceStatus.CRITICAL, "Something is wrong")
+        self.interface3.status = InterfaceStatus(ServiceStatus.WARNING, "Be warned")
         headers = {"Accept": "application/json"}
         async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get('http://localhost:42080/monitoring') as resp:
-                self.assertEqual(213, resp.status)
                 data = await resp.json()
+                self.assertEqual(213, resp.status)
 
             self.assertEqual(1, data['status'])
-            self.assertEqual(2, data['interfaces']['StatusTestInterface(Interface 1)']['status'])
-            self.assertEqual("Something is wrong", data['interfaces']['StatusTestInterface(Interface 1)']['message'])
-            self.assertEqual(100, data['interfaces']['StatusTestInterface(Interface 1)']['indicators']['badness'])
-            self.assertEqual(0, data['interfaces']['StatusTestInterface(Interface 2)']['status'])
-            self.assertEqual("", data['interfaces']['StatusTestInterface(Interface 2)']['message'])
+            self.assertEqual(2, data['interfaces']['Iface 1']['status'])
+            self.assertEqual("Something is wrong", data['interfaces']['Iface 1']['message'])
+            self.assertNotIn('StatusTestInterface(Interface 2)', data['interfaces'])
+            self.assertNotIn('', data['interfaces'])
             self.assertEqual(1, data['interfaces']['StatusTestInterface(Interface 3)']['status'])
 
             self.interface3.status = InterfaceStatus(ServiceStatus.CRITICAL, "ERROR ERROR!!1!")

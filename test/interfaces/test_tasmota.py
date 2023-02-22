@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 import time
+import datetime
 import unittest
 import unittest.mock
 from contextlib import suppress
@@ -15,6 +16,7 @@ import asyncio_mqtt
 import shc.interfaces.mqtt
 import shc.interfaces.tasmota
 from shc.datatypes import RGBWUInt8, RGBUInt8, RangeUInt8, RangeInt0To100
+from shc.supervisor import InterfaceStatus, ServiceStatus
 from test._helper import InterfaceThreadRunner, ExampleWritable, async_test
 
 
@@ -40,23 +42,96 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
     @async_test
     async def test_offline_state(self) -> None:
-        task = asyncio.create_task(tasmota_device_mock("test-device"))
+        offline_connector = self.interface.online()
+        target_offline = ExampleWritable(bool).connect(offline_connector)
+        status_connector = self.interface.monitoring_connector()
+        target_status = ExampleWritable(InterfaceStatus).connect(status_connector)
+        self.client_runner.start()
+        self.client_runner.run_coro(self.interface.start())
         await asyncio.sleep(0.25)
+        self.assertEqual(False, self.client_runner.run_coro(offline_connector.read()))
+        self.assertEqual(
+            InterfaceStatus(ServiceStatus.CRITICAL, "No Last Will or telemetry received from Tasmota device by now"),
+            self.client_runner.run_coro(status_connector.read()))
+
+        task = asyncio.create_task(tasmota_device_mock("test-device"))
+        await asyncio.sleep(0.1)
 
         try:
-            target_offline = ExampleWritable(bool).connect(self.interface.online())
-            self.client_runner.start()
-            self.client_runner.run_coro(self.interface.start())
-            await asyncio.sleep(0.25)
-
             target_offline._write.assert_called_once_with(True, unittest.mock.ANY)
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, ""), unittest.mock.ANY)
+            self.assertEqual(True, self.client_runner.run_coro(offline_connector.read()))
+            self.assertEqual(InterfaceStatus(ServiceStatus.OK, ""),
+                             self.client_runner.run_coro(status_connector.read()))
 
             task.cancel()
             with suppress(asyncio.CancelledError):
                 await task
 
-            await asyncio.sleep(0.25)
+            await asyncio.sleep(0.1)
             target_offline._write.assert_called_with(False, unittest.mock.ANY)
+            target_status._write.assert_called_with(
+                InterfaceStatus(ServiceStatus.CRITICAL, "Tasmota device is offline"),
+                unittest.mock.ANY)
+
+        except Exception:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            raise
+
+    @async_test
+    async def test_telemetry(self) -> None:
+        target_telemetry = ExampleWritable(shc.interfaces.tasmota.TasmotaTelemetry).connect(self.interface.telemetry())
+
+        task = asyncio.create_task(tasmota_device_mock("test-device"))
+        await asyncio.sleep(0.1)
+        self.client_runner.start()
+        self.client_runner.run_coro(self.interface.start())
+
+        try:
+            await asyncio.sleep(0.1)
+
+            target_telemetry._write.assert_called_once()
+            telemetry = target_telemetry._write.call_args[0][0]
+            self.assertIsInstance(telemetry, shc.interfaces.tasmota.TasmotaTelemetry)
+            self.assertEqual(26, telemetry.heap)
+            self.assertEqual(datetime.timedelta(days=7, hours=4, minutes=46, seconds=38), telemetry.uptime)
+            self.assertEqual("00:11:22:33:44:55", telemetry.wifi_bssid)
+            self.assertEqual(-62, telemetry.wifi_signal)
+            self.assertEqual(datetime.timedelta(seconds=3), telemetry.wifi_downtime)
+        finally:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+    @async_test
+    async def test_telemetry_warning_state(self) -> None:
+        # Recreate Tasmota interface with really short telemetry timeout
+        async def _construct(*args):
+            return shc.interfaces.tasmota.TasmotaInterface(self.client, 'test-device', telemetry_interval=0.03)
+
+        self.interface = self.client_runner.run_coro(_construct())
+
+        status_connector = self.interface.monitoring_connector()
+        target_status = ExampleWritable(InterfaceStatus).connect(status_connector)
+
+        self.client_runner.start()
+        self.client_runner.run_coro(self.interface.start())
+
+        task = asyncio.create_task(tasmota_device_mock("test-device"))
+        await asyncio.sleep(0.04)
+
+        try:
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.OK, ""), unittest.mock.ANY)
+
+            await asyncio.sleep(0.02)  # more than 1,5x 0,01s; so we should get a warning
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.WARNING, unittest.mock.ANY),
+                                                    unittest.mock.ANY)
+
+            await asyncio.sleep(0.3)  # more than 10x 0,01s; so we should get an error
+            target_status._write.assert_called_with(InterfaceStatus(ServiceStatus.CRITICAL, unittest.mock.ANY),
+                                                    unittest.mock.ANY)
 
         finally:
             task.cancel()

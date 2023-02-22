@@ -24,9 +24,9 @@ import aiohttp.web
 import jinja2
 from aiohttp import WSCloseCode
 
-from ..base import Reading, T, Writable, Subscribable
+from ..base import Reading, T, Writable, Subscribable, Readable
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import get_interfaces, AbstractInterface, ServiceStatus
+from ..supervisor import get_interfaces, AbstractInterface, ServiceStatus, ServiceCriticality, InterfaceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +57,9 @@ class WebServer(AbstractInterface):
     :param title_formatter: A format string or format function to create the full HTML title, typically shown as browser
         tab title, from a web page's title. If it is a string, it should have one positional format placeholder
         (``{}``)
-    :param enable_monitoring: If True (default), the monitoring endpoint at `/monitoring` is enabled to allow monitoring
-        the interfaces' status in the UI or from a monitoring system
     """
     def __init__(self, host: str, port: int, index_name: Optional[str] = None, root_url: str = "",
-                 title_formatter: Union[str, Callable[[str], str]] = "{} | SHC", enable_monitoring: bool = True):
+                 title_formatter: Union[str, Callable[[str], str]] = "{} | SHC"):
         super().__init__()
         self.host = host
         self.port = port
@@ -103,6 +101,19 @@ class WebServer(AbstractInterface):
         # path, when added via `serve_static_file()` multiple times.
         self.static_files: Dict[pathlib.Path, str] = {}
 
+        #: Whether to enable the monitoring endpoint for monitoring the SHC instance and all interfaces via HTTP at
+        #    `/monitoring`
+        self._enable_monitoring: bool = False
+        #: The list of interfaces to capture in the monitoring endpoint:
+        #    (status_connector, display_name/key, criticality)
+        self._monitored_interfaces: List[Tuple[Readable[InterfaceStatus], str, ServiceCriticality]] = []
+        #: If not None, all interfaces which have not been explicitly setup for monitoring shall be added to the
+        #    monitored interfaces with their repr() as display name and this criticality.
+        self._monitor_other_interfaces: Optional[ServiceCriticality] = None
+        #: The set of interfaces that have been set up or disabled for monitoring explicitly. These are not added
+        #    automatically as "other interfaces".
+        self._monitor_explicit_interfaces: Set[AbstractInterface] = set()
+
         # The actual aiohttp web app
         self._app = aiohttp.web.Application()
         self._app.add_routes([
@@ -114,11 +125,20 @@ class WebServer(AbstractInterface):
             aiohttp.web.get("/api/v1/object/{name}", self._api_get_handler),
             aiohttp.web.post("/api/v1/object/{name}", self._api_post_handler),
         ])
-        if enable_monitoring:
-            self._app.add_routes([aiohttp.web.get("/monitoring", self._monitoring_handler)])
 
     async def start(self) -> None:
         logger.info("Starting up web server on %s:%s ...", self.host, self.port)
+        if self._enable_monitoring:
+            self._app.add_routes([aiohttp.web.get("/monitoring", self._monitoring_handler)])
+            if self._monitor_other_interfaces is not None:
+                for interface in get_interfaces():
+                    if interface not in self._monitor_explicit_interfaces:
+                        try:
+                            conn = interface.monitoring_connector()
+                        except NotImplementedError:
+                            continue
+                        self._monitored_interfaces.append((conn, repr(interface), self._monitor_other_interfaces))
+                        self._monitor_explicit_interfaces.add(interface)
         for connector in itertools.chain.from_iterable(page.get_connectors() for page in self._pages.values()):
             self.connectors[id(connector)] = connector
         for api_object in self._api_objects.values():
@@ -223,6 +243,40 @@ class WebServer(AbstractInterface):
             api_object = WebApiObject(type_, name)
             self._api_objects[name] = api_object
             return api_object
+
+    def configure_monitoring(self, interfaces: List[Tuple[AbstractInterface, str, Optional[ServiceCriticality]]],
+                             other_interfaces: Optional[ServiceCriticality] = ServiceCriticality.WARNING) -> None:
+        """
+        Enables the `/monitoring` endpoint and sets up the list of interfaces to be monitored
+
+        This method allows to set up a list of interfaces explicitly, which are to be included in the monitoring
+        information, returned via HTTP, and in the overall status calculation. The method can be called multiple times
+        to append to the list of monitored interfaces.
+
+        For each interface, the *criticality* defines to which extent the interface's status is considered when
+        determining the overall SHC system state, e.g. when reporting to a monitoring system or creating alerts in a
+        user interface. A critical failure of a *CRITICAL* system is considered a critical state, whereas a critical
+        failure of an *INFO* system only shall trigger an information message.
+
+        All interfaces that are not explicitly set up for monitoring via the `interfaces` parameter of this method are
+        later added automatically, using the `repr()` as display name and the criticality `WARNING`. The default
+        criticality can be specified using the `other_interfaces` parameter. To disable the automatic adding of all
+        other interfaces, set `other_interfaces=None`. A single interface can be included from this automatism by
+        specifying it in the `interfaces` list with the criticality set to None.
+
+        :param interfaces: List of interfaces to be set up for monitoring explicitly. Each item is a tuple
+                           (interface, display_name, criticality). With criticality = None, the interface is excluded
+                           from monitoring completely.
+        :param other_interfaces: If not None, defines the criticality of all interfaces that have not been set up for
+                                 monitoring explicitly (except for the excluded). If None, automatic setup of other
+                                 interfaces is disabled completely.
+        """
+        self._enable_monitoring = True
+        for interface, display_name, criticality in interfaces:
+            if criticality is not None:
+                self._monitored_interfaces.append((interface.monitoring_connector(), display_name, criticality))
+            self._monitor_explicit_interfaces.add(interface)
+        self._monitor_other_interfaces = other_interfaces
 
     async def _index_handler(self, _request: aiohttp.web.Request) -> aiohttp.web.Response:
         if not self.index_name:
@@ -501,14 +555,13 @@ class WebServer(AbstractInterface):
         # Fetch interface data
         interfaces_data = {}
         overall_status = 0
-        for iface in get_interfaces():
-            status = await iface.get_status()
-            interfaces_data[repr(iface)] = {
+        for connector, display_name, criticality in self._monitored_interfaces:
+            status = await connector.read()
+            interfaces_data[display_name] = {
                 'status': status.status.value,
                 'message': status.message,
-                'indicators': status.indicators,
             }
-            overall_status = max(overall_status, min(status.status.value, 2) - 2 + iface.criticality.value)
+            overall_status = max(overall_status, min(status.status.value, 2) - 2 + criticality.value)
 
         # Calculate HTTP status code
         http_status = {0: 200,
