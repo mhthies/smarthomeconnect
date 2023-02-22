@@ -43,11 +43,10 @@ This can be used to interactively react to interface status changes, e.g. set so
 
 The :class:`shc.supervisor.InterfaceStatus` includes a basic health `status`, represented as a :class:`ServiceStatus <shc.supervisor.ServiceStatus` (OK / WARNING / CRITICAL / UNKNOWN), based on the service state representation of the *Nagios* monitoring system (and its successor, the *Icinga* monitoring system).
 In addition, a human-readable `message` can be provided by the interface, for communicating the cause of the interface problems.
-Finally, the interface can provide a dict of named `metrics`, giving additional numeric information about its state.
 
 SHC's built-in `WebServer` allows to expose the monitoring status of any number of interfaces and an overall status via a HTTP monitoring endpoint, so that external monitoring systems can check the status of the SHC application: :ref:`web.monitoring`
 
-To include some fundamental system and application metrics into the monitoring, such as the health of the Python asyncio event loop, running the SHC application, there are pseudo-interfaces available in the :mod:`shc.interfaces.system_monitoring` module.
+To include some fundamental system and application status into the monitoring, such as the health of the Python asyncio event loop, running the SHC application, there are pseudo-interfaces available in the :mod:`shc.interfaces.system_monitoring` module.
 
 
 .. autoclass:: shc.supervisor.ServiceStatus

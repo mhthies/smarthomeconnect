@@ -322,11 +322,6 @@ Monitoring API reference
                 "<interface_name1>": {
                     "status": 1,
                     "message": "Interface status message",
-                    "metrics": {
-                        "<metric1>": 0.0,
-                        "<metric2>": 42
-
-                    }
                 },
 
                 "<interface_name2>": {
