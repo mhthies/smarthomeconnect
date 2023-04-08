@@ -8,9 +8,9 @@ from typing import Optional, Type, Generic, List, Tuple, Any, Dict
 import aiomysql
 import pymysql
 
-from ..base import T
+from ..base import T, Readable, UninitializedError, Writable
 from ..conversion import SHCJsonEncoder, from_json
-from .generic import PersistenceVariable
+from .generic import WritableDataLogVariable
 from ..interfaces._helper import ReadableStatusInterface
 from ..supervisor import InterfaceStatus, ServiceStatus
 
@@ -49,43 +49,31 @@ class MySQLPersistence(ReadableStatusInterface):
             return InterfaceStatus(ServiceStatus.CRITICAL, str(e))
         return InterfaceStatus(ServiceStatus.OK, "")
 
-    def variable(self, type_: Type, name: str, log: bool = True) -> "MySQLPersistenceVariable":
+    def variable(self, type_: Type[T], name: str, log: bool = True) -> "MySQLPersistenceVariable[T]":
         if name in self.variables:
             variable = self.variables[name]
             if variable.type is not type_:
                 raise ValueError("MySQL persistence variable with name {} has already been defined with type {}"
                                  .format(name, variable.type.__name__))
             return variable
-        return MySQLPersistenceVariable(self, type_, name, log)
+        if log:
+            return MySQLDataLogVariable(self, type_, name)
+        else:
+            return MySQLPersistenceVariable(self, type_, name)
 
     def __repr__(self) -> str:
         return "{}({})".format(self.__class__.__name__, {k: v for k, v in self.connect_args.items()
                                                          if k in ('host', 'db', 'port', 'unix_socket')})
 
 
-class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
-    def __init__(self, interface: MySQLPersistence, type_: Type[T], name: str, log: bool):
-        super().__init__(type_, log)
+class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
+    def __init__(self, interface: MySQLPersistence, type_: Type[T], name: str):
+        self.type = type_
+        super().__init__()
         self.interface = interface
         self.name = name
-        self.log = log
 
-    async def _write_to_log(self, value: T):
-        column_name = self._type_to_column(type(value))
-        value = self._into_mysql_type(value)
-        await self.interface.pool_ready.wait()
-        assert self.interface.pool is not None
-        async with self.interface.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                if self.log:
-                    await cur.execute("INSERT INTO `log` (`name`, `ts`, `{}`) VALUES (%s, %s, %s)".format(column_name),
-                                      (self.name, datetime.datetime.now(datetime.timezone.utc), value))
-                else:
-                    await cur.execute("UPDATE `log` SET `ts` = %s, `{}` = %s WHERE `name` = %s".format(column_name),
-                                      (datetime.datetime.now(datetime.timezone.utc), value, self.name))
-            await conn.commit()
-
-    async def _read_from_log(self) -> Optional[T]:
+    async def read(self) -> T:
         column_name = self._type_to_column(self.type)
         await self.interface.pool_ready.wait()
         assert self.interface.pool is not None
@@ -96,9 +84,20 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
                                   (self.name,))
                 value = await cur.fetchone()
         if value is None:
-            return None
+            raise UninitializedError("No value has been persisted in MySQL database yet")
         logger.debug("Retrieved value %s for %s from %s", value, self, self.interface)
         return self._from_mysql_type(value[0])
+
+    async def _write(self, value: T, _origin: List[Any]) -> None:
+        column_name = self._type_to_column(type(value))
+        value = self._into_mysql_type(value)
+        await self.interface.pool_ready.wait()
+        assert self.interface.pool is not None
+        async with self.interface.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("UPDATE `log` SET `ts` = %s, `{}` = %s WHERE `name` = %s".format(column_name),
+                                  (datetime.datetime.now(datetime.timezone.utc), value, self.name))
+            await conn.commit()
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
                            include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
@@ -159,3 +158,20 @@ class MySQLPersistenceVariable(PersistenceVariable, Generic[T]):
 
     def __repr__(self):
         return "<{} '{}'>".format(self.__class__.__name__, self.name)
+
+
+class MySQLDataLogVariable(MySQLPersistenceVariable, WritableDataLogVariable, Generic[T]):
+    type: Type[T]
+
+    async def _write_to_data_log(self, values: List[Tuple[datetime.datetime, T]]) -> None:
+        if not values:
+            return
+        column_name = self._type_to_column(type(values[0][1]))
+        await self.interface.pool_ready.wait()
+        assert self.interface.pool is not None
+        async with self.interface.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.executemany("INSERT INTO `log` (`name`, `ts`, `{}`) VALUES (%s, %s, %s)".format(column_name),
+                                      [(self.name, ts, self._into_mysql_type(value))
+                                       for ts, value in values])
+            await conn.commit()

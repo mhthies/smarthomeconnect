@@ -27,15 +27,9 @@ time_series_2 = [
 ]
 
 
-class ExampleLogVariable(shc.log.generic.PersistenceVariable[T], Generic[T]):
-    async def _read_from_log(self) -> Optional[T]:
-        raise NotImplementedError
-
-    async def _write_to_log(self, value: T) -> None:
-        raise NotImplementedError
-
+class ExampleLogVariable(shc.log.generic.DataLogVariable[T], Generic[T]):
     def __init__(self, time_series: List[Tuple[datetime.datetime, T]]):
-        super().__init__(type(time_series[0][1]), True)
+        self.type = type(time_series[0][1])
         self.data = time_series
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,

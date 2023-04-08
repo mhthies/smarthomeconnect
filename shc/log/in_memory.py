@@ -1,19 +1,22 @@
 import datetime
 from typing import Optional, Type, Generic, List, Tuple
 
-from ..base import T
-from .generic import PersistenceVariable
+from ..base import T, Readable, UninitializedError
+from .generic import WritableDataLogVariable
 
 
-class InMemoryPersistenceVariable(PersistenceVariable, Generic[T]):
+class InMemoryPersistenceVariable(WritableDataLogVariable, Readable[T], Generic[T]):
+    type: Type[T]
+
     def __init__(self, type_: Type[T], keep: datetime.timedelta):
-        super().__init__(type_, log=True)
+        self.type = type_
+        super().__init__()
         self.data: List[Tuple[datetime.datetime, T]] = []
         self.keep = keep
 
-    async def _write_to_log(self, value: T):
+    async def _write_to_data_log(self, values: List[Tuple[datetime.datetime, T]]) -> None:
         self.clean_up()
-        self.data.append((datetime.datetime.now(datetime.timezone.utc), value))
+        self.data.extend(values)
 
     def clean_up(self) -> None:
         begin = datetime.datetime.now(datetime.timezone.utc) - self.keep
@@ -24,9 +27,9 @@ class InMemoryPersistenceVariable(PersistenceVariable, Generic[T]):
                 break
         self.data = self.data[keep_from:]
 
-    async def _read_from_log(self) -> Optional[T]:
+    async def read(self) -> T:
         if not self.data:
-            return None
+            raise UninitializedError("No value has been persisted yet")
         return self.data[-1][1]
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,

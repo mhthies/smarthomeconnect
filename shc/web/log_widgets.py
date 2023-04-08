@@ -3,13 +3,13 @@ from typing import Iterable, Optional, Generic, Union, Callable, NamedTuple, Tup
 
 from markupsafe import Markup
 
-from ..log.generic import PersistenceVariable, LoggingRawWebUIView, AggregationMethod, LoggingAggregatedWebUIView
+from ..log.generic import DataLogVariable, LoggingWebUIView, AggregationMethod
 from ..base import T
 from .interface import WebPageItem, WebUIConnector, jinja_env
 
 
 class LogListDataSpec(NamedTuple):
-    variable: PersistenceVariable
+    variable: DataLogVariable
     format: Union[str, Markup, Callable[[Union[T, float]], Union[str, Markup]]] = "{}"
     color: str = ''
     aggregation: Optional[AggregationMethod] = None
@@ -29,10 +29,8 @@ class LogListWidget(WebPageItem, Generic[T]):
                 if isinstance(spec.format, (str, Markup))
                 else spec.format)
             aggregation_interval = spec.aggregation_interval if spec.aggregation_interval is not None else interval / 10
-            connector = (LoggingRawWebUIView(spec.variable, interval, formatter, include_previous=False)
-                         if spec.aggregation is None
-                         else LoggingAggregatedWebUIView(spec.variable, interval, spec.aggregation,
-                                                         aggregation_interval, formatter))
+            connector = LoggingWebUIView(spec.variable, interval, spec.aggregation, aggregation_interval,
+                                         converter=formatter, include_previous=False)
             self.connectors.append(connector)
             self.specs.append({'id': id(connector),
                                'color': spec.color})
@@ -46,7 +44,7 @@ class LogListWidget(WebPageItem, Generic[T]):
 
 
 class ChartDataSpec(NamedTuple):
-    variable: PersistenceVariable
+    variable: DataLogVariable
     label: str
     color: Optional[Tuple[int, int, int]] = None
     aggregation: Optional[AggregationMethod] = None
@@ -73,10 +71,8 @@ class ChartWidget(WebPageItem):
             if aggregation_interval is None:
                 aggregation_interval = interval / 10
             is_aggregated = spec.aggregation is not None
-            connector = (LoggingRawWebUIView(spec.variable, interval, include_previous=True)
-                         if spec.aggregation is None
-                         else LoggingAggregatedWebUIView(spec.variable, interval, spec.aggregation,
-                                                         aggregation_interval, align_to=self.align_ticks_to))
+            connector = LoggingWebUIView(spec.variable, interval, spec.aggregation,
+                                         aggregation_interval, align_to=self.align_ticks_to, include_previous=True)
             self.connectors.append(connector)
             self.row_specs.append({'id': id(connector),
                                    'is_aggregated': is_aggregated,
