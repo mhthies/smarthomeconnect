@@ -3,7 +3,7 @@ from typing import Iterable, Optional, Generic, Union, Callable, NamedTuple, Tup
 
 from markupsafe import Markup
 
-from ..log.generic import DataLogVariable, LoggingWebUIView, AggregationMethod
+from ..data_logging import DataLogVariable, LoggingWebUIView, AggregationMethod
 from ..base import T
 from .interface import WebPageItem, WebUIConnector, jinja_env
 

@@ -14,7 +14,7 @@
 import datetime
 import logging
 
-import shc.log.in_memory
+import shc.interfaces.in_memory_data_logging
 from shc.datatypes import RangeFloat1, RGBUInt8
 from shc.interfaces.mqtt import MQTTClientInterface
 from shc.interfaces.tasmota import TasmotaInterface
@@ -30,7 +30,7 @@ web_server = shc.web.WebServer('', 8081, index_name='index')
 index_page = web_server.page('index', 'Home', menu_entry=True, menu_icon='home')
 
 # Create an in-memory log for the IR commands received in the last 10 minutes
-ir_log = shc.log.in_memory.InMemoryPersistenceVariable(str, keep=datetime.timedelta(minutes=10))
+ir_log = shc.interfaces.in_memory_data_logging.InMemoryPersistenceVariable(str, keep=datetime.timedelta(minutes=10))
 # Show the logged IR commands in a list view on the web page
 index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes=5), [
     LogListDataSpec(ir_log)

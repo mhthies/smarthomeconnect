@@ -20,10 +20,10 @@ from typing import Type, Generic, List, Any, Optional, Set, Tuple, Union, cast, 
 
 import aiohttp.web
 
-from .. import timer
-from ..base import T, Readable, Writable, UninitializedError
-from ..conversion import SHCJsonEncoder
-from ..web.interface import WebUIConnector
+from shc import timer
+from shc.base import T, Readable, Writable, UninitializedError
+from shc.conversion import SHCJsonEncoder
+from shc.web.interface import WebUIConnector
 
 logger = logging.getLogger(__name__)
 

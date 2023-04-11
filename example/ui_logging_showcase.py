@@ -11,14 +11,14 @@
 import datetime
 import random
 
-import shc.log.in_memory
+from shc.interfaces.in_memory_data_logging import InMemoryPersistenceVariable
 import shc.web.log_widgets
-from shc.log import AggregationMethod
+from shc.data_logging import AggregationMethod
 from shc.web.log_widgets import ChartDataSpec, LogListDataSpec
 from shc.web.widgets import icon
 
-random_float_log = shc.log.in_memory.InMemoryPersistenceVariable(float, keep=datetime.timedelta(minutes=10))
-random_bool_log = shc.log.in_memory.InMemoryPersistenceVariable(bool, keep=datetime.timedelta(minutes=10))
+random_float_log = InMemoryPersistenceVariable(float, keep=datetime.timedelta(minutes=10))
+random_bool_log = InMemoryPersistenceVariable(bool, keep=datetime.timedelta(minutes=10))
 
 # Some hacks to prefill logs with random data
 ts = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=7.5)

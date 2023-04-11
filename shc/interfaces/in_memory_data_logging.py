@@ -1,8 +1,8 @@
 import datetime
 from typing import Optional, Type, Generic, List, Tuple
 
-from ..base import T, Readable, UninitializedError
-from .generic import WritableDataLogVariable
+from shc.base import T, Readable, UninitializedError
+from shc.data_logging import WritableDataLogVariable
 
 
 class InMemoryPersistenceVariable(WritableDataLogVariable, Readable[T], Generic[T]):

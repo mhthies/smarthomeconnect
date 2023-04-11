@@ -8,11 +8,11 @@ from typing import Optional, Type, Generic, List, Tuple, Any, Dict
 import aiomysql
 import pymysql
 
-from ..base import T, Readable, UninitializedError, Writable
-from ..conversion import SHCJsonEncoder, from_json
-from .generic import WritableDataLogVariable
-from ..interfaces._helper import ReadableStatusInterface
-from ..supervisor import InterfaceStatus, ServiceStatus
+from shc.base import T, Readable, UninitializedError, Writable
+from shc.conversion import SHCJsonEncoder, from_json
+from shc.data_logging import WritableDataLogVariable
+from shc.interfaces._helper import ReadableStatusInterface
+from shc.supervisor import InterfaceStatus, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
