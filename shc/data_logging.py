@@ -29,21 +29,50 @@ logger = logging.getLogger(__name__)
 
 
 class AggregationMethod(enum.Enum):
+    #: The weighted average of a numeric data series within the aggregation interval
     AVERAGE = 0
+    #: The minimum numeric value in the aggregation interval
     MINIMUM = 1
+    #: The maximum numeric value in the aggregation interval
     MAXIMUM = 2
+    #: The cumulated time the boolean value has been True in the aggregation interval in seconds
     ON_TIME = 3
+    #: The cumulated time the boolean value has been True as fraction of the aggregation interval
     ON_TIME_RATIO = 4
 
 
 class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
+    """
+    Interface for objects that allow to retrieve a live data series for a single variable
+
+    This interface is typically implemented by connector objects for a single time series in a time series database to
+    allow consumers, e.g. chart widgets on the web UI, to access historic data. Such consumers typically inherit from
+    :class:`LiveDataLogView`, which provides functionality to specify a time interval, fetch recent values within that
+    interval and push synchronized updates for new data.
+
+    This abstract class can be combined with :class:`shc.base.Readable` and :class:`shc.base.Writable` to form a
+    connector implementation that allows writing new values to the time series database and read the most recent value.
+    In case of inheriting a connector class from `DataLogVariable` and `Writable`, it should inherit from the combined
+    :class:`WritableDataLogVariable` instead (in addition to possibly other base classes, like `Readable`). This will
+    allow notifying attached :class:`LiveDataLogViews <LiveDataLogView>` about newly added values without introducing
+    race-conditions.
+
+    The `DataLogVariable` interface allows to retrieve aggregated data series, i.e. calculating the minimum, maximum,
+    average (of numeric values), or on-time (of boolean values) for each interval in an isochronous grid. This abstract
+    class provides a pure-Python implementation of the aggregation in the :meth:`retrieve_aggregated_log` method, based
+    on the implementor's :meth:`retrieve_log` method. If the underlying database technology allows to calculate such
+    aggregated data series natively, this method may be overriden to improve performance.
+
+    :cvar type: The data type of the values of the time series
+    """
+
     type: Type[T]
 
     @abc.abstractmethod
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
                            include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
         """
-        Retrieve all log entries for this log variable in the specified time range from the log backend/database
+        Retrieve all log entries for this log variable in the specified time range from the data log backend/database
 
         The method shall return a list of all log entries with a timestamp greater or equal to the `start_time` and
         less than the `end_time`. If `include_previous` is True (shall be the default value), the last entry *before*
@@ -58,6 +87,29 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     async def retrieve_aggregated_log(self, start_time: datetime.datetime, end_time: datetime.datetime,  # noqa: C901
                                       aggregation_method: AggregationMethod, aggregation_interval: datetime.timedelta
                                       ) -> List[Tuple[datetime.datetime, float]]:
+        """
+        Retrieve an aggregated time series from the underlying time series
+
+        The returned time series will contain data points in a fixed interval, as specified by `aggregation_interval`.
+        Each of these points results from aggregating the dynamic value from the raw time series within the following
+        aggregation interval, up to (but not including) the start of next aggregation interval. The raw time series
+        value is considered to be constant until the next recorded data point. Thus, the aggregation algorithm
+        considers the latest data point from the previous interval(s) as the effective time series value from the start
+        of the interval up to the first data point within the interval.
+
+        The aggregation function, combining the values within each single aggregation interval into a single value,
+        is specified by the `aggregation_method` parameter.  Note, that `AVERAGE`, `MINIMUM` and `MAXIMUM` are only
+        supported for numeric value types, whereas `ON_TIME` and `ON_TIME_RATIO` are only supported on boolean-typed
+        `DataLogVariables`.
+
+        :param start_time: Begin timestamp of the first aggregation interval
+        :param end_time: End of the overall interval, for which data is retrieved and included in the aggregation. If
+            this the overall interval is not divisible by `aggregation_interval`, the last aggregation interval will be
+            shortened to end at `end_time`.
+        :param aggregation_method: Enum value, indicating the aggregation function to use.
+        :param aggregation_interval: The duration of each single aggregation interval, i.e. the fixed temporal distance
+            of the points of the returned aggregated time series
+        """
         data = await self.retrieve_log(start_time, end_time, include_previous=True)
         # TODO run aggregation in thread pool?
         return aggregate(data, self.type, start_time, end_time, aggregation_method, aggregation_interval)
@@ -117,6 +169,13 @@ class WritableDataLogVariable(Writable[T], DataLogVariable[T], Generic[T], metac
 
 class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
     """
+    Base class for consumers of a :class:`DataLogVariable`, providing historic data within a fixed interval and live
+    updates to clients.
+
+    This class provides functionality to fetch historic time series data in the specified recent interval from a
+    :class:`DataLogVariable` and push synchronized updates to clients (like web browser clients) for new values,
+    afterward – either based on subscription of the :class:`WritableDataLogVariable` or in a regular interval.
+
     :param data_log:
     :param interval:
     :param external_updates:
@@ -176,7 +235,8 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
             await self._process_new_logvalues(data)
             self._last_retrieved_timestamp = end_time
 
-    async def get_current_view(self, include_previous: bool = False) -> Sequence[Tuple[datetime.datetime, Union[T, float]]]:
+    async def get_current_view(self, include_previous: bool = False
+                               ) -> Sequence[Tuple[datetime.datetime, Union[T, float]]]:
         if self.push:
             # With push updates, we need to use the synchronized retrieve_log() method to avoid losing
             # new values during the retrieval
