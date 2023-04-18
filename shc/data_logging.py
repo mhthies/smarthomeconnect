@@ -63,6 +63,8 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     on the implementor's :meth:`retrieve_log` method. If the underlying database technology allows to calculate such
     aggregated data series natively, this method may be overriden to improve performance.
 
+    In any case, derived classes need to implement :meth:`retrieve_log`
+
     :cvar type: The data type of the values of the time series
     """
 
@@ -116,6 +118,22 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
 
 
 class WritableDataLogVariable(Writable[T], DataLogVariable[T], Generic[T], metaclass=abc.ABCMeta):
+    """
+    Combined base class for :class:`DataLogVariables <DataLogVariable>` that are :class:`Writable <shc.base.Writable>`.
+
+    In addition to the interface of the two base classes, this class provides synchronization of writes to the data log,
+    allowing to subscribe to complete and ordered notifications of all new SHC-internal values: All calls to
+    :meth:`write` are serialized via a mutex and will trigger a callback method on all subscribed
+    :class:`LiveDataLogView` objects.
+
+    In addition, the :meth:`retrieve_log_sync` method is provided for retrieving the latest data log entries as a base
+    for later updates from via the subscription callback. It locks the same mutex to prevent concurrent writes to the
+    data log, so that all writes are either completed before the retrieval (and thus included in the retrieved log) or
+    queued to be written after the log retrieval returned (and thus included in later calls to the callback method).
+
+    Derived classes shall implement :meth:`_write_to_data_log` (instead of the usual `Writable._write()` method), and
+    :meth:`retrieve_log`, as usual for `DataLogVariables`.
+    """
     type: Type[T]
 
     def __init__(self, **kwargs):
@@ -133,7 +151,7 @@ class WritableDataLogVariable(Writable[T], DataLogVariable[T], Generic[T], metac
             # We will do the flush in this task
             self._flushing_finished = asyncio.Event()
             # TODO we could sleep for some time based on the last flush timestamp (but listen for shutdown events?) here
-            #  to ensure a maximum update rate by gathering multiple values into a single flush
+            #  to ensure a maximum update rate by gathering multiple values into a single queue for flushing
             async with self._mutex:
                 # atomic retrieval + clear of the _pending_values queue
                 flushed_values = self._pending_values
@@ -170,16 +188,48 @@ class WritableDataLogVariable(Writable[T], DataLogVariable[T], Generic[T], metac
 class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
     """
     Base class for consumers of a :class:`DataLogVariable`, providing historic data within a fixed interval and live
-    updates to clients.
+    updates for this data.
 
-    This class provides functionality to fetch historic time series data in the specified recent interval from a
-    :class:`DataLogVariable` and push synchronized updates to clients (like web browser clients) for new values,
-    afterward – either based on subscription of the :class:`WritableDataLogVariable` or in a regular interval.
+    This class provides functionality to fetch historic time series data, starting a fixed interval in the past, from a
+    :class:`DataLogVariable` and provide push-updates for new or updated values, to update the time series data in a
+    consistent manner afterward. Updates are either triggered via subscription of the `DataLogVariable` (resp.
+    :class:`WritableDataLogVariable`) or in a regular interval.
 
-    :param data_log:
-    :param interval:
-    :param external_updates:
-    :param update_interval:
+    This allows to initialize new copies of the recent time series data at any time and update all these copies
+    consistently and efficiently, i.e. to provide data for a plot of the time series to any number of web browser
+    clients, including newly connected clients. It is achieved via the following procedure:
+
+    * Create an instance of a :class:`LiveDataLogView` and subscribe it to the log variable. If supported (see below),
+        it will subscribe to the variable for push-updates, otherwise, it will create a timer for regular updates.
+    * When a new data log copy is to be initialized (e.g. a new client connects), call and await
+        :meth:`get_current_view`, and initialize the log copy/client with the returned data
+    * Implement :meth:`_process_new_logvalues` to update all log copies/clients with the provided data points. With
+        aggregation enabled, this will regularly include replacing the latest data point, otherwise, new datapoints are
+        always to be appended
+
+    Actual push updates (i.e. `_process_new_logvalues()` is called directly after a write to the data log) is only
+    supported under the following conditions:
+
+    * the `DataLogVariable` is a :class:`WritableDataLogVariable`, and
+    * `aggregation` is None, and
+    * `external_updates` is false, i.e. all updates to the time series are performed via the `WritableDataLogVariable`
+
+    In any other case, a periodic timer of `update_interval` is created to fetch new/updated values regularly and pass
+    them to `_process_new_logvalues()`. However, if the `DataLogVariable` is WritableDataLogVariable`, it will be used
+    as an additional trigger for updating the values.
+
+    :param data_log: The `DataLogVariable` to retrieve the time series and updates from
+    :param interval: The length timespan to retrieve when calling :meth:`get_current_view`
+    :param aggregation: The aggregation function to use or None to disable aggregation and retrieve raw log datapoints
+    :param aggregation_interval: If aggregation is enabled: The duration of each single aggregation interval
+    :param align_to: If aggregation is enabled: Align the grid of aggregation intervals to the given timestamp, i.e.,
+        the times of the aggregated values are calculated in such a way, that one of the aggregated values' timestamp
+        would equal the given timestamp (if `interval` stretched long enough into the past or future to include this
+        timestamp)
+    :param update_interval: Unless push updates are possible (see above), the period of the periodic log retrieval and
+        update. If not specified, it is set to 1/20th of the `interval`, but not more than 1min.
+    :param external_updates: Specify, whether SHC-external updates to the data log are expected. This effectively
+        enables periodic updates, even if push updates would be available otherwise (see above).
     """
 
     def __init__(self, data_log: DataLogVariable[T],
@@ -217,6 +267,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         self._mutex = asyncio.Lock()
 
     async def _new_log_values_written(self, values: List[Tuple[datetime.datetime, T]]) -> None:
+        """Callback method to be called by `WritableDataLogVariable` to provide values, newly written to the data log"""
         if self.push:
             await self._process_new_logvalues(values)
         else:
@@ -237,6 +288,13 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
 
     async def get_current_view(self, include_previous: bool = False
                                ) -> Sequence[Tuple[datetime.datetime, Union[T, float]]]:
+        """
+        Retrieve the recent log values from the `DataLogVariable`, as specified by this object's constructor arguments
+
+        Retrieves and returns the data log entries from up to `interval` time ago, possible aggregated, as defined by
+        aggregation`, in a way, that future invocations of :meth:`_process_new_logvalues` provide consistent updates
+        to these entries.
+        """
         if self.push:
             # With push updates, we need to use the synchronized retrieve_log() method to avoid losing
             # new values during the retrieval
@@ -261,9 +319,10 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
     def _data_retrieval_interval(self, for_update: bool) -> Tuple[datetime.datetime, datetime.datetime]:
         """
         Calculate the begin and end timestamps to be passed to :meth:`PersistenceVariable.retrieve_aggregated_log` based
-        on the configured interval, aggregation_interval, align timestamp.
+        on the configured interval, aggregation_interval, and align timestamp.
 
-        TODO: For interval-based update (incl. aggregated view) important to do this in _mutex
+        Note: For interval-based update (incl. aggregated view), this method must only be called while _mutex is locked
+        to protect the `_last_retrieved_timestamp` from concurrent access.
 
         :return: (start_time, end_time) for `retrieve_log()` resp. `retrieve_aggregated_log()`
         """
@@ -298,7 +357,15 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def _process_new_logvalues(self, values: Sequence[Tuple[datetime.datetime, Union[T, float]]]) -> None:
-        # TODO warning: do not use _get_current_view here
+        """
+        Update the existing data log copies/clients with the given new or updated log values
+
+        This method is called either with by push-update from the `DataLogVariable` or by the periodic timer. It shall
+        be implemented by derived classes.
+
+        WARNING: Do not await `_get_current_view` in this method! This will result in a deadlock (depending on the
+        update mechanism).
+        """
         raise NotImplementedError()
 
 
@@ -340,9 +407,26 @@ class LoggingWebUIView(LiveDataLogView[T], WebUIConnector, Generic[T]):
                                      cls=SHCJsonEncoder))
 
 
-def aggregate(data: List[Tuple[datetime.datetime, T]], type: Type[T], start_time: datetime.datetime,
-              end_time: datetime.datetime,
-              aggregation_method: AggregationMethod, aggregation_interval: datetime.timedelta):
+def aggregate(data: List[Tuple[datetime.datetime, T]], type_: Type[T], start_time: datetime.datetime,
+              end_time: datetime.datetime, aggregation_method: AggregationMethod,
+              aggregation_interval: datetime.timedelta) -> List[Tuple[datetime.datetime, float]]:
+    """
+    Pure-Python implementation of the time series aggregation method
+
+    Takes a time series and returns an aggregated time series with data points in a fixed interval, as described in
+    :meth:`DataLogVariable.retrieve_aggregated_log`.
+
+    :param data: The input time series to be aggregated
+    :param type_: Data type of the values of the input time series (used for dynamic type assertions and type checking)
+    :param start_time: Begin timestamp of the first aggregation interval
+    :param end_time: End of the overall interval, for which data is retrieved and included in the aggregation. If
+        this the overall interval is not divisible by `aggregation_interval`, the last aggregation interval will be
+        shortened to end at `end_time`.
+    :param aggregation_method: Enum value, indicating the aggregation function to use.
+    :param aggregation_interval: The duration of each single aggregation interval, i.e. the fixed temporal distance
+        of the points of the returned aggregated time series
+
+    """
     aggregation_timestamps = [start_time + i * aggregation_interval
                               for i in range(math.ceil((end_time - start_time) / aggregation_interval))]
 
@@ -352,7 +436,7 @@ def aggregate(data: List[Tuple[datetime.datetime, T]], type: Type[T], start_time
         aggregation_timestamps.append(end_time)
 
     if aggregation_method in (AggregationMethod.MINIMUM, AggregationMethod.MAXIMUM, AggregationMethod.AVERAGE):
-        if not issubclass(type, (int, float)):
+        if not issubclass(type_, (int, float)):
             raise TypeError("min/max/avg. aggregation is only applicable to int and float type log variables.")
 
     elif aggregation_method not in (AggregationMethod.ON_TIME, AggregationMethod.ON_TIME_RATIO):
