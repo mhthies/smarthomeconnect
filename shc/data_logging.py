@@ -1,4 +1,4 @@
-# Copyright 2020 Michael Thies <mail@mhthies.de>
+# Copyright 2020-2023 Michael Thies <mail@mhthies.de>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 # the License. You may obtain a copy of the License at
@@ -16,12 +16,12 @@ import json
 import datetime
 import logging
 import math
-from typing import Type, Generic, List, Any, Optional, Set, Tuple, Union, cast, TypeVar, Callable, Sequence
+from typing import Type, Generic, List, Any, Optional, Tuple, Union, cast, TypeVar, Callable, Sequence
 
 import aiohttp.web
 
 from shc import timer
-from shc.base import T, Readable, Writable, UninitializedError
+from shc.base import T, Writable
 from shc.conversion import SHCJsonEncoder
 from shc.web.interface import WebUIConnector
 
@@ -41,6 +41,14 @@ class AggregationMethod(enum.Enum):
     ON_TIME_RATIO = 4
 
 
+class DataLogNotSubscribable(RuntimeError):
+    """
+    Exception to be raised by :meth:`DataLogVariable.subscribe_data_log` if the variable does not support
+    subscription.
+    """
+    pass
+
+
 class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     """
     Interface for objects that allow to retrieve a live data series for a single variable
@@ -52,10 +60,6 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
 
     This abstract class can be combined with :class:`shc.base.Readable` and :class:`shc.base.Writable` to form a
     connector implementation that allows writing new values to the time series database and read the most recent value.
-    In case of inheriting a connector class from `DataLogVariable` and `Writable`, it should inherit from the combined
-    :class:`WritableDataLogVariable` instead (in addition to possibly other base classes, like `Readable`). This will
-    allow notifying attached :class:`LiveDataLogViews <LiveDataLogView>` about newly added values without introducing
-    race-conditions.
 
     The `DataLogVariable` interface allows to retrieve aggregated data series, i.e. calculating the minimum, maximum,
     average (of numeric values), or on-time (of boolean values) for each interval in an isochronous grid. This abstract
@@ -63,7 +67,17 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     on the implementor's :meth:`retrieve_log` method. If the underlying database technology allows to calculate such
     aggregated data series natively, this method may be overriden to improve performance.
 
-    In any case, derived classes need to implement :meth:`retrieve_log`
+    A `DataLogVariable` may be subscribable for log updates, allowing one or more :class:`LiveDataLogView` instances
+    to receive push updates after initially retrieving the current data log. To provide this functionality, implementing
+    classes need to override :meth:`subscribe_data_log`. In addition, this requires a way to retrieve the current data
+    log state synchronized with the pushes. This must be provided by overriding the :meth:`retrieve_log_sync` method.
+
+    Even if the data log backend does not provide a push/event/notification mechanism, we can generate it within SHC,
+    as long as all new values in this specific data log are created trough this DataLogVariable object (which should be
+    `Writable` in this case). For this purpose, the combined :class:`WritableDataLogVariable` should be used (in
+    addition to possibly other base classes, like `Readable`).
+
+    In any case, derived classes need to implement :meth:`retrieve_log`.
 
     :cvar type: The data type of the values of the time series
     """
@@ -116,25 +130,59 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         # TODO run aggregation in thread pool?
         return aggregate(data, self.type, start_time, end_time, aggregation_method, aggregation_interval)
 
+    async def retrieve_log_sync(self, start_time: datetime.datetime, end_time: datetime.datetime,
+                                include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
+        """
+        Retrieve the current log, synchronized with push updates
+
+        If this LogDataVariable does not support push updates, i.e. is not subscribable (:meth:`subscribe_data_log` does
+        not raise `DataLogNotSubscribable`), this is typically equivalent to :meth:`retrieve_log`.
+        """
+        return await self.retrieve_log(start_time, end_time, include_previous)
+
+    def subscribe_data_log(self, subscriber: "LiveDataLogView") -> None:
+        """
+        Add a :class:`LiveDataLogView` as a subscriber to this log variable.
+
+        Subclasses which override this method must ensure that:
+
+        - all datapoints, added to the data log, are pushed to all subscribed `LiveDataLogViews` via
+          :meth:`LiveDataLogView._new_log_values_written`
+        - These pushes are synchronized with calls to :meth:`retrieve_log_sync`, such that appending all pushed values
+          to the returned result of `retrive_log_sync()` results in a consistent replica of the log without missing or
+          duplicated values. This means: All values pushed *before* a call to `retrive_log_sync()` returns must be
+          included in its returned result. All values pushed *after* a call to `retrieve_log_sync()` returns, must *not*
+          be included in its returned result.
+
+        :raises DataLogNotSubscribable: If this data log variable cannot provide push updates and thus is not
+            subscribable
+        """
+        raise DataLogNotSubscribable()
+
 
 class WritableDataLogVariable(Writable[T], DataLogVariable[T], Generic[T], metaclass=abc.ABCMeta):
     """
     Combined base class for :class:`DataLogVariables <DataLogVariable>` that are :class:`Writable <shc.base.Writable>`.
 
-    In addition to the interface of the two base classes, this class provides synchronization of writes to the data log,
-    allowing to subscribe to complete and ordered notifications of all new SHC-internal values: All calls to
+    In addition to the interface of the two base classes, this class allows subscription for push updates of the data
+    log via the :meth:`subscribe_data_log` method by providing synchronization of writes to the data log: All calls to
     :meth:`write` are serialized via a mutex and will trigger a callback method on all subscribed
-    :class:`LiveDataLogView` objects.
-
-    In addition, the :meth:`retrieve_log_sync` method is provided for retrieving the latest data log entries as a base
-    for later updates from via the subscription callback. It locks the same mutex to prevent concurrent writes to the
-    data log, so that all writes are either completed before the retrieval (and thus included in the retrieved log) or
-    queued to be written after the log retrieval returned (and thus included in later calls to the callback method).
+    :class:`LiveDataLogView` objects. The :meth:`retrieve_log_sync` method locks the same mutex to prevent concurrent
+    writes to the data log, so that all writes are either completed before the retrieval (and thus included in the
+    retrieved log) or queued to be written after the log retrieval returned (and thus included in later calls to the
+    callback method).
 
     Derived classes shall implement :meth:`_write_to_data_log` (instead of the usual `Writable._write()` method), and
-    :meth:`retrieve_log`, as usual for `DataLogVariables`.
+    :meth:`retrieve_log`, as usual for `DataLogVariables`. In addition, derived classes shall allow to set override
+    `external_updates` attribute for each instance (via an __init__ parameter) to disable push updates for data logs
+    which are updated externally.
+    
+    :ivar external_updates: Specifies, whether SHC-external updates to the data log are expected. This effectively
+        will make this class unsubscribable (because we cannot guarantee to reproduce a consistent log through push
+        updates), so attached `LiveDataLogView` will fall back to periodic polling of the log.
     """
     type: Type[T]
+    external_updates = False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -182,6 +230,8 @@ class WritableDataLogVariable(Writable[T], DataLogVariable[T], Generic[T], metac
             return await self.retrieve_log(start_time, end_time, include_previous)
 
     def subscribe_data_log(self, subscriber: "LiveDataLogView") -> None:
+        if self.external_updates:
+            raise DataLogNotSubscribable()
         self._data_log_subscribers.append(subscriber)
 
 
@@ -207,12 +257,13 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         aggregation enabled, this will regularly include replacing the latest data point, otherwise, new datapoints are
         always to be appended
 
-    Actual push updates (i.e. `_process_new_logvalues()` is called directly after a write to the data log) is only
+    Actual push updates (i.e. `_process_new_logvalues()` is called directly after a write to the data log) are only
     supported under the following conditions:
 
-    * the `DataLogVariable` is a :class:`WritableDataLogVariable`, and
     * `aggregation` is None, and
-    * `external_updates` is false, i.e. all updates to the time series are performed via the `WritableDataLogVariable`
+    * the `DataLogVariable` is subscribable, i.e. its :meth:`subscribe_data_log` does not raise `DataLogNotSubscribable`
+      This is especially true for DataLogVariables inheriting from :class:`WritableDataLogVariable`, with
+      "external_updates" set to False.
 
     In any other case, a periodic timer of `update_interval` is created to fetch new/updated values regularly and pass
     them to `_process_new_logvalues()`. However, if the `DataLogVariable` is WritableDataLogVariable`, it will be used
@@ -228,8 +279,6 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         timestamp)
     :param update_interval: Unless push updates are possible (see above), the period of the periodic log retrieval and
         update. If not specified, it is set to 1/20th of the `interval`, but not more than 1min.
-    :param external_updates: Specify, whether SHC-external updates to the data log are expected. This effectively
-        enables periodic updates, even if push updates would be available otherwise (see above).
     """
 
     def __init__(self, data_log: DataLogVariable[T],
@@ -237,13 +286,9 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
                  aggregation: Optional[AggregationMethod] = None,
                  aggregation_interval: Optional[datetime.timedelta] = None,
                  align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
-                 update_interval: Optional[datetime.timedelta] = None,
-                 external_updates: bool = False,
-                 **kwargs):
-        super().__init__(**kwargs)
+                 update_interval: Optional[datetime.timedelta] = None):
         self.data_log = data_log
         self.interval = interval
-        self.external_updates = external_updates
         self.aggregation = aggregation
         self.aggregation_interval = aggregation_interval
         if self.aggregation is not None and self.aggregation_interval is None:
@@ -251,9 +296,11 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         self.align_to = align_to
         #: Whether we use push updates of the values via subscription of a WritableDataLogVariable (True) or
         #: interval-based update via log retrieval (potentially also triggered via subscription) (False)
-        self.push = isinstance(data_log, WritableDataLogVariable) and not external_updates and aggregation is None
-        if isinstance(self.data_log, WritableDataLogVariable):
+        self.push = aggregation is None
+        try:
             self.data_log.subscribe_data_log(self)
+        except DataLogNotSubscribable:
+            self.push = False
         if not self.push:
             update_interval = (update_interval if update_interval is not None
                                else min(interval / 20, datetime.timedelta(minutes=1)))
@@ -381,12 +428,10 @@ class LoggingWebUIView(LiveDataLogView[T], WebUIConnector, Generic[T]):
                  aggregation_interval: Optional[datetime.timedelta] = None,
                  align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
                  update_interval: Optional[datetime.timedelta] = None,
-                 external_updates: bool = False,
                  converter: Optional[Callable[[T], Any]] = None,
                  include_previous: bool = True):
         super().__init__(data_log=data_log, interval=interval, aggregation=aggregation,
-                         aggregation_interval=aggregation_interval, align_to=align_to, update_interval=update_interval,
-                         external_updates=external_updates)
+                         aggregation_interval=aggregation_interval, align_to=align_to, update_interval=update_interval)
         self.converter: Callable = converter or (lambda x: x)
         self.include_previous = include_previous
 
