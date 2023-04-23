@@ -108,7 +108,7 @@ function LogListWidget(domElement, _writeValue) {
             for (let row of value['data']) {
                 // parse the timestamp
                 let timestamp = Date.parse(row[0]);
-                let rowElement = addRow(timestamp, row[1]);
+                let rowElement = addRow(timestamp, row[1], for_id);
                 lastRowMap.set(for_id, rowElement);
             }
 
@@ -122,9 +122,10 @@ function LogListWidget(domElement, _writeValue) {
                     const last_value_box = lastRow.getElementsByClassName('the-value')[0];
                     last_value_box.innerHTML = row[1];
 
+
                 // If the timestamp is newer, add a new row. If the row is older than the last row, we ignore it.
                 } else if (!(lastRow && timestamp < lastRow.logTimeStamp)) {
-                    let rowElement = addRow(timestamp, row[1]);
+                    let rowElement = addRow(timestamp, row[1], for_id);
                     lastRowMap.set(for_id, rowElement);
                 }
             }
