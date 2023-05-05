@@ -29,13 +29,13 @@ logger = logging.getLogger(__name__)
 
 
 class AggregationMethod(enum.Enum):
-    #: The weighted average of a numeric data series within the aggregation interval
+    #: The weighted average of a numeric data series within each aggregation interval
     AVERAGE = 0
-    #: The minimum numeric value in the aggregation interval
+    #: The minimum numeric value in each aggregation interval
     MINIMUM = 1
-    #: The maximum numeric value in the aggregation interval
+    #: The maximum numeric value in each aggregation interval
     MAXIMUM = 2
-    #: The cumulated time the boolean value has been True in the aggregation interval in seconds
+    #: The cumulated time the boolean value has been True in each aggregation interval in seconds
     ON_TIME = 3
     #: The cumulated time the boolean value has been True as fraction of the aggregation interval
     ON_TIME_RATIO = 4
@@ -249,19 +249,20 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
     consistently and efficiently, i.e. to provide data for a plot of the time series to any number of web browser
     clients, including newly connected clients. It is achieved via the following procedure:
 
-    * Create an instance of a :class:`LiveDataLogView` and subscribe it to the log variable. If supported (see below),
-        it will subscribe to the variable for push-updates, otherwise, it will create a timer for regular updates.
-    * When a new data log copy is to be initialized (e.g. a new client connects), call and await
-        :meth:`get_current_view`, and initialize the log copy/client with the returned data
-    * Implement :meth:`_process_new_logvalues` to update all log copies/clients with the provided data points. With
-        aggregation enabled, this will regularly include replacing the latest data point, otherwise, new datapoints are
-        always to be appended
+    1. Create an instance of a :class:`LiveDataLogView` and subscribe it to the log variable. If supported (see below),
+       it will subscribe to the variable for push-updates, otherwise, it will create a timer for regular updates.
+    2. When a new data log copy is to be initialized (e.g. a new client connects), call and await
+       :meth:`get_current_view`, and initialize the log copy/client with the returned data
+    3. Implement :meth:`_process_new_logvalues` to update all log copies/clients with the provided data points. With
+       aggregation enabled, this will regularly include replacing the latest data point, otherwise, new datapoints are
+       always to be appended
 
     Actual push updates (i.e. `_process_new_logvalues()` is called directly after a write to the data log) are only
     supported under the following conditions:
 
     * `aggregation` is None, and
-    * the `DataLogVariable` is subscribable, i.e. its :meth:`subscribe_data_log` does not raise `DataLogNotSubscribable`
+    * the `DataLogVariable` is subscribable, i.e. its :meth:`subscribe_data_log() <DataLogVariable.subscribe_data_log>`
+      method does not raise `DataLogNotSubscribable`.
       This is especially true for DataLogVariables inheriting from :class:`WritableDataLogVariable`, with
       "external_updates" set to False.
 
@@ -287,6 +288,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
                  aggregation_interval: Optional[datetime.timedelta] = None,
                  align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
                  update_interval: Optional[datetime.timedelta] = None):
+        super().__init__()
         self.data_log = data_log
         self.interval = interval
         self.aggregation = aggregation

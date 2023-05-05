@@ -1,5 +1,0 @@
-
-Logging and Persistence
-=======================
-
-TODO
