@@ -1,0 +1,38 @@
+
+/* More colors for toggle checkbox */
+.ui.toggle.checkbox.red input:checked~label:before {
+    background-color: #db2828!important;
+}
+.ui.toggle.checkbox.orange input:checked~label:before {
+    background-color: #f2711c!important;
+}
+.ui.toggle.checkbox.yellow input:checked~label:before {
+    background-color: #fbbd08!important;
+}
+.ui.toggle.checkbox.olive input:checked~label:before {
+    background-color: #b5cc18!important;
+}
+.ui.toggle.checkbox.green input:checked~label:before {
+    background-color: #21ba45!important;
+}
+.ui.toggle.checkbox.teal input:checked~label:before {
+    background-color: #00b5ad!important;
+}
+.ui.toggle.checkbox.violet input:checked~label:before {
+    background-color: #6435c9!important;
+}
+.ui.toggle.checkbox.purple input:checked~label:before {
+    background-color: #a333c8!important;
+}
+.ui.toggle.checkbox.pink input:checked~label:before {
+    background-color: #e03997!important;
+}
+.ui.toggle.checkbox.brown input:checked~label:before {
+    background-color: #a5673f!important;
+}
+.ui.toggle.checkbox.grey input:checked~label:before {
+    background-color: #767676!important;
+}
+.ui.toggle.checkbox.black input:checked~label:before {
+    background-color: #1b1c1d!important;
+}

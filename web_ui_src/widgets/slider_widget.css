@@ -1,0 +1,12 @@
+
+.shc.slider-label-container:after{
+    clear: both;
+    display: block;
+    content: "";
+}
+.shc.slider-label-container{
+    margin-bottom: 8px;
+}
+.shc.slider-label-container>.shc.label{
+    line-height: 26px;
+}

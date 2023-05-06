@@ -32,6 +32,8 @@ function forEachNodeRecursive(node, func) {
     }
 }
 
+import './switch_widget.css'
+
 function SwitchWidget(domElement, writeValue) {
     $(domElement).closest('.checkbox').checkbox();
     const widget = this;
@@ -179,6 +181,8 @@ function TextInputWidget(domElement, writeValue) {
     })
 }
 
+import './slider_widget.css'
+
 function SliderWidget(domElement, writeValue) {
     const id = parseInt(domElement.getAttribute('data-id'));
     this.subscribeIds = [id];
@@ -218,6 +222,8 @@ function SliderWidget(domElement, writeValue) {
             writeValue(id, $semanticUiSlider.slider('get value') / 1000);
     }
 }
+
+import './hiderow_widget.css'
 
 function HideRowWidget(domElement, _writeValue) {
     const id = parseInt(domElement.getAttribute('data-id'));
