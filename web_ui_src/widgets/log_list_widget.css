@@ -1,0 +1,166 @@
+
+.segment>.divided.list>.item.colored {
+    position: relative;
+}
+.segment>.divided.list>.item.colored:first-child {
+    padding-top: 6px;
+}
+.segment>.divided.list>.item.colored:last-child {
+    padding-bottom: 6px;
+}
+.segment>.divided.list>.item.colored::before {
+    position: absolute;
+    content: "";
+    top: 0;
+    bottom: 0;
+    left: -14px;
+    right: -14px;
+    z-index: 0;
+}
+.segment>.divided.list>.item.colored>.content {
+    z-index: 1;
+    position: relative;
+}
+.segment>.divided.list>.item.colored.red::before {
+  background: linear-gradient(
+        90deg,
+        rgba(255, 232, 230, 0.0) 0px,
+        rgb(255, 232, 230) 14px,
+        rgb(255, 232, 230) calc(100% - 14px),
+        rgba(255, 232, 230, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.red>.content {
+  color: #db2828!important;
+}
+.segment>.divided.list>.item.colored.orange::before {
+  background: linear-gradient(
+        90deg,
+        rgba(255, 237, 222, 0.0) 0px,
+        rgb(255, 237, 222) 14px,
+        rgb(255, 237, 222) calc(100% - 14px),
+        rgba(255, 237, 222, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.orange>.content {
+  color: #f2711c!important;
+}
+.segment>.divided.list>.item.colored.yellow::before {
+  background: linear-gradient(
+        90deg,
+        rgba(255, 248, 219, 0.0) 0px,
+        rgb(255, 248, 219) 14px,
+        rgb(255, 248, 219) calc(100% - 14px),
+        rgba(255, 248, 219, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.yellow>.content {
+  color: #fbbd08!important;
+}
+.segment>.divided.list>.item.colored.olive::before {
+  background: linear-gradient(
+        90deg,
+        rgba(251, 253, 239, 0.0) 0px,
+        rgb(251, 253, 239) 14px,
+        rgb(251, 253, 239) calc(100% - 14px),
+        rgba(251, 253, 239, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.olive>.content {
+  color: #b5cc18!important;
+}
+.segment>.divided.list>.item.colored.green::before {
+  background: linear-gradient(
+        90deg,
+        rgba(229, 249, 231, 0.0) 0px,
+        rgb(229, 249, 231) 14px,
+        rgb(229, 249, 231) calc(100% - 14px),
+        rgba(229, 249, 231, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.green>.content {
+  color: #21ba45!important;
+}
+.segment>.divided.list>.item.colored.teal::before {
+  background: linear-gradient(
+        90deg,
+        rgba(225, 247, 247, 0.0) 0px,
+        rgb(225, 247, 247) 14px,
+        rgb(225, 247, 247) calc(100% - 14px),
+        rgba(225, 247, 247, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.teal>.content {
+  color: #00b5ad!important;
+}
+.segment>.divided.list>.item.colored.blue::before {
+  background: linear-gradient(
+        90deg,
+        rgba(223, 240, 255, 0.0) 0px,
+        rgb(223, 240, 255) 14px,
+        rgb(223, 240, 255) calc(100% - 14px),
+        rgba(223, 240, 255, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.blue>.content {
+  color: #6435c9!important;
+}
+.segment>.divided.list>.item.colored.violet::before {
+  background: linear-gradient(
+        90deg,
+        rgba(234, 231, 255, 0.0) 0px,
+        rgb(234, 231, 255) 14px,
+        rgb(234, 231, 255) calc(100% - 14px),
+        rgba(234, 231, 255, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.violet>.content {
+  color: #a333c8!important;
+}
+.segment>.divided.list>.item.colored.purple::before {
+  background: linear-gradient(
+        90deg,
+        rgba(246, 231, 255, 0.0) 0px,
+        rgb(246, 231, 255) 14px,
+        rgb(246, 231, 255) calc(100% - 14px),
+        rgba(246, 231, 255, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.purple>.content {
+  color: #e03997!important;
+}
+.segment>.divided.list>.item.colored.pink::before {
+  background: linear-gradient(
+        90deg,
+        rgba(255, 227, 251, 0.0) 0px,
+        rgb(255, 227, 251) 14px,
+        rgb(255, 227, 251) calc(100% - 14px),
+        rgba(255, 227, 251, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.pink>.content {
+  color: #a5673f!important;
+}
+.segment>.divided.list>.item.colored.brown::before {
+  background: linear-gradient(
+        90deg,
+        rgba(241, 226, 211, 0.0) 0px,
+        rgb(241, 226, 211) 14px,
+        rgb(241, 226, 211) calc(100% - 14px),
+        rgba(241, 226, 211, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.brown>.content {
+  color: #767676!important;
+}
+.segment>.divided.list>.item.colored.grey::before {
+  background: linear-gradient(
+        90deg,
+        rgba(244, 244, 244, 0.0) 0px,
+        rgb(244, 244, 244) 14px,
+        rgb(244, 244, 244) calc(100% - 14px),
+        rgba(244, 244, 244, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.grey>.content {
+  color: #1b1c1d!important;
+}
+.segment>.divided.list>.item.colored.black::before {
+  background: linear-gradient(
+        90deg,
+        rgba(244, 244, 244, 0.0) 0px,
+        rgb(244, 244, 244) 14px,
+        rgb(244, 244, 244) calc(100% - 14px),
+        rgba(244, 244, 244, 0.0) 100%);
+}
+.segment>.divided.list>.item.colored.black>.content {
+  color: #1b1c1d!important;
+}

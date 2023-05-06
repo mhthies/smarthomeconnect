@@ -33,7 +33,8 @@ class LogListDataSpec(NamedTuple):
     variable: DataLogVariable[T]
     #: Formatter function or format string to format the values
     format: Union[str, Markup, Callable[[Union[T, float]], Union[str, Markup]]] = "{}"
-    #: A color name to highlight all rows belonging to this data log in the `LogListWidget`
+    #: A color name to highlight all rows belonging to this data log in the `LogListWidget`. Must be one of
+    #: Fomantic-UIs's color names.
     color: str = ''
     #: Aggregation method of this datalog or None to disable aggregation
     aggregation: Optional[AggregationMethod] = None
@@ -102,9 +103,10 @@ class LogListWidget(WebPageItem, Generic[T]):
             aggregation_interval = spec.aggregation_interval if spec.aggregation_interval is not None else interval / 10
             connector = LoggingWebUIView(spec.variable, interval, spec.aggregation, aggregation_interval,
                                          converter=formatter, include_previous=False)
+            color = "" if not spec.color else spec.color + " colored"
             self.connectors.append(connector)
             self.specs.append({'id': id(connector),
-                               'color': spec.color})
+                               'color': color})
 
     async def render(self) -> str:
         return await jinja_env.get_template('log/loglist.htm').render_async(

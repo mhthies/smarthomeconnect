@@ -53,7 +53,7 @@ index_page = web_server.page('index', 'Home', menu_entry=True, menu_icon='home')
 # Log list widget                                                                           #
 #############################################################################################
 index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes=5), [
-    LogListDataSpec(random_bool_log, format=lambda x: "on" if x else "off"),
+    LogListDataSpec(random_bool_log, format=lambda x: "on" if x else "off", color="teal"),
     LogListDataSpec(random_float_log),
 ]))
 

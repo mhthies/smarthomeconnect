@@ -26,6 +26,8 @@ Chart.register(
   Tooltip
 );
 
+import './log_list_widget.css'
+
 function LogListWidget(domElement, _writeValue) {
     const interval = parseInt(domElement.getAttribute('data-interval')); // in milliseconds
     const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
