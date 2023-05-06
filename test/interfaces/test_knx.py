@@ -130,10 +130,11 @@ class KNXDConnectorTest(unittest.TestCase):
 
     @async_test
     async def test_respond(self) -> None:
-        group_connector1 = self.interface.group(knx.KNXGAD(1, 2, 3), "1")\
-            .connect(ExampleReadable(bool, True), read=True)
-        group_connector2 = self.interface.group(knx.KNXGAD(17, 5, 127), "10")\
-            .connect(ExampleReadable(knxdclient.KNXTime, knxdclient.KNXTime(datetime.time(6, 0, 11), 5)), read=True)
+        _group_connector1 = self.interface.group(knx.KNXGAD(1, 2, 3), "1")\
+            .connect(ExampleReadable(bool, True), read=True)  # noqa: F841
+        _group_connector2 = self.interface.group(knx.KNXGAD(17, 5, 127), "10")\
+            .connect(ExampleReadable(knxdclient.KNXTime, knxdclient.KNXTime(datetime.time(6, 0, 11), 5)),  # noqa: F841
+                     read=True)
 
         self.interface_runner.start()
 

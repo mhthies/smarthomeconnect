@@ -158,7 +158,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
             target_power._write.assert_called_once_with(False, unittest.mock.ANY)
 
             async with asyncio_mqtt.Client("localhost", 42883, client_id="some-other-client") as c:
-                await c.publish(f"cmnd/test-device/color", b'#aabbcc', retain=True)
+                await c.publish("cmnd/test-device/color", b'#aabbcc', retain=True)
 
             await asyncio.sleep(0.1)
             target_color._write.assert_called_with(construct_color(170, 187, 204, 0), [conn_color])  # rounding error
@@ -220,7 +220,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
         target_ir._write.assert_not_called()
 
         async with asyncio_mqtt.Client("localhost", 42883, client_id="some-other-client") as c:
-            await c.publish(f"tele/test-device/RESULT",
+            await c.publish("tele/test-device/RESULT",
                             json.dumps({"Time": "1970-01-10T03:12:43",
                                         "IrReceived": {"Protocol": "NEC", "Bits": 32, "Data": "0x00F7609F"}})
                             .encode('ascii'))
@@ -258,7 +258,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
         target_total._write.assert_not_called()
 
         async with asyncio_mqtt.Client("localhost", 42883, client_id="some-other-client") as c:
-            await c.publish(f"tele/test-device/SENSOR",
+            await c.publish("tele/test-device/SENSOR",
                             json.dumps({"Time": "1970-01-01T00:49:50",
                                         "ENERGY": {"TotalStartTime": "1970-01-01T00:00:00", "Total": 0.012,
                                                    "Yesterday": 0.000, "Today": 0.012, "Period": 2, "Power": 15,

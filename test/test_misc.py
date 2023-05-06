@@ -215,7 +215,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
         var2 = shc.Variable(int)
         _exchange = shc.misc.UpdateExchange(int) \
             .connect(var1)\
-            .connect(var2)
+            .connect(var2)  # noqa: F841
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
         await asyncio.sleep(0.1)

@@ -141,7 +141,7 @@ class SHCWebClient(SupervisedClientInterface):
 
         try:
             name = message["name"]
-            status = message["status"]
+            _status = message["status"]  # noqa: F841
         except KeyError:
             logger.warning("Websocket message from SHC server does not include 'name' and 'status' fields: %s",
                            msg.data)
