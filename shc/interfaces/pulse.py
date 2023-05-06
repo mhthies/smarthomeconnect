@@ -18,11 +18,11 @@ import ctypes as c
 
 if TYPE_CHECKING:
     from pulsectl import (
-        PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo, PulseVolumeInfo)
+        PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo)
     from pulsectl_asyncio import PulseAsync
 
 import shc.conversion
-from shc.base import Connectable, Subscribable, Readable, T, UninitializedError, Writable
+from shc.base import Subscribable, Readable, T, UninitializedError, Writable
 from shc.datatypes import RangeFloat1, Balance
 from shc.interfaces._helper import SupervisedClientInterface
 

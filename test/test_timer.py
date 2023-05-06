@@ -6,8 +6,8 @@ from unittest.mock import Mock
 from typing import Optional, List
 
 import shc.base
-from shc import timer, base, datatypes
-from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock, ExampleWritable, ExampleReadable
+from shc import timer, datatypes
+from ._helper import ClockMock, async_test, ExampleSubscribable, ExampleWritable, ExampleReadable
 
 
 class LogarithmicSleepTest(unittest.TestCase):

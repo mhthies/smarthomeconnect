@@ -8,7 +8,7 @@ from typing import NamedTuple
 import mypy.api
 
 from shc import variables, base, expressions
-from ._helper import async_test, ExampleReadable, ExampleWritable, AsyncMock
+from ._helper import async_test, ExampleReadable, ExampleWritable
 
 
 class SimpleVariableTest(unittest.TestCase):

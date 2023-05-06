@@ -12,7 +12,7 @@
 import asyncio
 import logging
 import warnings
-from typing import Generic, Type, Optional, List, Any, Union, Dict, NamedTuple
+from typing import Generic, Type, Optional, List, Any, Union, Dict
 
 from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
 from .expressions import ExpressionWrapper

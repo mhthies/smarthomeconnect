@@ -20,7 +20,6 @@ Some things to note:
 """
 import random
 import enum
-from pathlib import Path
 
 import markupsafe
 

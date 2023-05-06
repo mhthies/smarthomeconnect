@@ -20,7 +20,6 @@ import aiohttp
 from ._helper import SupervisedClientInterface
 from ..base import T, Subscribable, Writable, Readable, UninitializedError, Reading
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import register_interface, stop
 
 logger = logging.getLogger(__name__)
 

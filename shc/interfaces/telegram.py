@@ -2,7 +2,7 @@ import abc
 import asyncio
 import logging
 import re
-from typing import Generic, TypeVar, Set, Type, Optional, List, Pattern, Tuple, Dict, Any, Callable
+from typing import Generic, TypeVar, Set, Type, Optional, List, Dict, Any, Callable
 
 import aiogram
 from aiogram.bot.api import TelegramAPIServer, TELEGRAM_PRODUCTION

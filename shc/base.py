@@ -16,7 +16,7 @@ import functools
 import inspect
 import logging
 import random
-from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Dict, Set
+from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Dict
 
 from . import conversion
 

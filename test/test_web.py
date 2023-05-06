@@ -24,8 +24,8 @@ import shc.web
 import shc.web.widgets
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
 from shc.interfaces._helper import ReadableStatusInterface
-from shc.supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
-from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
+from shc.supervisor import InterfaceStatus, ServiceStatus
+from ._helper import InterfaceThreadRunner, ExampleReadable, async_test
 
 
 class StatusTestInterface(ReadableStatusInterface):

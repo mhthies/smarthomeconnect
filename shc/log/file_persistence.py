@@ -1,8 +1,7 @@
 import asyncio
-import io
 import json
 import logging
-from typing import IO, Any, Dict, Tuple, Optional, Generic, List, Type
+from typing import Any, Dict, Tuple, Optional, Generic, List, Type
 from pathlib import Path
 
 import aiofile
