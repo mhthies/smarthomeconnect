@@ -238,53 +238,15 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         sleep_interval = self.backoff_base
         self._status_connector.update_status(status=ServiceStatus.WARNING, message="Interface has not been started yet")
 
+        # Reconnect loop
         while True:
             exception = None
-            wait_stopping = asyncio.create_task(self._stopping.wait())
             try:
-                # Connect
-                logger.debug("Running _connect for interface %s ...", self)
-                connect_task = asyncio.create_task(self._connect())
-                # TODO timeout
-                done, _ = await asyncio.wait((connect_task, wait_stopping), return_when=asyncio.FIRST_COMPLETED)
-                if connect_task not in done:
-                    logger.debug("Interface %s stopped before _connect finished", self)
-                    connect_task.cancel()
-                connect_task.result()  # raise exception if any
+                await self.__do_connect()
 
-                # Start _run task and wait for _running
-                logger.debug("Starting _run task for interface %s ...", self)
-                run_task = asyncio.create_task(self._run())
-                wait_running = asyncio.create_task(self._running.wait())
-                # TODO timeout
-                logger.debug("Waiting for interface %s to report it is running ...", self)
-                done, _ = await asyncio.wait((wait_running, run_task), return_when=asyncio.FIRST_COMPLETED)
-                if wait_running not in done:
-                    wait_running.cancel()
-                    if run_task not in done:  # This should not happen (without timeout)
-                        await self._disconnect()
-                        await run_task
-                    raise RuntimeError("Run task stopped before _running has been set")
+                run_task = await self.__start_run_task()
 
-                # Subscribe
-                logger.debug("Starting _subscribe task for interface %s ...", self)
-                subscribe_task = asyncio.create_task(self._subscribe())
-                # TODO timeout
-                done, _ = await asyncio.wait((subscribe_task, run_task), return_when=asyncio.FIRST_COMPLETED)
-                if subscribe_task not in done:
-                    if run_task not in done:  # This should not happen (without timeout)
-                        await self._disconnect()
-                        await run_task
-                    raise RuntimeError("Run task stopped before _subscribe task finished")
-                subscribe_exception = subscribe_task.exception()
-                if subscribe_exception is not None:
-                    await self._disconnect()
-                    try:
-                        await run_task
-                    except Exception as e:
-                        logger.debug("Ignoring Exception %s in run task of interface %s, during shutdown due to "
-                                     "exception in _subscribe task", repr(e), self)
-                    raise subscribe_exception
+                await self.__do_subscribe(run_task)
 
                 logger.debug("Starting up interface %s completed", self)
                 self._status_connector.update_status(status=ServiceStatus.OK, message="")
@@ -299,43 +261,11 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
             except Exception as e:
                 exception = e
                 pass
-            finally:
-                wait_stopping.cancel()
             self._running.clear()
 
-            # If we have not been started successfully yet, report startup as finished (if failsafe) or report startup
-            # error and quit
-            if not self._started.done():
-                if self.failsafe_start:
-                    self._started.set_result(None)
-                else:
-                    logger.debug("Startup of interface %s has not been finished due to exception", self)
-                    self._started.set_exception(exception if exception is not None else asyncio.CancelledError())
-                    await self._disconnect()
-                    return
-
-            # Return if we are stopping
-            if self._stopping.is_set():
-                if exception:
-                    logger.debug("Ignoring exception %s in interface %s while stopping", repr(exception), self)
+            lets_stop = await self.__handle_exception(exception)
+            if lets_stop:
                 return
-
-            # Shut down SHC if no auto_reconnect shall be attempted
-            if not self.auto_reconnect:
-                if exception:
-                    logger.critical("Error in interface %s:", exc_info=exception)
-                else:
-                    logger.critical("Unexpected shutdown of interface %s", self)
-                asyncio.create_task(interface_failure(repr(self)))
-                return
-
-            if exception:
-                logger.error("Error in interface %s. Attempting reconnect ...", self, exc_info=exception)
-                self._status_connector.update_status(status=ServiceStatus.CRITICAL, message=str(exception))
-            else:
-                logger.error("Unexpected shutdown of interface %s. Attempting reconnect ...", self)
-                self._status_connector.update_status(status=ServiceStatus.CRITICAL,
-                                                     message="Unexpected shutdown of interface")
 
             # Sleep before reconnect
             logger.info("Waiting %s seconds before reconnect of interface %s ...", sleep_interval, self)
@@ -348,3 +278,133 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
                 wait_stopping.cancel()
             sleep_interval *= self.backoff_exponent
             logger.info("Attempting reconnect of interface %s ...", self)
+
+    async def __do_connect(self) -> None:
+        """
+        1st sub-step of _supervise(): Execute :meth:`_connect` and await its completion, unless self._stopping is set in
+        the meantime
+
+        :raises: Any exception that is raised in _connect() (including `CancelledError`, when _stopping was set)
+        """
+        wait_stopping = asyncio.create_task(self._stopping.wait())
+        try:
+            logger.debug("Running _connect for interface %s ...", self)
+            connect_task = asyncio.create_task(self._connect())
+            # TODO timeout
+            done, _ = await asyncio.wait((connect_task, wait_stopping), return_when=asyncio.FIRST_COMPLETED)
+            if connect_task not in done:
+                logger.debug("Interface %s stopped before _connect finished", self)
+                connect_task.cancel()
+            connect_task.result()  # raise exception if any
+        finally:
+            wait_stopping.cancel()
+
+    async def __start_run_task(self) -> asyncio.Task:
+        """
+        2nd sub-step of _supervise(): Start :meth:`_run` in a new Task and wait for self._running to be set
+
+        :return: The new Task in which `_run()` is executed
+        :raises RuntimeError: when `_run()` exits unexpectedly (before `_running` is set)
+        """
+        logger.debug("Starting _run task for interface %s ...", self)
+        run_task = asyncio.create_task(self._run())
+        wait_running = asyncio.create_task(self._running.wait())
+        # TODO timeout
+        logger.debug("Waiting for interface %s to report it is running ...", self)
+        done, _ = await asyncio.wait((wait_running, run_task), return_when=asyncio.FIRST_COMPLETED)
+        if wait_running not in done:
+            wait_running.cancel()
+            if run_task not in done:  # This should not happen (without timeout)
+                await self._disconnect()
+                await run_task
+            # TODO report exception from run_task if any.
+            raise RuntimeError("Run task stopped before _running has been set")
+        return run_task
+
+    async def __do_subscribe(self, run_task: asyncio.Task) -> None:
+        """
+        3rd sub-step of _supervise(): Execute :meth:`_subscribe` and await its completion
+
+        In case of failure :meth:`_disconnect` is called and an exception is raised. In case of premature exit of the
+        `_run()` task, an exception is raised, as well.
+
+        :param run_task: The Task in which :meth:`_run` is executed; used to supervise that it's running smoothly (not
+            returning or raising an exception) while waiting for `_subscribe()` to complete
+        :raises RuntimeError: when `_run()` exits unexpectedly (before `_running` is set)
+        """
+        logger.debug("Starting _subscribe task for interface %s ...", self)
+        subscribe_task = asyncio.create_task(self._subscribe())
+        # TODO timeout
+        done, _ = await asyncio.wait((subscribe_task, run_task), return_when=asyncio.FIRST_COMPLETED)
+        if subscribe_task not in done:
+            if run_task not in done:  # This should not happen (without timeout)
+                await self._disconnect()
+                await run_task
+            # TODO cancel subscribe_task
+            # TODO report exception from run_task if any.
+            raise RuntimeError("Run task stopped before _subscribe task finished")
+        subscribe_exception = subscribe_task.exception()
+        if subscribe_exception is not None:
+            await self._disconnect()
+            try:
+                await run_task
+            except Exception as e:
+                logger.debug("Ignoring Exception %s in run task of interface %s, during shutdown due to "
+                             "exception in _subscribe task", repr(e), self)
+            raise subscribe_exception
+
+    async def __handle_exception(self, exception: Optional[Exception]) -> bool:
+        """
+        Error-handling stage of _supervise(): Handle any exception that was raised during startup or operation
+
+        - If `_started` is not yet been set (i.e. :meth:`start` is still awaiting startup):
+            - If not `failsafe_start`:
+              Resolve `_started` with an exception to make :meth:`start` raise the exception
+            - else:
+              Resolve `_started` without exception (to let `start()` return), log the exception and try a reconnect
+              asynchronously
+        - If `_stopping` is set: Short log of the exception (if any) and exit
+        - If not `auto_reconnect`: Log the exception, call :fun:`shc.supervisor.interface_failure` to terminate the SHC
+          application and exit
+        - Otherwise: Log the exception and try a reconnect.
+
+        This method also takes care of updating the `_status_connector` when an error occurs. It should be updated
+        again, after successful reconnect, somewhere else.
+
+        :param exception: The exception that was raised during starup or by the `_run()` method or None
+        :return: True if the reconnect_loop should be exited, False, if a reconnect should be tried
+        """
+        # If we have not been started successfully yet, report startup as finished (if failsafe) or report startup
+        # error and quit
+        if not self._started.done():
+            if self.failsafe_start:
+                self._started.set_result(None)
+            else:
+                logger.debug("Startup of interface %s has not been finished due to exception", self)
+                self._started.set_exception(exception if exception is not None else asyncio.CancelledError())
+                await self._disconnect()
+                return True
+
+        # Return if we are stopping
+        if self._stopping.is_set():
+            if exception:
+                logger.debug("Ignoring exception %s in interface %s while stopping", repr(exception), self)
+            return True
+
+        # Shut down SHC if no auto_reconnect shall be attempted
+        if not self.auto_reconnect:
+            if exception:
+                logger.critical("Error in interface %s:", exc_info=exception)
+            else:
+                logger.critical("Unexpected shutdown of interface %s", self)
+            asyncio.create_task(interface_failure(repr(self)))
+            return True
+
+        if exception:
+            logger.error("Error in interface %s. Attempting reconnect ...", self, exc_info=exception)
+            self._status_connector.update_status(status=ServiceStatus.CRITICAL, message=str(exception))
+        else:
+            logger.error("Unexpected shutdown of interface %s. Attempting reconnect ...", self)
+            self._status_connector.update_status(status=ServiceStatus.CRITICAL,
+                                                 message="Unexpected shutdown of interface")
+        return False
