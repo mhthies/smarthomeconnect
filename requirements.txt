@@ -8,7 +8,7 @@ pyserial-asyncio>=0.3,<0.7
 mido>=1.2.9,<2
 asyncio-mqtt>=0.10.0,<0.13
 paho-mqtt>=1.5.1,<2
-pulsectl_asyncio~=0.2.0
+pulsectl_asyncio>=1.0.0,<2
 aiogram~=2.18
 aiofile>=3.7.4,<4
 
