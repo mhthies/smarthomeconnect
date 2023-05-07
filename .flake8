@@ -1,0 +1,17 @@
+[flake8]
+exclude=
+    .cache,
+    .git,
+    dist,
+    docs,
+    htmlcov,
+    node_modules,
+    venv,
+    venv*,
+    .mypy_cache,
+    test/assets
+per-file-ignores=
+    */__init__.py:F401
+    example/*:F403,F405
+max-line-length=120
+max-complexity=15

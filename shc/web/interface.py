@@ -353,7 +353,7 @@ class WebServer(AbstractInterface):
                 if msg.type == aiohttp.WSMsgType.TEXT:
                     # It does not make sense to avoid the task creation here, since we would have to create a task in
                     # any branch of the _api_websocket_dispatch() to asynchronously do writing to websockets then.
-                    asyncio.create_task(self._api_websocket_dispatch(request, ws, msg))
+                    asyncio.create_task(self._api_websocket_dispatch_message(request, ws, msg))
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.info('API websocket connection closed with exception %s', ws.exception())
         finally:
@@ -366,8 +366,8 @@ class WebServer(AbstractInterface):
                 await obj.http_post(value, ws)
             return ws
 
-    async def _api_websocket_dispatch(self, request: aiohttp.web.Request, ws: aiohttp.web.WebSocketResponse,
-                                      msg: aiohttp.WSMessage) -> None:
+    async def _api_websocket_dispatch_message(self, request: aiohttp.web.Request, ws: aiohttp.web.WebSocketResponse,
+                                              msg: aiohttp.WSMessage) -> None:
         try:
             message = msg.json()
         except JSONDecodeError:
@@ -398,68 +398,19 @@ class WebServer(AbstractInterface):
             await ws.send_json(result)
             return
 
-        try:
-            # subscribe action
-            if action == "subscribe":
-                logger.debug("got websocket subscribe request for API object %s from %s", name, request.remote)
-                await obj.websocket_subscribe(ws, handle)
-                return
-
-            # post action
-            elif action == "post":
-                value_exists = False
-                try:
-                    value = message["value"]
-                    value_exists = True
-                except KeyError:
-                    result['status'] = 422
-                    result['error'] = "message does not include a 'value' field"
-                    logger.warning("Websocket API POST message from %s without 'value' field: %s", request.remote,
-                                   message)
-                if value_exists:
-                    logger.debug("got post request for API object %s via websocket from %s with value %s",
-                                 name, request.remote, value)
-                    try:
-                        await obj.http_post(value, ws)
-                    except (ValueError, TypeError) as e:
-                        logger.warning("Error while updating API object %s with value via websocket from %s (error was "
-                                       "%s): %s", name, request.remote, e, value)
-                        result['status'] = 422
-                        result['error'] = "Could not use provided value to update API object: {}".format(e)
-
-            # lastwill action
-            elif action == "lastwill":
-                value_exists = False
-                try:
-                    value = message["value"]
-                    value_exists = True
-                except KeyError:
-                    result['status'] = 422
-                    result['error'] = "message does not include a 'value' field"
-                    logger.warning("Websocket API LASTWILL message from %s without 'value' field: %s", request.remote,
-                                   message)
-                if value_exists:
-                    logger.debug("got LASTWILL request for API object %s via websocket from %s with value %s",
-                                 name, request.remote, value)
-                    try:
-                        self._api_ws_last_will[ws] = (obj, obj._check_last_will(value))
-                    except (ValueError, TypeError) as e:
-                        logger.warning("Error while setting last will of websocket client %s for API object %s (error"
-                                       "was %s): %s", name, request.remote, e, value)
-                        result['status'] = 422
-                        result['error'] = "Could not use provided value to set last will: {}".format(e)
-
-            # get action
-            elif action == "get":
-                logger.debug("got get request for API object %s via websocket from %s", name, request.remote)
-                value = (await obj.http_get())[1]
-                result['status'] = 200 if value is not None else 409
-                result['value'] = value
-
-            else:
-                logger.warning("Unknown websocket API action '%s', requested by %s", action, request.remote)
+        value = None
+        # 'post' and 'lastwill' actions require a 'value' field in the message
+        if action in ("post", "lastwill"):
+            try:
+                value = message["value"]
+            except KeyError:
                 result['status'] = 422
-                result['error'] = "Not a valid action: '{}'".format(action)
+                result['error'] = "message does not include a 'value' field"
+                logger.warning("Websocket API %s message from %s without 'value' field: %s", request.remote, action,
+                               message)
+
+        try:
+            result = await self.__api_websocket_handle_request(ws, action, handle, obj, request.remote or "?", value)
         except Exception as e:
             logger.error("Error while processing API websocket message from %s: %s", request.remote, message,
                          exc_info=e)
@@ -469,6 +420,54 @@ class WebServer(AbstractInterface):
         # Finally, send a response
         logger.debug("Sending websocket response: %s", result)
         await ws.send_str(json.dumps(result, cls=SHCJsonEncoder))
+
+    async def __api_websocket_handle_request(self, ws: aiohttp.web.WebSocketResponse, action: str, handle: Any,
+                                             api_object: "WebApiObject", client_ip: str, value: Any) -> Any:
+        result = {'status': 204,
+                  'name': api_object.name,
+                  'action': action,
+                  'handle': handle}
+
+        if action == "get":
+            logger.debug("got get request for API object %s via websocket from %s", api_object.name, client_ip)
+            value = (await api_object.http_get())[1]
+            result['status'] = 200 if value is not None else 409
+            result['value'] = value
+
+        elif action == "subscribe":
+            logger.debug("got websocket subscribe request for API object %s from %s", api_object.name, client_ip)
+            value = await api_object.websocket_subscribe(ws)
+            if value is not None:
+                result['status'] = 200
+                result['value'] = value
+
+        elif action == "post":
+            logger.debug("got post request for API object %s vi a websocket from %s with value %s",
+                         api_object.name, client_ip, value)
+            try:
+                await api_object.http_post(value, ws)
+            except (ValueError, TypeError) as e:
+                logger.warning("Error while updating API object %s with value via websocket from %s (error was "
+                               "%s): %s", api_object.name, client_ip, e, value)
+                result['status'] = 422
+                result['error'] = "Could not use provided value to update API object: {}".format(e)
+
+        elif action == "lastwill":
+            logger.debug("got LASTWILL request for API object %s via websocket from %s with value %s",
+                         api_object.name, client_ip, value)
+            try:
+                self._api_ws_last_will[ws] = (api_object, api_object._check_last_will(value))
+            except (ValueError, TypeError) as e:
+                logger.warning("Error while setting last will of websocket client %s for API object %s (error"
+                               "was %s): %s", api_object.name, client_ip, e, value)
+                result['status'] = 422
+                result['error'] = "Could not use provided value to set last will: {}".format(e)
+
+        else:
+            logger.warning("Unknown websocket API action '%s', requested by %s", action, client_ip)
+            result['status'] = 422
+            result['error'] = "Not a valid action: '{}'".format(action)
+        return result
 
     async def _api_get_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
@@ -983,20 +982,16 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         await asyncio.gather(*(ws.send_str(data) for ws in self.subscribed_websockets
                                if ws is not skip_websocket))
 
-    async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse, handle: Any) -> None:
+    async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> Optional[T]:
         self.subscribed_websockets.add(ws)
         current_value = await self._from_provider()
-        if current_value is not None:
-            data = {'status': 200, 'action': 'subscribe', 'name': self.name, 'value': current_value, 'handle': handle}
-        else:
-            data = {'status': 204, 'action': 'subscribe', 'name': self.name, 'handle': handle}
-        await ws.send_str(json.dumps(data, cls=SHCJsonEncoder))
+        return current_value
 
     def websocket_close(self, ws: aiohttp.web.WebSocketResponse) -> None:
         self.subscribed_websockets.discard(ws)
 
     async def http_get(self, wait: bool = False, timeout: float = 30, etag_match: Optional[str] = None
-                       ) -> Tuple[bool, Any, str]:
+                       ) -> Tuple[bool, Optional[T], str]:
         """
         Get the current value or await a new value.
 

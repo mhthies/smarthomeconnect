@@ -21,11 +21,10 @@ Only monitoring metrics (ignoring the overall server state):
 import argparse
 import enum
 import json
-import re
 import sys
 import urllib.request
 import urllib.error
-from typing import NamedTuple, Optional, Tuple, NoReturn, List
+from typing import NoReturn
 
 
 def main() -> None:

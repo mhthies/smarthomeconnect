@@ -72,8 +72,8 @@ class TelegramBotTest(unittest.TestCase):
     @async_test
     async def test_write(self) -> None:
         foo = self.client.on_off_connector("Foo", {'max', 'tim'})
-        foo_target = ExampleWritable(bool)\
-            .connect(foo)
+        _foo_target = ExampleWritable(bool)\
+            .connect(foo)  # noqa: F841
         foobar = self.client.generic_connector(int, "Foobar", lambda x: str(x), lambda x: int(x), {'max', 'alice'})
         foobar_target = ExampleWritable(int)\
             .connect(foobar)
@@ -171,11 +171,11 @@ class TelegramBotTest(unittest.TestCase):
 
     @async_test
     async def test_inline_cancel(self) -> None:
-        foo = self.client.on_off_connector("Foo", {'max', 'tim'})\
-            .connect(ExampleReadable(bool, False))
-        foobar = self.client.generic_connector(int, "Foobar", lambda x: str(x), lambda x: int(x), {'max', 'alice'})\
+        _foo = self.client.on_off_connector("Foo", {'max', 'tim'})\
+            .connect(ExampleReadable(bool, False))  # noqa: F841
+        _foobar = self.client.generic_connector(int, "Foobar", lambda x: str(x), lambda x: int(x), {'max', 'alice'})\
             .connect(ExampleReadable(int, 42))\
-            .connect(ExampleWritable(int))
+            .connect(ExampleWritable(int))  # noqa: F841
 
         await self.api_mock.start()
         self.client_runner.start()
@@ -230,7 +230,7 @@ class TelegramBotTest(unittest.TestCase):
 
     @async_test
     async def test_auth_errors(self) -> None:
-        foo = self.client.on_off_connector("Foo", {'max', 'tim'})
+        _foo = self.client.on_off_connector("Foo", {'max', 'tim'})  # noqa: F841
 
         await self.api_mock.start()
         self.client_runner.start()
@@ -322,15 +322,16 @@ class TelegramBotTest(unittest.TestCase):
 
     @async_test
     async def test_read(self) -> None:
-        foo = self.client.str_connector("Foo", {'max'}, {'max', 'tim'})\
+        _foo = self.client.str_connector("Foo", {'max'}, {'max', 'tim'})\
             .connect(ExampleWritable(str))\
-            .connect(ExampleReadable(str, "hello, world!"))
-        foobar = self.client.generic_connector(int, "Foobar", lambda x: str(x), lambda x: int(x), {'max', 'alice'},
-                                               options=["0", "5", "15"])\
+            .connect(ExampleReadable(str, "hello, world!"))  # noqa: F841
+        _foobar = self.client.generic_connector(int, "Foobar",  # noqa: F841
+                                                lambda x: str(x), lambda x: int(x), {'max', 'alice'},
+                                                options=["0", "5", "15"])\
             .connect(ExampleWritable(int))\
-            .connect(ExampleReadable(int, 42))
-        bar = self.client.generic_connector(str, "Bar", lambda x: x, lambda x: x, {'alice', 'max'}, {'alice'})\
-            .connect(ExampleWritable(str))
+            .connect(ExampleReadable(int, 42))  # noqa: F841
+        _bar = self.client.generic_connector(str, "Bar", lambda x: x, lambda x: x, {'alice', 'max'}, {'alice'})\
+            .connect(ExampleWritable(str))  # noqa: F841
 
         await self.api_mock.start()
         self.client_runner.start()
@@ -543,7 +544,7 @@ class TelegramAPIMock:
 
     def _create_send_message_response(self, data: Dict[str, JSON_TYPE]) -> Dict[str, JSON_TYPE]:
         if 'text' not in data:
-            raise aiohttp.web.HTTPNotImplemented(text=f"Only text messages are implemented in the Mock")
+            raise aiohttp.web.HTTPNotImplemented(text="Only text messages are implemented in the Mock")
         return {
             'message_id': random.randint(0, 2**32),
             'from': self.user_object,

@@ -9,7 +9,6 @@
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 import asyncio
-import datetime
 import logging
 import unittest
 import unittest.mock
@@ -21,7 +20,7 @@ import aiohttp
 import shc.web
 import shc.interfaces.shc_client
 from test._helper import ExampleReadable, InterfaceThreadRunner, ExampleWritable, ExampleSubscribable, async_test, \
-    ClockMock, AsyncMock
+    AsyncMock
 
 
 class ExampleType(NamedTuple):
@@ -158,8 +157,8 @@ class SHCWebsocketClientTest(unittest.TestCase):
         client_bar = self.client.object(ExampleType, 'bar')
         bar_target = ExampleWritable(ExampleType)\
             .connect(client_bar)
-        client_foo = self.client.object(int, 'foo')\
-            .connect(ExampleReadable(int, 56), read=True)
+        _client_foo = self.client.object(int, 'foo')\
+            .connect(ExampleReadable(int, 56), read=True)  # noqa: F841
         client_status_target = ExampleWritable(shc.supervisor.InterfaceStatus)\
             .connect(self.client.monitoring_connector())
 

@@ -1,8 +1,6 @@
 import datetime
-from pathlib import Path
 from typing import Iterable, Optional, Generic, Union, Callable, NamedTuple, Tuple, List
 
-import jinja2
 from markupsafe import Markup
 
 from ..log.generic import PersistenceVariable, LoggingRawWebUIView, AggregationMethod, LoggingAggregatedWebUIView

@@ -24,8 +24,8 @@ import shc.web
 import shc.web.widgets
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
 from shc.interfaces._helper import ReadableStatusInterface
-from shc.supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
-from ._helper import InterfaceThreadRunner, ExampleReadable, AsyncMock, async_test
+from shc.supervisor import InterfaceStatus, ServiceStatus
+from ._helper import InterfaceThreadRunner, ExampleReadable, async_test
 
 
 class StatusTestInterface(ReadableStatusInterface):
@@ -630,7 +630,7 @@ class TestAPI(unittest.TestCase):
         self.server_runner.stop()
 
     def test_rest_get(self) -> None:
-        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))  # noqa: F841
         self.server_runner.start()
 
         with self.assertRaises(urllib.error.HTTPError) as cm:
@@ -819,7 +819,7 @@ class WebSocketAPITest(unittest.TestCase):
 
     @async_test
     async def test_errors(self) -> None:
-        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))  # noqa: F841
         self.server_runner.start()
         await self.start_websocket()
 
@@ -869,7 +869,7 @@ class WebSocketAPITest(unittest.TestCase):
 
     @async_test
     async def test_get(self) -> None:
-        api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
+        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))  # noqa: F841
         self.server_runner.start()
         await self.start_websocket()
 

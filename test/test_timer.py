@@ -6,8 +6,8 @@ from unittest.mock import Mock
 from typing import Optional, List
 
 import shc.base
-from shc import timer, base, datatypes
-from ._helper import ClockMock, async_test, ExampleSubscribable, AsyncMock, ExampleWritable, ExampleReadable
+from shc import timer, datatypes
+from ._helper import ClockMock, async_test, ExampleSubscribable, ExampleWritable, ExampleReadable
 
 
 class LogarithmicSleepTest(unittest.TestCase):
@@ -208,7 +208,7 @@ class AtTimerTest(unittest.TestCase):
         self.assertAlmostEqual(expected.astimezone(), actual, delta=datetime.timedelta(seconds=.1))
 
     def test_simple_next(self) -> None:
-        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)):
             once_timer = timer.At(hour=15, minute=7, second=17, millis=200)
             self._assert_datetime(datetime.datetime(2020, 1, 1, 15, 7, 17, 200000), once_timer._next_execution())
             once_timer = timer.At(hour=15, minute=7, second=25)
@@ -229,7 +229,7 @@ class AtTimerTest(unittest.TestCase):
             self._assert_datetime(datetime.datetime(2020, 4, 6, 0, 0, 0), once_timer._next_execution())
 
     def test_spec_forms(self) -> None:
-        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)):
             once_timer = timer.At(hour=timer.EveryNth(2))
             self._assert_datetime(datetime.datetime(2020, 1, 1, 16, 0, 0), once_timer._next_execution())
             once_timer = timer.At(hour=timer.EveryNth(6))
@@ -242,7 +242,7 @@ class AtTimerTest(unittest.TestCase):
             self._assert_datetime(datetime.datetime(2020, 1, 1, 15, 7, 17), once_timer._next_execution())
 
     def test_stepback(self) -> None:
-        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
+        with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)):
             once_timer = timer.At(hour=None, minute=0)
             self._assert_datetime(datetime.datetime(2020, 1, 1, 16, 0, 0), once_timer._next_execution())
             once_timer = timer.At(hour=15, minute=0)
@@ -251,28 +251,28 @@ class AtTimerTest(unittest.TestCase):
             self._assert_datetime(datetime.datetime(2021, 1, 1, 0, 5, 16), once_timer._next_execution())
 
     def test_overflows(self) -> None:
-        with ClockMock(datetime.datetime(2020, 12, 31, 23, 59, 46)) as clock:
+        with ClockMock(datetime.datetime(2020, 12, 31, 23, 59, 46)):
             once_timer = timer.At(hour=None, minute=None, second=timer.EveryNth(15))
             self._assert_datetime(datetime.datetime(2021, 1, 1, 0, 0, 0), once_timer._next_execution())
-        with ClockMock(datetime.datetime(2019, 2, 1, 15, 7, 17)) as clock:
+        with ClockMock(datetime.datetime(2019, 2, 1, 15, 7, 17)):
             once_timer = timer.At(day=29)
             self._assert_datetime(datetime.datetime(2019, 3, 29, 0, 0, 0), once_timer._next_execution())
-        with ClockMock(datetime.datetime(2020, 2, 1, 15, 7, 17)) as clock:
+        with ClockMock(datetime.datetime(2020, 2, 1, 15, 7, 17)):
             once_timer = timer.At(day=29)
             self._assert_datetime(datetime.datetime(2020, 2, 29, 0, 0, 0), once_timer._next_execution())
-        with ClockMock(datetime.datetime(2020, 4, 1, 15, 7, 17)) as clock:
+        with ClockMock(datetime.datetime(2020, 4, 1, 15, 7, 17)):
             once_timer = timer.At(day=31)
             self._assert_datetime(datetime.datetime(2020, 5, 31, 0, 0, 0), once_timer._next_execution())
-        with ClockMock(datetime.datetime(2019, 1, 1, 15, 7, 17)) as clock:
+        with ClockMock(datetime.datetime(2019, 1, 1, 15, 7, 17)):
             once_timer = timer.At(weeknum=53)
             self._assert_datetime(datetime.datetime(2020, 12, 28, 0, 0, 0), once_timer._next_execution())
-        with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0)) as clock:
+        with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0)):
             once_timer = timer.At(year=2019)
             self.assertIsNone(once_timer._next_execution())
 
     def test_exception(self) -> None:
         with self.assertRaises(ValueError):
-            once_timer = timer.At(day=[1, 5, 15], weeknum=timer.EveryNth(2))
+            timer.At(day=[1, 5, 15], weeknum=timer.EveryNth(2))
 
 
 class BoolTimerTest(unittest.TestCase):
@@ -288,7 +288,7 @@ class BoolTimerTest(unittest.TestCase):
         ton = timer.TOn(base, datetime.timedelta(seconds=42))
 
         with unittest.mock.patch.object(ton, "_publish", new=Mock(side_effect=save_time)) as publish_mock:
-            with ClockMock(begin, actual_sleep=0.05) as clock:
+            with ClockMock(begin, actual_sleep=0.05):
                 self.assertFalse(await ton.read())
 
                 # False should not be forwarded, when value is already False
@@ -340,7 +340,7 @@ class BoolTimerTest(unittest.TestCase):
         toff = timer.TOff(base, datetime.timedelta(seconds=42))
 
         with unittest.mock.patch.object(toff, "_publish", new=Mock(side_effect=save_time)) as publish_mock:
-            with ClockMock(begin, actual_sleep=0.05) as clock:
+            with ClockMock(begin, actual_sleep=0.05):
                 self.assertFalse(await toff.read())
 
                 # False should not be forwarded, when value is already False
@@ -498,7 +498,7 @@ class TimerSwitchTest(unittest.TestCase):
         timerswitch = timer.TimerSwitch([pub_on1, pub_on2], duration=datetime.timedelta(seconds=42))
 
         with unittest.mock.patch.object(timerswitch, "_publish") as publish_mock:
-            with ClockMock(begin, actual_sleep=0.05) as clock:
+            with ClockMock(begin, actual_sleep=0.05):
                 self.assertFalse(await timerswitch.read())
 
                 await pub_on2.publish(None, [self])
@@ -550,7 +550,7 @@ class RateLimitedSubscriptionTest(unittest.TestCase):
         self.assertIs(rate_limiter.type, int)
 
         with unittest.mock.patch.object(rate_limiter, "_publish", new=Mock(side_effect=save_time)) as publish_mock:
-            with ClockMock(begin, actual_sleep=0.05) as clock:
+            with ClockMock(begin, actual_sleep=0.05):
                 # First value should be forwarded immediately
                 await base.publish(42, [self])
                 await asyncio.sleep(0.1)
@@ -609,7 +609,7 @@ class RampTest(unittest.TestCase):
         with self.assertRaises(shc.base.UninitializedError):
             await ramp2.read()
 
-        with ClockMock(begin, actual_sleep=0.05) as clock:
+        with ClockMock(begin, actual_sleep=0.05):
             await subscribable1.publish(datatypes.RangeUInt8(0), [self])
             await subscribable2.publish(datatypes.RangeFloat1(0), [self])
             await subscribable3.publish(BLACK, [self])
@@ -680,7 +680,7 @@ class RampTest(unittest.TestCase):
         ramp1 = timer.RGBHSVRamp(subscribable1, datetime.timedelta(seconds=1), max_frequency=2, enable_ramp=enable1)
         writable1 = ExampleWritable(datatypes.RGBUInt8).connect(ramp1)
 
-        with ClockMock(begin, actual_sleep=0.05) as clock:
+        with ClockMock(begin, actual_sleep=0.05):
             # Ramping should work normal (as in the other test
             await subscribable1.publish(BLACK, [self])
             writable1._write.assert_called_once_with(BLACK, [self, subscribable1, ramp1])
@@ -722,7 +722,7 @@ class RampTest(unittest.TestCase):
         variable1 = shc.Variable(datatypes.RangeUInt8).connect(ramp1)
         writable1 = ExampleWritable(datatypes.RangeUInt8).connect(variable1)
 
-        with ClockMock(begin, actual_sleep=0.05) as clock:
+        with ClockMock(begin, actual_sleep=0.05):
             await subscribable1.publish(datatypes.RangeUInt8(0), [self])
             await asyncio.sleep(0.05)
             writable1._write.assert_called_once_with(datatypes.RangeUInt8(0), [self, subscribable1, ramp1, variable1])
@@ -759,7 +759,7 @@ class RampTest(unittest.TestCase):
         variable1 = shc.Variable(datatypes.RangeFloat1).connect(ramp1)
         writable1 = ExampleWritable(datatypes.RangeFloat1).connect(variable1)
 
-        with ClockMock(begin, actual_sleep=0.05) as clock:
+        with ClockMock(begin, actual_sleep=0.05):
             with self.assertLogs() as logs:
                 await subscribable1.publish(datatypes.FadeStep(0.5), [self])
                 await asyncio.sleep(0.05)

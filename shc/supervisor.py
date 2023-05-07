@@ -10,12 +10,11 @@
 # specific language governing permissions and limitations under the License.
 import abc
 import asyncio
-import collections
 import enum
 import functools
 import logging
 import signal
-from typing import Set, NamedTuple, Dict, Any, Union, Iterable, Deque, Tuple
+from typing import Set, NamedTuple, Iterable
 
 from .base import Readable
 from .timer import timer_supervisor

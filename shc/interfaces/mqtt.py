@@ -14,9 +14,9 @@ import collections
 import itertools
 import json
 import logging
-from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Tuple, Union, Dict, Deque
+from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Union, Dict, Deque
 
-from paho.mqtt.client import MQTTMessage, MQTTv311
+from paho.mqtt.client import MQTTMessage
 from asyncio_mqtt import Client, MqttError, ProtocolVersion
 from paho.mqtt.matcher import MQTTMatcher
 

@@ -18,11 +18,11 @@ import ctypes as c
 
 if TYPE_CHECKING:
     from pulsectl import (
-        PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo, PulseVolumeInfo)
+        PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo)
     from pulsectl_asyncio import PulseAsync
 
 import shc.conversion
-from shc.base import Connectable, Subscribable, Readable, T, UninitializedError, Writable
+from shc.base import Subscribable, Readable, T, UninitializedError, Writable
 from shc.datatypes import RangeFloat1, Balance
 from shc.interfaces._helper import SupervisedClientInterface
 
@@ -291,31 +291,15 @@ class PulseAudioInterface(SupervisedClientInterface):
 
         if event.t is PulseEventTypeEnum.new:
             if event.facility is PulseEventFacilityEnum.sink:
-                data = await self.pulse.sink_info(event.index)
-                name = data.name
-                for connector in self.sink_connectors_by_name.get(name, []):
-                    connector.change_id(event.index)
-                    self.sink_connectors_by_id[event.index].append(connector)
-                    connector.on_change(data, [])
+                await self.__on_event_new_sink(event.index)
             elif event.facility is PulseEventFacilityEnum.source:
-                data = await self.pulse.source_info(event.index)
-                name = data.name
-                for source_connector in self.source_connectors_by_name.get(name, []):
-                    source_connector.change_id(event.index)
-                    self.source_connectors_by_id[event.index].append(source_connector)
-                    source_connector.on_change(data, [])
+                await self.__on_event_new_source(event.index)
 
         elif event.t is PulseEventTypeEnum.remove:
             if event.facility is PulseEventFacilityEnum.sink:
-                for connector in self.sink_connectors_by_id.get(event.index, []):
-                    connector.change_id(None)
-                if event.index in self.sink_connectors_by_id:
-                    del self.sink_connectors_by_id[event.index]
+                await self.__on_event_remove_sink(event.index)
             elif event.facility is PulseEventFacilityEnum.source:
-                for source_connector in self.source_connectors_by_id.get(event.index, []):
-                    source_connector.change_id(None)
-                if event.index in self.source_connectors_by_id:
-                    del self.source_connectors_by_id[event.index]
+                await self.__on_event_remove_source(event.index)
 
         elif event.t is PulseEventTypeEnum.change:
             # Check if the event has probably been caused by a value update from SHC. In this case, we should have the
@@ -336,33 +320,64 @@ class PulseAudioInterface(SupervisedClientInterface):
                     source_connector.on_change(data, origin)
 
             elif event.facility is PulseEventFacilityEnum.server:
-                # For server change events, we need to update our default_*_name connectors and possibly change the
-                # current_id of all the default_sink/source_* connectors (and update them with the current state of the
-                # new default sink/source)
-                server_info = await self.pulse.server_info()
-                self._default_sink_name_connector._update(server_info, origin)
-                self._default_source_name_connector._update(server_info, origin)
-                # Update default sink/source connectors
-                default_sink_data = await self.pulse.get_sink_by_name(server_info.default_sink_name)
-                default_source_data = await self.pulse.get_source_by_name(server_info.default_source_name)
-                for connector in self.sink_connectors_by_name.get(None, []):
-                    if connector.current_id is not None:
-                        try:
-                            self.sink_connectors_by_id[connector.current_id].remove(connector)
-                        except ValueError:
-                            pass
-                    connector.change_id(default_sink_data.index)
-                    self.sink_connectors_by_id[default_sink_data.index].append(connector)
-                    connector.on_change(default_sink_data, [])  # should we set the original origin here?
-                for source_connector in self.source_connectors_by_name.get(None, []):
-                    if source_connector.current_id is not None:
-                        try:
-                            self.source_connectors_by_id[source_connector.current_id].remove(source_connector)
-                        except ValueError:
-                            pass
-                    source_connector.change_id(default_source_data.index)
-                    self.source_connectors_by_id[default_source_data.index].append(source_connector)
-                    source_connector.on_change(default_source_data, [])  # should we set the original origin here?
+                await self.__on_event_server_change(origin)
+
+    async def __on_event_new_sink(self, sink_index: int) -> None:
+        data = await self.pulse.sink_info(sink_index)
+        name = data.name
+        for connector in self.sink_connectors_by_name.get(name, []):
+            connector.change_id(sink_index)
+            self.sink_connectors_by_id[sink_index].append(connector)
+            connector.on_change(data, [])
+
+    async def __on_event_new_source(self, source_index: int) -> None:
+        data = await self.pulse.source_info(source_index)
+        name = data.name
+        for source_connector in self.source_connectors_by_name.get(name, []):
+            source_connector.change_id(source_index)
+            self.source_connectors_by_id[source_index].append(source_connector)
+            source_connector.on_change(data, [])
+
+    async def __on_event_remove_sink(self, sink_index: int) -> None:
+        for connector in self.sink_connectors_by_id.get(sink_index, []):
+            connector.change_id(None)
+        if sink_index in self.sink_connectors_by_id:
+            del self.sink_connectors_by_id[sink_index]
+
+    async def __on_event_remove_source(self, source_index: int) -> None:
+        for source_connector in self.source_connectors_by_id.get(source_index, []):
+            source_connector.change_id(None)
+        if source_index in self.source_connectors_by_id:
+            del self.source_connectors_by_id[source_index]
+
+    async def __on_event_server_change(self, origin: List[Any]) -> None:
+        # For server change events, we need to update our default_*_name connectors and possibly change the
+        # current_id of all the default_sink/source_* connectors (and update them with the current state of the
+        # new default sink/source)
+        server_info = await self.pulse.server_info()
+        self._default_sink_name_connector._update(server_info, origin)
+        self._default_source_name_connector._update(server_info, origin)
+        # Update default sink/source connectors
+        default_sink_data = await self.pulse.get_sink_by_name(server_info.default_sink_name)
+        default_source_data = await self.pulse.get_source_by_name(server_info.default_source_name)
+        for connector in self.sink_connectors_by_name.get(None, []):
+            if connector.current_id is not None:
+                try:
+                    self.sink_connectors_by_id[connector.current_id].remove(connector)
+                except ValueError:
+                    pass
+            connector.change_id(default_sink_data.index)
+            self.sink_connectors_by_id[default_sink_data.index].append(connector)
+            connector.on_change(default_sink_data, [])  # should we set the original origin here?
+        for source_connector in self.source_connectors_by_name.get(None, []):
+            if source_connector.current_id is not None:
+                try:
+                    self.source_connectors_by_id[source_connector.current_id].remove(source_connector)
+                except ValueError:
+                    pass
+            source_connector.change_id(default_source_data.index)
+            self.source_connectors_by_id[default_source_data.index].append(source_connector)
+            source_connector.on_change(default_source_data, [])  # should we set the original origin here?
 
     def _register_origin_callback(self, facility: str, index: int, origin: List[Any]) -> None:
         # Avoid infinite growing of event_origin dict's lists, by adding origins of events that will never be

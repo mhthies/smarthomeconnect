@@ -20,7 +20,6 @@ import aiohttp
 from ._helper import SupervisedClientInterface
 from ..base import T, Subscribable, Writable, Readable, UninitializedError, Reading
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import register_interface, stop
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +141,7 @@ class SHCWebClient(SupervisedClientInterface):
 
         try:
             name = message["name"]
-            status = message["status"]
+            _status = message["status"]  # noqa: F841
         except KeyError:
             logger.warning("Websocket message from SHC server does not include 'name' and 'status' fields: %s",
                            msg.data)

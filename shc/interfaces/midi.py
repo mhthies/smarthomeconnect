@@ -16,7 +16,7 @@ from typing import List, Any, Tuple, Dict, Optional, Union, Iterable
 
 import mido
 
-from ..base import Subscribable, Writable, T
+from ..base import Subscribable, Writable
 from ..datatypes import RangeUInt8
 from ..supervisor import stop, AbstractInterface
 

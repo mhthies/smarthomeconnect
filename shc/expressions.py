@@ -20,7 +20,7 @@ from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple, L
 
 from . import conversion
 from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler, UninitializedError
-from .datatypes import RangeFloat1, RangeUInt8, HSVFloat1, RGBFloat1, RGBUInt8
+from .datatypes import RangeFloat1
 
 
 class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):

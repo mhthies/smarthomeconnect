@@ -203,6 +203,8 @@ Please, consult the [documentation](https://smarthomeconnect.readthedocs.io/en/l
 
 If you want to help with the development of *Smart Home Connect*, your Pull Requests are always appreciated.
 
+### Development setup
+
 Setting up a dev environment for SHC is simple:
 Clone the git repository and install the development dependencies, listed in `requirements.txt` (+ the `python-rtmidi` module if you want to run the MIDI tests).
 These include all dependencies of smarthomeconnect with all extras:
@@ -213,6 +215,9 @@ pip3 install -r requirements.txt
 pip3 install python-rtmidi
 ```
 You may want to use a virtual environment to avoid messing up your Python packages.
+
+
+### Web UI Frontend Assets
 
 Additionally, you'll need NodeJS and NPM on your machine for downloading and packing the web UI frontend asset  files.
 Use the following commands to download all frontend dependencies from NPM and package them into `/shc/web/static` (using Parcel.js):
@@ -225,6 +230,9 @@ When working on the web UI source files themselves (which are located in `web_ui
 npx parcel web_ui_src/main.js --dist-dir shc/web/static/pack --public-url ./
 ```
 
+
+### Tests and Code Style
+
 Please make sure that all the unittests are passing, when submitting a Pull Request:
 ```bash
 python3 -m unittest
@@ -236,4 +244,10 @@ To check it, you may want to determine it locally, using the `coverage` tool:
 ```bash
 coverage run -m unittest
 coverage html
+# open htmlcov/index.html
 ``` 
+
+We also enforce static type correctness with MyPy and Python codestyle rules with flake8.
+To run the static type checks and codestyle checks locally, simply install MyPy and flake8 and execute the `mypy` and `flake8` commands in the shc project repository.
+
+All these checks are also performed by the GitHub Actions CI for Pull Requests and the master branch.

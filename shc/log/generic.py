@@ -66,7 +66,7 @@ class PersistenceVariable(Readable[T], Writable[T], Generic[T], metaclass=abc.AB
         """
         pass
 
-    async def retrieve_aggregated_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
+    async def retrieve_aggregated_log(self, start_time: datetime.datetime, end_time: datetime.datetime,  # noqa: C901
                                       aggregation_method: AggregationMethod, aggregation_interval: datetime.timedelta
                                       ) -> List[Tuple[datetime.datetime, float]]:
         data = await self.retrieve_log(start_time, end_time, include_previous=True)

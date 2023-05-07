@@ -8,7 +8,7 @@ from typing import NamedTuple
 import mypy.api
 
 from shc import variables, base, expressions
-from ._helper import async_test, ExampleReadable, ExampleWritable, AsyncMock
+from ._helper import async_test, ExampleReadable, ExampleWritable
 
 
 class SimpleVariableTest(unittest.TestCase):
@@ -180,9 +180,9 @@ class VariableFieldsTest(unittest.TestCase):
 
         with warnings.catch_warnings(record=True):  # There seems to be a bug, that record=False breaks the catching
             with self.assertRaises(AttributeError):
-                var_c = var.c
+                _var_c = var.c  # noqa: F841
             with self.assertRaises(AttributeError):
-                var_c = var.a.c
+                _var_c = var.a.c  # noqa: F841
 
             with self.assertRaises(base.UninitializedError):
                 await var.a.a.write(21, [self])

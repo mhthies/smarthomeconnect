@@ -617,7 +617,6 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
             await _logarithmic_sleep(datetime.datetime.now() + self.delay)
         except asyncio.CancelledError:
             return
-        changed = value != self._value
         logger.debug("Value %s for Delay %s is now active and published", value, self)
         self._value = value
         self._publish(value, origin)
