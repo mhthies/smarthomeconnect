@@ -305,6 +305,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
 
         :return: The new Task in which `_run()` is executed
         :raises RuntimeError: when `_run()` exits unexpectedly (before `_running` is set)
+        :raises: Any exception that was raised by `_run()` while waiting for _running to be set
         """
         logger.debug("Starting _run task for interface %s ...", self)
         run_task = asyncio.create_task(self._run())
@@ -317,7 +318,8 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
             if run_task not in done:  # This should not happen (without timeout)
                 await self._disconnect()
                 await run_task
-            # TODO report exception from run_task if any.
+            # Raise any exception from run task if any
+            run_task.result()
             raise RuntimeError("Run task stopped before _running has been set")
         return run_task
 
@@ -330,19 +332,23 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
 
         :param run_task: The Task in which :meth:`_run` is executed; used to supervise that it's running smoothly (not
             returning or raising an exception) while waiting for `_subscribe()` to complete
-        :raises RuntimeError: when `_run()` exits unexpectedly (before `_running` is set)
+        :raises RuntimeError: when `_run()` exits unexpectedly or raises an exception (before `_running` is set)
         """
         logger.debug("Starting _subscribe task for interface %s ...", self)
         subscribe_task = asyncio.create_task(self._subscribe())
         # TODO timeout
         done, _ = await asyncio.wait((subscribe_task, run_task), return_when=asyncio.FIRST_COMPLETED)
         if subscribe_task not in done:
+            subscribe_task.cancel()
             if run_task not in done:  # This should not happen (without timeout)
                 await self._disconnect()
                 await run_task
-            # TODO cancel subscribe_task
-            # TODO report exception from run_task if any.
-            raise RuntimeError("Run task stopped before _subscribe task finished")
+            run_exception = run_task.exception()
+            if run_exception:
+                raise RuntimeError("Run task raised an exception while awaiting _subscribe: %s", repr(run_exception)) \
+                    from run_exception
+            else:
+                raise RuntimeError("Run task stopped before _subscribe task finished")
         subscribe_exception = subscribe_task.exception()
         if subscribe_exception is not None:
             await self._disconnect()
