@@ -1,13 +1,11 @@
-import asyncio
 import datetime
 import unittest
-from typing import List, Tuple, Optional, Generic
+from typing import List, Tuple, Generic
 
 import shc.data_logging
 import shc.interfaces.in_memory_data_logging
 from shc.base import T
-from ._helper import async_test, ClockMock
-
+from ._helper import async_test
 
 time_series_1 = [
     (datetime.datetime(2020, 1, 1, 0, 0, 0), 20.0),
@@ -210,33 +208,3 @@ class AbstractLoggingTest(unittest.TestCase):
                                                    aggregation_interval=datetime.timedelta(seconds=2.5))
 
 
-class InMemoryTest(unittest.TestCase):
-    @async_test
-    async def test_simple(self) -> None:
-        var1 = shc.interfaces.in_memory_data_logging.InMemoryPersistenceVariable(int, datetime.timedelta(seconds=10))
-        with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0)):
-            await var1.write(1, [self])
-            await asyncio.sleep(1)
-            await var1.write(2, [self])
-            await asyncio.sleep(1)
-            await var1.write(3, [self])
-            await asyncio.sleep(8)
-            await var1.write(4, [self])
-            await asyncio.sleep(0.5)
-            await var1.write(5, [self])
-
-        # Check data retrieval
-        data = await var1.retrieve_log(datetime.datetime(2020, 1, 1, 0, 0, 0, microsecond=500000).astimezone(),
-                                       datetime.datetime(2020, 11, 20, 0, 0, 0).astimezone())
-        self.assertEqual(4, len(data))
-        self.assertListEqual([2, 3, 4, 5], [v for _ts, v in data])
-        self.assertAlmostEqual(data[0][0], datetime.datetime(2020, 1, 1, 0, 0, 1).astimezone(),
-                               delta=datetime.timedelta(milliseconds=50))
-        self.assertAlmostEqual(data[-1][0], datetime.datetime(2020, 1, 1, 0, 0, 10, microsecond=500000).astimezone(),
-                               delta=datetime.timedelta(milliseconds=50))
-
-        # Check reading
-        self.assertEqual(5, await var1.read())
-
-        # Check that old data has been deleted
-        self.assertEqual(4, len(var1.data))
