@@ -267,7 +267,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
       "external_updates" set to False.
 
     In any other case, a periodic timer of `update_interval` is created to fetch new/updated values regularly and pass
-    them to `_process_new_logvalues()`. However, if the `DataLogVariable` is WritableDataLogVariable`, it will be used
+    them to `_process_new_logvalues()`. However, if the `DataLogVariable` is subscribable, it will be used
     as an additional trigger for updating the values.
 
     :param data_log: The `DataLogVariable` to retrieve the time series and updates from
@@ -367,7 +367,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
 
     def _data_retrieval_interval(self, for_update: bool) -> Tuple[datetime.datetime, datetime.datetime]:
         """
-        Calculate the begin and end timestamps to be passed to :meth:`PersistenceVariable.retrieve_aggregated_log` based
+        Calculate the start and end timestamps to be passed to :meth:`PersistenceVariable.retrieve_aggregated_log` based
         on the configured interval, aggregation_interval, and align timestamp.
 
         Note: For interval-based update (incl. aggregated view), this method must only be called while _mutex is locked
@@ -381,7 +381,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
             return now - self.interval, now
 
         if not for_update and self._last_retrieved_timestamp is not None:
-            # We need to track make sure that all our clients are have the same latest data, so that the next
+            # We need to make sure that all our clients are have the same latest data, so that the next
             # regular interval update (or push update if available) will not duplicate data. Thus, we do not
             # fetch the data up to now but only up to the latest log entry that is known to all other clients.
             end = self._last_retrieved_timestamp
@@ -412,7 +412,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         This method is called either with by push-update from the `DataLogVariable` or by the periodic timer. It shall
         be implemented by derived classes.
 
-        WARNING: Do not await `_get_current_view` in this method! This will result in a deadlock (depending on the
+        WARNING: Do not await `get_current_view` in this method! This will result in a deadlock (depending on the
         update mechanism).
         """
         raise NotImplementedError()
@@ -583,8 +583,8 @@ class AbstractAggregator(Generic[T, S], metaclass=abc.ABCMeta):
 
     The aggregator defines, how individual values, which lasted for a given time interval, are aggregated into a single
     value. It is controlled by the `retrieve_aggregated_log()` method via three interface methods:
-    * :meth:`reset` is called at the begin of every aggregation interval to reset the aggregated value
-    * :meth:`aggregate` is called for each value change with the value and the begin and end timestamps of the interval
+    * :meth:`reset` is called at the start of every aggregation interval to reset the aggregated value
+    * :meth:`aggregate` is called for each value change with the value and the start and end timestamps of the interval
         for which the value lasted. These time intervals can be used to calculate the value's weight in a weighted
         average or the on time of a bool aggregation
     * :meth:`get` is called at the end of every aggregation interval to retrieve the aggregated value
