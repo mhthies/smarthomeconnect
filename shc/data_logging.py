@@ -149,8 +149,8 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         - all datapoints, added to the data log, are pushed to all subscribed `LiveDataLogViews` via
           :meth:`LiveDataLogView._new_log_values_written`
         - These pushes are synchronized with calls to :meth:`retrieve_log_sync`, such that appending all pushed values
-          to the returned result of `retrive_log_sync()` results in a consistent replica of the log without missing or
-          duplicated values. This means: All values pushed *before* a call to `retrive_log_sync()` returns must be
+          to the returned result of `retrieve_log_sync()` results in a consistent replica of the log without missing or
+          duplicated values. This means: All values pushed *before* a call to `retrieve_log_sync()` returns must be
           included in its returned result. All values pushed *after* a call to `retrieve_log_sync()` returns, must *not*
           be included in its returned result.
 
