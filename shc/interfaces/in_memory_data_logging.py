@@ -1,14 +1,12 @@
+import asyncio
 import datetime
-from typing import Optional, Type, Generic, List, Tuple
+from typing import Optional, Type, Generic, List, Tuple, Any
 
-from shc.base import T, Readable, UninitializedError
-from shc.data_logging import WritableDataLogVariable
+from shc.base import T, Readable, Writable, UninitializedError
+from shc.data_logging import DataLogVariable, LiveDataLogView
 
 
-# TODO use custom subscribe_data_log() data log implementation instead of inheriting from WritableDataLogVariable
-#  -> we don't need the complex locking, queuing and flushing mechanism, since querying and appending the in-memory log
-#     is "atomic" (in the sense of asyncio tasks).
-class InMemoryDataLogVariable(WritableDataLogVariable, Readable[T], Generic[T]):
+class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Generic[T]):
     type: Type[T]
 
     def __init__(self, type_: Type[T], keep: datetime.timedelta):
@@ -16,10 +14,21 @@ class InMemoryDataLogVariable(WritableDataLogVariable, Readable[T], Generic[T]):
         super().__init__()
         self.data: List[Tuple[datetime.datetime, T]] = []
         self.keep = keep
+        self._data_log_subscribers: List[LiveDataLogView] = []
 
-    async def _write_to_data_log(self, values: List[Tuple[datetime.datetime, T]]) -> None:
+    async def _write(self, value: T, origin: List[Any]) -> None:
         self.clean_up()
-        self.data.extend(values)
+        entry = (datetime.datetime.now(datetime.timezone.utc), value)
+        self.data.append(entry)
+        # We do not need the complicated locking, queuing and flushing from WritableDataLogVariable here, since querying
+        # and appending the in-memory log is "atomic" (in the sense of asyncio tasks), i.e. does not include an 'await'
+        # statement.
+        tasks = [subscriber._new_log_values_written([entry])
+                 for subscriber in self._data_log_subscribers]
+        if len(tasks) == 1:
+            await tasks[0]
+        else:
+            await asyncio.gather(*tasks)
 
     def clean_up(self) -> None:
         begin = datetime.datetime.now(datetime.timezone.utc) - self.keep
@@ -34,6 +43,9 @@ class InMemoryDataLogVariable(WritableDataLogVariable, Readable[T], Generic[T]):
         if not self.data:
             raise UninitializedError("No value has been persisted yet")
         return self.data[-1][1]
+
+    def subscribe_data_log(self, subscriber: LiveDataLogView) -> None:
+        self._data_log_subscribers.append(subscriber)
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
                            include_previous: bool = False) -> List[Tuple[datetime.datetime, T]]:
