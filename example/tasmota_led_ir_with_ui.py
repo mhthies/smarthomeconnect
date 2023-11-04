@@ -30,7 +30,7 @@ web_server = shc.web.WebServer('', 8081, index_name='index')
 index_page = web_server.page('index', 'Home', menu_entry=True, menu_icon='home')
 
 # Create an in-memory log for the IR commands received in the last 10 minutes
-ir_log = shc.interfaces.in_memory_data_logging.InMemoryPersistenceVariable(str, keep=datetime.timedelta(minutes=10))
+ir_log = shc.interfaces.in_memory_data_logging.InMemoryDataLogVariable(str, keep=datetime.timedelta(minutes=10))
 # Show the logged IR commands in a list view on the web page
 index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes=5), [
     LogListDataSpec(ir_log)

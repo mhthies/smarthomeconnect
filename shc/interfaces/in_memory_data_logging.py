@@ -8,8 +8,7 @@ from shc.data_logging import WritableDataLogVariable
 # TODO use custom subscribe_data_log() data log implementation instead of inheriting from WritableDataLogVariable
 #  -> we don't need the complex locking, queuing and flushing mechanism, since querying and appending the in-memory log
 #     is "atomic" (in the sense of asyncio tasks).
-# TODO rename
-class InMemoryPersistenceVariable(WritableDataLogVariable, Readable[T], Generic[T]):
+class InMemoryDataLogVariable(WritableDataLogVariable, Readable[T], Generic[T]):
     type: Type[T]
 
     def __init__(self, type_: Type[T], keep: datetime.timedelta):

@@ -18,7 +18,7 @@ class LiveDataLogViewMock:
 class InMemoryTest(unittest.TestCase):
     @async_test
     async def test_simple(self) -> None:
-        var1 = shc.interfaces.in_memory_data_logging.InMemoryPersistenceVariable(int, datetime.timedelta(seconds=10))
+        var1 = shc.interfaces.in_memory_data_logging.InMemoryDataLogVariable(int, datetime.timedelta(seconds=10))
         with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0)):
             await var1.write(1, [self])
             await asyncio.sleep(1)
@@ -48,7 +48,7 @@ class InMemoryTest(unittest.TestCase):
 
     @async_test
     async def test_subscribe_log(self) -> None:
-        var1 = shc.interfaces.in_memory_data_logging.InMemoryPersistenceVariable(int, datetime.timedelta(seconds=10))
+        var1 = shc.interfaces.in_memory_data_logging.InMemoryDataLogVariable(int, datetime.timedelta(seconds=10))
         view1 = LiveDataLogViewMock()
         view2 = LiveDataLogViewMock()
         var1.subscribe_data_log(view1)  # type: ignore
@@ -81,7 +81,7 @@ class InMemoryTest(unittest.TestCase):
 
     @async_test
     async def test_subscribe_log_sync(self) -> None:
-        var1 = shc.interfaces.in_memory_data_logging.InMemoryPersistenceVariable(int, datetime.timedelta(seconds=10))
+        var1 = shc.interfaces.in_memory_data_logging.InMemoryDataLogVariable(int, datetime.timedelta(seconds=10))
         view1 = LiveDataLogViewMock()
         view2 = LiveDataLogViewMock()
         var1.subscribe_data_log(view1)  # type: ignore

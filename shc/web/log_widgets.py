@@ -59,15 +59,15 @@ class LogListWidget(WebPageItem):
         import datetime
         from shc.web.data_logging import AggregationMethod
         from shc.web.log_widgets import LogListWidget, LogListDataSpec
-        from shc.interfaces.in_memory_data_logging import InMemoryPersistenceVariable
+        from shc.interfaces.in_memory_data_logging import InMemoryDataLogVariable
 
         # create WebServer and WebPage
         web_page = ...
 
         # Example in-memory log variables for keeping timeseries for 2h
         # They need to be connected to some subscribable objects for providing the values
-        room_temperature_log = InMemoryPersistenceVariable(float, datetime.timedelta(hours=2))
-        heater_power_log = InMemoryPersistenceVariable(bool, datetime.timedelta(hours=2))
+        room_temperature_log = InMemoryDataLogVariable(float, datetime.timedelta(hours=2))
+        heater_power_log = InMemoryDataLogVariable(bool, datetime.timedelta(hours=2))
 
         # LogListWidget, showing interleaved average temperature every 5 minutes and all heater
         # on/off events within last hour
@@ -148,14 +148,14 @@ class ChartWidget(WebPageItem):
         import datetime
         from shc.web.data_logging import AggregationMethod
         from shc.web.log_widgets import ChartWidget, ChartDataSpec
-        from shc.interfaces.in_memory_data_logging import InMemoryPersistenceVariable
+        from shc.interfaces.in_memory_data_logging import InMemoryDataLogVariable
 
         # create WebServer and WebPage
         web_page = ...
 
         # Example in-memory log variable for keeping timeseries for 2h
         # Needs to be connected to some subscribable object for providing the values
-        room_temperature_log = InMemoryPersistenceVariable(float, datetime.timedelta(hours=2))
+        room_temperature_log = InMemoryDataLogVariable(float, datetime.timedelta(hours=2))
 
         # ChartWidget, showing a plot of the 15-minutes minimum, maximum and average of the room
         # temperature within the last two hours.
