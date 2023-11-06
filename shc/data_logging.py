@@ -355,6 +355,8 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         else:
             async with self._mutex:
                 begin_time, end_time = self._data_retrieval_interval(False)
+                if self._last_retrieved_timestamp is None:
+                    self._last_retrieved_timestamp = end_time
                 if self.aggregation is not None:
                     assert self.aggregation_interval is not None
                     return await self.data_log.retrieve_aggregated_log(begin_time, end_time, self.aggregation,
