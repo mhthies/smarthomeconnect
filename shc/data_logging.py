@@ -160,7 +160,7 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         raise DataLogNotSubscribable()
 
 
-class WritableDataLogVariable(Writable[T], DataLogVariable[T], Generic[T], metaclass=abc.ABCMeta):
+class WritableDataLogVariable(DataLogVariable[T], Writable[T], Generic[T], metaclass=abc.ABCMeta):
     """
     Combined base class for :class:`DataLogVariables <DataLogVariable>` that are :class:`Writable <shc.base.Writable>`.
 
