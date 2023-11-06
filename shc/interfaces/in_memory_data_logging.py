@@ -57,10 +57,15 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
                 return self.data[-1:]
             else:
                 return []
+        if self.data[start_index][0] >= end_time:
+            if include_previous and self.data:
+                return self.data[start_index:start_index+1]
+            else:
+                return []
         if include_previous and start_index > 0:
             start_index -= 1
         try:
-            end_index = next(i for i, (ts, _v) in iterator if ts > end_time)
+            end_index = next(i for i, (ts, _v) in iterator if ts >= end_time)
         except StopIteration:
             return self.data[start_index:]
         return self.data[start_index:end_index]
