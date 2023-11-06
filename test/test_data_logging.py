@@ -1,27 +1,28 @@
 import asyncio
 import datetime
 import unittest
-from typing import List, Tuple, Generic, Type, Iterable, Any
+from contextlib import suppress
+from typing import List, Tuple, Generic, Type, Iterable, Any, Sequence, Union, Dict, Optional
 
 import shc.data_logging
-from shc.base import T, UninitializedError, Readable
+from shc.base import T, UninitializedError, Readable, Writable
 from ._helper import async_test, ClockMock
 
 time_series_1 = [
-    (datetime.datetime(2020, 1, 1, 0, 0, 0), 20.0),
-    (datetime.datetime(2020, 1, 1, 0, 0, 5), 40.0),
-    (datetime.datetime(2020, 1, 1, 0, 0, 15), 20.0),
-    (datetime.datetime(2020, 1, 1, 0, 0, 26), 40.0),
-    (datetime.datetime(2020, 1, 1, 0, 0, 27), 40.0),
-    (datetime.datetime(2020, 1, 1, 0, 0, 35), 20.0),
+    (datetime.datetime(2020, 1, 1, 0, 0, 0).astimezone(), 20.0),
+    (datetime.datetime(2020, 1, 1, 0, 0, 5).astimezone(), 40.0),
+    (datetime.datetime(2020, 1, 1, 0, 0, 15).astimezone(), 20.0),
+    (datetime.datetime(2020, 1, 1, 0, 0, 26).astimezone(), 40.0),
+    (datetime.datetime(2020, 1, 1, 0, 0, 27).astimezone(), 40.0),
+    (datetime.datetime(2020, 1, 1, 0, 0, 35).astimezone(), 20.0),
 ]
 time_series_2 = [
-    (datetime.datetime(2020, 1, 1, 0, 0, 0), False),
-    (datetime.datetime(2020, 1, 1, 0, 0, 5), True),
-    (datetime.datetime(2020, 1, 1, 0, 0, 15), False),
-    (datetime.datetime(2020, 1, 1, 0, 0, 26), True),
-    (datetime.datetime(2020, 1, 1, 0, 0, 27), True),
-    (datetime.datetime(2020, 1, 1, 0, 0, 35), False),
+    (datetime.datetime(2020, 1, 1, 0, 0, 0).astimezone(), False),
+    (datetime.datetime(2020, 1, 1, 0, 0, 5).astimezone(), True),
+    (datetime.datetime(2020, 1, 1, 0, 0, 15).astimezone(), False),
+    (datetime.datetime(2020, 1, 1, 0, 0, 26).astimezone(), True),
+    (datetime.datetime(2020, 1, 1, 0, 0, 27).astimezone(), True),
+    (datetime.datetime(2020, 1, 1, 0, 0, 35).astimezone(), False),
 ]
 
 
@@ -319,18 +320,14 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertListEqual([v for _t, v in view2.result], list(range(100)))
 
 
-class SimpleInMemoryWritableLogVariable(shc.data_logging.WritableDataLogVariable[T], Readable[T], Generic[T]):
-    """A simplified version of InMemoryDataLogVariable, based on WritableDataLogVariable to test its subscribe
-    mechanism"""
+class SimpleInMemoryWritableLogVariable(shc.data_logging.DataLogVariable[T], Readable[T], Generic[T]):
+    """A more sophisticated ExampleLogVariable, including range filtering in retrieve_log"""
     type: Type[T]
 
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
         self.data: List[Tuple[datetime.datetime, T]] = []
-
-    async def _write_to_data_log(self, values: List[Tuple[datetime.datetime, T]]) -> None:
-        self.data.extend(values)
 
     async def read(self) -> T:
         if not self.data:
@@ -361,6 +358,16 @@ class SimpleInMemoryWritableLogVariable(shc.data_logging.WritableDataLogVariable
         return self.data[start_index:end_index]
 
 
+class SimpleInMemoryLogVariable(SimpleInMemoryWritableLogVariable[T], Generic[T]):
+    """A simplified version of InMemoryDataLogVariable, based on WritableDataLogVariable to test its subscribe
+    mechanism"""
+    def __init__(self, type_: Type[T]):
+        super().__init__(type_)
+
+    async def _write_to_data_log(self, values: List[Tuple[datetime.datetime, T]]) -> None:
+        self.data.extend(values)
+
+
 class WritableDataLogVariableTest(AbstractLoggingTest):
     do_write_tests = True
     do_subscribe_tests = True
@@ -370,3 +377,48 @@ class WritableDataLogVariableTest(AbstractLoggingTest):
         var = SimpleInMemoryWritableLogVariable(type_)
         var.data = list(data)
         return var
+
+
+class ExampleLiveDataLogView(shc.data_logging.LiveDataLogView[T], Generic[T]):
+    def __init__(self,
+                 data_log: shc.data_logging.DataLogVariable[T],
+                 interval: datetime.timedelta,
+                 aggregation: Optional[shc.data_logging.AggregationMethod] = None,
+                 aggregation_interval: Optional[datetime.timedelta] = None,
+                 align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
+                 update_interval: Optional[datetime.timedelta] = None):
+        super().__init__(data_log, interval, aggregation, aggregation_interval, align_to, update_interval)
+        self.clients: Dict[str, List[Tuple[datetime.datetime, Union[T, float]]]] = {}
+
+    async def create_client(self, name: str) -> None:
+        self.clients[name] = list(await self.get_current_view(include_previous=True))
+
+    async def _process_new_logvalues(self, values: Sequence[Tuple[datetime.datetime, Union[T, float]]]) -> None:
+        for client_data in self.clients.values():
+            if client_data and self.aggregation is not None and client_data[-1][0] == values[0][0]:
+                del client_data[-1]
+            client_data.extend(values)
+
+
+class LiveDataLogViewTest(unittest.TestCase):
+    @async_test
+    async def test_not_subscribable(self) -> None:
+        log_var = SimpleInMemoryWritableLogVariable(float)
+        log_var.data = time_series_1
+        view = ExampleLiveDataLogView(log_var,
+                                      interval=datetime.timedelta(seconds=30),
+                                      update_interval=datetime.timedelta(seconds=2))
+
+        try:
+            with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0).astimezone()):
+                timer_task = asyncio.create_task(view.timer.run())
+                await asyncio.sleep(1)
+                await view.create_client("first")
+                self.assertEqual(time_series_1[0:1], view.clients["first"])
+                await asyncio.sleep(17)
+                self.assertEqual(time_series_1[0:3], view.clients["first"])
+
+        finally:
+            timer_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await timer_task
