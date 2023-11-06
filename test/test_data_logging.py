@@ -448,3 +448,57 @@ class LiveDataLogViewTest(unittest.TestCase):
             timer_task.cancel()
             with suppress(asyncio.CancelledError):
                 await timer_task
+
+    @async_test
+    async def test_push(self) -> None:
+        log_var = SimpleInMemoryWritableLogVariable(float)
+        log_var.data = time_series_1
+        view = ExampleLiveDataLogView(log_var,
+                                      interval=datetime.timedelta(seconds=30),
+                                      update_interval=datetime.timedelta(seconds=2))
+        async def pusher():
+            for t, v in time_series_1:
+                await asyncio.sleep(max(0.0, (t - datetime.datetime.now().astimezone()).total_seconds()))
+                await view._process_new_logvalues([(t, v)])
+
+        try:
+            with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0).astimezone()):
+                pusher_task = asyncio.create_task(pusher())
+                await asyncio.sleep(1)
+                await view.create_client("first")
+                self.assertEqual(time_series_1[0:1], view.clients["first"])
+                await asyncio.sleep(17)
+                self.assertEqual(time_series_1[0:3], view.clients["first"])
+
+        finally:
+            pusher_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await pusher_task
+
+    @async_test
+    async def test_push_two_clients(self) -> None:
+        log_var = SimpleInMemoryWritableLogVariable(float)
+        log_var.data = time_series_1
+        view = ExampleLiveDataLogView(log_var,
+                                      interval=datetime.timedelta(seconds=30),
+                                      update_interval=datetime.timedelta(seconds=10))
+        async def pusher():
+            for t, v in time_series_1:
+                await asyncio.sleep(max(0.0, (t - datetime.datetime.now().astimezone()).total_seconds()))
+                await view._process_new_logvalues([(t, v)])
+
+        try:
+            with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0).astimezone()):
+                pusher_task = asyncio.create_task(pusher())
+                await asyncio.sleep(1)
+                await view.create_client("first")
+                await asyncio.sleep(16)
+                await view.create_client("second")
+                await asyncio.sleep(4)
+                self.assertEqual(time_series_1[0:3], view.clients["first"])
+                self.assertEqual(time_series_1[0:3], view.clients["second"])
+
+        finally:
+            pusher_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await pusher_task
