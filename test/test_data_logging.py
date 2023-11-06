@@ -422,3 +422,28 @@ class LiveDataLogViewTest(unittest.TestCase):
             timer_task.cancel()
             with suppress(asyncio.CancelledError):
                 await timer_task
+
+    @async_test
+    async def test_not_subscribable_two_clients(self) -> None:
+        log_var = SimpleInMemoryWritableLogVariable(float)
+        log_var.data = time_series_1
+        view = ExampleLiveDataLogView(log_var,
+                                      interval=datetime.timedelta(seconds=30),
+                                      update_interval=datetime.timedelta(seconds=10))
+
+        try:
+            with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0).astimezone()):
+                timer_task = asyncio.create_task(view.timer.run())
+                await asyncio.sleep(1)
+                await view.create_client("first")
+                await asyncio.sleep(16)
+                await view.create_client("second")
+                await asyncio.sleep(4)
+                await asyncio.sleep(1)  # For some reason the ClockMock requires to sleep twice here
+                self.assertEqual(time_series_1[0:3], view.clients["first"])
+                self.assertEqual(time_series_1[0:3], view.clients["second"])
+
+        finally:
+            timer_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await timer_task
