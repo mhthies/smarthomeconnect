@@ -347,7 +347,6 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         if self.push:
             # With push updates, we need to use the synchronized retrieve_log() method to avoid losing
             # new values during the retrieval
-            assert isinstance(self.data_log, WritableDataLogVariable)
             begin_time, end_time = self._data_retrieval_interval(False)
             return await self.data_log.retrieve_log_sync(begin_time,
                                                          end_time,
