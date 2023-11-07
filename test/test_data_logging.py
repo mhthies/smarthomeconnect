@@ -230,15 +230,15 @@ class AbstractLoggingTest(unittest.TestCase):
             self.skipTest("Write tests are disabled for this data logging interface")
         var1 = await self._create_log_variable_with_data(int, [])
         start_ts = datetime.datetime.now().astimezone()
-        await var1.write(1, [self])
+        await var1.write(1, [self])  # type: ignore
         await asyncio.sleep(0.2)
-        await var1.write(2, [self])
+        await var1.write(2, [self])  # type: ignore
         await asyncio.sleep(0.1)
-        await var1.write(3, [self])
+        await var1.write(3, [self])  # type: ignore
         await asyncio.sleep(0.7)
-        await var1.write(4, [self])
+        await var1.write(4, [self])  # type: ignore
         await asyncio.sleep(0.05)
-        await var1.write(5, [self])
+        await var1.write(5, [self])  # type: ignore
 
         # Check data retrieval
         data = await var1.retrieve_log(start_ts + datetime.timedelta(seconds=0.1),
@@ -251,7 +251,7 @@ class AbstractLoggingTest(unittest.TestCase):
                                delta=datetime.timedelta(milliseconds=50))
 
         # Check reading
-        self.assertEqual(5, await var1.read())
+        self.assertEqual(5, await var1.read())  # type: ignore
 
     @async_test
     async def test_subscribe_log(self) -> None:
@@ -265,21 +265,21 @@ class AbstractLoggingTest(unittest.TestCase):
 
         start_ts = datetime.datetime.now().astimezone()
 
-        await var1.write(1, [self])
+        await var1.write(1, [self])  # type: ignore
         await asyncio.sleep(0.1)
-        await var1.write(2, [self])
+        await var1.write(2, [self])  # type: ignore
         await asyncio.sleep(0.2)
-        await var1.write(3, [self])
+        await var1.write(3, [self])  # type: ignore
 
         view1.result = await var1.retrieve_log(start_ts, start_ts + datetime.timedelta(seconds=0.35))
 
         await asyncio.sleep(0.6)
-        await var1.write(4, [self])
+        await var1.write(4, [self])  # type: ignore
 
         view2.result = await var1.retrieve_log(start_ts, start_ts + datetime.timedelta(seconds=1.05))
 
         await asyncio.sleep(0.15)
-        await var1.write(5, [self])
+        await var1.write(5, [self])  # type: ignore
 
         self.assertListEqual([v for _t, v in view1.result], [1, 2, 3, 4, 5])
         self.assertListEqual([v for _t, v in view2.result], [1, 2, 3, 4, 5])
@@ -297,7 +297,7 @@ class AbstractLoggingTest(unittest.TestCase):
 
         async def producer() -> None:
             for i in range(100):
-                await var1.write(i, [self])
+                await var1.write(i, [self])  # type: ignore
                 await asyncio.sleep(0.005)
 
         async def consumer1() -> None:
@@ -360,6 +360,8 @@ class SimpleInMemoryLogVariable(shc.data_logging.DataLogVariable[T], Readable[T]
 
 class SimpleInMemoryWritableLogVariable(SimpleInMemoryLogVariable[T], shc.data_logging.WritableDataLogVariable[T],
                                         Generic[T]):
+    type: Type[T]
+
     """A simplified version of InMemoryDataLogVariable, based on WritableDataLogVariable to test its subscribe
     mechanism"""
     def __init__(self, type_: Type[T]):
