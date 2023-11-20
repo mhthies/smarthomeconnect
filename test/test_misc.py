@@ -233,7 +233,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
         exchange2.subscribe(var1)
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.3)
         self.assertEqual(await var1.read(), await var2.read())
 
     @async_test
