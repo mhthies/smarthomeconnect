@@ -195,7 +195,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
             future = asyncio.wrap_future(asyncio.run_coroutine_threadsafe(
                 conn_color.write(construct_color(175, 117, 48, 66), [self]), loop=self.client_runner.loop))
             # Should only return when the message returns from the broker
-            await asyncio.sleep(0.001)
+            await asyncio.sleep(0.0005)
             self.assertFalse(future.done())
             await future
 
