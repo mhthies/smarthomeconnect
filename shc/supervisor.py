@@ -160,11 +160,25 @@ async def interface_failure(interface_name: str = "n/a") -> None:
     asyncio.create_task(stop())
 
 
+async def _start_interface(interface: AbstractInterface) -> None:
+    try:
+        await interface.start()
+    except Exception as e:
+        logger.critical("Exception while starting interface %s:", repr(interface), exc_info=e)
+        raise RuntimeError()
+
+
 async def run():
     _SHC_STOPPED.clear()
     logger.info("Starting up interfaces ...")
-    # TODO catch errors and stop() in case of an exception
-    await asyncio.gather(*(interface.start() for interface in _REGISTERED_INTERFACES))
+    try:
+        await asyncio.gather(*(_start_interface(interface) for interface in _REGISTERED_INTERFACES))
+    except RuntimeError:
+        logger.warning("Shutting down SHC due to error while starting up interfaces.")
+        await stop()
+        global _EXIT_CODE
+        _EXIT_CODE = 1
+        return
     logger.info("All interfaces started successfully. Initializing variables ...")
     await read_initialize_variables()
     logger.info("Variables initialized successfully. Starting timers ...")
