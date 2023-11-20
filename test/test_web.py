@@ -18,6 +18,7 @@ import selenium.webdriver.firefox.options
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+import selenium.webdriver.remote.webelement
 from selenium.webdriver import ActionChains
 
 import shc.web
@@ -117,7 +118,9 @@ class SimpleWebTest(AbstractWebTest):
         submenu.click()
         self.assertIn("Bar", submenu_entry.text)
         self.assertTrue(submenu_entry.is_displayed())
-        self.assertEqual(submenu_entry.get_attribute('href').strip(), "http://localhost:42080/page/another_page/")
+        submenu_entry_href = submenu_entry.get_attribute('href')
+        assert submenu_entry_href is not None
+        self.assertEqual(submenu_entry_href.strip(), "http://localhost:42080/page/another_page/")
         submenu_entry.find_element(By.CSS_SELECTOR, 'i.bars.icon')
 
 
@@ -176,6 +179,17 @@ class MonitoringTest(unittest.TestCase):
 
 
 class WebWidgetsTest(AbstractWebTest):
+    def assertInHTMLClass(self, element: selenium.webdriver.remote.webelement.WebElement, substr: str) -> None:
+        classes = element.get_attribute('class')
+        assert classes is not None
+        self.assertIn(substr, classes)
+
+    def assertNotInHTMLClass(self, element: selenium.webdriver.remote.webelement.WebElement, substr: str) -> None:
+        classes = element.get_attribute('class')
+        if classes is None:
+            return
+        self.assertNotIn(substr, classes)
+
     def test_switch(self) -> None:
         page = self.server.page('index')
         switch_widget = shc.web.widgets.Switch("Main Power").connect(ExampleReadable(bool, True))
@@ -255,16 +269,16 @@ class WebWidgetsTest(AbstractWebTest):
             b4_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B4"]')
 
             # Check initial states
-            self.assertIn('yellow', b1_element.get_attribute('class'))
-            self.assertIn('blue', b2_element.get_attribute('class'))
-            self.assertIn('red', b4_element.get_attribute('class'))
+            self.assertInHTMLClass(b1_element, 'yellow')
+            self.assertInHTMLClass(b2_element, 'blue')
+            self.assertInHTMLClass(b4_element, 'red')
 
             # Check state updates
             self.server_runner.run_coro(b1.write(False, [self]))
             time.sleep(0.05)
-            self.assertNotIn('yellow', b1_element.get_attribute('class'))
-            self.assertIn('blue', b2_element.get_attribute('class'))
-            self.assertIn('red', b4_element.get_attribute('class'))
+            self.assertNotInHTMLClass(b1_element, 'yellow')
+            self.assertInHTMLClass(b2_element, 'blue')
+            self.assertInHTMLClass(b4_element, 'red')
 
             self.server_runner.run_coro(b2.write(False, [self]))
             self.server_runner.run_coro(b4.write(56, [self]))
@@ -272,8 +286,8 @@ class WebWidgetsTest(AbstractWebTest):
             b1_publish.reset_mock()
             b3_publish.reset_mock()
             b4_publish.reset_mock()
-            self.assertNotIn('blue', b2_element.get_attribute('class'))
-            self.assertNotIn('red', b4_element.get_attribute('class'))
+            self.assertNotInHTMLClass(b2_element, 'blue')
+            self.assertNotInHTMLClass(b4_element, 'red')
 
             # Check clicks
             b1_element.click()
@@ -309,7 +323,7 @@ class WebWidgetsTest(AbstractWebTest):
             button_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B1"]')
 
             # Check click with alert
-            self.assertNotIn('yellow', button_element.get_attribute('class'))
+            self.assertNotInHTMLClass(button_element, 'yellow')
             button_element.click()
             time.sleep(0.05)
             publish_mock.assert_not_called()
@@ -320,7 +334,7 @@ class WebWidgetsTest(AbstractWebTest):
             alert.dismiss()
             time.sleep(0.05)
             publish_mock.assert_not_called()
-            self.assertNotIn('yellow', button_element.get_attribute('class'))
+            self.assertNotInHTMLClass(button_element, 'yellow')
 
             # Click again and accept alert
             button_element.click()
@@ -329,14 +343,14 @@ class WebWidgetsTest(AbstractWebTest):
             alert.accept()
             time.sleep(0.05)
             publish_mock.assert_called_once_with(True, unittest.mock.ANY)
-            self.assertIn('yellow', button_element.get_attribute('class'))
+            self.assertInHTMLClass(button_element, 'yellow')
 
             # No alert for setting to False
             publish_mock.reset_mock()
             button_element.click()
             time.sleep(0.05)
             publish_mock.assert_called_once_with(False, unittest.mock.ANY)
-            self.assertNotIn('yellow', button_element.get_attribute('class'))
+            self.assertNotInHTMLClass(button_element, 'yellow')
 
     def test_display(self) -> None:
         page = self.server.page('index')
@@ -470,10 +484,10 @@ class WebWidgetsTest(AbstractWebTest):
             self.assertTrue(foo_row_element.is_displayed())
             self.assertTrue(bar_row_element.is_displayed())
             self.assertFalse(foobar_row_element.is_displayed())
-            self.assertIn('red', foo_row_element.get_attribute('class'))
-            self.assertIn('blue', bar_row_element.get_attribute('class'))
-            self.assertIn('yellow', foobar_row_element.get_attribute('class'))
-            self.assertIn('power off', button.find_element(By.CSS_SELECTOR, '.icon').get_attribute('class'))
+            self.assertInHTMLClass(foo_row_element, 'red')
+            self.assertInHTMLClass(bar_row_element, 'blue')
+            self.assertInHTMLClass(foobar_row_element, 'yellow')
+            self.assertInHTMLClass(button.find_element(By.CSS_SELECTOR, '.icon'), 'power off')
 
             # Click the button
             button.click()
@@ -523,7 +537,7 @@ class WebWidgetsTest(AbstractWebTest):
             # Purple is in the right lower corner of the wheel, at 120° clockwise from the top or -60° (-pi/3 rad)
             # mathematically. (Attention: The y axis is inverted in contrast to the normal mathematical orientation)
             ActionChains(self.driver)\
-                .move_to_element_with_offset(slider_element, 0.3 * slider_rect['width'], 0.0)\
+                .move_to_element_with_offset(slider_element, round(0.3 * slider_rect['width']), 0)\
                 .click()\
                 .move_to_element(wheel_handle_element)\
                 .click_and_hold()\
@@ -563,7 +577,7 @@ class WebWidgetsTest(AbstractWebTest):
             menu_element.click()
             second_option_element = menu_element\
                 .find_element(By.XPATH, './/*[normalize-space(text()) = "SOME_OTHER_VALUE"][contains(@class, "item")]')
-            self.assertIn("selected", second_option_element.get_attribute('class'))
+            self.assertInHTMLClass(second_option_element, 'selected')
 
             # select the third option
             third_option_element = menu_element\
@@ -572,8 +586,8 @@ class WebWidgetsTest(AbstractWebTest):
 
             time.sleep(0.05)
             menu_element.click()
-            self.assertNotIn("selected", second_option_element.get_attribute('class'))
-            self.assertIn("selected", third_option_element.get_attribute('class'))
+            self.assertNotInHTMLClass(second_option_element, 'selected')
+            self.assertInHTMLClass(third_option_element, 'selected')
             publish_mock.assert_called_once_with(ExampleEnum.YET_ANOTHER_VALUE, unittest.mock.ANY)
 
     def test_image_map(self) -> None:
@@ -600,7 +614,7 @@ class WebWidgetsTest(AbstractWebTest):
 
         # Check that there is a correctly styled button element, labeled "B1", at the right position
         b1_element = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "B1"]')
-        self.assertIn('yellow', b1_element.get_attribute('class'))
+        self.assertInHTMLClass(b1_element, 'yellow')
         b1_rect = b1_element.rect
         self.assertAlmostEqual(background_image_rect['x'] + background_image_rect['width'] * 0.3,
                                b1_rect['x'] + b1_rect['width']/2, delta=4)  # 4px off is okay
@@ -610,7 +624,7 @@ class WebWidgetsTest(AbstractWebTest):
         # Check that there is a label in the right position
         l2_element = self.driver.find_element(By.CSS_SELECTOR, '.shc.image-container .ui.label')
         self.assertEqual("15.3", l2_element.text.strip())
-        self.assertIn('red', l2_element.get_attribute('class'))
+        self.assertInHTMLClass(l2_element, 'red')
         l2_rect = l2_element.rect
         self.assertAlmostEqual(background_image_rect['x'] + background_image_rect['width'] * 0.9,
                                l2_rect['x'] + l2_rect['width']/2, delta=4)  # 4px off is okay
