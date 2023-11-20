@@ -36,7 +36,7 @@ index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes
     LogListDataSpec(ir_log)
 ]))
 # Send the IR commands received by the Tasmota device to the in-memory log
-tasmota_led.ir_receiver().connect(ir_log, convert=(lambda v: v.hex(), lambda x: x))
+tasmota_led.ir_receiver().connect(ir_log, convert=(lambda v: v.hex(), lambda x: x.encode()))
 
 # State variables for on/off, dimmer and RGB color of the Tasmota device
 power = shc.Variable(bool)\
