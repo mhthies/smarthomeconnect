@@ -35,7 +35,7 @@ from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Op
 import markupsafe
 from markupsafe import Markup
 
-from .interface import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer,\
+from .interface import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer, \
     WebUIConnector, WebPage, WebServer
 from ..base import T, ConnectableWrapper, Connectable
 from ..conversion import SHCJsonEncoder

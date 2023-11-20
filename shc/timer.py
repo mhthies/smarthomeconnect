@@ -1028,7 +1028,7 @@ class FadeStepRamp(AbstractFloatRamp[RangeFloat1]):
 
 def _normalize_hsv_ramp(begin: HSVFloat1, target: HSVFloat1) -> Tuple[HSVFloat1, HSVFloat1]:
     return begin._replace(hue=begin.hue if begin.saturation != 0 else target.hue,
-                          saturation=begin.saturation if begin.value != 0 else target.saturation),\
+                          saturation=begin.saturation if begin.value != 0 else target.saturation), \
            target._replace(hue=target.hue if target.saturation != 0 else begin.hue,
                            saturation=target.saturation if target.value != 0 else begin.saturation)
 

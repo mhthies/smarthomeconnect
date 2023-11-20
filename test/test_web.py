@@ -256,8 +256,8 @@ class WebWidgetsTest(AbstractWebTest):
         page = self.server.page('index')
         page.add_item(shc.web.widgets.ButtonGroup("My button group", [b1, b2, b3, b4]))
 
-        with unittest.mock.patch.object(b1, '_publish') as b1_publish,\
-                unittest.mock.patch.object(b3, '_publish') as b3_publish,\
+        with unittest.mock.patch.object(b1, '_publish') as b1_publish, \
+                unittest.mock.patch.object(b3, '_publish') as b3_publish, \
                 unittest.mock.patch.object(b4, '_publish') as b4_publish:
             self.server_runner.start()
             self.driver.get("http://localhost:42080")

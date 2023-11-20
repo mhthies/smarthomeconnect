@@ -397,7 +397,7 @@ class TestConnecting(unittest.TestCase):
         with self.assertRaises(TypeError):
             b.connect(a)
 
-        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe,\
+        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe, \
                 unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
             a.connect(b, convert=True)
             mock_subscribe.assert_called_once_with(b, convert=True)
@@ -419,7 +419,7 @@ class TestConnecting(unittest.TestCase):
         def b2a(x: float) -> int:
             return round(x*255)
 
-        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe,\
+        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe, \
                 unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
             a.connect(b, convert=(a2b, b2a))
             mock_subscribe.assert_called_once_with(b, convert=a2b)

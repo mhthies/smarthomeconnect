@@ -483,7 +483,7 @@ class TelegramAPIMock:
             f"Wrong Telegram API method {self.method_calls[-1][0]} called, expected {method}"
         for arg, val in kwargs.items():
             assert arg in self.method_calls[-1][1], f"Expected {arg} in Telegram API method call parameters"
-            assert val == self.method_calls[-1][1][arg],\
+            assert val == self.method_calls[-1][1][arg], \
                 f"Wrong value '{self.method_calls[-1][1][arg]}' for Parameter {arg}, expected '{val}'"
 
     def assert_method_call_count(self, count: int) -> None:

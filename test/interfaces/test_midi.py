@@ -49,8 +49,8 @@ class MIDIInputTest(unittest.TestCase):
         var2 = self.interface.note_velocity(7)
         var3 = self.interface.control_change(1)
 
-        with unittest.mock.patch.object(var1, '_publish') as publish_mock1,\
-             unittest.mock.patch.object(var2, '_publish') as publish_mock2,\
+        with unittest.mock.patch.object(var1, '_publish') as publish_mock1, \
+             unittest.mock.patch.object(var2, '_publish') as publish_mock2, \
              unittest.mock.patch.object(var3, '_publish') as publish_mock3:
 
             self.interface_runner.start()
