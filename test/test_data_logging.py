@@ -240,9 +240,16 @@ class AbstractLoggingTest(unittest.TestCase):
         await asyncio.sleep(0.05)
         await var1.write(5, [self])  # type: ignore
 
-        # Check data retrieval
+        # Check data retrieval (with include_previous)
         data = await var1.retrieve_log(start_ts + datetime.timedelta(seconds=0.1),
-                                       start_ts + datetime.timedelta(days=200))
+                                       start_ts + datetime.timedelta(days=200),
+                                       include_previous=True)
+        self.assertEqual(5, len(data))
+
+        # Check data retrieval (without include_previous)
+        data = await var1.retrieve_log(start_ts + datetime.timedelta(seconds=0.1),
+                                       start_ts + datetime.timedelta(days=200),
+                                       include_previous=False)
         self.assertEqual(4, len(data))
         self.assertListEqual([2, 3, 4, 5], [v for _ts, v in data])
         self.assertAlmostEqual(data[0][0], start_ts + datetime.timedelta(seconds=0.2),
