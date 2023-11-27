@@ -3,12 +3,12 @@ import datetime
 import enum
 import json
 import logging
-from typing import Optional, Type, Generic, List, Tuple, Any, Dict
+from typing import Optional, Type, Generic, List, Tuple, Any, Dict, Callable
 
 import aiomysql
 import pymysql
 
-from shc.base import T, Readable, UninitializedError, Writable
+from shc.base import T, Readable, UninitializedError
 from shc.conversion import SHCJsonEncoder, from_json
 from shc.data_logging import WritableDataLogVariable
 from shc.interfaces._helper import ReadableStatusInterface
@@ -17,14 +17,15 @@ from shc.supervisor import InterfaceStatus, ServiceStatus
 logger = logging.getLogger(__name__)
 
 
-class MySQLPersistence(ReadableStatusInterface):
-    def __init__(self, **kwargs):
+class MySQLConnector(ReadableStatusInterface):
+    def __init__(self, log_table: str = "log", **kwargs):
         super().__init__()
         # see https://aiomysql.readthedocs.io/en/latest/connection.html#connection for valid parameters
         self.connect_args = kwargs
         self.pool: Optional[aiomysql.Pool] = None
         self.pool_ready = asyncio.Event()
         self.variables: Dict[str, MySQLPersistenceVariable] = {}
+        self.log_table = log_table
 
     async def start(self) -> None:
         logger.info("Creating MySQL connection pool ...")
@@ -50,77 +51,111 @@ class MySQLPersistence(ReadableStatusInterface):
         return InterfaceStatus(ServiceStatus.OK, "")
 
     def variable(self, type_: Type[T], name: str, log: bool = True) -> "MySQLPersistenceVariable[T]":
+        # TODO implement non-logging MySQL variables
+        if not log:
+            raise NotImplementedError()
         if name in self.variables:
             variable = self.variables[name]
             if variable.type is not type_:
                 raise ValueError("MySQL persistence variable with name {} has already been defined with type {}"
                                  .format(name, variable.type.__name__))
             return variable
-        if log:
-            return MySQLDataLogVariable(self, type_, name)
         else:
-            return MySQLPersistenceVariable(self, type_, name)
+            variable = MySQLPersistenceVariable(self, type_, name, self.log_table)
+            self.variables[name] = variable
+            return variable
 
     def __repr__(self) -> str:
         return "{}({})".format(self.__class__.__name__, {k: v for k, v in self.connect_args.items()
                                                          if k in ('host', 'db', 'port', 'unix_socket')})
 
 
-class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
-    def __init__(self, interface: MySQLPersistence, type_: Type[T], name: str):
+class MySQLPersistenceVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
+    type: Type[T]
+
+    def __init__(self, interface: MySQLConnector, type_: Type[T], name: str, table: str = "log"):
         self.type = type_
         super().__init__()
         self.interface = interface
         self.name = name
+        self.table = table
+        self._insert_query = self._get_insert_query()
+        self._retrieve_query = self._get_retrieve_query(include_previous=False)
+        self._retrieve_with_prev_query = self._get_retrieve_query(include_previous=True)
+        self._read_query = self._get_read_query()
+        self._to_mysql_converter: Callable[[T], Any] = self._get_to_mysql_converter(type_)
+        self._from_mysql_converter: Callable[[Any], T] = self._get_from_mysql_converter(type_)
 
     async def read(self) -> T:
-        column_name = self._type_to_column(self.type)
         await self.interface.pool_ready.wait()
         assert self.interface.pool is not None
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT `{}` from `log` WHERE `name` = %s ORDER BY `ts` DESC LIMIT 1"
-                                  .format(column_name),
-                                  (self.name,))
+                await cur.execute(self._read_query, {'name': self.name})
                 value = await cur.fetchone()
         if value is None:
             raise UninitializedError("No value has been persisted in MySQL database yet")
         logger.debug("Retrieved value %s for %s from %s", value, self, self.interface)
-        return self._from_mysql_type(value[0])
+        return self._from_mysql_converter(value[0])
 
-    async def _write(self, value: T, _origin: List[Any]) -> None:
-        column_name = self._type_to_column(type(value))
-        value = self._into_mysql_type(value)
+    async def _write_to_data_log(self, values: List[Tuple[datetime.datetime, T]]) -> None:
         await self.interface.pool_ready.wait()
         assert self.interface.pool is not None
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("UPDATE `log` SET `ts` = %s, `{}` = %s WHERE `name` = %s".format(column_name),
-                                  (datetime.datetime.now(datetime.timezone.utc), value, self.name))
+                await cur.executemany(self._insert_query,
+                                      [{'ts': ts.astimezone(datetime.timezone.utc),
+                                        'value': self._to_mysql_converter(value),
+                                        'name': self.name}
+                                       for ts, value in values])
             await conn.commit()
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
                            include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
-        column_name = self._type_to_column(self.type)
         await self.interface.pool_ready.wait()
         assert self.interface.pool is not None
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if include_previous:
                     await cur.execute(
-                        "(SELECT `ts`, `{0}` from `log` WHERE `name` = %s AND `ts` <= %s "
-                        " ORDER BY `ts` DESC LIMIT 1) "
-                        "UNION (SELECT `ts`, `{0}` from `log` WHERE `name` = %s AND `ts` > %s AND `ts` < %s "
-                        " ORDER BY `ts` ASC)".format(column_name),
-                        (self.name, start_time, self.name, start_time, end_time))
+                        self._retrieve_with_prev_query,
+                        {'name': self.name,
+                         'start': start_time.astimezone(datetime.timezone.utc),
+                         'end': end_time.astimezone(datetime.timezone.utc)})
                 else:
-                    await cur.execute(
-                        "SELECT `ts`, `{0}` from `log` WHERE `name` = %s AND `ts` >= %s AND `ts` < %s "
-                        "ORDER BY `ts` ASC".format(column_name),
-                        (self.name, start_time, end_time))
+                    await cur.execute(self._retrieve_query,
+                                      {'name': self.name,
+                                       'start': start_time.astimezone(datetime.timezone.utc),
+                                       'end': end_time.astimezone(datetime.timezone.utc)})
 
-                return [(row[0].replace(tzinfo=datetime.timezone.utc), self._from_mysql_type(row[1]))
+                return [(row[0].replace(tzinfo=datetime.timezone.utc), self._from_mysql_converter(row[1]))
                         for row in await cur.fetchall()]
+
+    def _get_insert_query(self) -> str:
+        return f"INSERT INTO `{self.table}` (`name`, `ts`, `{self._type_to_column(self.type)}`) " \
+               f"VALUES (%(name)s, %(ts)s, %(value)s)"
+
+    def _get_retrieve_query(self, include_previous: bool) -> str:
+        if include_previous:
+            return f"(SELECT `ts`, `{self._type_to_column(self.type)}` " \
+                   f" FROM `{self.table}` " \
+                   f" WHERE `name` = %(name)s AND `ts` < %(start)s " \
+                   f" ORDER BY `ts` DESC LIMIT 1) " \
+                   f"UNION (SELECT `ts`, `{self._type_to_column(self.type)}` " \
+                   f"       FROM `{self.table}` " \
+                   f"       WHERE `name` = %(name)s AND `ts` >= %(start)s AND `ts` < %(end)s " \
+                   f"       ORDER BY `ts` ASC)"
+        else:
+            return f"SELECT `ts`, `{self._type_to_column(self.type)}` " \
+                   f"FROM `{self.table}` " \
+                   f"WHERE `name` = %(name)s AND `ts` >= %(start)s AND `ts` < %(end)s " \
+                   f"ORDER BY `ts` ASC"
+
+    def _get_read_query(self) -> str:
+        return f"SELECT `{self._type_to_column(self.type)}` " \
+               f"FROM `{self.table}` " \
+               f"WHERE `name` = %(name)s " \
+               f"ORDER BY `ts` DESC LIMIT 1"
 
     @classmethod
     def _type_to_column(cls, type_: Type) -> str:
@@ -135,43 +170,29 @@ class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
         else:
             return 'value_str'
 
-    @classmethod
-    def _into_mysql_type(cls, value: Any) -> Any:
-        if isinstance(value, bool):
-            return value
-        elif isinstance(value, int):
-            return int(value)
-        elif isinstance(value, float):
-            return float(value)
-        elif isinstance(value, str):
-            return str(value)
-        elif isinstance(value, enum.Enum):
-            return cls._into_mysql_type(value.value)
+    @staticmethod
+    def _get_to_mysql_converter(type_: Type[T]) -> Callable[[T], Any]:
+        if type_ in (bool, int, float, str) or issubclass(type_, bool):
+            return lambda x: x
+        elif isinstance(type_, int):
+            return lambda value: int(value)
+        elif isinstance(type_, float):
+            return lambda value: float(value)
+        elif isinstance(type_, str):
+            return lambda value: str(value)
+        elif issubclass(type_, enum.Enum):
+            return lambda value: value.value
         else:
-            return json.dumps(value, cls=SHCJsonEncoder)
+            return lambda value: json.dumps(value, cls=SHCJsonEncoder)
 
-    def _from_mysql_type(self, value: Any) -> Any:
-        if issubclass(self.type, (bool, int, float, str, enum.Enum)):
-            return self.type(value)
+    @staticmethod
+    def _get_from_mysql_converter(type_: Type[T]) -> Callable[[Any], T]:
+        if type_ in (bool, int, float, str):
+            return lambda x: x
+        elif issubclass(type_, (bool, int, float, str, enum.Enum)):
+            return lambda value: type_(value)
         else:
-            return from_json(self.type, json.loads(value))
+            return lambda value: from_json(type_, json.loads(value))
 
     def __repr__(self):
         return "<{} '{}'>".format(self.__class__.__name__, self.name)
-
-
-class MySQLDataLogVariable(MySQLPersistenceVariable, WritableDataLogVariable, Generic[T]):
-    type: Type[T]
-
-    async def _write_to_data_log(self, values: List[Tuple[datetime.datetime, T]]) -> None:
-        if not values:
-            return
-        column_name = self._type_to_column(type(values[0][1]))
-        await self.interface.pool_ready.wait()
-        assert self.interface.pool is not None
-        async with self.interface.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.executemany("INSERT INTO `log` (`name`, `ts`, `{}`) VALUES (%s, %s, %s)".format(column_name),
-                                      [(self.name, ts, self._into_mysql_type(value))
-                                       for ts, value in values])
-            await conn.commit()
