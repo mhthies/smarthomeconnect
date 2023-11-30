@@ -6,3 +6,10 @@ CREATE TABLE log (
     value_str LONGTEXT,
     KEY name_ts(name, ts)
 );
+
+CREATE TABLE `persistence` (
+    name VARCHAR(256) NOT NULL,
+    ts DATETIME(6) NOT NULL,
+    value LONGTEXT,
+    UNIQUE KEY name(name)
+);

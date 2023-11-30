@@ -8,7 +8,7 @@ from typing import Optional, Type, Generic, List, Tuple, Any, Dict, Callable
 import aiomysql
 import pymysql
 
-from shc.base import T, Readable, UninitializedError
+from shc.base import T, Readable, UninitializedError, Writable
 from shc.conversion import SHCJsonEncoder, from_json
 from shc.data_logging import WritableDataLogVariable
 from shc.interfaces._helper import ReadableStatusInterface
@@ -18,14 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 class MySQLConnector(ReadableStatusInterface):
-    def __init__(self, log_table: str = "log", **kwargs):
+    def __init__(self, **kwargs):
         super().__init__()
         # see https://aiomysql.readthedocs.io/en/latest/connection.html#connection for valid parameters
         self.connect_args = kwargs
         self.pool: Optional[aiomysql.Pool] = None
         self.pool_ready = asyncio.Event()
-        self.variables: Dict[str, MySQLPersistenceVariable] = {}
-        self.log_table = log_table
+        self.variables: Dict[str, MySQLLogVariable] = {}
+        self.persistence_variables: Dict[str, MySQLPersistenceVariable] = {}
 
     async def start(self) -> None:
         logger.info("Creating MySQL connection pool ...")
@@ -50,27 +50,98 @@ class MySQLConnector(ReadableStatusInterface):
             return InterfaceStatus(ServiceStatus.CRITICAL, str(e))
         return InterfaceStatus(ServiceStatus.OK, "")
 
-    def variable(self, type_: Type[T], name: str, log: bool = True) -> "MySQLPersistenceVariable[T]":
-        # TODO implement non-logging MySQL variables
-        if not log:
-            raise NotImplementedError()
+    def variable(self, type_: Type[T], name: str) -> "MySQLLogVariable[T]":
         if name in self.variables:
             variable = self.variables[name]
+            if variable.type is not type_:
+                raise ValueError("MySQL log variable with name {} has already been defined with type {}"
+                                 .format(name, variable.type.__name__))
+            return variable
+        else:
+            variable = MySQLLogVariable(self, type_, name)
+            self.variables[name] = variable
+            return variable
+
+    def persistence_variable(self, type_: Type[T], name: str) -> "MySQLPersistenceVariable[T]":
+        if name in self.persistence_variables:
+            variable = self.persistence_variables[name]
             if variable.type is not type_:
                 raise ValueError("MySQL persistence variable with name {} has already been defined with type {}"
                                  .format(name, variable.type.__name__))
             return variable
         else:
-            variable = MySQLPersistenceVariable(self, type_, name, self.log_table)
-            self.variables[name] = variable
+            variable = MySQLPersistenceVariable(self, type_, name)
+            self.persistence_variables[name] = variable
             return variable
+
 
     def __repr__(self) -> str:
         return "{}({})".format(self.__class__.__name__, {k: v for k, v in self.connect_args.items()
                                                          if k in ('host', 'db', 'port', 'unix_socket')})
 
 
-class MySQLPersistenceVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
+class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
+    type: Type[T]
+
+    def __init__(self, interface: MySQLConnector, type_: Type[T], name: str, table: str = "persistence"):
+        self.type = type_
+        super().__init__()
+        self.interface = interface
+        self.name = name
+        self.table = table
+        self._write_query = self._get_write_query()
+        self._read_query = self._get_read_query()
+        self._to_mysql_converter: Callable[[T], Any] = self._get_to_mysql_converter(type_)
+        self._from_mysql_converter: Callable[[Any], T] = self._get_from_mysql_converter(type_)
+
+    async def read(self) -> T:
+        await self.interface.pool_ready.wait()
+        assert self.interface.pool is not None
+        async with self.interface.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(self._read_query, {'name': self.name})
+                value = await cur.fetchone()
+        if value is None:
+            raise UninitializedError("No value has been persisted in MySQL database yet")
+        logger.debug("Retrieved value %s for %s from %s", value, self, self.interface)
+        return self._from_mysql_converter(value[0])
+
+    async def _write(self, value: T, origin: List[Any]) -> None:
+        await self.interface.pool_ready.wait()
+        assert self.interface.pool is not None
+        async with self.interface.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(self._write_query,
+                                  {'ts': datetime.datetime.now().astimezone(datetime.timezone.utc),
+                                   'value': self._to_mysql_converter(value),
+                                   'name': self.name})
+            await conn.commit()
+
+    def _get_write_query(self) -> str:
+        return f"INSERT INTO `{self.table}` (`name`, `ts`, `value`) " \
+               f"VALUES (%(name)s, %(ts)s, %(value)s)" \
+               f"ON DUPLICATE KEY UPDATE " \
+               f"`value`=%(value)s, `ts`=%(ts)s"
+
+    def _get_read_query(self) -> str:
+        return f"SELECT `value` " \
+               f"FROM `{self.table}` " \
+               f"WHERE `name` = %(name)s " \
+               f"ORDER BY `ts` DESC LIMIT 1"
+
+    @staticmethod
+    def _get_to_mysql_converter(type_: Type[T]) -> Callable[[T], Any]:
+        return lambda value: json.dumps(value, cls=SHCJsonEncoder)
+
+    @staticmethod
+    def _get_from_mysql_converter(type_: Type[T]) -> Callable[[Any], T]:
+        return lambda value: from_json(type_, json.loads(value))
+
+    def __repr__(self):
+        return "<{} '{}'>".format(self.__class__.__name__, self.name)
+
+
+class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
     type: Type[T]
 
     def __init__(self, interface: MySQLConnector, type_: Type[T], name: str, table: str = "log"):
