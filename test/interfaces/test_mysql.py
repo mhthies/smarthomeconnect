@@ -2,7 +2,7 @@ import datetime
 import asyncio
 import unittest
 import urllib.parse
-from typing import Tuple, Type, Iterable, Dict
+from typing import Tuple, Type, Iterable, Dict, NamedTuple, Sequence
 import os
 
 import aiomysql
@@ -11,6 +11,7 @@ import pymysql
 import shc.data_logging
 import shc.interfaces.mysql
 from shc.base import T
+from .._helper import async_test
 from ..test_data_logging import AbstractLoggingTest
 
 
@@ -33,10 +34,20 @@ def parse_mysql_url(url: str) -> Dict[str, any]:
 
 
 MYSQL_URL = os.getenv("SHC_TEST_MSQL_URL")
-MYSQL_ARGS = parse_mysql_url(MYSQL_URL) if MYSQL_URL is not None else None
-# pymysql uses slightly different args than aiomysql
-PYMYSQL_ARGS = dict(MYSQL_ARGS, database= MYSQL_ARGS["db"])
-del PYMYSQL_ARGS["db"]
+if MYSQL_URL is not None:
+    MYSQL_ARGS = parse_mysql_url(MYSQL_URL)
+    # pymysql uses slightly different args than aiomysql
+    PYMYSQL_ARGS = dict(MYSQL_ARGS, database= MYSQL_ARGS["db"])
+    del PYMYSQL_ARGS["db"]
+else:
+    MYSQL_ARGS = None
+    PYMYSQL_ARGS = None
+
+
+class ExampleTuple(NamedTuple):
+    a: int
+    b: float
+    c: str
 
 
 @unittest.skipIf(MYSQL_ARGS is None, "No MySQL database connection given. Must be specified as URL "
@@ -46,7 +57,7 @@ class MySQLTest(AbstractLoggingTest):
     do_subscribe_tests = True
 
     def setUp(self) -> None:
-        self._run_mysql_sync("""
+        self._run_mysql_sync(["""
             CREATE TABLE `log` (
                 name VARCHAR(256) NOT NULL,
                 ts DATETIME(6) NOT NULL,
@@ -54,8 +65,15 @@ class MySQLTest(AbstractLoggingTest):
                 value_float FLOAT,
                 value_str LONGTEXT,
                 KEY name_ts(name, ts)
+            );""",
+            """
+            CREATE TABLE `persistence` (
+                name VARCHAR(256) NOT NULL,
+                ts DATETIME(6) NOT NULL,
+                value LONGTEXT,
+                UNIQUE KEY name(name)
             );
-            """)
+            """])
         self.interface = shc.interfaces.mysql.MySQLConnector(**MYSQL_ARGS)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.interface.start())
@@ -63,14 +81,13 @@ class MySQLTest(AbstractLoggingTest):
     def tearDown(self) -> None:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.interface.stop())
-        self._run_mysql_sync("""
-            DROP TABLE `log`;
-            """)
+        self._run_mysql_sync(["DROP TABLE `log`;", "DROP TABLE `persistence`;"])
 
-    def _run_mysql_sync(self, query: str) -> None:
+    def _run_mysql_sync(self, queries: Sequence[str]) -> None:
         connection = pymysql.connect(**PYMYSQL_ARGS)
         cursor = connection.cursor()
-        cursor.execute(query)
+        for query in queries:
+            cursor.execute(query)
         cursor.close()
         connection.commit()
         connection.close()
@@ -94,3 +111,16 @@ class MySQLTest(AbstractLoggingTest):
 
         var = self.interface.variable(type_, "test_variable")
         return var
+
+    @async_test
+    async def test_persistence_variables(self) -> None:
+        for variable_name, value_list in [
+            ("test_int", [5, 7]),
+            ("test_string", ["foo", "bar"]),
+            ("test_tuple", [ExampleTuple(42, 3.14, "foo"), ExampleTuple(56, 0.414, "[{bar🙂😕}]")]),
+        ]:
+            with self.subTest(f"variable_name={variable_name}, type={type(value_list[0])}"):
+                variable = self.interface.persistence_variable(type(value_list[0]), variable_name)
+                for value in value_list:
+                    await variable.write(value, [self])
+                self.assertEqual(value_list[-1], await variable.read())
