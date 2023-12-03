@@ -314,11 +314,11 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
     def _get_to_mysql_converter(type_: Type[T]) -> Callable[[T], Any]:
         if type_ in (bool, int, float, str) or issubclass(type_, bool):
             return lambda x: x
-        elif isinstance(type_, int):
+        elif issubclass(type_, int):
             return lambda value: int(value)
-        elif isinstance(type_, float):
+        elif issubclass(type_, float):
             return lambda value: float(value)
-        elif isinstance(type_, str):
+        elif issubclass(type_, str):
             return lambda value: str(value)
         elif issubclass(type_, enum.Enum):
             return lambda value: value.value
