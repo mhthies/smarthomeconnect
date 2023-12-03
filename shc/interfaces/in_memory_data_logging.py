@@ -7,6 +7,20 @@ from shc.data_logging import DataLogVariable, LiveDataLogView
 
 
 class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Generic[T]):
+    """
+    A single in-memory :class:`DataLogVariable <shc.data_logging.DataLogVariable>`, based on a simple Python list,
+    without any persistent storage.
+
+    Data log entries that are older than the specified `keep` time are dropped automatically, to keep memory usage
+    limited. This class is sufficient for logging a variable value for the purpose of displaying a chart over the last
+    few minutes (or maybe hours) and calculate aggregated values, if you don't mind losing the historic data on every
+    restart of the SHC application. It's also fine for demonstration purposes (see ui_logging_showcase.py in the
+    examples/ directory).
+
+    :param type\_: Value type of this `connectable` object (and as a `DataLogVariable`)
+    :param keep: timespan for which to keep the values. Older values will be deleted upon the next `write` to the
+                 object.
+    """
     type: Type[T]
 
     def __init__(self, type_: Type[T], keep: datetime.timedelta):

@@ -19,7 +19,8 @@ Typically, `DataLogVariables` are used to add :ref:`Log Widgets <web.log_widgets
 Included interfaces with data logging support 
 ---------------------------------------------
 
-TODO
+* :class:`shc.interfaces.mysql.MySQLConnector`
+* :class:`shc.interfaces.in_memory_data_logging.InMemoryDataLogVariable`
 
 
 
@@ -41,3 +42,11 @@ TODO
 .. autoclass:: LoggingWebUIView
     :show-inheritance:
     :members:
+
+``shc.interfaces.in_memory_data_logging`` Module Reference
+----------------------------------------------------------
+
+.. automodule:: shc.interfaces.in_memory_data_logging
+
+    .. autoclass:: InMemoryDataLogVariable
+        :show-inheritance:

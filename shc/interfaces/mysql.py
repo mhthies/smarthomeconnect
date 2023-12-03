@@ -18,6 +18,50 @@ logger = logging.getLogger(__name__)
 
 
 class MySQLConnector(ReadableStatusInterface):
+    """
+    Interface for using a MySQL (or MariaDB or Percona) server for logging and/or persistence
+
+    A database with the following schema needs to be created manually on the database server:
+
+    .. code-block:: mysql
+
+        CREATE TABLE log (
+            name VARCHAR(256) NOT NULL,
+            ts DATETIME(6) NOT NULL,
+            value_int INTEGER,
+            value_float FLOAT,
+            value_str LONGTEXT,
+            KEY name_ts(name, ts)
+        );
+
+        CREATE TABLE `persistence` (
+            name VARCHAR(256) NOT NULL,
+            ts DATETIME(6) NOT NULL,
+            value LONGTEXT,
+            UNIQUE KEY name(name)
+        );
+
+    For data logging of all value types that are derived from `int` (incl. `bool`), `float` or `str`, the respective
+    `value\_` column is used. This includes Enum types with a value base type in any of those. Otherwise, the value is
+    JSON-encoded, using SHC's generic JSON encoding/decoding system from the :mod:`shc.conversion`, and stored in the
+    `value_str` column.
+
+    Values of persistence variables are always JSON-encoded for storage.
+
+    All timestamps are stored in UTC.
+
+    The given constructor keyword arguments are passed to
+    `aiomysql.connect() <https://aiomysql.readthedocs.io/en/latest/connection.html#connection>`_ for configuring the
+    connection to the database server:
+
+    * ``host: str`` (default: ``"localhost"``)
+    * ``port: int`` (default: ``3306``)
+    * (optional) ``unix_socket: str``
+    * (optional) ``user: str``
+    * ``password: str`` (default: ``""``)
+    * ``db: str`` – name ot the database
+    * (optional) ``read_default_file`` – path to my.cnf file to read all these options from
+    """
     def __init__(self, **kwargs):
         super().__init__()
         # see https://aiomysql.readthedocs.io/en/latest/connection.html#connection for valid parameters
@@ -51,6 +95,19 @@ class MySQLConnector(ReadableStatusInterface):
         return InterfaceStatus(ServiceStatus.OK, "")
 
     def variable(self, type_: Type[T], name: str) -> "MySQLLogVariable[T]":
+        """
+        Creates a `connectable` object with the given value type for logging a time series of the given name in the
+        MySQL database
+
+        The returned object is :class:`writable <shc.base.Writable>`, :class:`readable <shc.base.Readable>` and a
+        (subscribable) :class:`DataLogVariable <shc.data_logging.DataLogVariable>`.
+
+        :param type_: The value type of the returned connectable variable object. It must provide a
+                      :ref:`default JSON serialization <datatypes.json>`.
+        :param name: The name of the time series in the database. Its length must not exceed the declared maximum length
+                     of the log.name column in the database schema (256 by default). If the same name is requested
+                     twice, the *same* connectable object instance will be returned.
+        """
         if name in self.variables:
             variable = self.variables[name]
             if variable.type is not type_:
@@ -63,6 +120,18 @@ class MySQLConnector(ReadableStatusInterface):
             return variable
 
     def persistence_variable(self, type_: Type[T], name: str) -> "MySQLPersistenceVariable[T]":
+        """
+        Creates a `connectable` object with the given value type for persisting (only) the current value of a connected
+        object under the given name in the MySQL database
+
+        The returned object is :class:`writable <shc.base.Writable>`, :class:`readable <shc.base.Readable>`.
+
+        :param type_: The value type of the returned connectable object. It must provide a
+                      :ref:`default JSON serialization <datatypes.json>`.
+        :param name: The *name* for identifying the value in the database. Its length must not exceed the declared
+                     maximum length of the log.persistence column in the database schema (256 by default). If the same
+                     name is requested twice, the *same* connectable object instance will be returned.
+        """
         if name in self.persistence_variables:
             variable = self.persistence_variables[name]
             if variable.type is not type_:
