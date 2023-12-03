@@ -8,9 +8,13 @@ Web UI Widgets for showing Logs
 
 .. autoclass:: LogListWidget
 
-.. autonamedtuple:: LogListDataSpec
+.. autoclass:: LogListDataSpec
+    :members:
+    :member-order:
 
 .. autoclass:: ChartWidget
 
-.. autonamedtuple:: ChartDataSpec
+.. autoclass:: ChartDataSpec
+    :members:
+    :member-order:
 

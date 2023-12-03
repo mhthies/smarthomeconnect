@@ -17,9 +17,9 @@ The time series data, incl. live updates, is fetched from interfaces, which impl
 :class:`shc.data_logging.DataLogVariable` interface.
 See :ref:`data_logging`.
 """
-
+from dataclasses import dataclass
 import datetime
-from typing import Iterable, Optional, Generic, Union, Callable, NamedTuple, Tuple, List
+from typing import Iterable, Optional, Generic, Union, Callable, Tuple, List
 
 from markupsafe import Markup
 
@@ -28,7 +28,8 @@ from ..base import T
 from .interface import WebPageItem, WebUIConnector, jinja_env
 
 
-class LogListDataSpec(NamedTuple, Generic[T]):
+@dataclass
+class LogListDataSpec(Generic[T]):
     """Specification of one data log source and the formatting of its datapoints within a :class:`LogListWidget`"""
     #: The `DataLogVariable` (i.e. logging database connector) to retrieve the recent datapoints and updates from
     variable: DataLogVariable[T]
@@ -117,7 +118,8 @@ class LogListWidget(WebPageItem):
         return self.connectors
 
 
-class ChartDataSpec(NamedTuple):
+@dataclass
+class ChartDataSpec:
     """Specification of one data log source and the formatting of its datapoints within a :class:`ChartWidget`"""
     #: The `DataLogVariable` (i.e. logging database connector) to retrieve the recent datapoints and updates from
     variable: DataLogVariable
