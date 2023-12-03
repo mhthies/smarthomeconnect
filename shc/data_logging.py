@@ -455,7 +455,7 @@ class LoggingWebUIView(LiveDataLogView[T], WebUIConnector, Generic[T]):
                                      cls=SHCJsonEncoder))
 
 
-def aggregate(data: List[Tuple[datetime.datetime, T]], type_: Type[T], start_time: datetime.datetime,
+def aggregate(data: List[Tuple[datetime.datetime, T]], type_: Type[T], start_time: datetime.datetime,  # noqa: C901
               end_time: datetime.datetime, aggregation_method: AggregationMethod,
               aggregation_interval: datetime.timedelta) -> List[Tuple[datetime.datetime, float]]:
     """
