@@ -21,7 +21,7 @@ def parse_mysql_url(url: str) -> Dict[str, Any]:
     except ValueError as e:
         print(f"Could not parse MySQL connection URL: {e}")
     if parts.scheme != "mysql":
-        print(f"Could not parse MySQL connection URL: Schema is not 'mysql'")
+        print("Could not parse MySQL connection URL: Schema is not 'mysql'")
     result: Dict[str, Any] = {'user': parts.username, 'password': parts.password, 'db': parts.path.lstrip("/")}
     if parts.netloc.startswith("/"):
         result["unix_socket"] = parts.hostname
@@ -37,7 +37,7 @@ MYSQL_URL = os.getenv("SHC_TEST_MSQL_URL")
 if MYSQL_URL is not None:
     MYSQL_ARGS = parse_mysql_url(MYSQL_URL)
     # pymysql uses slightly different args than aiomysql
-    PYMYSQL_ARGS = dict(MYSQL_ARGS, database= MYSQL_ARGS["db"])
+    PYMYSQL_ARGS = dict(MYSQL_ARGS, database=MYSQL_ARGS["db"])
     del PYMYSQL_ARGS["db"]
 else:
     MYSQL_ARGS = {}
@@ -57,7 +57,8 @@ class MySQLTest(AbstractLoggingTest):
     do_subscribe_tests = True
 
     def setUp(self) -> None:
-        self._run_mysql_sync(["""
+        self._run_mysql_sync([
+            """
             CREATE TABLE `log` (
                 name VARCHAR(256) NOT NULL,
                 ts DATETIME(6) NOT NULL,

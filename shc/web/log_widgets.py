@@ -27,6 +27,7 @@ from ..data_logging import DataLogVariable, LoggingWebUIView, AggregationMethod
 from ..base import T
 from .interface import WebPageItem, WebUIConnector, jinja_env
 
+
 class LogListDataSpec(NamedTuple, Generic[T]):
     """Specification of one data log source and the formatting of its datapoints within a :class:`LogListWidget`"""
     #: The `DataLogVariable` (i.e. logging database connector) to retrieve the recent datapoints and updates from

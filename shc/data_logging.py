@@ -176,7 +176,7 @@ class WritableDataLogVariable(DataLogVariable[T], Writable[T], Generic[T], metac
     :meth:`retrieve_log`, as usual for `DataLogVariables`. In addition, derived classes shall allow to set override
     `external_updates` attribute for each instance (via an __init__ parameter) to disable push updates for data logs
     which are updated externally.
-    
+
     :ivar external_updates: Specifies, whether SHC-external updates to the data log are expected. This effectively
         will make this class unsubscribable (because we cannot guarantee to reproduce a consistent log through push
         updates), so attached `LiveDataLogView` will fall back to periodic polling of the log.

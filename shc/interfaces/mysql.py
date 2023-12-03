@@ -42,7 +42,7 @@ class MySQLConnector(ReadableStatusInterface):
         );
 
     For data logging of all value types that are derived from `int` (incl. `bool`), `float` or `str`, the respective
-    `value\_` column is used. This includes Enum types with a value base type in any of those. Otherwise, the value is
+    `value\\_` column is used. This includes Enum types with a value base type in any of those. Otherwise, the value is
     JSON-encoded, using SHC's generic JSON encoding/decoding system from the :mod:`shc.conversion`, and stored in the
     `value_str` column.
 
@@ -142,7 +142,6 @@ class MySQLConnector(ReadableStatusInterface):
             variable = MySQLPersistenceVariable(self, type_, name)
             self.persistence_variables[name] = variable
             return variable
-
 
     def __repr__(self) -> str:
         return "{}({})".format(self.__class__.__name__, {k: v for k, v in self.connect_args.items()

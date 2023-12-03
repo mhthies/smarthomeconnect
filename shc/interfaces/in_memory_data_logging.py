@@ -17,7 +17,7 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
     restart of the SHC application. It's also fine for demonstration purposes (see ui_logging_showcase.py in the
     examples/ directory).
 
-    :param type\_: Value type of this `connectable` object (and as a `DataLogVariable`)
+    :param type\\_: Value type of this `connectable` object (and as a `DataLogVariable`)
     :param keep: timespan for which to keep the values. Older values will be deleted upon the next `write` to the
                  object.
     """

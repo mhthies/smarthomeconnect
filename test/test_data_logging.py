@@ -5,7 +5,7 @@ from contextlib import suppress
 from typing import List, Tuple, Generic, Type, Iterable, Any, Sequence, Union, Dict, Optional
 
 import shc.data_logging
-from shc.base import T, UninitializedError, Readable, Writable
+from shc.base import T, UninitializedError, Readable
 from ._helper import async_test, ClockMock
 
 time_series_1 = [
@@ -465,6 +465,7 @@ class LiveDataLogViewTest(unittest.TestCase):
         view = ExampleLiveDataLogView(log_var,
                                       interval=datetime.timedelta(seconds=30),
                                       update_interval=datetime.timedelta(seconds=2))
+
         async def pusher():
             for t, v in time_series_1:
                 await asyncio.sleep(max(0.0, (t - datetime.datetime.now().astimezone()).total_seconds()))
@@ -491,6 +492,7 @@ class LiveDataLogViewTest(unittest.TestCase):
         view = ExampleLiveDataLogView(log_var,
                                       interval=datetime.timedelta(seconds=30),
                                       update_interval=datetime.timedelta(seconds=10))
+
         async def pusher():
             for t, v in time_series_1:
                 await asyncio.sleep(max(0.0, (t - datetime.datetime.now().astimezone()).total_seconds()))
