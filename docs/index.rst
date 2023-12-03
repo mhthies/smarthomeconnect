@@ -23,7 +23,7 @@ Its purpose is to connect "smart home" devices via different communication proto
     timer
     supervisor
     web
-    log
+    data_logging
     interfaces
     misc
 

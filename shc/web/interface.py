@@ -766,7 +766,8 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
     registered :class:`WebPage` by their Python object id at startup. The message from the websocket is expected to have
     an `id` field which is used for the lookup.
     """
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.subscribed_websockets: Set[aiohttp.web.WebSocketResponse] = set()
 
     def from_websocket(self, value: Any, ws: aiohttp.web.WebSocketResponse) -> None:
@@ -795,7 +796,7 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
 
     async def _websocket_publish(self, value: Any) -> None:
         """
-        Send a value to the to all websocket clients subscribed to this `WebUIConnector` object
+        Send a value to all websocket clients subscribed to this `WebUIConnector` object
 
         This will trigger a call to the `update()` method of the subscribed JavaScript Widget objects.
 

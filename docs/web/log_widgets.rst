@@ -6,5 +6,15 @@ Web UI Widgets for showing Logs
 
 .. automodule:: shc.web.log_widgets
 
-    TODO
+.. autoclass:: LogListWidget
+
+.. autoclass:: LogListDataSpec
+    :members:
+    :member-order:
+
+.. autoclass:: ChartWidget
+
+.. autoclass:: ChartDataSpec
+    :members:
+    :member-order:
 

@@ -11,14 +11,14 @@
 import datetime
 import random
 
-import shc.log.in_memory
+from shc.interfaces.in_memory_data_logging import InMemoryDataLogVariable
 import shc.web.log_widgets
-from shc.log import AggregationMethod
+from shc.data_logging import AggregationMethod
 from shc.web.log_widgets import ChartDataSpec, LogListDataSpec
 from shc.web.widgets import icon
 
-random_float_log = shc.log.in_memory.InMemoryPersistenceVariable(float, keep=datetime.timedelta(minutes=10))
-random_bool_log = shc.log.in_memory.InMemoryPersistenceVariable(bool, keep=datetime.timedelta(minutes=10))
+random_float_log = InMemoryDataLogVariable(float, keep=datetime.timedelta(minutes=10))
+random_bool_log = InMemoryDataLogVariable(bool, keep=datetime.timedelta(minutes=10))
 
 # Some hacks to prefill logs with random data
 ts = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=7.5)
@@ -53,7 +53,7 @@ index_page = web_server.page('index', 'Home', menu_entry=True, menu_icon='home')
 # Log list widget                                                                           #
 #############################################################################################
 index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes=5), [
-    LogListDataSpec(random_bool_log, format=lambda x: "on" if x else "off"),
+    LogListDataSpec(random_bool_log, format=lambda x: "on" if x else "off", color="teal"),
     LogListDataSpec(random_float_log),
 ]))
 
