@@ -315,13 +315,13 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         if type_ in (bool, int, float, str) or issubclass(type_, bool):
             return lambda x: x
         elif issubclass(type_, int):
-            return lambda value: int(value)
+            return lambda value: int(value)  # type: ignore  # type_ is equivalent to T -> int(a: int) is valid
         elif issubclass(type_, float):
-            return lambda value: float(value)
+            return lambda value: float(value)  # type: ignore  # type_ is equivalent to T -> float(a: float) is valid
         elif issubclass(type_, str):
             return lambda value: str(value)
         elif issubclass(type_, enum.Enum):
-            return lambda value: value.value
+            return lambda value: value.value  # type: ignore  # type_ is equivalent to T -> T is subclass of enum
         else:
             return lambda value: json.dumps(value, cls=SHCJsonEncoder)
 
@@ -330,7 +330,7 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         if type_ in (bool, int, float, str):
             return lambda x: x
         elif issubclass(type_, (bool, int, float, str, enum.Enum)):
-            return lambda value: type_(value)
+            return lambda value: type_(value)  # type: ignore  # type_ is equivalent to T -> type_() is an instance of T
         else:
             return lambda value: from_json(type_, json.loads(value))
 

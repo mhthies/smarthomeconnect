@@ -2,7 +2,7 @@ import datetime
 import asyncio
 import unittest
 import urllib.parse
-from typing import Tuple, Type, Iterable, Dict, NamedTuple, Sequence
+from typing import Tuple, Type, Iterable, Dict, NamedTuple, Sequence, Any
 import os
 
 import aiomysql
@@ -15,14 +15,14 @@ from .._helper import async_test
 from ..test_data_logging import AbstractLoggingTest
 
 
-def parse_mysql_url(url: str) -> Dict[str, any]:
+def parse_mysql_url(url: str) -> Dict[str, Any]:
     try:
         parts = urllib.parse.urlparse(url)
     except ValueError as e:
         print(f"Could not parse MySQL connection URL: {e}")
     if parts.scheme != "mysql":
         print(f"Could not parse MySQL connection URL: Schema is not 'mysql'")
-    result = {'user': parts.username, 'password': parts.password, 'db': parts.path.lstrip("/")}
+    result: Dict[str, Any] = {'user': parts.username, 'password': parts.password, 'db': parts.path.lstrip("/")}
     if parts.netloc.startswith("/"):
         result["unix_socket"] = parts.hostname
     else:
@@ -40,8 +40,8 @@ if MYSQL_URL is not None:
     PYMYSQL_ARGS = dict(MYSQL_ARGS, database= MYSQL_ARGS["db"])
     del PYMYSQL_ARGS["db"]
 else:
-    MYSQL_ARGS = None
-    PYMYSQL_ARGS = None
+    MYSQL_ARGS = {}
+    PYMYSQL_ARGS = {}
 
 
 class ExampleTuple(NamedTuple):
@@ -50,8 +50,8 @@ class ExampleTuple(NamedTuple):
     c: str
 
 
-@unittest.skipIf(MYSQL_ARGS is None, "No MySQL database connection given. Must be specified as URL "
-                                     "mysql://user:pass@host/database in env variable SHC_TEST_MSQL_URL")
+@unittest.skipIf(not MYSQL_ARGS, "No MySQL database connection given. Must be specified as URL "
+                                 "mysql://user:pass@host/database in env variable SHC_TEST_MSQL_URL")
 class MySQLTest(AbstractLoggingTest):
     do_write_tests = True
     do_subscribe_tests = True
@@ -114,11 +114,12 @@ class MySQLTest(AbstractLoggingTest):
 
     @async_test
     async def test_persistence_variables(self) -> None:
-        for variable_name, value_list in [
+        data: Sequence[Tuple[str, Sequence[Any]]] = [
             ("test_int", [5, 7]),
             ("test_string", ["foo", "bar"]),
             ("test_tuple", [ExampleTuple(42, 3.14, "foo"), ExampleTuple(56, 0.414, "[{bar🙂😕}]")]),
-        ]:
+        ]
+        for variable_name, value_list in data:
             with self.subTest(f"variable_name={variable_name}, type={type(value_list[0])}"):
                 variable = self.interface.persistence_variable(type(value_list[0]), variable_name)
                 for value in value_list:
