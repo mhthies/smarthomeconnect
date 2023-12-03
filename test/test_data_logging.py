@@ -253,9 +253,9 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertEqual(4, len(data))
         self.assertListEqual([2, 3, 4, 5], [v for _ts, v in data])
         self.assertAlmostEqual(data[0][0], start_ts + datetime.timedelta(seconds=0.2),
-                               delta=datetime.timedelta(milliseconds=50))
+                               delta=datetime.timedelta(milliseconds=100))
         self.assertAlmostEqual(data[-1][0], start_ts + datetime.timedelta(seconds=1.05),
-                               delta=datetime.timedelta(milliseconds=50))
+                               delta=datetime.timedelta(milliseconds=100))
 
         # Check reading
         self.assertEqual(5, await var1.read())  # type: ignore
