@@ -22,7 +22,7 @@ jobs:
     - name: Install APT depenencies
       run: |
         sudo apt-get update
-        sudo apt-get -y install mosquitto libpulse0 pulseaudio knxd knxd-tools
+        sudo apt-get -y install mosquitto libpulse0 pulseaudio knxd knxd-tools mariadb-server mariadb-client
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
@@ -32,9 +32,19 @@ jobs:
       run: |
         npm install
         npm run build
+    - name: Setup MySQL test database
+      run: |
+        sudo mysql << "__EOF__"
+          CREATE DATABASE `shc_test`;
+          CREATE USER 'shc_test'@'localhost' IDENTIFIED BY 'shc_test';
+          GRANT ALL PRIVILEGES ON `shc_test`.* TO  'shc_test'@'localhost';
+          FLUSH PRIVILEGES;
+        __EOF__
     - name: Test with coverage + unittest
       run: |
         coverage run --source=shc,example -m unittest -v
+      env:
+        SHC_TEST_MSQL_URL: mysql://shc_test:shc_test@localhost/shc_test
     - name: Report test coverage
       if: ${{ always() }}
       run: |
