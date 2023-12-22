@@ -4,6 +4,8 @@ import json
 import math
 import shutil
 import socket
+import subprocess
+import sys
 import time
 import unittest
 import unittest.mock
@@ -176,6 +178,36 @@ class MonitoringTest(unittest.TestCase):
                 self.assertEqual(0, data['status'])
 
     # TODO test HTML/UI monitoring page
+
+    def test_monitoring_nagios_plugin(self) -> None:
+        self.server.configure_monitoring([
+            (self.interface1, "Iface 1", shc.supervisor.ServiceCriticality.INFO),
+            (self.interface2, "", None),
+        ], shc.supervisor.ServiceCriticality.CRITICAL)
+
+        self.server_runner.start()
+
+        self.interface1.status = InterfaceStatus(ServiceStatus.CRITICAL, "Something is wrong")
+        self.interface3.status = InterfaceStatus(ServiceStatus.WARNING, "Be warned")
+
+        res = subprocess.run([sys.executable, Path(shc.__file__).parent / "util" / "check_shc.py",
+                              "-u", "http://localhost:42080"], stdout=subprocess.PIPE)
+        self.assertEqual(1, res.returncode)
+
+        res = subprocess.run([sys.executable, Path(shc.__file__).parent / "util" / "check_shc.py",
+                              "-u", "http://localhost:42081"], stdout=subprocess.PIPE)
+        self.assertEqual(3, res.returncode)
+        self.assertIn("Failed to connect to SHC", res.stdout.decode())
+
+        res = subprocess.run([sys.executable, Path(shc.__file__).parent / "util" / "check_shc.py",
+                              "-u", "http://localhost:42080", "-i", "Iface 1"], stdout=subprocess.PIPE)
+        self.assertEqual(2, res.returncode)
+        self.assertIn("Something is wrong", res.stdout.decode())
+
+        res = subprocess.run([sys.executable, Path(shc.__file__).parent / "util" / "check_shc.py",
+                              "-u", "http://localhost:42080", "-i", "Iface NotExist"], stdout=subprocess.PIPE)
+        self.assertEqual(3, res.returncode)
+        self.assertIn("is not present", res.stdout.decode())
 
 
 class WebWidgetsTest(AbstractWebTest):
