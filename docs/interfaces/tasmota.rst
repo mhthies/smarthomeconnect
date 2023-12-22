@@ -15,6 +15,7 @@ Tasmota Interface
         .. automethod:: color_rgbw
         .. automethod:: color_rgbcct
         .. automethod:: ir_receiver
+        .. automethod:: energy
         .. automethod:: energy_power
         .. automethod:: energy_voltage
         .. automethod:: energy_current
@@ -23,4 +24,5 @@ Tasmota Interface
         .. automethod:: energy_reactive_power
         .. automethod:: energy_apparent_power
 
+    .. autonamedtuple:: TasmotaEnergyMeasurement
     .. autonamedtuple:: TasmotaTelemetry
