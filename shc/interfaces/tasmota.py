@@ -16,6 +16,7 @@ import functools
 import json
 import logging
 import re
+import warnings
 from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple, cast, Optional, NamedTuple
 
 from paho.mqtt.client import MQTTMessage
@@ -297,49 +298,91 @@ class TasmotaInterface(AbstractInterface):
         """
         Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured power consumption in
         watts from the Tasmota device, if available.
+
+        .. deprecated:: 0.8.0
+           The TasmotaInterface.energy_power() method is deprecated. Use :meth:`energy` with a connected
+            :class:`shc.misc.UpdateExchange` instead.
         """
+        warnings.warn("The TasmotaInterface.energy_power() method is deprecated. Use energy() instead.",
+                      DeprecationWarning)
         return self._get_or_create_connector(TasmotaEnergyPowerConnector)
 
     def energy_voltage(self) -> "TasmotaEnergyVoltageConnector":
         """
         Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured mains voltage in
         volts from the Tasmota device, if available.
+
+        .. deprecated:: 0.8.0
+           The TasmotaInterface.energy_voltage() method is deprecated. Use :meth:`energy` with a connected
+            :class:`shc.misc.UpdateExchange` instead.
         """
+        warnings.warn("The TasmotaInterface.energy_voltage() method is deprecated. Use energy() instead.",
+                      DeprecationWarning)
         return self._get_or_create_connector(TasmotaEnergyVoltageConnector)
 
     def energy_current(self) -> "TasmotaEnergyCurrentConnector":
         """
         Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured current flow in
         amperes from the Tasmota device, if available.
+
+        .. deprecated:: 0.8.0
+           The TasmotaInterface.energy_current() method is deprecated. Use :meth:`energy` with a connected
+            :class:`shc.misc.UpdateExchange` instead.
         """
+        warnings.warn("The TasmotaInterface.energy_current() method is deprecated. Use energy() instead.",
+                      DeprecationWarning)
         return self._get_or_create_connector(TasmotaEnergyCurrentConnector)
 
     def energy_total(self) -> "TasmotaEnergyTotalConnector":
         """
         Returns a *subscribable* :class:`float`-typed Connector, publishing the total energy consumption measured by the
         Tasmota device since its last reboot in kWh.
+
+        .. deprecated:: 0.8.0
+           The TasmotaInterface.energy_total() method is deprecated. Use :meth:`energy` with a connected
+            :class:`shc.misc.UpdateExchange` instead.
         """
+        warnings.warn("The TasmotaInterface.energy_total() method is deprecated. Use energy() instead.",
+                      DeprecationWarning)
         return self._get_or_create_connector(TasmotaEnergyTotalConnector)
 
     def energy_power_factor(self) -> "TasmotaEnergyFactorConnector":
         """
         Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured power factor from the
         Tasmota device.
+
+        .. deprecated:: 0.8.0
+           The TasmotaInterface.energy_power_factor() method is deprecated. Use :meth:`energy` with a connected
+            :class:`shc.misc.UpdateExchange` instead.
         """
+        warnings.warn("The TasmotaInterface.energy_power_factor() method is deprecated. Use energy() instead.",
+                      DeprecationWarning)
         return self._get_or_create_connector(TasmotaEnergyFactorConnector)
 
     def energy_apparent_power(self) -> "TasmotaEnergyApparentPowerConnector":
         """
         Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured apparent power in VA
         from the Tasmota device.
+
+        .. deprecated:: 0.8.0
+           The TasmotaInterface.energy_apparent_power() method is deprecated. Use :meth:`energy` with a connected
+            :class:`shc.misc.UpdateExchange` instead.
         """
+        warnings.warn("The TasmotaInterface.energy_apparent_power() method is deprecated. Use energy() instead.",
+                      DeprecationWarning)
         return self._get_or_create_connector(TasmotaEnergyApparentPowerConnector)
 
     def energy_reactive_power(self) -> "TasmotaEnergyReactivePowerConnector":
         """
         Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured reactive power in VAr
         from the Tasmota device.
+
+        .. deprecated:: 0.8.0
+           The TasmotaInterface.energy_reactive_power() method is deprecated. Use :meth:`energy` with a connected
+            :class:`shc.misc.UpdateExchange` instead.
         """
+        warnings.warn("The TasmotaInterface.energy_reactive_power() method is deprecated. Use energy() instead.",
+                      DeprecationWarning)
         return self._get_or_create_connector(TasmotaEnergyReactivePowerConnector)
 
     def _get_or_create_connector(self, type_: Type[ConnType]) -> ConnType:
