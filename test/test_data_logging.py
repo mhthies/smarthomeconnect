@@ -231,11 +231,11 @@ class AbstractLoggingTest(unittest.TestCase):
         var1 = await self._create_log_variable_with_data(int, [])
         start_ts = datetime.datetime.now().astimezone()
         await var1.write(1, [self])  # type: ignore
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.3)
         await var1.write(2, [self])  # type: ignore
         await asyncio.sleep(0.1)
         await var1.write(3, [self])  # type: ignore
-        await asyncio.sleep(0.7)
+        await asyncio.sleep(0.6)
         await var1.write(4, [self])  # type: ignore
         await asyncio.sleep(0.05)
         await var1.write(5, [self])  # type: ignore
@@ -253,9 +253,9 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertEqual(4, len(data))
         self.assertListEqual([2, 3, 4, 5], [v for _ts, v in data])
         self.assertAlmostEqual(data[0][0], start_ts + datetime.timedelta(seconds=0.2),
-                               delta=datetime.timedelta(milliseconds=100))
+                               delta=datetime.timedelta(milliseconds=200))
         self.assertAlmostEqual(data[-1][0], start_ts + datetime.timedelta(seconds=1.05),
-                               delta=datetime.timedelta(milliseconds=100))
+                               delta=datetime.timedelta(milliseconds=200))
 
         # Check reading
         self.assertEqual(5, await var1.read())  # type: ignore
