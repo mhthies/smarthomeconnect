@@ -284,6 +284,15 @@ class TasmotaInterface(AbstractInterface):
         """
         return self._get_or_create_connector(TasmotaIRReceiverConnector)
 
+    def energy(self) -> "TasmotaEnergyConnector":
+        """
+        Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured power consumption
+        values in from the Tasmota device.
+
+        Unavailable power/energy values are set to NaN.
+        """
+        return self._get_or_create_connector(TasmotaEnergyConnector)
+
     def energy_power(self) -> "TasmotaEnergyPowerConnector":
         """
         Returns a *subscribable* :class:`float`-typed Connector, publishing the currently measured power consumption in
@@ -595,6 +604,52 @@ class TasmotaEnergyFactorConnector(AbstractTasmotaConnector[float]):
     def _decode(self, value: JSONType) -> float:
         assert isinstance(value, dict)
         return float(value['Factor'])
+
+
+class TasmotaEnergyMeasurement(NamedTuple):
+    #: the currently measured power consumption in W
+    power: float
+    #: the currently measured mains voltage in V
+    voltage: float
+    #: the currently measured current flow in A
+    current: float
+    #: the currently measured apparent power in VA
+    apparent_power: float
+    #: the currently measured reactive power in VAr
+    reactive_power: float
+    #: the currently measured power factor
+    power_factor: float
+    #: the currently measured mains frequency in Hz
+    frequency: float
+    #: the total energy consumption in kWh
+    total_energy: float
+    #: today's energy consumption in kWh
+    total_energy_today: float
+    #: yesterday's energy consumption in kWh
+    total_energy_yesterday: float
+
+
+class TasmotaEnergyConnector(AbstractTasmotaConnector[TasmotaEnergyMeasurement]):
+    type = TasmotaEnergyMeasurement
+    NAN = float('NaN')
+
+    def __init__(self, _interface: TasmotaInterface):
+        super().__init__("ENERGY")
+
+    def _decode(self, value: JSONType) -> TasmotaEnergyMeasurement:
+        assert isinstance(value, dict)
+        return TasmotaEnergyMeasurement(
+            float(value.get('Power', self.NAN)),
+            float(value.get('Voltage', self.NAN)),
+            float(value.get('Current', self.NAN)),
+            float(value.get('ApparentPower', self.NAN)),
+            float(value.get('ReactivePower', self.NAN)),
+            float(value.get('Factor', self.NAN)),
+            float(value.get('Frequency', self.NAN)),
+            float(value.get('Total', self.NAN)),
+            float(value.get('Today', self.NAN)),
+            float(value.get('Yesterday', self.NAN)),
+        )
 
 
 class TasmotaOnlineConnector(Readable[bool], Subscribable[bool]):
