@@ -87,10 +87,21 @@ def exit_with_report(status: "ServiceStatus", message: str = "", long_message: s
 
 
 def get_arg_parser() -> argparse.ArgumentParser:
-    # TODO add help strings
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("-u", "--url", nargs=1, required=True)
-    arg_parser.add_argument("-i", "--interface", nargs=1)
+    arg_parser = argparse.ArgumentParser(description="""
+    Nagios-compatible monitoring plugin for monitoring an SHC server via the monitoring endpoint of the web interface
+    
+    By default, the script checks the HTTP reachability of the server and the overall status reported by the server
+    (see SHC documentation about "Monitoring via HTTP" for more details). If the server is not reachable, the status
+    is reported as UNKNOWN (exit code 3). Otherwise, the status from the server is reported as is.
+    
+    If the --interface option is given, the status of the specific SHC interface is reported instead, or UNKNOWN if the
+    server is not reachable or the interface does not exist.
+    """)
+    arg_parser.add_argument("-u", "--url", nargs=1, required=True, help="Base URL of the SHC web server")
+    arg_parser.add_argument("-i", "--interface", nargs=1,
+                            help="The display_name of a specific SHC interface in the monitoring data of the SHC "
+                                 "server. If given, the status of this interface is evaluated, instead of the overall "
+                                 "server state.")
     return arg_parser
 
 
