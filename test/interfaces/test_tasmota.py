@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import shutil
 import subprocess
 import time
@@ -230,32 +231,14 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
     @async_test
     async def test_sensor_power(self) -> None:
-        conn_power = self.interface.energy_power()
-        target_power = ExampleWritable(float).connect(conn_power)
-        conn_voltage = self.interface.energy_voltage()
-        target_voltage = ExampleWritable(float).connect(conn_voltage)
-        conn_current = self.interface.energy_current()
-        target_current = ExampleWritable(float).connect(conn_current)
-        conn_factor = self.interface.energy_power_factor()
-        target_factor = ExampleWritable(float).connect(conn_factor)
-        conn_apparent_power = self.interface.energy_apparent_power()
-        target_apparent_power = ExampleWritable(float).connect(conn_apparent_power)
-        conn_reactive_power = self.interface.energy_reactive_power()
-        target_reactive_power = ExampleWritable(float).connect(conn_reactive_power)
-        conn_total = self.interface.energy_total()
-        target_total = ExampleWritable(float).connect(conn_total)
+        conn_energy = self.interface.energy()
+        target_energy = ExampleWritable(shc.interfaces.tasmota.TasmotaEnergyMeasurement).connect(conn_energy)
 
         self.client_runner.start()
         self.client_runner.run_coro(self.interface.start())
         await asyncio.sleep(0.25)
 
-        target_power._write.assert_not_called()
-        target_voltage._write.assert_not_called()
-        target_current._write.assert_not_called()
-        target_factor._write.assert_not_called()
-        target_apparent_power._write.assert_not_called()
-        target_reactive_power._write.assert_not_called()
-        target_total._write.assert_not_called()
+        target_energy._write.assert_not_called()
 
         async with asyncio_mqtt.Client("localhost", 42883, client_id="some-other-client") as c:
             await c.publish("tele/test-device/SENSOR",
@@ -267,13 +250,23 @@ class TasmotaInterfaceTest(unittest.TestCase):
                             .encode('ascii'))
 
         await asyncio.sleep(0.25)
-        target_power._write.assert_called_once_with(15.0, [conn_power])
-        target_voltage._write.assert_called_once_with(227.0, [conn_voltage])
-        target_current._write.assert_called_once_with(0.114, [conn_current])
-        target_factor._write.assert_called_once_with(0.56, [conn_factor])
-        target_apparent_power._write.assert_called_once_with(26.0, [conn_apparent_power])
-        target_reactive_power._write.assert_called_once_with(22.0, [conn_reactive_power])
-        target_total._write.assert_called_once_with(0.012, [conn_total])
+        expected = shc.interfaces.tasmota.TasmotaEnergyMeasurement(
+            power=15.0,
+            voltage=227.0,
+            current=0.114,
+            power_factor=0.56,
+            apparent_power=26.0,
+            reactive_power=22.0,
+            total_energy=0.012,
+            frequency=float('NaN'),
+            total_energy_today=0.012,
+            total_energy_yesterday=0.0)
+        target_energy._write.assert_called_once_with(unittest.mock.ANY, [conn_energy])
+        self.assertIsInstance(target_energy._write.call_args[0][0], shc.interfaces.tasmota.TasmotaEnergyMeasurement)
+        for a, (name, e) in zip(target_energy._write.call_args[0][0], expected._asdict().items()):
+            if math.isnan(a) and math.isnan(e):
+                continue
+            self.assertAlmostEqual(e, a, msg=f"Field {name} is not equal")
 
 
 BASE_STATUS11: Dict[str, Dict[str, Any]] = {
