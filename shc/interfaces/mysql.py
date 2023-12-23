@@ -327,8 +327,8 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
     @staticmethod
     def _get_from_mysql_converter(type_: Type[T]) -> Callable[[Any], T]:
         if type_ is bool:
-            return lambda x: bool(x)
-        elif type_ in (bool, int, float, str):
+            return lambda x: bool(x)  # type: ignore  # type_ is equivalent to T -> type_ is bool here
+        elif type_ in (int, float, str):
             return lambda x: x
         elif issubclass(type_, (bool, int, float, str, enum.Enum)):
             return lambda value: type_(value)  # type: ignore  # type_ is equivalent to T -> type_() is an instance of T
