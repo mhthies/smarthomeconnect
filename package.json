@@ -4,7 +4,7 @@
   },
   "dependencies": {
     "@jaames/iro": "^5.5.1",
-    "chart.js": "^3.4.1",
+    "chart.js": "^4.4.0",
     "fomantic-ui-css": "^2.9"
   },
   "scripts": {
