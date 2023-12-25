@@ -71,13 +71,13 @@ index_page.add_item(shc.web.log_widgets.LogListWidget(datetime.timedelta(minutes
 index_page.new_segment()
 
 index_page.add_item(shc.web.log_widgets.ChartWidget(datetime.timedelta(minutes=5), [
-    ChartDataSpec(random_float_log, "random float")
+    ChartDataSpec(random_float_log, "random float", scale_factor=10)
 ]))
 
 index_page.add_item(shc.web.log_widgets.ChartWidget(datetime.timedelta(minutes=5), [
-    ChartDataSpec(random_float_log, "avg", aggregation=AggregationMethod.AVERAGE),
-    ChartDataSpec(random_float_log, "min", aggregation=AggregationMethod.MINIMUM),
-    ChartDataSpec(random_float_log, "max", aggregation=AggregationMethod.MAXIMUM),
+    ChartDataSpec(random_float_log, "avg", aggregation=AggregationMethod.AVERAGE, unit_symbol="°C"),
+    ChartDataSpec(random_float_log, "min", aggregation=AggregationMethod.MINIMUM, unit_symbol="°C"),
+    ChartDataSpec(random_float_log, "max", aggregation=AggregationMethod.MAXIMUM, unit_symbol="°C"),
 ]))
 
 

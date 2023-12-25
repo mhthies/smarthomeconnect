@@ -130,6 +130,10 @@ class ChartDataSpec:
     aggregation: Optional[AggregationMethod] = None
     #: If `aggregation` is not None: The time span/period of the single aggregation intervals and aggregated datapoints
     aggregation_interval: Optional[datetime.timedelta] = None
+    #: Multiply all logged values by this factor before showing in the chart (e.g. for unit conversion purposes)
+    scale_factor: float = 1.0
+    #: Unit symbol to be shown after the value in the Chart tooltip
+    unit_symbol: str = ""
 
 
 class ChartWidget(WebPageItem):
@@ -206,12 +210,15 @@ class ChartWidget(WebPageItem):
                 aggregation_interval = interval / 10
             is_aggregated = spec.aggregation is not None
             connector = LoggingWebUIView(spec.variable, interval, spec.aggregation,
-                                         aggregation_interval, align_to=self.align_ticks_to, include_previous=True)
+                                         aggregation_interval, align_to=self.align_ticks_to,
+                                         converter=None if spec.scale_factor == 1.0 else lambda x: x*spec.scale_factor,
+                                         include_previous=True)
             self.connectors.append(connector)
             self.row_specs.append({'id': id(connector),
                                    'is_aggregated': is_aggregated,
                                    'color': spec.color if spec.color is not None else self.COLORS[i % len(self.COLORS)],
-                                   'label': spec.label})
+                                   'label': spec.label,
+                                   'unit_symbol': spec.unit_symbol})
 
     async def render(self) -> str:
         return await jinja_env.get_template('log/chart.htm').render_async(
