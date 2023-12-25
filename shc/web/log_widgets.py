@@ -215,10 +215,12 @@ class ChartWidget(WebPageItem):
                                          include_previous=True)
             self.connectors.append(connector)
             self.row_specs.append({'id': id(connector),
-                                   'is_aggregated': is_aggregated,
+                                   'stepped_graph': is_aggregated,
+                                   'show_points': is_aggregated,
                                    'color': spec.color if spec.color is not None else self.COLORS[i % len(self.COLORS)],
                                    'label': spec.label,
-                                   'unit_symbol': spec.unit_symbol})
+                                   'unit_symbol': spec.unit_symbol,
+                                   'extend_graph_to_now': not is_aggregated})
 
     async def render(self) -> str:
         return await jinja_env.get_template('log/chart.htm').render_async(

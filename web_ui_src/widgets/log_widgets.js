@@ -160,12 +160,12 @@ function LineChartWidget(domElement, _writeValue) {
             borderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, .5)`,
             pointBackgroundColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
             pointBorderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
-            stepped: spec.is_aggregated ? undefined : 'before',
-            pointRadius: spec.is_aggregated ? 3 : 0,
+            stepped: spec.stepped_graph ? undefined : 'before',
+            pointRadius: spec.show_points ? 3 : 0,
             pointHitRadius: 3,
             tension: 0.2,
         });
-        dataMap.set(spec.id, data);
+        dataMap.set(spec.id, [data, spec]);
     }
 
     // Initialize chart
@@ -231,6 +231,12 @@ function LineChartWidget(domElement, _writeValue) {
         }
         theChart.data.labels = ticks;
 
+        for ([i, dataset] of theChart.data.datasets.entries()) {
+            if (seriesSpec[i].extend_graph_to_now && dataset.data.length > 0) {
+                dataset.data[dataset.data.length - 1].x = new Date(new Date().getTime() + 10000);
+            }
+        }
+
         theChart.update();
     }
 
@@ -272,7 +278,7 @@ function LineChartWidget(domElement, _writeValue) {
     }, Math.max(interval / 500, 5000));
 
     this.update = function(value, for_id) {
-        let data = dataMap.get(for_id);
+        let [data, spec] = dataMap.get(for_id);
 
         // Full initialization after (re)connect
         if (value['init']) {
@@ -283,9 +289,18 @@ function LineChartWidget(domElement, _writeValue) {
                     y: row[1]
                 });
             }
+            if (spec.extend_graph_to_now && data.length > 0) {
+                data.push({
+                    x: new Date(new Date().getTime() + 10000),
+                    y: data[data.length - 1].y
+                });
+            }
 
         // Incremental update
         } else {
+            if (data.length && spec.extend_graph_to_now) {
+                data.pop();
+            }
             let lastEntry = data.length ? data[data.length - 1] : null;
             for (let row of value['data']) {
                 let timestamp = Date.parse(row[0]);
@@ -304,6 +319,12 @@ function LineChartWidget(domElement, _writeValue) {
                 } else {
                     console.warn(`chart update ${row} ignored, since it is older than the current last row`);
                 }
+            }
+            if (spec.extend_graph_to_now && data.length > 0) {
+                data.push({
+                    x: new Date(new Date().getTime() + 10000),
+                    y: data[data.length - 1].y
+                });
             }
         }
         shiftAndUpdate();
