@@ -180,6 +180,22 @@ function LineChartWidget(domElement, _writeValue) {
             plugins: {
                 legend: {
                     display: (datasets.length > 1)
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += context.formattedValue;
+                            let unit_symbol = seriesSpec[context.datasetIndex].unit_symbol || '';
+                            if (unit_symbol) {
+                                label += " " + unit_symbol;
+                            }
+                            return label;
+                        }
+                    }
                 }
             },
             scales: {
