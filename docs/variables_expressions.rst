@@ -86,6 +86,12 @@ Equally, they can be retrieved via the :meth:`VariableField.field` method.
     Use :class:`shc.misc.UpdateExchange` to split up NamedTuple-based value updates in a stateless way:
     It provides an equal way for subscribing to fields of the NamedTuple via the :meth:`shc.misc.UpdateExchange.field` method but does not store the latest value and does not suppress value updates with unchanged values.
 
+DelayedVariable
+^^^^^^^^^^^^^^^
+
+.. autoclass:: shc.variables.DelayedVariable
+
+
 .. _expressions:
 
 Expressions

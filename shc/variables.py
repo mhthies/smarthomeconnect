@@ -10,10 +10,12 @@
 # specific language governing permissions and limitations under the License.
 
 import asyncio
+import datetime
 import logging
 import warnings
 from typing import Generic, Type, Optional, List, Any, Union, Dict
 
+from . import timer
 from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
 from .expressions import ExpressionWrapper
 
@@ -46,7 +48,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         self._value: Optional[T] = initial_value
         self._variable_fields: Dict[str, "VariableField"] = {}
 
-        # Create VariableFields for each typeannotated field of the type if it is typing.NamedTuple-based.
+        # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
         if issubclass(type_, tuple) and type_.__annotations__:
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
@@ -73,11 +75,16 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         self._value = value
         if old_value != value:  # if a single field is different, the full value will also be different
             logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
-            self._publish(value, origin)
-            for name, field in self._variable_fields.items():
-                field._recursive_publish(getattr(value, name),
-                                         None if old_value is None else getattr(old_value, name),
-                                         origin)
+            self._do_all_publish(old_value, origin)
+
+    def _do_all_publish(self, old_value: Optional[T], origin: List[Any]) -> None:
+        logger.debug("Publishing value %s for Variable %s", self._value, self)
+        assert self._value is not None
+        self._publish(self._value, origin)
+        for name, field in self._variable_fields.items():
+            field._recursive_publish(getattr(self._value, name),
+                                     None if old_value is None else getattr(old_value, name),
+                                     origin)
 
     async def read(self) -> T:
         if self._value is None:
@@ -96,7 +103,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     def __repr__(self) -> str:
         if self.name:
-            return "<Variable \"{}\">".format(self.name)
+            return "<{} \"{}\">".format(self.__class__.__name__, self.name)
         else:
             return super().__repr__()
 
@@ -158,3 +165,49 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     @property
     def EX(self) -> ExpressionWrapper:
         return ExpressionWrapper(self)
+
+
+class DelayedVariable(Variable[T], Generic[T]):
+    """
+    A Variable object, which delays the updates to avoid publishing half-updated values
+
+    This is achieved by delaying the publishing of a newly received value by a configurable amount of time
+    (`publish_delay`). If more value updates are received while a previous update publishing is still pending, the
+    latest value will be published at the originally scheduled publishing time. There will be no publishing of the
+    intermediate values. The next value update received after the publishing will be delayed by the configured delay
+    time again, resulting in a maximum update interval of the specified delay time.
+
+    This is similar (but slightly different) to the behaviour of :class:`shc.misc.RateLimitedSubscription`.
+
+    :param type_: The Variable's value type (used for its ``.type`` attribute, i.e. for the *Connectable* type
+        checking mechanism)
+    :param name: An optional name of the variable. Used for logging and future displaying purposes.
+    :param initial_value: An optional initial value for the Variable. If not provided and no default provider is
+        set via :meth:`set_provider`, the Variable is initialized with a None value and any :meth:`read` request
+        will raise an :exc:`shc.base.UninitializedError` until the first value update is received.
+    :param publish_delay: Amount of time to delay the publishing of a new value.
+    """
+    def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None,
+                 publish_delay: datetime.timedelta = datetime.timedelta(seconds=0.25)):
+        super().__init__(type_, name, initial_value)
+        self._publish_delay = publish_delay
+        self._pending_publish_task: Optional[asyncio.Task] = None
+        self._latest_origin: List[Any] = []
+
+    async def _write(self, value: T, origin: List[Any]) -> None:
+        old_value = self._value
+        self._value = value
+        self._latest_origin = origin
+        if old_value != value:  # if a single field is different, the full value will also be different
+            logger.info("New value %s for Variable %s from %s", value, self, origin[:1])
+            if not self._pending_publish_task:
+                self._pending_publish_task = asyncio.create_task(self._wait_and_publish(old_value))
+                timer.timer_supervisor.add_temporary_task(self._pending_publish_task)
+
+    async def _wait_and_publish(self, old_value: Optional[T]) -> None:
+        try:
+            await asyncio.sleep(self._publish_delay.total_seconds())
+        except asyncio.CancelledError:
+            pass
+        self._do_all_publish(old_value, self._latest_origin)
+        self._pending_publish_task = None

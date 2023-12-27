@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import unittest
 import unittest.mock
 import warnings
@@ -290,6 +291,41 @@ class ConnectedVariablesTest(unittest.TestCase):
         self.assertLessEqual(writable3._write.call_count, 3)
         # 1st arg of 2nd call shall be equal
         self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])
+
+
+class DelayedVariableTest(unittest.TestCase):
+    @async_test
+    async def test_simple(self):
+        var = variables.DelayedVariable(int, name="A test variable", publish_delay=datetime.timedelta(seconds=0.02))
+        subscriber = ExampleWritable(int)
+        var.subscribe(subscriber)
+
+        await var.write(5, [])
+        self.assertEqual(5, await var.read())
+        await asyncio.sleep(0)
+        await var.write(42, [self])
+        self.assertEqual(42, await var.read())
+        await asyncio.sleep(0.025)
+        subscriber._write.assert_called_once_with(42, [self, var])
+
+    @async_test
+    async def test_field_update(self):
+        var = variables.DelayedVariable(ExampleTupleType,
+                                        name="A test variable",
+                                        initial_value=ExampleTupleType(0, 0.0),
+                                        publish_delay=datetime.timedelta(seconds=0.02))
+        field_subscriber = ExampleWritable(int)
+        subscriber = ExampleWritable(ExampleTupleType)
+        var.subscribe(subscriber)
+        var.field('a').subscribe(field_subscriber)
+
+        await var.field('a').write(21, [self])
+        await asyncio.sleep(0)
+        await var.field('b').write(3.1416, [self])
+        self.assertEqual(ExampleTupleType(21, 3.1416), await var.read())
+        await asyncio.sleep(0.025)
+        subscriber._write.assert_called_once_with(ExampleTupleType(21, 3.1416), [self, var.field('b'), var])
+        field_subscriber._write.assert_called_once_with(21, [self, var.field('b'), var.field('a')])
 
 
 class MyPyPluginTest(unittest.TestCase):
