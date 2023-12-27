@@ -716,6 +716,8 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
     A transparent wrapper for `Subscribable` objects, that delays and drops values to make sure that a given maximum
     rate of new values is not exceeded.
 
+    See also :class:`shc.variables.DelayedVariable` for a similar (but slightly different) behaviour.
+
     :param wrapped: The Subscribable object to be wrapped
     :param min_interval: The minimal allowed interval between published values in seconds
     """
