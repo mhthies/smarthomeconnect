@@ -525,7 +525,8 @@ def blocking_handler() -> Callable[[BlockingLogicHandlerOptionalParams], LogicHa
             try:
                 loop = asyncio.get_event_loop()
                 args = (value, origin)[:num_args]
-                await loop.run_in_executor(None, f, *args)
+                # The type of *args does match the args of `f` b/c of our `_count_function_args()` magic
+                await loop.run_in_executor(None, f, *args)  # type: ignore
             except Exception as e:
                 logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
         return wrapper
