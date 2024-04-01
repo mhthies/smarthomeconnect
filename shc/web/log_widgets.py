@@ -19,6 +19,7 @@ See :ref:`data_logging`.
 """
 from dataclasses import dataclass
 import datetime
+import enum
 from typing import Iterable, Optional, Generic, Union, Callable, Tuple, List
 
 from markupsafe import Markup
@@ -118,6 +119,32 @@ class LogListWidget(WebPageItem):
         return self.connectors
 
 
+class ChartPlotStyle(enum.Enum):
+    #: Uses `LINE_DOTS` for aggregated values, otherwise `LINE_FILLED`
+    AUTO = "auto"
+    #: A simple line plot, no dots, no background filling
+    LINE = "line"
+    #: A line plot with dots, no background filling
+    LINE_DOTS = "line_dots"
+    #: A pretty line plot with slightly colored background area
+    LINE_FILLED = "line_filled"
+    #: An area plot without visible line but stronger colored filled area
+    AREA = "area"
+
+
+class ChartLineInterpolation(enum.Enum):
+    #: Uses `SMOOTH` for aggregated values, otherwise `LINEAR`
+    AUTO = "auto"
+    #: Use bezier line interpolation
+    SMOOTH = "smooth"
+    #: Use linear interpolation (straight lines between data points)
+    LINEAR = "linear"
+    #: Use stepped graph, beginning a horizontal line at each data point
+    STEP_BEFORE = "before"
+    #: Use stepped graph with horizontal lines ending at each data point
+    STEP_AFTER = "after"
+
+
 @dataclass
 class ChartDataSpec:
     """Specification of one data log source and the formatting of its datapoints within a :class:`ChartWidget`"""
@@ -134,6 +161,12 @@ class ChartDataSpec:
     scale_factor: float = 1.0
     #: Unit symbol to be shown after the value in the Chart tooltip
     unit_symbol: str = ""
+    #: If not None, this data row will be stacked upon (values added to) previous data rows with the same `stack_group`
+    stack_group: Optional[str] = None
+    #: Select different plot styles (area vs. line plot, dots on/off)
+    plot_style: ChartPlotStyle = ChartPlotStyle.AUTO
+    #: Select different line interpolation styles (smoothed, linear, stepped)
+    line_interpolation: ChartLineInterpolation = ChartLineInterpolation.AUTO
 
 
 class ChartWidget(WebPageItem):
@@ -213,14 +246,22 @@ class ChartWidget(WebPageItem):
                                          aggregation_interval, align_to=self.align_ticks_to,
                                          converter=None if spec.scale_factor == 1.0 else lambda x: x*spec.scale_factor,
                                          include_previous=True)
+            line_interpolation = spec.line_interpolation
+            if line_interpolation == ChartLineInterpolation.AUTO:
+                line_interpolation = ChartLineInterpolation.SMOOTH if is_aggregated else ChartLineInterpolation.LINEAR
+            plot_style = spec.plot_style
+            if plot_style == ChartPlotStyle.AUTO:
+                plot_style = ChartPlotStyle.LINE_DOTS if is_aggregated else ChartPlotStyle.LINE_FILLED
             self.connectors.append(connector)
             self.row_specs.append({'id': id(connector),
-                                   'stepped_graph': is_aggregated,
-                                   'show_points': is_aggregated,
                                    'color': spec.color if spec.color is not None else self.COLORS[i % len(self.COLORS)],
                                    'label': spec.label,
                                    'unit_symbol': spec.unit_symbol,
-                                   'extend_graph_to_now': not is_aggregated})
+                                   'extend_graph_to_now': not is_aggregated,
+                                   'stack_group': spec.stack_group,
+                                   'style': plot_style.value,
+                                   'interpolation': line_interpolation.value,
+                                   })
 
     async def render(self) -> str:
         return await jinja_env.get_template('log/chart.htm').render_async(
