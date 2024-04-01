@@ -689,6 +689,7 @@ class TestAPI(unittest.TestCase):
         etag1 = response.headers["ETag"]
 
         # GET request with 'If-None-Match' header with the retrieved ETag should return HTTP 304 NotModified
+        assert etag1 is not None
         request = urllib.request.Request("http://localhost:42080/api/v1/object/the_api_object",
                                          headers={'If-None-Match': etag1})
         with self.assertRaises(urllib.error.HTTPError) as cm:
@@ -731,6 +732,7 @@ class TestAPI(unittest.TestCase):
         response: http.client.HTTPResponse = urllib.request.urlopen(
             "http://localhost:42080/api/v1/object/the_api_object")
         etag1 = response.headers["ETag"]
+        assert etag1 is not None
 
         async def scheduled_update(value):
             await asyncio.sleep(0.2)
