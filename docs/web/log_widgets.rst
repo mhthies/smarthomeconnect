@@ -18,3 +18,10 @@ Web UI Widgets for showing Logs
     :members:
     :member-order:
 
+.. autoclass:: ChartPlotStyle
+    :members:
+    :member-order:
+
+.. autoclass:: ChartLineInterpolation
+    :members:
+    :member-order:

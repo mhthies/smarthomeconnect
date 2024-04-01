@@ -14,7 +14,7 @@ import random
 from shc.interfaces.in_memory_data_logging import InMemoryDataLogVariable
 import shc.web.log_widgets
 from shc.data_logging import AggregationMethod
-from shc.web.log_widgets import ChartDataSpec, LogListDataSpec
+from shc.web.log_widgets import ChartDataSpec, LogListDataSpec, ChartPlotStyle, ChartLineInterpolation
 from shc.web.widgets import icon
 
 random_float_log = InMemoryDataLogVariable(float, keep=datetime.timedelta(minutes=10))
@@ -72,6 +72,14 @@ index_page.new_segment()
 
 index_page.add_item(shc.web.log_widgets.ChartWidget(datetime.timedelta(minutes=5), [
     ChartDataSpec(random_float_log, "random float", scale_factor=10)
+]))
+
+index_page.add_item(shc.web.log_widgets.ChartWidget(datetime.timedelta(minutes=5), [
+    ChartDataSpec(random_float_log, "random float", scale_factor=10, stack_group="a",
+                  line_interpolation=ChartLineInterpolation.STEP_BEFORE, plot_style=ChartPlotStyle.AREA),
+    ChartDataSpec(random_float_log, "random float", scale_factor=10, stack_group="a",
+                  line_interpolation=ChartLineInterpolation.STEP_BEFORE, plot_style=ChartPlotStyle.AREA),
+    ChartDataSpec(random_float_log, "random float", scale_factor=15, plot_style=ChartPlotStyle.LINE),
 ]))
 
 index_page.add_item(shc.web.log_widgets.ChartWidget(datetime.timedelta(minutes=5), [

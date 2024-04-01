@@ -150,22 +150,33 @@ function LineChartWidget(domElement, _writeValue) {
     // datasets (and subscribeIds)
     let datasets = [];
     let dataMap = new Map();  // maps the Python datapoint/object id to the associated chart dataset's data list
+    let numStacked = 0;
     for (const spec of seriesSpec) {
         this.subscribeIds.push(spec.id);
         let data = [];
         datasets.push({
             data: data,
             label: spec.label,
-            backgroundColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.1)`,
+            backgroundColor: (spec.style == "area"
+                              ? `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`
+                              : `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.1)`),
             borderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, .5)`,
             pointBackgroundColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
             pointBorderColor: `rgba(${spec.color[0]}, ${spec.color[1]}, ${spec.color[2]}, 0.5)`,
-            stepped: spec.stepped_graph ? undefined : 'before',
-            pointRadius: spec.show_points ? 3 : 0,
-            pointHitRadius: 3,
-            tension: 0.2,
+            stepped: ["before", "after"].includes(spec.interpolation) ? spec.interpolation : undefined,
+            pointRadius: spec.style == "line_dots" ? 3 : 0,
+            pointHitRadius: 5,
+            tension: spec.interpolation == "smooth" ? 0.2 : 0.0,
+            stack: spec.stack_group,
+            fill: (spec.style == "area" || spec.style == "line_filled"
+                   ? (spec.stack_group !== null && numStacked > 0 ? "-1" : "origin")
+                   : undefined),
+            showLine: ["line", "line_filled", "line_dots"].includes(spec.style),
         });
         dataMap.set(spec.id, [data, spec]);
+        if (spec.stack_group !== null) {
+            numStacked++;
+        }
     }
 
     // Initialize chart
@@ -206,6 +217,9 @@ function LineChartWidget(domElement, _writeValue) {
                     ticks: {
                         source: 'labels',
                     }
+                },
+                y: {
+                    stacked: numStacked > 0 ? true : false,
                 }
             },
             responsive: true
