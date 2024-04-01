@@ -1,5 +1,6 @@
 import datetime
 import asyncio
+import math
 import unittest
 import urllib.parse
 from typing import Tuple, Type, Iterable, Dict, NamedTuple, Sequence, Any
@@ -117,6 +118,7 @@ class MySQLTest(AbstractLoggingTest):
     async def test_persistence_variables(self) -> None:
         data: Sequence[Tuple[str, Sequence[Any]]] = [
             ("test_int", [5, 7]),
+            ("test_float", [3.14, float("nan")]),
             ("test_string", ["foo", "bar"]),
             ("test_tuple", [ExampleTuple(42, 3.14, "foo"), ExampleTuple(56, 0.414, "[{bar🙂😕}]")]),
         ]
@@ -125,4 +127,7 @@ class MySQLTest(AbstractLoggingTest):
                 variable = self.interface.persistence_variable(type(value_list[0]), variable_name)
                 for value in value_list:
                     await variable.write(value, [self])
-                self.assertEqual(value_list[-1], await variable.read())
+                if isinstance(value_list[-1], float) and math.isnan(value_list[-1]):
+                    self.assertTrue(math.isnan(await variable.read()))
+                else:
+                    self.assertEqual(value_list[-1], await variable.read())

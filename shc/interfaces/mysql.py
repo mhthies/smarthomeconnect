@@ -3,6 +3,7 @@ import datetime
 import enum
 import json
 import logging
+import math
 from typing import Optional, Type, Generic, List, Tuple, Any, Dict, Callable
 
 import aiomysql
@@ -316,7 +317,8 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         elif issubclass(type_, int):
             return lambda value: int(value)  # type: ignore  # type_ is equivalent to T -> int(a: int) is valid
         elif issubclass(type_, float):
-            return lambda value: float(value)  # type: ignore  # type_ is equivalent to T -> float(a: float) is valid
+            # type_ is equivalent to T -> float(a: float) is valid
+            return lambda value: None if math.isnan(value) else float(value)  # type: ignore
         elif issubclass(type_, str):
             return lambda value: str(value)
         elif issubclass(type_, enum.Enum):
@@ -328,10 +330,15 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
     def _get_from_mysql_converter(type_: Type[T]) -> Callable[[Any], T]:
         if type_ is bool:
             return lambda x: bool(x)  # type: ignore  # type_ is equivalent to T -> type_ is bool here
-        elif type_ in (int, float, str):
+        elif type_ in (int, str):
             return lambda x: x
-        elif issubclass(type_, (bool, int, float, str, enum.Enum)):
+        elif type_ is float:
+            return lambda x: x if x is not None else float("nan")
+        elif issubclass(type_, (bool, int, str, enum.Enum)):
             return lambda value: type_(value)  # type: ignore  # type_ is equivalent to T -> type_() is an instance of T
+        elif issubclass(type_, float):
+            # type_ is equivalent to T -> type_() is an instance of T
+            return lambda value: type_(value) if value is not None else type_(float("nan"))  # type: ignore
         else:
             return lambda value: from_json(type_, json.loads(value))
 
