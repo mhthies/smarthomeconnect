@@ -34,6 +34,13 @@ MAX_CONCURRENT_UPDATE_DELAY = 0.02
 C = TypeVar('C', bound="Connectable")
 
 
+class ResetOriginSentinel:
+    pass
+
+
+RESET_ORIGIN_SENTINEL = ResetOriginSentinel()
+
+
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
     """
     :cvar type: The type of the values, this object is supposed to handle
@@ -237,9 +244,16 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         awaited to return. If `_stateful_publishing` is True on this object (or class), it will keep track of the
         currently pending publishing tasks. This information is then used to mitigate state inconsistencies, caused by
         value updates crossing over each other, by resetting the `origin` of following value updates to the respective
-        subscribers. Additionally, these updates with resetted origin are delayed for a random delay up to
+        subscribers (with pending tasks). This disables the usual loop prevention and causes the value update to travel
+        back its originating path. Consequently, the update will override the intermediate conflicting value in all
+        places.
+
+        Additionally, these updates with resetted origin are delayed for a random delay up to
         :data:`MAX_CONCURRENT_UPDATE_DELAY` seconds (and skipped if overtaken by another update in that time) to avoid
-        endless update loops of two competing value updates.
+        endless update loops of two competing value updates. To avoid unnecessary value updates flying around, we limit
+        the origin resetting to value updates that reached this object via another path as the pending updates to the
+        subscriber and value updates that already result from republishing with resetted origin. Other updates should
+        not be prone to conflicts due to the ordered asyncio task queue.
 
         `_stateful_publishing` should be enabled for all objects that are *Subscribable* and *Writable* (i.e. allows
         sending and receiving value updates) and have either internal state (like Variables) or represent an external,
@@ -257,12 +271,15 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         if self._stateful_publishing:
             for subscriber, converter in self._subscribers:
                 prev_step = id(origin[-1]) if origin else None
-                reset_origin = any(o != prev_step for o in self._pending_updates[id(subscriber)].values())
+                first_step = origin[0] if origin else None
+                reset_origin = (any(o != prev_step for o in self._pending_updates[id(subscriber)].values())
+                                or first_step is RESET_ORIGIN_SENTINEL)
                 if reset_origin:
                     logger.info("Resetting origin from %s to %s; value=%s; origin=%s", self, subscriber, value, origin)
                 if reset_origin or not any(s is subscriber for s in origin):
                     task = asyncio.create_task(
-                        self.__publish_write(subscriber, converter, value, [] if reset_origin else origin,
+                        self.__publish_write(subscriber, converter, value,
+                                             [RESET_ORIGIN_SENTINEL] if reset_origin else origin,
                                              use_pending=True,
                                              wait_and_check=self._publish_count if reset_origin else None))
                     self._pending_updates[id(subscriber)][task] = prev_step
@@ -270,9 +287,12 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                 reset_origin = False
                 if sync:
                     prev_step = id(origin[-1]) if origin else None
-                    reset_origin = any(o != prev_step for o in self._pending_updates[id(target)].values())
+                    first_step = origin[0] if origin else None
+                    reset_origin = (any(o != prev_step for o in self._pending_updates[id(target)].values())
+                                    or first_step is RESET_ORIGIN_SENTINEL)
                 task = asyncio.create_task(
-                    self.__publish_trigger(target, value, [] if reset_origin else origin, use_pending=sync,
+                    self.__publish_trigger(target, value, [RESET_ORIGIN_SENTINEL] if reset_origin else origin,
+                                           use_pending=sync,
                                            wait_and_check=(self._publish_count if reset_origin else None)))
                 if sync:
                     self._pending_updates[id(target)][task] = prev_step
