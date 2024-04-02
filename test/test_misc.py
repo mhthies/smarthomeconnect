@@ -238,25 +238,26 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
 
     @async_test
     async def test_concurrent_field_update_publishing(self) -> None:
-        var1 = shc.Variable(ExampleTupleType)
-        exchange = shc.misc.UpdateExchange(ExampleTupleType)\
-            .connect(var1)
-        var3 = shc.Variable(int)\
-            .connect(exchange.field('a'))
-        # For the back-direction to field-subscription, we do a manual up-conversion
-        var3.subscribe(exchange, convert=lambda a: ExampleTupleType(a, 3.1416))
+        for i in range(50):
+            var1 = shc.Variable(ExampleTupleType, "var1")
+            exchange = shc.misc.UpdateExchange(ExampleTupleType)\
+                .connect(var1)
+            var3 = shc.Variable(int, "var3")\
+                .connect(exchange.field('a'))
+            # For the back-direction to field-subscription, we do a manual up-conversion
+            var3.subscribe(exchange, convert=lambda a: ExampleTupleType(a, 3.1416))
 
-        writable1 = ExampleWritable(int).connect(var1.field('a'))
-        writable3 = ExampleWritable(int).connect(var3)
+            writable1 = ExampleWritable(int).connect(var1.field('a'))
+            writable3 = ExampleWritable(int).connect(var3)
 
-        await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
-        await asyncio.sleep(0.1)
-        self.assertEqual(await var1.field('a').read(), await var3.read())
+            await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
+            await asyncio.sleep(0.2)
+            self.assertEqual(await var1.field('a').read(), await var3.read())
 
-        self.assertLessEqual(writable1._write.call_count, 3)
-        self.assertLessEqual(writable3._write.call_count, 3)
-        # 1st arg of 2nd call shall be equal
-        self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])
+            self.assertLessEqual(writable1._write.call_count, 4)
+            self.assertLessEqual(writable3._write.call_count, 4)
+            # 1st arg of 2nd call shall be equal
+            self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])
 
 
 class ExampleAdderFunctionBlock:
