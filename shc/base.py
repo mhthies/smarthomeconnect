@@ -203,11 +203,11 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
 
     async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T_co], S]], value: T_co,
                               origin: List[Any], use_pending: bool, wait_and_check: Optional[int] = None):
-        if wait_and_check is not None:
-            await asyncio.sleep(random.random() * 0.02)
-            if wait_and_check != self._publish_count:
-                return
         try:
+            if wait_and_check is not None:
+                await asyncio.sleep(random.random() * 0.02)
+                if wait_and_check != self._publish_count:
+                    return
             await subscriber.write(converter(value) if converter else value, origin + [self])  # type: ignore
         except Exception as e:
             logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
@@ -217,11 +217,11 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
 
     async def __publish_trigger(self, target: LogicHandler, value: T_co,
                                 origin: List[Any], use_pending: bool, wait_and_check: Optional[int] = None):
-        if wait_and_check is not None:
-            await asyncio.sleep(random.random() * 0.02)
-            if wait_and_check != self._publish_count:
-                return
         try:
+            if wait_and_check is not None:
+                await asyncio.sleep(random.random() * 0.02)
+                if wait_and_check != self._publish_count:
+                    return
             await target(value, origin + [self])
         except Exception as e:
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
