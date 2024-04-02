@@ -51,8 +51,9 @@ export let WIDGET_TYPES = new Map();
                 widgetMap.set(the_id, obj);
             }
         }
-
-        openWebsocket();
+        if (widgetElements.length > 0) {
+            openWebsocket();
+        }
     }
 
     function openWebsocket() {
