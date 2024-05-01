@@ -5,7 +5,8 @@ import re
 from typing import Generic, TypeVar, Set, Type, Optional, List, Dict, Any, Callable
 
 import aiogram
-from aiogram.bot.api import TelegramAPIServer, TELEGRAM_PRODUCTION
+import aiogram.client.session.aiohttp
+from aiogram.client.telegram import TelegramAPIServer, PRODUCTION
 
 from ..base import Writable, Subscribable, Reading, T
 from ..supervisor import AbstractInterface
@@ -38,17 +39,18 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     """
 
     def __init__(self, api_token: str, auth_provider: "TelegramAuthProvider[UserT, RoleT]",
-                 telegram_server: TelegramAPIServer = TELEGRAM_PRODUCTION):
+                 telegram_server: TelegramAPIServer = PRODUCTION):
         super().__init__()
         self.auth_provider = auth_provider
 
-        self.bot = aiogram.Bot(token=api_token, server=telegram_server)
-        self.dp = aiogram.Dispatcher(self.bot)
-        self.dp.register_message_handler(self._handle_start, commands=["start"])
-        self.dp.register_message_handler(self._handle_cancel, commands=["cancel"])
-        self.dp.register_message_handler(self._handle_select, commands=["s"])
-        self.dp.register_callback_query_handler(self._handle_callback_query)
-        self.dp.register_message_handler(self._handle_other)
+        session = aiogram.client.session.aiohttp.AiohttpSession(api=telegram_server)
+        self.bot = aiogram.Bot(token=api_token)
+        self.dp = aiogram.Dispatcher()
+        self.dp.register_message(self._handle_start, commands=["start"])
+        self.dp.register_message(self._handle_cancel, commands=["cancel"])
+        self.dp.register_message(self._handle_select, commands=["s"])
+        self.dp.register_callback_query(self._handle_callback_query)
+        self.dp.register_message(self._handle_other)
 
         self.connectors: Dict[str, "TelegramConnector"] = {}
         self.poll_task: Optional[asyncio.Task] = None
@@ -62,7 +64,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.poll_task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
-        await self.dp.start_polling()
+        await self.dp.start_polling(self.bot)
 
     async def stop(self) -> None:
         self.dp.stop_polling()
