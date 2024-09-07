@@ -256,7 +256,7 @@ class FadeStepAdapter(Subscribable[RangeFloat1], Reading[RangeFloat1]):
         await self._publish_and_wait(value.apply_to(current_value), origin)
 
 
-class ConvertSubscription(Subscribable[T], Generic[T]):
+class ConvertSubscription(Subscribable[T], Generic[S, T]):
     """
     An adapter, wrapping a subscribable object of value type S and converting it to a subscribable object of value type
     T, using the default converter or a given converter function.
