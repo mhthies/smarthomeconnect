@@ -55,7 +55,7 @@ class TelegramBotTest(unittest.TestCase):
         self.api_mock.reset_mock()
 
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 30).timestamp(),
                                                       'text': "/start"}})
@@ -63,7 +63,7 @@ class TelegramBotTest(unittest.TestCase):
         self.api_mock.assert_one_method_called_with("sendMessage", text="Hi!\nI'm an SHC bot!", chat_id="987654123")
 
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
+                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name': "Eve"},
                                                       'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
                                                       'text': "/start"}})
@@ -88,7 +88,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Search for 'Foo'
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 30).timestamp(),
                                                       'text': "Foo"}})
@@ -100,7 +100,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Select 'Foobar'
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
                                                       'text': "/s Foobar"}})
@@ -114,7 +114,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Test invalid value
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345791,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 40).timestamp(),
                                                       'text': "Foo"}})
@@ -127,7 +127,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Concurrent search by Tim
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345792,
-                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name:': "Tim"},
+                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name': "Tim"},
                                                       'chat': {'id': 987654789, 'type': 'private', 'first_name': "Tim"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 40, 20).timestamp(),
                                                       'text': "Foo"}})
@@ -139,7 +139,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Max writes value 25
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345793,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 41).timestamp(),
                                                       'text': "25"}})
@@ -150,7 +150,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Search again for Foo
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 42).timestamp(),
                                                       'text': "Foo"}})
@@ -163,7 +163,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Two authentication error: Tim is not allowed to select Foobar at all
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345792,
-                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name:': "Tim"},
+                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name': "Tim"},
                                                       'chat': {'id': 987654789, 'type': 'private', 'first_name': "Tim"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 44).timestamp(),
                                                       'text': "/s Foobar"}})
@@ -187,7 +187,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Select 'Foobar'
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
                                                       'text': "/s Foobar"}})
@@ -201,8 +201,8 @@ class TelegramBotTest(unittest.TestCase):
 
         # Cancel using callback button
         self.api_mock.add_update_for_bot({'callback_query': {
-            'id': 12345790,
-            'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+            'id': "12345790",
+            'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
             'message': message_data,
             'chat_instance': "xyz",
             'data': 'cancel',
@@ -220,7 +220,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Search again for Foo
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 42).timestamp(),
                                                       'text': "Foo"}})
@@ -242,7 +242,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Eve is not allowed to select Foo
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
+                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name': "Eve"},
                                                       'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 43).timestamp(),
                                                       'text': "/s Foo"}})
@@ -255,7 +255,7 @@ class TelegramBotTest(unittest.TestCase):
         # Eve is not allowed to select a non-existent object.
         # The message should be the same as for the existant object, so we don't leak information about existant objects
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345791,
-                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
+                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name': "Eve"},
                                                       'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 43, 1).timestamp(),
                                                       'text': "/s Bar"}})
@@ -266,7 +266,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Eve is not allowed to search anything
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345791,
-                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name:': "Eve"},
+                                                      'from': {'id': 987654125, 'is_bot': False, 'first_name': "Eve"},
                                                       'chat': {'id': 987654125, 'type': 'private', 'first_name': "Eve"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 43, 1).timestamp(),
                                                       'text': "Fo"}})
@@ -289,7 +289,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Select 'Foo'
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
                                                       'text': "/s Foo"}})
@@ -302,7 +302,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Write invalid value
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 36).timestamp(),
                                                       'text': "bla"}})
@@ -315,7 +315,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Write valid 'on' value
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 36).timestamp(),
                                                       'text': "on"}})
@@ -343,7 +343,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Search for 'Foo'
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 30).timestamp(),
                                                       'text': "Foo"}})
@@ -355,7 +355,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Select 'Foobar'
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 35).timestamp(),
                                                       'text': "/s Foobar"}})
@@ -370,13 +370,13 @@ class TelegramBotTest(unittest.TestCase):
 
         # Cancel and select 'Foo'
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345789,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 42).timestamp(),
                                                       'text': "/cancel"}})
 
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345790,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 42, 30).timestamp(),
                                                       'text': "/s Foo"}})
@@ -391,7 +391,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Directly (without cancel) select Foobar
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345791,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 43).timestamp(),
                                                       'text': "/s Foobar"}})
@@ -409,7 +409,7 @@ class TelegramBotTest(unittest.TestCase):
 
         # Tim can select (and write) but not read
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345792,
-                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name:': "Tim"},
+                                                      'from': {'id': 987654789, 'is_bot': False, 'first_name': "Tim"},
                                                       'chat': {'id': 987654789, 'type': 'private', 'first_name': "Tim"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 44).timestamp(),
                                                       'text': "/s Foobar"}})
@@ -420,13 +420,13 @@ class TelegramBotTest(unittest.TestCase):
 
         # Max should not see 'Bar', because its not readable, but he es not allowed to write
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345793,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 45).timestamp(),
                                                       'text': "/cancel"}})
         await asyncio.sleep(0.15)
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345794,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 45, 20).timestamp(),
                                                       'text': "Bar"}})
@@ -437,7 +437,7 @@ class TelegramBotTest(unittest.TestCase):
         self.api_mock.reset_mock()
 
         self.api_mock.add_update_for_bot({'message': {'message_id': 12345795,
-                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name:': "Max"},
+                                                      'from': {'id': 987654123, 'is_bot': False, 'first_name': "Max"},
                                                       'chat': {'id': 987654123, 'type': 'private', 'first_name': "Max"},
                                                       'date': datetime.datetime(2021, 1, 25, 17, 45).timestamp(),
                                                       'text': "/s Bar"}})
@@ -543,6 +543,19 @@ class TelegramAPIMock:
         if method == "deleteWebhook":
             self.method_calls.append((method, data, True))
             return aiohttp.web.json_response({'ok': True, 'result': True})
+        if method == "getMe":
+            return aiohttp.web.json_response({'ok': True, 'result': {
+                "id": 123456789,
+                "is_bot": True,
+                "first_name": "Test Bot",
+                "language_code": "en",
+                "is_premium": False,
+                "can_join_groups": True,
+                "can_read_all_group_messages": False,
+                "supports_inline_queries": False,
+                "can_connect_to_business": True,
+                "has_main_web_app": False,
+            }})
         else:
             self.method_calls.append((method, data, None))
             raise aiohttp.web.HTTPNotImplemented(text=f"Method {method} not implemented.")
