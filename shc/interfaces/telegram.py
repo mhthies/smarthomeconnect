@@ -226,7 +226,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         if connectors:
             await message.reply("Please chose", reply_markup=aiogram.types.ReplyKeyboardMarkup(
                 keyboard=[[aiogram.types.KeyboardButton(text=f"/s {var.name}")]
-                 for var in connectors],
+                          for var in connectors],
                 one_time_keyboard=True,
                 resize_keyboard=True), reply=False)
         else:
@@ -491,8 +491,8 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         if options:
             self.keyboard = aiogram.types.ReplyKeyboardMarkup(
                 keyboard=[[aiogram.types.KeyboardButton(text=o)
-                  for o in options[i:i+2]]
-                 for i in range(0, len(options), 2)])
+                          for o in options[i:i+2]]
+                          for i in range(0, len(options), 2)])
         else:
             self.keyboard = None
 
