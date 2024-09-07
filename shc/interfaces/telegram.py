@@ -261,7 +261,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             # correctly)
             chat_id = int(query.message.chat.id)
             message_id = query.message.message_id
-            await self.bot.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
+            await self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=None)
             if self.message_with_inline_keyboard.get(chat_id) == message_id:
                 del self.message_with_inline_keyboard[chat_id]
             # Now, the actual action cancelling
@@ -286,7 +286,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         """
         if chat_id in self.message_with_inline_keyboard:
             message_id = self.message_with_inline_keyboard[chat_id]
-            await self.bot.edit_message_reply_markup(chat_id, message_id, reply_markup=None)
+            await self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=None)
             del self.message_with_inline_keyboard[chat_id]
         if chat_id in self.chat_state:
             del self.chat_state[chat_id]
