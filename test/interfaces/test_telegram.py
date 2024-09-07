@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import logging
 import random
 import unittest
 import unittest.mock
@@ -14,6 +15,8 @@ from test._helper import async_test, InterfaceThreadRunner, ExampleSubscribable,
 
 JSON_TYPE_1 = Union[None, bool, int, float, str, Dict[str, Any], List[Any]]
 JSON_TYPE = Union[None, bool, int, float, str, Dict[str, JSON_TYPE_1], List[JSON_TYPE_1]]
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramBotTest(unittest.TestCase):
@@ -522,11 +525,13 @@ class TelegramAPIMock:
             except asyncio.TimeoutError:
                 pass
         updates = self._pending_updates[:data.get('limit', 100)]  # type: ignore
+        logger.debug("Updates: %s", updates)
         return aiohttp.web.json_response({'ok': True, 'result': updates})
 
     async def _any_method(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         method = request.match_info['method']
         data = await self.__get_args(request)
+        logger.debug("Telegram API method call: %s(%s)", method, data)
         if method == "sendMessage":
             result = self._create_send_message_response(data)
             self.method_calls.append((method, data, result))
