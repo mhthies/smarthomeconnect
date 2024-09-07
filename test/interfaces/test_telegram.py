@@ -7,7 +7,7 @@ import unittest.mock
 from typing import Any, Union, Dict, List, Tuple
 
 import aiohttp.web
-from aiogram.bot.api import TelegramAPIServer
+from aiogram.client.telegram import TelegramAPIServer
 
 import shc.interfaces.telegram
 from test._helper import async_test, InterfaceThreadRunner, ExampleSubscribable, ExampleReadable, ExampleWritable

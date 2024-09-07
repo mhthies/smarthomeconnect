@@ -5,6 +5,7 @@ import re
 from typing import Generic, TypeVar, Set, Type, Optional, List, Dict, Any, Callable
 
 import aiogram
+import aiogram.filters
 import aiogram.client.session.aiohttp
 from aiogram.client.telegram import TelegramAPIServer, PRODUCTION
 
@@ -44,13 +45,13 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.auth_provider = auth_provider
 
         session = aiogram.client.session.aiohttp.AiohttpSession(api=telegram_server)
-        self.bot = aiogram.Bot(token=api_token)
+        self.bot = aiogram.Bot(token=api_token, session=session)
         self.dp = aiogram.Dispatcher()
-        self.dp.register_message(self._handle_start, commands=["start"])
-        self.dp.register_message(self._handle_cancel, commands=["cancel"])
-        self.dp.register_message(self._handle_select, commands=["s"])
-        self.dp.register_callback_query(self._handle_callback_query)
-        self.dp.register_message(self._handle_other)
+        self.dp.message.register(self._handle_start, aiogram.filters.command.Command("start"))
+        self.dp.message.register(self._handle_cancel, aiogram.filters.command.Command("cancel"))
+        self.dp.message.register(self._handle_select, aiogram.filters.command.Command("s"))
+        self.dp.callback_query.register(self._handle_callback_query)
+        self.dp.message.register(self._handle_other)
 
         self.connectors: Dict[str, "TelegramConnector"] = {}
         self.poll_task: Optional[asyncio.Task] = None
@@ -64,16 +65,14 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.poll_task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
-        await self.dp.start_polling(self.bot)
+        await self.dp.start_polling(self.bot, handle_signals=False)
 
     async def stop(self) -> None:
-        self.dp.stop_polling()
         if self.poll_task:
+            await self.dp.stop_polling()
             await self.poll_task
         await self.dp.storage.close()
-        await self.dp.storage.wait_closed()
-        session = await self.dp.bot.get_session()
-        await session.close()
+        await self.bot.session.close()
 
     async def _handle_start(self, message: aiogram.types.Message):
         """
@@ -130,10 +129,10 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             if keyboard is None:
                 keyboard = aiogram.types.InlineKeyboardMarkup(
                     row_width=1,
-                    inline_keyboard=[[aiogram.types.InlineKeyboardButton("cancel", callback_data="cancel")]])
+                    inline_keyboard=[[aiogram.types.InlineKeyboardButton(text="cancel", callback_data="cancel")]])
                 inline_keyboard = True
             else:
-                keyboard.keyboard.append([aiogram.types.KeyboardButton("/cancel")])
+                keyboard.keyboard.append([aiogram.types.KeyboardButton(text="/cancel")])
                 inline_keyboard = False
 
             reply_message = await message.reply(connector.get_set_message(), reply=False, reply_markup=keyboard)
@@ -217,7 +216,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         connectors = self._find_matching_connectors(message.text, user)
         if connectors:
             await message.reply("Please chose", reply_markup=aiogram.types.ReplyKeyboardMarkup(
-                [[aiogram.types.KeyboardButton(f"/s {var.name}")]
+                keyboard=[[aiogram.types.KeyboardButton(text=f"/s {var.name}")]
                  for var in connectors],
                 one_time_keyboard=True,
                 resize_keyboard=True), reply=False)
@@ -481,7 +480,7 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         self.format_value_send_fn = format_value_send
         if options:
             self.keyboard = aiogram.types.ReplyKeyboardMarkup(
-                [[aiogram.types.KeyboardButton(o)
+                keyboard=[[aiogram.types.KeyboardButton(text=o)
                   for o in options[i:i+2]]
                  for i in range(0, len(options), 2)])
         else:
