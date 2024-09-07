@@ -2,7 +2,7 @@ import abc
 import asyncio
 import logging
 import re
-from typing import Generic, TypeVar, Set, Type, Optional, List, Dict, Any, Callable
+from typing import Generic, TypeVar, Set, Type, Optional, List, Dict, Any, Callable, Union
 
 import aiogram
 import aiogram.filters
@@ -103,6 +103,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         if chat_id in self.chat_state:
             await self._do_cancel(chat_id, silent=True)
 
+        assert message.text is not None  # to make mypy happy. The message obviously contains a text with the /s command
         connector_id = message.text[3:]  # strip the '/select ' prefix
         if connector_id not in self.connectors:
             logger.debug("Received /s (select) command for non-existing object '%s' for Telegram chat %s", connector_id,
@@ -126,16 +127,18 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             keyboard = connector.get_setting_keyboard()
             # If no options/custom keyboard is provided, we create an inline keyboard of cancelling the value setting.
             # Otherwise, we add a `/cancel` button to the bottom of the keyboard.
+            markup: Union[aiogram.types.InlineKeyboardMarkup, aiogram.types.ReplyKeyboardMarkup]
             if keyboard is None:
-                keyboard = aiogram.types.InlineKeyboardMarkup(
+                markup = aiogram.types.InlineKeyboardMarkup(
                     row_width=1,
                     inline_keyboard=[[aiogram.types.InlineKeyboardButton(text="cancel", callback_data="cancel")]])
                 inline_keyboard = True
             else:
                 keyboard.keyboard.append([aiogram.types.KeyboardButton(text="/cancel")])
+                markup = keyboard
                 inline_keyboard = False
 
-            reply_message = await message.reply(connector.get_set_message(), reply=False, reply_markup=keyboard)
+            reply_message = await message.reply(connector.get_set_message(), reply=False, reply_markup=markup)
             self.chat_state[message.chat.id] = connector
             if inline_keyboard:
                 self.message_with_inline_keyboard[chat_id] = reply_message.message_id
@@ -484,6 +487,7 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         self.parse_value_fn = parse_value
         self.format_value_read_fn = format_value_read
         self.format_value_send_fn = format_value_send
+        self.keyboard: Optional[aiogram.types.ReplyKeyboardMarkup]
         if options:
             self.keyboard = aiogram.types.ReplyKeyboardMarkup(
                 keyboard=[[aiogram.types.KeyboardButton(text=o)
@@ -516,7 +520,7 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
     def from_telegram(self, value: str) -> None:
         self._publish(self.parse_value_fn(value), [])
 
-    def get_setting_keyboard(self) -> aiogram.types.ReplyKeyboardMarkup:
+    def get_setting_keyboard(self) -> Optional[aiogram.types.ReplyKeyboardMarkup]:
         return self.keyboard
 
     def get_set_message(self) -> str:
