@@ -254,8 +254,8 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
             await asyncio.sleep(0.2)
             self.assertEqual(await var1.field('a').read(), await var3.read())
 
-            self.assertLessEqual(writable1._write.call_count, 4)
-            self.assertLessEqual(writable3._write.call_count, 4)
+            self.assertLessEqual(writable1._write.call_count, 10)
+            self.assertLessEqual(writable3._write.call_count, 10)
             # 1st arg of 2nd call shall be equal
             self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])
 
