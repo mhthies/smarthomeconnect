@@ -189,6 +189,9 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             await message.reply("Not authorized!")
             return
         value = message.text
+        if value is None:
+            await message.reply("Invalid value! Try again.")
+            return
         try:
             logger.info("Received value '%s' for Telegram connector %s", value, context.name)
             context.from_telegram(value)
@@ -213,6 +216,9 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         :param message: The Telegram message to be handled as a search term
         :param user: The identified user, related to the chat
         """
+        if message.text is None:
+            # Silently ignore non-text messages
+            return
         connectors = self._find_matching_connectors(message.text, user)
         if connectors:
             await message.reply("Please chose", reply_markup=aiogram.types.ReplyKeyboardMarkup(
