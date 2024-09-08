@@ -16,10 +16,11 @@ import functools
 import json
 import logging
 import re
+import typing
 import warnings
 from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple, cast, Optional, NamedTuple
 
-from paho.mqtt.client import MQTTMessage
+import aiomqtt
 
 from ..base import Writable, Subscribable, T, Readable
 from .mqtt import MQTTClientInterface
@@ -96,7 +97,7 @@ class TasmotaInterface(AbstractInterface):
     def monitoring_connector(self) -> "TasmotaMonitoringConnector":
         return self._status_connector
 
-    def _handle_lwt(self, msg: MQTTMessage) -> None:
+    def _handle_lwt(self, msg: aiomqtt.Message) -> None:
         """
         Callback function to handle incoming MQTT messages on the Last Will Topic
         """
@@ -104,29 +105,29 @@ class TasmotaInterface(AbstractInterface):
         self._online_connector._update_from_mqtt(value)
         self._status_connector.on_lwt(value)
 
-    def _handle_result_or_status(self, msg: MQTTMessage, result: bool = False) -> None:
+    def _handle_result_or_status(self, msg: aiomqtt.Message, result: bool = False) -> None:
         """
-        Callback function to handle incoming MQTTMessages on the Tasmota device's RESULT, STATUS and STATE topics
+        Callback function to handle incoming MQTT messages on the Tasmota device's RESULT, STATUS and STATE topics
 
-        :param msg: The MQTTMessage to be parsed and handled.
+        :param msg: The aiomqtt.Message to be parsed and handled.
         :param result: Shall be True if the handled message has been published on the Tasmota RESULT topic (i.e. it is
             probably a result to a Tasmota command we issued recently)
         """
         try:
-            data = json.loads(msg.payload.decode('utf-8'))
+            data = json.loads(typing.cast(bytes, msg.payload).decode('utf-8'))
             assert isinstance(data, dict)
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota result as JSON object: %s", msg.payload, exc_info=e)
             return
         self._dispatch_status(data, result)
 
-    def _handle_status11(self, msg: MQTTMessage) -> None:
+    def _handle_status11(self, msg: aiomqtt.Message) -> None:
         """
-        Callback function to handle incoming MQTTMessages on the STATUS11 topic (as a result to of the 'status 11')
+        Callback function to handle incoming MQTT messages on the STATUS11 topic (as a result to of the 'status 11')
         command.
         """
         try:
-            data = json.loads(msg.payload.decode('utf-8'))
+            data = json.loads(typing.cast(bytes, msg.payload).decode('utf-8'))
             assert isinstance(data, dict)
             assert 'StatusSTS' in data
             assert isinstance(data['StatusSTS'], dict)

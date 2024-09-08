@@ -14,10 +14,10 @@ import collections
 import itertools
 import json
 import logging
-from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Union, Dict, Deque
+import typing
+from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Union, Dict, Deque, Iterable
 
-from paho.mqtt.client import MQTTMessage
-from asyncio_mqtt import Client, MqttError, ProtocolVersion
+from aiomqtt import Client, ProtocolVersion, Message
 from paho.mqtt.matcher import MQTTMatcher
 
 from ._helper import SupervisedClientInterface
@@ -69,22 +69,20 @@ class MQTTClientInterface(SupervisedClientInterface):
                  protocol: Union[ProtocolVersion, int] = ProtocolVersion.V311,
                  auto_reconnect: bool = True, failsafe_start: bool = False) -> None:
         super().__init__(auto_reconnect, failsafe_start)
-        self.client = Client(hostname, port, username=username, password=password, client_id=client_id,
+        self.client = Client(hostname, port, username=username, password=password, identifier=client_id,
                              protocol=ProtocolVersion(protocol))
         self.matcher = MQTTMatcher()
         self.subscribe_topics: Dict[str, int] = {}  #: dict {topic: qos} for subscribing
         self.run_task: Optional[asyncio.Task] = None
+        self.client_context_entered = False
 
     async def _connect(self) -> None:
         logger.info("Connecting MQTT client interface ...")
-        # TODO this is a dirty hack to work around asyncio-mqtt's reconnect issues
-        if self.client._disconnected.done():
-            exc = self.client._disconnected.exception()
-            if exc:
-                logger.warning("MQTT client has been disconnected with exception:", exc_info=exc)
-            self.client._connected = asyncio.Future()
-            self.client._disconnected = asyncio.Future()
-        await self.client.connect()
+        if self.client_context_entered:
+            self.client_context_entered = False
+            await self.client.__aexit__(None, None, None)
+        await self.client.__aenter__()
+        self.client_context_entered = True
 
     async def _subscribe(self) -> None:
         if self.subscribe_topics:
@@ -96,11 +94,9 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     async def _disconnect(self) -> None:
         logger.info("Disconnecting MQTT client interface ...")
-        try:
-            await self.client.disconnect()
-        except MqttError as e:
-            if e.args[0] == 'Operation timed out':
-                await self.client.force_disconnect()
+        if self.client_context_entered:
+            self.client_context_entered = False
+            await self.client.__aexit__(None, None, None)
 
     def topic_raw(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False,
                   force_mqtt_subscription: bool = False) -> "RawMQTTTopicVariable":
@@ -186,7 +182,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         logger.debug("Sending MQTT message t: %s p: %s q: %s r: %s", topic, payload, qos, retain)
         await self.client.publish(topic, payload, qos, retain)
 
-    def register_filtered_receiver(self, topic_filter: str, receiver: Callable[[MQTTMessage], None],
+    def register_filtered_receiver(self, topic_filter: str, receiver: Callable[[Message], None],
                                    subscription_qos: int = 0) -> None:
         """
         Subscribe to an MQTT topic filter and register a callback function to be called when a message matching this
@@ -216,14 +212,13 @@ class MQTTClientInterface(SupervisedClientInterface):
             self.matcher[topic_filter] = [receiver]
 
     async def _run(self) -> None:
-        async with self.client.unfiltered_messages() as messages:
-            self._running.set()
-            async for message in messages:
-                logger.debug("Incoming MQTT message: %s", message)
-                receivers: List[List[Callable[[MQTTMessage], Awaitable[None]]]] \
-                    = self.matcher.iter_match(message.topic)
-                for receiver in itertools.chain.from_iterable(receivers):
-                    receiver(message)
+        self._running.set()
+        async for message in self.client.messages:
+            logger.debug("Incoming MQTT message: %s", message)
+            receivers: Iterable[List[Callable[[Message], Awaitable[None]]]] \
+                = self.matcher.iter_match(str(message.topic))
+            for receiver in itertools.chain.from_iterable(receivers):
+                receiver(message)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.client._hostname})"
@@ -291,16 +286,18 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
                 if not queue:
                     del self._pending_mqtt_pubs[encoded_value]
 
-    def _new_value_from_mqtt(self, message: MQTTMessage) -> None:
-        if message.topic != self.publish_topic:
-            self._publish(self._decode(message.payload), [])
+    def _new_value_from_mqtt(self, message: Message) -> None:
+        # payload of received MQTT messages is always bytes
+        payload = typing.cast(bytes, message.payload)
+        if str(message.topic) != self.publish_topic:
+            self._publish(self._decode(payload), [])
             return
 
-        queue = self._pending_mqtt_pubs.get(message.payload)
+        queue = self._pending_mqtt_pubs.get(payload)
         if queue is not None:
             queue[0].set()
         else:
-            self._publish(self._decode(message.payload), [])
+            self._publish(self._decode(payload), [])
 
 
 class RawMQTTTopicVariable(AbstractMQTTTopicVariable[bytes]):

@@ -5,13 +5,14 @@ import shutil
 import subprocess
 import time
 import datetime
+import typing
 import unittest
 import unittest.mock
 from contextlib import suppress
 from pathlib import Path
 from typing import Dict, Any
 
-import asyncio_mqtt
+import aiomqtt
 
 import shc.interfaces.mqtt
 import shc.interfaces.tasmota
@@ -158,7 +159,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
             target_color._write.assert_called_once_with(construct_color(0, 0, 0, 0), unittest.mock.ANY)
             target_power._write.assert_called_once_with(False, unittest.mock.ANY)
 
-            async with asyncio_mqtt.Client("localhost", 42883, client_id="some-other-client") as c:
+            async with aiomqtt.Client("localhost", 42883, identifier="some-other-client") as c:
                 await c.publish("cmnd/test-device/color", b'#aabbcc', retain=True)
 
             await asyncio.sleep(0.1)
@@ -220,7 +221,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
         target_ir._write.assert_not_called()
 
-        async with asyncio_mqtt.Client("localhost", 42883, client_id="some-other-client") as c:
+        async with aiomqtt.Client("localhost", 42883, identifier="some-other-client") as c:
             await c.publish("tele/test-device/RESULT",
                             json.dumps({"Time": "1970-01-10T03:12:43",
                                         "IrReceived": {"Protocol": "NEC", "Bits": 32, "Data": "0x00F7609F"}})
@@ -240,7 +241,7 @@ class TasmotaInterfaceTest(unittest.TestCase):
 
         target_energy._write.assert_not_called()
 
-        async with asyncio_mqtt.Client("localhost", 42883, client_id="some-other-client") as c:
+        async with aiomqtt.Client("localhost", 42883, identifier="some-other-client") as c:
             await c.publish("tele/test-device/SENSOR",
                             json.dumps({"Time": "1970-01-01T00:49:50",
                                         "ENERGY": {"TotalStartTime": "1970-01-01T00:00:00", "Total": 0.012,
@@ -285,50 +286,51 @@ async def tasmota_device_mock(deviceid: str) -> None:
     channel = [0, 0, 0, 0]
     power = False
 
-    async with asyncio_mqtt.Client("localhost", 42883, client_id="FakeTasmotaDevice") as c:
+    async with aiomqtt.Client("localhost", 42883, identifier="FakeTasmotaDevice") as c:
         await c.subscribe(f'cmnd/{deviceid}/+')
         await c.publish(f"tele/{deviceid}/LWT", b'Online', retain=True)
 
         try:
-            async with c.unfiltered_messages() as messages:
-                async for msg in messages:
-                    if msg.topic == f'cmnd/{deviceid}/status':
-                        if msg.payload.strip() == b'11':
-                            status = BASE_STATUS11.copy()
-                            status['StatusSTS']['POWER'] = 'ON' if power else 'OFF'
-                            status['StatusSTS']['Dimmer'] = int(max(channel)/255*100)
-                            status['StatusSTS']['Channel'] = [int(v/255*100) for v in channel]
-                            status['StatusSTS']['Color'] = \
-                                '{:0>2X}{:0>2X}{:0>2X}{:0>2X}'.format(*channel)
-                            status['StatusSTS']['White'] = int(channel[3]/255*100)
-                            # TODO insert current HSBColor
-                            await c.publish(f"stat/{deviceid}/STATUS11", json.dumps(status).encode('ascii'))
-                        else:
-                            pass
-                            # not implemented
+            async for msg in c.messages:
+                topic = str(msg.topic)
+                payload = typing.cast(bytes, msg.payload)  # payload of received MQTT messages is always bytes
+                if topic == f'cmnd/{deviceid}/status':
+                    if payload.strip() == b'11':
+                        status = BASE_STATUS11.copy()
+                        status['StatusSTS']['POWER'] = 'ON' if power else 'OFF'
+                        status['StatusSTS']['Dimmer'] = int(max(channel)/255*100)
+                        status['StatusSTS']['Channel'] = [int(v/255*100) for v in channel]
+                        status['StatusSTS']['Color'] = \
+                            '{:0>2X}{:0>2X}{:0>2X}{:0>2X}'.format(*channel)
+                        status['StatusSTS']['White'] = int(channel[3]/255*100)
+                        # TODO insert current HSBColor
+                        await c.publish(f"stat/{deviceid}/STATUS11", json.dumps(status).encode('ascii'))
+                    else:
+                        pass
+                        # not implemented
 
-                    elif msg.topic == f'cmnd/{deviceid}/power':
-                        power = msg.payload.lower() not in (b'0', 'off', 'false')
-                        await c.publish(f'stat/{deviceid}/RESULT', b'{"POWER":"' + (b'ON' if power else b'OFF') + b'"}')
-                        await c.publish(f'stat/{deviceid}/POWER', b'ON' if power else b'OFF')
+                elif topic == f'cmnd/{deviceid}/power':
+                    power = payload.lower() not in (b'0', 'off', 'false')
+                    await c.publish(f'stat/{deviceid}/RESULT', b'{"POWER":"' + (b'ON' if power else b'OFF') + b'"}')
+                    await c.publish(f'stat/{deviceid}/POWER', b'ON' if power else b'OFF')
 
-                    elif msg.topic == f'cmnd/{deviceid}/color':
-                        if msg.payload[0] == ord('#'):
-                            data = bytes.fromhex(msg.payload.decode('ascii')[1:])
-                            data += bytes([0] * (4 - len(data)))
-                            channel = list(data[0:4])
-                        else:
-                            # not implemented
-                            continue
-                        power = max(channel) != 0
-                        await c.publish(f'stat/{deviceid}/RESULT',
-                                        json.dumps({"POWER": 'ON' if power else 'OFF',
-                                                    "Dimmer": int(max(channel)/255*100),
-                                                    "Color": '{:0>2X}{:0>2X}{:0>2X}{:0>2X}'
-                                                             .format(*channel),
-                                                    "HSBColor": "48,100,100",  # TODO
-                                                    "White": int(channel[3]/255*100),
-                                                    "Channel": [int(v/255*100) for v in channel]}).encode('ascii'))
+                elif topic == f'cmnd/{deviceid}/color':
+                    if payload[0] == ord('#'):
+                        data = bytes.fromhex(payload.decode('ascii')[1:])
+                        data += bytes([0] * (4 - len(data)))
+                        channel = list(data[0:4])
+                    else:
+                        # not implemented
+                        continue
+                    power = max(channel) != 0
+                    await c.publish(f'stat/{deviceid}/RESULT',
+                                    json.dumps({"POWER": 'ON' if power else 'OFF',
+                                                "Dimmer": int(max(channel)/255*100),
+                                                "Color": '{:0>2X}{:0>2X}{:0>2X}{:0>2X}'
+                                                         .format(*channel),
+                                                "HSBColor": "48,100,100",  # TODO
+                                                "White": int(channel[3]/255*100),
+                                                "Channel": [int(v/255*100) for v in channel]}).encode('ascii'))
 
         except asyncio.CancelledError:
             await c.publish(f"tele/{deviceid}/LWT", b'Offline', retain=True)

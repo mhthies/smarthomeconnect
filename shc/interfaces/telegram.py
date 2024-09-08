@@ -5,6 +5,7 @@ import re
 from typing import Generic, TypeVar, Set, Type, Optional, List, Dict, Any, Callable, Union
 
 import aiogram
+import aiogram.client
 import aiogram.filters
 import aiogram.client.session.aiohttp
 from aiogram.client.telegram import TelegramAPIServer, PRODUCTION
