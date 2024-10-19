@@ -324,7 +324,11 @@ class ButtonGroup(WebPageItem):
     :param label: The label to be shown left of the buttons
     :param buttons: List or a List if List of button descriptors
     """
-    def __init__(self, label: Union[str, Markup], buttons: Union[Iterable["AbstractButton"], Iterable[Iterable["AbstractButton"]]]):
+    def __init__(
+        self,
+        label: Union[str, Markup],
+        buttons: Union[Iterable["AbstractButton"], Iterable[Iterable["AbstractButton"]]],
+    ):
         super().__init__()
         self.label = label
         if all(isinstance(item, Iterable) for item in buttons):

@@ -65,7 +65,7 @@ index_page.add_item(ButtonGroup("State of the foobar", [
 
 # A simple ButtonGroup with nested lists of ToggleButtons for foobar
 index_page.add_item(ButtonGroup("State of the foobar (grouped)", [
-    [ToggleButton("Foo").connect(foo),ToggleButton("Bar", color='red').connect(bar)],
+    [ToggleButton("Foo").connect(foo), ToggleButton("Bar", color='red').connect(bar)],
     [ToggleButton("Foobar", color='black').connect(foobar)],
 ]))
 
