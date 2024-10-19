@@ -13,6 +13,7 @@ import urllib.request
 import urllib.error
 import http.client
 from pathlib import Path
+from typing import cast, Iterable
 
 import aiohttp
 from selenium import webdriver
@@ -28,6 +29,7 @@ import shc.web.widgets
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
 from shc.interfaces._helper import ReadableStatusInterface
 from shc.supervisor import InterfaceStatus, ServiceStatus
+from shc.web.widgets import AbstractButton
 from ._helper import InterfaceThreadRunner, ExampleReadable, async_test
 
 
@@ -95,9 +97,9 @@ class SimpleWebTest(AbstractWebTest):
         self.assertIn('Home Page', self.driver.title)
         self.assertIn('Another segment', self.driver.page_source)
         button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Foobar"]')
-        self.assertIn("My button group", button.find_element(By.XPATH, '../..').text)
+        self.assertIn("My button group", button.find_element(By.XPATH, '../../../..').text)
         button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Bar"]')
-        self.assertIn("Another button group", button.find_element(By.XPATH, '../..').text)
+        self.assertIn("Another button group", button.find_element(By.XPATH, '../../../..').text)
 
     def test_main_menu(self) -> None:
         self.server.page('index', menu_entry="Home", menu_icon='home')
@@ -286,7 +288,9 @@ class WebWidgetsTest(AbstractWebTest):
         ExampleReadable(int, 42).connect(b4)
 
         page = self.server.page('index')
-        page.add_item(shc.web.widgets.ButtonGroup("My button group", [b1, b2, b3, b4]))
+        page.add_item(
+            shc.web.widgets.ButtonGroup("My button group", cast(Iterable[AbstractButton], [b1, b2, b3, b4]))
+        )
 
         with unittest.mock.patch.object(b1, '_publish') as b1_publish, \
                 unittest.mock.patch.object(b3, '_publish') as b3_publish, \

@@ -30,7 +30,19 @@ import itertools
 import json
 import pathlib
 from os import PathLike
-from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Optional, Callable
+from typing import (
+    Any,
+    cast,
+    Type,
+    Union,
+    Iterable,
+    List,
+    Generic,
+    Tuple,
+    TypeVar,
+    Optional,
+    Callable,
+)
 
 import markupsafe
 from markupsafe import Markup
@@ -332,11 +344,11 @@ class ButtonGroup(WebPageItem):
         super().__init__()
         self.label = label
         if all(isinstance(item, Iterable) for item in buttons):
-            self.buttons = list(itertools.chain(*buttons))
-            self.button_groups = buttons
+            self.buttons: Iterable["AbstractButton"] = list(itertools.chain(*buttons))
+            self.button_groups = cast(Iterable[Iterable["AbstractButton"]], buttons)
         else:
-            self.buttons = buttons
-            self.button_groups = [buttons]
+            self.buttons = cast(Iterable["AbstractButton"], buttons)
+            self.button_groups = cast(Iterable[Iterable["AbstractButton"]], [buttons])
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         return self.buttons  # type: ignore
