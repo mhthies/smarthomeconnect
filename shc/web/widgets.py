@@ -322,19 +322,24 @@ class ButtonGroup(WebPageItem):
     `Connectable`.
 
     :param label: The label to be shown left of the buttons
-    :param buttons: List of button descriptors
+    :param buttons: List or a List if List of button descriptors
     """
-    def __init__(self, label: Union[str, Markup], buttons: Iterable["AbstractButton"]):
+    def __init__(self, label: Union[str, Markup], buttons: Union[Iterable["AbstractButton"], Iterable[Iterable["AbstractButton"]]]):
         super().__init__()
         self.label = label
-        self.buttons = buttons
+        if all(isinstance(item, Iterable) for item in buttons):
+            self.buttons = list(itertools.chain(*buttons))
+            self.button_groups = buttons
+        else:
+            self.buttons = buttons
+            self.button_groups = [buttons]
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         return self.buttons  # type: ignore
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/buttongroup.htm')\
-            .render_async(label=self.label, buttons=self.buttons)
+            .render_async(label=self.label, button_groups=self.button_groups)
 
 
 class AbstractButton(metaclass=abc.ABCMeta):

@@ -63,6 +63,12 @@ index_page.add_item(ButtonGroup("State of the foobar", [
                  confirm_message="Do you want the foobar?", confirm_values=[True]).connect(foobar),
 ]))
 
+# A simple ButtonGroup with nested lists of ToggleButtons for foobar
+index_page.add_item(ButtonGroup("State of the foobar (grouped)", [
+    [ToggleButton("Foo").connect(foo),ToggleButton("Bar", color='red').connect(bar)],
+    [ToggleButton("Foobar", color='black').connect(foobar)],
+]))
+
 # We can also use ValueButtons to represent individual states (here in the 'outline' version)
 index_page.add_item(ButtonGroup("The Foo", [
     ValueButton(False, "Off", outline=True, color="black").connect(foo),
