@@ -317,7 +317,7 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         elif issubclass(type_, int):
             # we know that type_ is equivalent to T -> int(a: int) is valid
             return cast(Callable[[T], Any],
-                         lambda value: int(value))
+                        lambda value: int(value))
         elif issubclass(type_, float):
             # we know that type_ is equivalent to T -> float(a: float) is valid
             return cast(Callable[[T], Any],
