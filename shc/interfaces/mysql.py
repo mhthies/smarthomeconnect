@@ -4,7 +4,7 @@ import enum
 import json
 import logging
 import math
-from typing import Optional, Type, Generic, List, Tuple, Any, Dict, Callable
+from typing import Optional, Type, Generic, List, Tuple, Any, Dict, Callable, cast
 
 import aiomysql
 import pymysql
@@ -315,30 +315,40 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         if type_ in (bool, int, float, str) or issubclass(type_, bool):
             return lambda x: x
         elif issubclass(type_, int):
-            return lambda value: int(value)  # type: ignore  # type_ is equivalent to T -> int(a: int) is valid
+            # we know that type_ is equivalent to T -> int(a: int) is valid
+            return cast(Callable[[T], Any],
+                         lambda value: int(value))
         elif issubclass(type_, float):
-            # type_ is equivalent to T -> float(a: float) is valid
-            return lambda value: None if math.isnan(value) else float(value)  # type: ignore
+            # we know that type_ is equivalent to T -> float(a: float) is valid
+            return cast(Callable[[T], Any],
+                        lambda value: None if math.isnan(value) else float(value))
         elif issubclass(type_, str):
             return lambda value: str(value)
         elif issubclass(type_, enum.Enum):
-            return lambda value: value.value  # type: ignore  # type_ is equivalent to T -> T is subclass of enum
+            # we know that type_ is equivalent to T -> T is subclass of enum
+            return cast(Callable[[T], Any],
+                        lambda value: value.value)
         else:
             return lambda value: json.dumps(value, cls=SHCJsonEncoder)
 
     @staticmethod
     def _get_from_mysql_converter(type_: Type[T]) -> Callable[[Any], T]:
+        # type_ must be a subclass of T, so we can return a Callable[[...], type_] as Callable[[...], T].
+        # For some reason, MyPy does not unterstand this...
         if type_ is bool:
-            return lambda x: bool(x)  # type: ignore  # type_ is equivalent to T -> type_ is bool here
+            return cast(Callable[[Any], T],
+                        lambda x: bool(x))
         elif type_ in (int, str):
             return lambda x: x
         elif type_ is float:
-            return lambda x: x if x is not None else float("nan")
+            return cast(Callable[[Any], T],
+                        lambda x: x if x is not None else float("nan"))
         elif issubclass(type_, (bool, int, str, enum.Enum)):
-            return lambda value: type_(value)  # type: ignore  # type_ is equivalent to T -> type_() is an instance of T
+            return cast(Callable[[Any], T],
+                        lambda value: type_(value))
         elif issubclass(type_, float):
-            # type_ is equivalent to T -> type_() is an instance of T
-            return lambda value: type_(value) if value is not None else type_(float("nan"))  # type: ignore
+            return cast(Callable[[Any], T],
+                        lambda value: type_(value) if value is not None else type_(float("nan")))
         else:
             return lambda value: from_json(type_, json.loads(value))
 
