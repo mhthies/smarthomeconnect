@@ -223,7 +223,7 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
         self.type = type_
         super().__init__()
         self.formatter: Callable[[T], Union[str, Markup]] = (
-            (lambda x: format.format(x))  # type: ignore
+            (lambda x: format.format(x))
             if isinstance(format, (str, Markup))
             else format)
         self.label = label
@@ -734,7 +734,7 @@ class ImageMap(WebPageItem):
 
         self.max_width = max_width
         self.items: List[Tuple[float, float, ImageMapItem, List[WebPageItem]]]\
-            = [item if len(item) >= 4 else (item[0], item[1], item[2], [],)  # type: ignore # (MyPy does not get it ...)
+            = [item if len(item) >= 4 else (item[0], item[1], item[2], [],)
                for item in items]
 
     def register_with_server(self, _page: WebPage, server: WebServer) -> None:
