@@ -334,7 +334,9 @@ class ButtonGroup(WebPageItem):
     `Connectable`.
 
     :param label: The label to be shown left of the buttons
-    :param buttons: List or a List if List of button descriptors
+    :param buttons: List or a List of Lists of button descriptors.  A plain list of button descriptors will be
+        grouped all together, whereas providing multiple lists each list will be grouped together with a small gap
+        between each group of button descriptors.
     """
     def __init__(
         self,
