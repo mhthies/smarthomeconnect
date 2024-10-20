@@ -13,11 +13,12 @@
 A simple SHC example, providing a web interface to control and supervise the default sink of the local Pulseaudio
 server.
 """
+from typing import cast, Iterable
 
 import shc
 import shc.web
 import shc.interfaces.pulse
-from shc.web.widgets import Slider, ButtonGroup, ToggleButton, icon, DisplayButton
+from shc.web.widgets import AbstractButton, Slider, ButtonGroup, ToggleButton, icon, DisplayButton
 
 interface = shc.interfaces.pulse.PulseAudioInterface()
 sink_name = None
@@ -35,10 +36,10 @@ page = web_interface.page('index', "Home")
 page.add_item(Slider("Volume").connect(volume.field('volume')))
 page.add_item(Slider("Balance").connect(volume.field('balance'), convert=True))
 page.add_item(Slider("Fade").connect(volume.field('fade'), convert=True))
-page.add_item(ButtonGroup("", [
+page.add_item(ButtonGroup("", cast(Iterable[AbstractButton], [
     ToggleButton(icon('volume mute')).connect(mute),
     DisplayButton(label=icon('power off')).connect(active),
-]))
+])))
 
 if __name__ == '__main__':
     shc.main()

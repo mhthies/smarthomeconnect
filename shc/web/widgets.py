@@ -30,7 +30,19 @@ import itertools
 import json
 import pathlib
 from os import PathLike
-from typing import Any, Type, Union, Iterable, List, Generic, Tuple, TypeVar, Optional, Callable
+from typing import (
+    Any,
+    cast,
+    Type,
+    Union,
+    Iterable,
+    List,
+    Generic,
+    Tuple,
+    TypeVar,
+    Optional,
+    Callable,
+)
 
 import markupsafe
 from markupsafe import Markup
@@ -322,19 +334,30 @@ class ButtonGroup(WebPageItem):
     `Connectable`.
 
     :param label: The label to be shown left of the buttons
-    :param buttons: List of button descriptors
+    :param buttons: List or a List of Lists of button descriptors.  A plain list of button descriptors will be
+        grouped all together, whereas providing multiple lists each list will be grouped together with a small gap
+        between each group of button descriptors.
     """
-    def __init__(self, label: Union[str, Markup], buttons: Iterable["AbstractButton"]):
+    def __init__(
+        self,
+        label: Union[str, Markup],
+        buttons: Union[Iterable["AbstractButton"], Iterable[Iterable["AbstractButton"]]],
+    ):
         super().__init__()
         self.label = label
-        self.buttons = buttons
+        if all(isinstance(item, Iterable) for item in buttons):
+            self.buttons: Iterable["AbstractButton"] = list(itertools.chain(*buttons))
+            self.button_groups = cast(Iterable[Iterable["AbstractButton"]], buttons)
+        else:
+            self.buttons = cast(Iterable["AbstractButton"], buttons)
+            self.button_groups = cast(Iterable[Iterable["AbstractButton"]], [buttons])
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         return self.buttons  # type: ignore
 
     async def render(self) -> str:
         return await jinja_env.get_template('widgets/buttongroup.htm')\
-            .render_async(label=self.label, buttons=self.buttons)
+            .render_async(label=self.label, button_groups=self.button_groups)
 
 
 class AbstractButton(metaclass=abc.ABCMeta):

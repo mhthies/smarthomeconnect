@@ -1,7 +1,13 @@
 {% from "buttons.inc.htm" import render_button %}
 <label class="shc label float-btn">{{ label }}</label>
-<div class="ui buttons right floated">
-    {% for button in buttons %}
-        {{ render_button(button) }}
+<div class="ui spaced horizontal list right floated">
+    {% for button_group in button_groups %}
+    <div class="item">
+        <div class="ui buttons">
+            {% for button in button_group %}
+                {{ render_button(button) }}
+            {% endfor %}
+        </div>
+    </div>
     {% endfor %}
 </div>

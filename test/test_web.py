@@ -13,6 +13,7 @@ import urllib.request
 import urllib.error
 import http.client
 from pathlib import Path
+from typing import cast, Iterable
 
 import aiohttp
 from selenium import webdriver
@@ -28,6 +29,7 @@ import shc.web.widgets
 from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
 from shc.interfaces._helper import ReadableStatusInterface
 from shc.supervisor import InterfaceStatus, ServiceStatus
+from shc.web.widgets import AbstractButton
 from ._helper import InterfaceThreadRunner, ExampleReadable, async_test
 
 
@@ -95,9 +97,30 @@ class SimpleWebTest(AbstractWebTest):
         self.assertIn('Home Page', self.driver.title)
         self.assertIn('Another segment', self.driver.page_source)
         button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Foobar"]')
-        self.assertIn("My button group", button.find_element(By.XPATH, '../..').text)
+        self.assertIn("My button group", button.find_element(By.XPATH, '../../../..').text)
         button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Bar"]')
-        self.assertIn("Another button group", button.find_element(By.XPATH, '../..').text)
+        self.assertIn("Another button group", button.find_element(By.XPATH, '../../../..').text)
+
+    def test_buttongroup_groups(self) -> None:
+        page = self.server.page('index', 'Home Page')
+        page.add_item(shc.web.widgets.ButtonGroup("My button group", [
+            [shc.web.widgets.StatelessButton(13, "Foo"),
+            shc.web.widgets.StatelessButton(27, "Bar")],
+            [shc.web.widgets.StatelessButton(142, "Gaga")],
+        ]))
+
+        self.server_runner.start()
+        self.driver.get("http://localhost:42080")
+
+        # buttons in 1st group exist and are grouped
+        button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Foo"]')
+        self.assertEqual("Foo\nBar", button.find_element(By.XPATH, '..').text)
+        button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Bar"]')
+        self.assertEqual("Foo\nBar", button.find_element(By.XPATH, '..').text)
+
+        # button gaga in 2nd group exist and is the only member in the group
+        button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Gaga"]')
+        self.assertEqual("Gaga", button.find_element(By.XPATH, '..').text)
 
     def test_main_menu(self) -> None:
         self.server.page('index', menu_entry="Home", menu_icon='home')
@@ -286,7 +309,9 @@ class WebWidgetsTest(AbstractWebTest):
         ExampleReadable(int, 42).connect(b4)
 
         page = self.server.page('index')
-        page.add_item(shc.web.widgets.ButtonGroup("My button group", [b1, b2, b3, b4]))
+        page.add_item(
+            shc.web.widgets.ButtonGroup("My button group", cast(Iterable[AbstractButton], [b1, b2, b3, b4]))
+        )
 
         with unittest.mock.patch.object(b1, '_publish') as b1_publish, \
                 unittest.mock.patch.object(b3, '_publish') as b3_publish, \
