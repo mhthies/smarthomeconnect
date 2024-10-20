@@ -101,6 +101,27 @@ class SimpleWebTest(AbstractWebTest):
         button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Bar"]')
         self.assertIn("Another button group", button.find_element(By.XPATH, '../../../..').text)
 
+    def test_buttongroup_groups(self) -> None:
+        page = self.server.page('index', 'Home Page')
+        page.add_item(shc.web.widgets.ButtonGroup("My button group", [
+            [shc.web.widgets.StatelessButton(13, "Foo"),
+            shc.web.widgets.StatelessButton(27, "Bar")],
+            [shc.web.widgets.StatelessButton(142, "Gaga")],
+        ]))
+
+        self.server_runner.start()
+        self.driver.get("http://localhost:42080")
+
+        # buttons in 1st group exist and are grouped
+        button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Foo"]')
+        self.assertEqual("Foo\nBar", button.find_element(By.XPATH, '..').text)
+        button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Bar"]')
+        self.assertEqual("Foo\nBar", button.find_element(By.XPATH, '..').text)
+
+        # button gaga in 2nd group exist and is the only member in the group
+        button = self.driver.find_element(By.XPATH, '//button[normalize-space(text()) = "Gaga"]')
+        self.assertEqual("Gaga", button.find_element(By.XPATH, '..').text)
+
     def test_main_menu(self) -> None:
         self.server.page('index', menu_entry="Home", menu_icon='home')
         self.server.add_menu_entry('another_page', label="Foo", sub_label="Bar", sub_icon="bars")
