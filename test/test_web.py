@@ -105,7 +105,7 @@ class SimpleWebTest(AbstractWebTest):
         page = self.server.page('index', 'Home Page')
         page.add_item(shc.web.widgets.ButtonGroup("My button group", [
             [shc.web.widgets.StatelessButton(13, "Foo"),
-            shc.web.widgets.StatelessButton(27, "Bar")],
+             shc.web.widgets.StatelessButton(27, "Bar")],
             [shc.web.widgets.StatelessButton(142, "Gaga")],
         ]))
 
