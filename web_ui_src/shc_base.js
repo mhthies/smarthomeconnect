@@ -146,7 +146,7 @@ export let WIDGET_TYPES = new Map();
         // Select all the menu items
         const menuItems = document.querySelectorAll('.main-menu a');
 
-        // Loop through each menu item and add active class to current page
+        // Loop through each menu item and add the active class to current page
         menuItems.forEach(function(item) {
             if (item.href) {
                 itemPath = new URL(item.href).pathname;
