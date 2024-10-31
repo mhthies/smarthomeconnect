@@ -192,7 +192,8 @@ class SimpleWebTest(AbstractWebTest):
         selected_menus = container.find_elements(By.CLASS_NAME, 'selected')
         self.assertEqual(len(selected_menus), 2)
         self.assertIn("Some Submenu", selected_menus[0].text)
-        self.assertTrue(selected_menus[1].get_attribute("href").endswith("/page/submenu1/"))
+        submenu_href: str = str(selected_menus[1].get_attribute("href"))
+        self.assertTrue(submenu_href.endswith("/page/submenu1/"))
 
 
 class MonitoringTest(unittest.TestCase):
