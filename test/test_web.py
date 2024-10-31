@@ -148,6 +148,52 @@ class SimpleWebTest(AbstractWebTest):
         self.assertEqual(submenu_entry_href.strip(), "http://localhost:42080/page/another_page/")
         submenu_entry.find_element(By.CSS_SELECTOR, 'i.bars.icon')
 
+    def test_main_menu_selection(self) -> None:
+        """Test that the clicked menu item is selected thus highlighted."""
+        self.server.page('index', menu_entry="Home", menu_icon='home')
+        self.server.page('overview', menu_entry="Foo", menu_icon='info')
+
+        # add submenu
+        self.server.page('submenu1', "Sub1", menu_entry='Some Submenu', menu_icon='bell',
+                         menu_sub_label="Overview")
+        self.server.page('submenu2', "Sub2", menu_entry='Some Submenu',
+                         menu_sub_label="Empty Submenu")
+        self.server.page('submenu3', "Sub3", menu_entry='Some Submenu',
+                         menu_sub_label="Empty Submenu 2")
+
+        self.server_runner.start()
+        self.driver.get("http://localhost:42080")
+
+        # test on startup only 1st item is selected
+        container = self.driver.find_element(By.CSS_SELECTOR, '.pusher')
+        selected_menus = container.find_elements(By.CLASS_NAME, 'selected')
+        self.assertEqual(len(selected_menus), 1)
+        self.assertIn("Home", selected_menus[0].text)
+
+        # test after click on foo only the clicked item is selected
+        foo_link = container.find_element(By.CSS_SELECTOR, 'i.info.icon').find_element(By.XPATH, '..')
+        foo_link.click()
+
+        container = self.driver.find_element(By.CSS_SELECTOR, '.pusher')
+        selected_menus = container.find_elements(By.CLASS_NAME, 'selected')
+        self.assertEqual(len(selected_menus), 1)
+        self.assertIn("Foo", selected_menus[0].text)
+
+        # click top level submenu item 1st to open submenu
+        submenu = container.find_element(By.CSS_SELECTOR, 'i.bell.icon').find_element(By.XPATH, '..')
+        submenu.click()
+
+        # now select submenu item
+        submenu_entry = submenu.find_element(By.XPATH, './/a[contains(@class, "item")]')
+        submenu_entry.click()
+
+        # test after selecting a submenu both are selected the submenu item and the menu item
+        container = self.driver.find_element(By.CSS_SELECTOR, '.pusher')
+        selected_menus = container.find_elements(By.CLASS_NAME, 'selected')
+        self.assertEqual(len(selected_menus), 2)
+        self.assertIn("Some Submenu", selected_menus[0].text)
+        self.assertTrue(selected_menus[1].get_attribute("href").endswith("/page/submenu1/"))
+
 
 class MonitoringTest(unittest.TestCase):
     def setUp(self) -> None:
