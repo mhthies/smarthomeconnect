@@ -22,12 +22,6 @@ body.pushable>.pusher, body:not(.pushable) {
     line-height: 36px;
 }
 
-/* highlight selected menu item */
-.main-menu a.active {
-    background-color: #f0f0f0;
-    color: #000;
-}
-
 
 /* ************************** *
  * Semantic UI extensions     *
