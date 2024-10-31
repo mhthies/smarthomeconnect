@@ -54,6 +54,8 @@ export let WIDGET_TYPES = new Map();
         if (widgetElements.length > 0) {
             openWebsocket();
         }
+
+        highlightSelectedPage();
     }
 
     function openWebsocket() {
@@ -135,6 +137,29 @@ export let WIDGET_TYPES = new Map();
                 'class': 'warning',
                 showIcon: 'exclamation circle'});
         }
+    }
+
+    function highlightSelectedPage() {
+        // Get the current URL path
+        const currentPath = window.location.pathname;
+
+        // Select all the menu items
+        const menuItems = document.querySelectorAll('.main-menu a');
+
+        // Loop through each menu item and add active class to current page
+        menuItems.forEach(function(item) {
+            if (item.href) {
+                itemPath = new URL(item.href).pathname;
+                if (currentPath.endsWith(itemPath)) {
+                    if (item.parentElement.classList.contains("menu")) {  // special case submenu
+                        item.parentElement.parentElement.classList.add('active');
+                    } else {
+                        item.classList.add('active');
+                    }
+                }
+            }
+        });
+
     }
 
     document.addEventListener('DOMContentLoaded', (event) => init());
