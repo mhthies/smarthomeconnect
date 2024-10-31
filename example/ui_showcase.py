@@ -149,11 +149,17 @@ color_page.add_item(Slider("Blue", color='blue')
 
 #############################################################################################
 # Overview page                                                                             #
-# Here we show the ImageMap and HideRows                                                    #
+# Here we show the ImageMap, HideRows and sub menus.                                        #
 #############################################################################################
 
 overview_page = web_server.page('overview', "Overview", menu_entry='Some Submenu', menu_icon='tachometer alternate',
-                                menu_sub_label="Overview")
+                                menu_sub_label="Overview", menu_sub_icon='tachometer alternate')
+
+submenu_page2 = web_server.page('submenu2', "Nothing here", menu_entry='Some Submenu', menu_sub_icon='couch',
+                                menu_sub_label="Empty Submenu")
+
+submenu_page3 = web_server.page('submenu3', "Nothing here either", menu_entry='Some Submenu', menu_sub_icon='motorcycle',
+                                menu_sub_label="Empty Submenu 2")
 
 # ImageMap supports all the different Buttons as items, as well as the special ImageMapLabel
 # The optional fourth entry of each item is a list of WebPageItems (everything we have shown so far – even an ImageMap))
