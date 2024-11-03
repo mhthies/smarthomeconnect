@@ -54,8 +54,6 @@ export let WIDGET_TYPES = new Map();
         if (widgetElements.length > 0) {
             openWebsocket();
         }
-
-        highlightSelectedPage();
     }
 
     function openWebsocket() {
@@ -138,35 +136,6 @@ export let WIDGET_TYPES = new Map();
                 showIcon: 'exclamation circle'});
         }
     }
-
-    function highlightSelectedPage() {
-        // Get the current URL path
-        const currentPath = window.location.pathname;
-        // Select all the menu items
-        const menuItems = $('.main-menu a');
-
-        // Loop through each menu item and add the selected class to the current page
-        menuItems.each(function() {
-            let $item = $(this);
-            $item.removeClass('selected');
-
-            if ($item.attr('href')) {
-                const href = $item.attr('href');
-
-                // Add selected class
-                if (currentPath.endsWith(href)) {
-                    $item.addClass('selected');
-
-                    // Special case for submenu
-                    const dropdownMenu = $item.parents('.dropdown');
-                    if (dropdownMenu.length) {
-                        dropdownMenu.addClass('selected');
-                    }
-                }
-            }
-        });
-    }
-
 
     document.addEventListener('DOMContentLoaded', (event) => init());
 })();

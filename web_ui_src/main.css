@@ -22,8 +22,7 @@ body.pushable>.pusher, body:not(.pushable) {
     line-height: 36px;
 }
 
-a.mobile.hidden.item.selected,
-div.mobile.hidden.dropdown.item.selected {
+.item.selected {
     background: url("prism.png") !important;
 }
 
