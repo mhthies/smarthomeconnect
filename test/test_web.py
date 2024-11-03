@@ -169,7 +169,7 @@ class SimpleWebTest(AbstractWebTest):
 
         # test on startup only 1st item is selected
         container = self.driver.find_element(By.CSS_SELECTOR, '.pusher')
-        selected_menus = container.find_elements(By.CLASS_NAME, 'selected')
+        selected_menus = container.find_elements(By.CLASS_NAME, 'activated')
         self.assertEqual(len(selected_menus), 1)
         self.assertIn("Home", selected_menus[0].text)
 
@@ -178,7 +178,7 @@ class SimpleWebTest(AbstractWebTest):
         foo_link.click()
 
         container = self.driver.find_element(By.CSS_SELECTOR, '.pusher')
-        selected_menus = container.find_elements(By.CLASS_NAME, 'selected')
+        selected_menus = container.find_elements(By.CLASS_NAME, 'activated')
         self.assertEqual(len(selected_menus), 1)
         self.assertIn("Foo", selected_menus[0].text)
 
@@ -194,10 +194,12 @@ class SimpleWebTest(AbstractWebTest):
 
         # test after selecting a submenu both are selected the submenu item and the menu item
         container = self.driver.find_element(By.CSS_SELECTOR, '.pusher')
-        selected_menus = container.find_elements(By.CLASS_NAME, 'selected')
-        self.assertEqual(len(selected_menus), 2)
+        self.assertEqual(len(selected_menus), 1)
+        selected_menus = container.find_elements(By.CLASS_NAME, 'activated')
         self.assertIn("Some Submenu", selected_menus[0].text)
-        submenu_href: str = str(selected_menus[1].get_attribute("href"))
+        selected_menus = container.find_elements(By.CLASS_NAME, 'selected')
+        self.assertEqual(len(selected_menus), 1)
+        submenu_href: str = str(selected_menus[0].get_attribute("href"))
         self.assertTrue(submenu_href.endswith("/page/submenu1/"))
 
 

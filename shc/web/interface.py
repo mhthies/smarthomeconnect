@@ -17,6 +17,7 @@ import logging
 import os
 import pathlib
 import weakref
+from dataclasses import dataclass, field
 from json import JSONDecodeError
 from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple, Generic, Type, Callable
 
@@ -40,6 +41,26 @@ jinja_env = jinja2.Environment(
 jinja_env.filters['id'] = id
 
 LastWillT = Tuple["WebApiObject[T]", T]
+
+
+@dataclass
+class MenuEntrySpec(Generic[T]):
+    """Specification of one menu entry within the :class:`WebServer`"""
+    # The name of the page (link target)
+    page_name: Optional[str] = None
+    # The label of the entry in the main menu
+    label: Optional[str] = None
+    # If given, the menu entry is prepended with the named icon
+    icon: Optional[str] = None
+    # Flag whether this menu item is active
+    is_active: bool = False
+
+
+@dataclass
+class SubMenuEntrySpec(MenuEntrySpec):
+    """Specification of a sub menu entry within the :class:`WebServer`"""
+    # List of submenus if any
+    submenus: List[MenuEntrySpec] = field(default_factory=list)
 
 
 class WebServer(AbstractInterface):
@@ -207,21 +228,26 @@ class WebServer(AbstractInterface):
         :raises ValueError: If there is already a menu entry with the same label (or a submenu entry with the same two
             labels)
         """
-        existing_entry = next((e for e in self.ui_menu_entries if e[0] == label), None)
+        existing_entry: MenuEntrySpec = next((e for e in self.ui_menu_entries if e.label == label), None)
         if not sub_label:
             if existing_entry:
                 raise ValueError("UI main menu entry with label {} exists already. Contents: {}"
-                                 .format(label, existing_entry[2]))
-            self.ui_menu_entries.append((label, icon, page_name))
+                                 .format(label, existing_entry.page_name))
+            self.ui_menu_entries.append(MenuEntrySpec(label=label, icon=icon, page_name=page_name))
 
         elif existing_entry:
-            if not isinstance(existing_entry[2], list):
+            if not isinstance(existing_entry, SubMenuEntrySpec):
                 raise ValueError("Existing UI main menu entry with label {} is not a submenu but a link to page {}"
-                                 .format(label, existing_entry[2]))
-            existing_entry[2].append((sub_label, sub_icon, page_name))
-
+                                 .format(label, existing_entry.page_name))
+            existing_entry.submenus.append(MenuEntrySpec(label=sub_label, icon=sub_icon, page_name=page_name))
         else:
-            self.ui_menu_entries.append((label, icon, [(sub_label, sub_icon, page_name)]))
+            self.ui_menu_entries.append(
+                SubMenuEntrySpec(
+                    label=label,
+                    icon=icon,
+                    submenus=[MenuEntrySpec(label=sub_label, icon=sub_icon, page_name=page_name)],
+                )
+            )
 
     def api(self, type_: Type, name: str) -> "WebApiObject":
         """
@@ -291,11 +317,26 @@ class WebServer(AbstractInterface):
 
         html_title = self.title_formatter(page.title)
         template = jinja_env.get_template('page.htm')
+        self._mark_active_menu_items(request.path)
         body = await template.render_async(title=page.title, segments=page.segments, menu=self.ui_menu_entries,
-                                           qroot_url=self.root_url, js_files=self._js_files, css_files=self._css_files,
-                                           server_token=id(self), html_title=html_title,
-                                           current_url=request.path)
+                                           root_url=self.root_url, js_files=self._js_files, css_files=self._css_files,
+                                           server_token=id(self), html_title=html_title, SubMenuEntrySpec=SubMenuEntrySpec)
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
+
+    def _mark_active_menu_items(self, path: str):
+        """Set menu items is_active flag if current page matches page_name/target link."""
+        page_name = path.lstrip("/page/").strip("/")
+        for item in self.ui_menu_entries:
+            if isinstance(item, SubMenuEntrySpec):
+                item.is_active = False
+                for sub_item in item.submenus:
+                    if page_name == sub_item.page_name:
+                        item.is_active = True
+                        sub_item.is_active = True
+                    else:
+                        sub_item.is_active = False
+            else:
+                item.is_active = page_name == item.page_name
 
     async def _ui_websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
         ws = aiohttp.web.WebSocketResponse()
