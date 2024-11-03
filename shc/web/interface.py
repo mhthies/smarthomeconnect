@@ -109,7 +109,7 @@ class WebServer(AbstractInterface):
         #     ('Label 2', 'icon', 'page_name2'), ...
         #   ]),
         #  ...]
-        self.ui_menu_entries: List[Tuple[str, Optional[str], Union[str, List[Tuple[str, Optional[str], str]]]]] = []
+        self.ui_menu_entries: List[MenuEntrySpec] = []
         # List of all static js URLs to be included in the user interface pages
         self._js_files = [
             "/static/pack/main.js",
@@ -228,7 +228,7 @@ class WebServer(AbstractInterface):
         :raises ValueError: If there is already a menu entry with the same label (or a submenu entry with the same two
             labels)
         """
-        existing_entry: MenuEntrySpec = next((e for e in self.ui_menu_entries if e.label == label), None)
+        existing_entry: Optional[MenuEntrySpec] = next((e for e in self.ui_menu_entries if e.label == label), None)
         if not sub_label:
             if existing_entry:
                 raise ValueError("UI main menu entry with label {} exists already. Contents: {}"
@@ -318,9 +318,17 @@ class WebServer(AbstractInterface):
         html_title = self.title_formatter(page.title)
         template = jinja_env.get_template('page.htm')
         self._mark_active_menu_items(request.path)
-        body = await template.render_async(title=page.title, segments=page.segments, menu=self.ui_menu_entries,
-                                           root_url=self.root_url, js_files=self._js_files, css_files=self._css_files,
-                                           server_token=id(self), html_title=html_title, SubMenuEntrySpec=SubMenuEntrySpec)
+        body = await template.render_async(
+            title=page.title,
+            segments=page.segments,
+            menu=self.ui_menu_entries,
+            root_url=self.root_url,
+            js_files=self._js_files,
+            css_files=self._css_files,
+            server_token=id(self),
+            html_title=html_title,
+            SubMenuEntrySpec=SubMenuEntrySpec,
+        )
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
     def _mark_active_menu_items(self, path: str):
