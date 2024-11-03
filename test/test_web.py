@@ -182,6 +182,8 @@ class SimpleWebTest(AbstractWebTest):
         # click top level submenu item 1st to open submenu
         submenu = container.find_element(By.CSS_SELECTOR, 'i.bell.icon').find_element(By.XPATH, '..')
         submenu.click()
+        actions = ActionChains(self.driver)
+        actions.move_to_element(submenu).perform()
 
         # now select submenu item
         submenu_entry = submenu.find_element(By.XPATH, './/a[contains(@class, "item")]')
