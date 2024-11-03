@@ -30,6 +30,7 @@ window.SHC_WIDGET_TYPES = WIDGET_TYPES;
 
 // Set up UI with Semantic UI components
 $(function() {
-    $('.main-menu .ui.dropdown').dropdown();
+    $('.main-menu .ui.dropdown').dropdown({on: 'hover'});
+    $('.main-menu .menu .item').tab();
     $('.ui.sidebar').sidebar({transition: 'overlay'}).sidebar('attach events', '#mobile_item');
 });

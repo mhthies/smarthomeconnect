@@ -292,8 +292,9 @@ class WebServer(AbstractInterface):
         html_title = self.title_formatter(page.title)
         template = jinja_env.get_template('page.htm')
         body = await template.render_async(title=page.title, segments=page.segments, menu=self.ui_menu_entries,
-                                           root_url=self.root_url, js_files=self._js_files, css_files=self._css_files,
-                                           server_token=id(self), html_title=html_title)
+                                           qroot_url=self.root_url, js_files=self._js_files, css_files=self._css_files,
+                                           server_token=id(self), html_title=html_title,
+                                           current_url=request.path)
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
     async def _ui_websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
