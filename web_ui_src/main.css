@@ -22,7 +22,7 @@ body.pushable>.pusher, body:not(.pushable) {
     line-height: 36px;
 }
 
-.item.selected {
+.item.activated {
     background: url("prism.png") !important;
 }
 
