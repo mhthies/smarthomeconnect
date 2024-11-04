@@ -102,11 +102,11 @@ class WebServer(AbstractInterface):
         self._associated_tasks: weakref.WeakSet[asyncio.Task] = weakref.WeakSet()
         # last will (object, value) per API websocket client (if set)
         self._api_ws_last_will: Dict[aiohttp.web.WebSocketResponse, LastWillT] = {}
-        # data structure of the user interface's main menu
+        # using class `MenuEntrySpec` and `SubMenuEntrySpec` as data structure for the user interface's main menu
         # The structure looks as follows:
-        # [('Label', 'icon', 'page_name'),
-        #  ('Submenu label', None, [
-        #     ('Label 2', 'icon', 'page_name2'), ...
+        # [('Label', 'icon', 'page_name', 'is_active'),
+        #  ('Submenu label', 'icon', None, 'is_active' [
+        #     ('Label 2', 'icon', 'page_name2', 'is_active'), ...
         #   ]),
         #  ...]
         self.ui_menu_entries: List[MenuEntrySpec] = []
