@@ -44,7 +44,7 @@ LastWillT = Tuple["WebApiObject[T]", T]
 
 
 @dataclass
-class MenuEntrySpec(Generic[T]):
+class MenuEntrySpec:
     """Specification of one menu entry within the :class:`WebServer`"""
     # The name of the page (link target)
     page_name: Optional[str] = None
@@ -317,7 +317,7 @@ class WebServer(AbstractInterface):
 
         html_title = self.title_formatter(page.title)
         template = jinja_env.get_template('page.htm')
-        self._mark_active_menu_items(request.path)
+        self._mark_active_menu_items(page.name)
         body = await template.render_async(
             title=page.title,
             segments=page.segments,
@@ -331,9 +331,8 @@ class WebServer(AbstractInterface):
         )
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
-    def _mark_active_menu_items(self, path: str):
+    def _mark_active_menu_items(self, page_name: str):
         """Set menu items is_active flag if current page matches page_name/target link."""
-        page_name = path.lstrip("/page/").strip("/")
         for item in self.ui_menu_entries:
             if isinstance(item, SubMenuEntrySpec):
                 item.is_active = False
