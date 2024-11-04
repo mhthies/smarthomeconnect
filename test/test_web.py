@@ -153,7 +153,7 @@ class SimpleWebTest(AbstractWebTest):
         self.server.page('index', menu_entry="Home", menu_icon='home')
         self.server.page('overview', menu_entry="Foo", menu_icon='info')
 
-        # add submenu
+        # add some pages accessible via submenus
         self.server.page('submenu1', "Sub1", menu_entry='Some Submenu', menu_icon='bell',
                          menu_sub_label="Overview")
         self.server.page('submenu2', "Sub2", menu_entry='Some Submenu',
