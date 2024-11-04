@@ -141,9 +141,6 @@ class SimpleWebTest(AbstractWebTest):
         submenu_entry = submenu.find_element(By.XPATH, './/a[contains(@class, "item")]')
         self.assertFalse(submenu_entry.is_displayed())
         submenu.click()
-        actions = ActionChains(self.driver)
-        actions.move_to_element(submenu).perform()  # do a hoover
-
         self.assertIn("Bar", submenu_entry.text)
         self.assertTrue(submenu_entry.is_displayed())
         submenu_entry_href = submenu_entry.get_attribute('href')
@@ -185,8 +182,6 @@ class SimpleWebTest(AbstractWebTest):
         # click top level submenu item 1st to open submenu
         submenu = container.find_element(By.CSS_SELECTOR, 'i.bell.icon').find_element(By.XPATH, '..')
         submenu.click()
-        actions = ActionChains(self.driver)
-        actions.move_to_element(submenu).perform()  # do a hoover
 
         # now select submenu item
         submenu_entry = submenu.find_element(By.XPATH, './/a[contains(@class, "item")]')
