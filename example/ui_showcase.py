@@ -159,8 +159,7 @@ submenu_page2 = web_server.page('empty-page', "Nothing here", menu_entry='Some S
                                 menu_sub_label="Empty Submenu")
 
 # adding sub menu entry to `Some Submenu` pointing the page above
-submenu_page3 = web_server.add_menu_entry('empty-page', label="Some Submenu",
-                                sub_icon='motorcycle', sub_label="Empty Submenu 2")
+web_server.add_menu_entry('empty-page', label="Some Submenu", sub_icon='motorcycle', sub_label="Empty Submenu 2")
 
 # ImageMap supports all the different Buttons as items, as well as the special ImageMapLabel
 # The optional fourth entry of each item is a list of WebPageItems (everything we have shown so far – even an ImageMap))
