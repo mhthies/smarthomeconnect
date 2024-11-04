@@ -185,6 +185,9 @@ class WebServer(AbstractInterface):
         Create a new WebPage with a given name.
 
         If there is already a page with that name existing, it will be returned.
+        For convenience you may create a menu entry pointing to the new page by specifying the
+        `menu_entry` attribute.  See :meth:`add_menu_entry` for creating plain menu entries.
+
 
         :param name: The `name` of the page, which is used in the page's URL to identify it.
         :param title: The title/heading of the page. If not given, the name is used.
@@ -218,6 +221,7 @@ class WebServer(AbstractInterface):
         Create an entry for a named web UI page in the web UI's main navigation menu.
 
         The existence of the page is not checked, so menu entries can be created before the page has been created.
+        See :meth:`page` for creating pages.
 
         :param page_name: The name of the page (link target)
         :param label: The label of the entry (or the submenu to place the entry in) in the main menu
