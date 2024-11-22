@@ -52,8 +52,6 @@ class MenuEntrySpec:
     label: Optional[str] = None
     # If given, the menu entry is prepended with the named icon
     icon: Optional[str] = None
-    # Flag whether this menu item is active
-    is_active: bool = False
 
 
 @dataclass
@@ -320,11 +318,11 @@ class WebServer(AbstractInterface):
 
         html_title = self.title_formatter(page.title)
         template = jinja_env.get_template('page.htm')
-        self._mark_active_menu_items(page.name)
         body = await template.render_async(
             title=page.title,
             segments=page.segments,
             menu=self.ui_menu_entries,
+            active_items=self._get_active_menu_items(page.name),
             root_url=self.root_url,
             js_files=self._js_files,
             css_files=self._css_files,
@@ -334,19 +332,20 @@ class WebServer(AbstractInterface):
         )
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
-    def _mark_active_menu_items(self, page_name: str):
-        """Set menu items is_active flag if current page matches page_name/target link."""
+    def _get_active_menu_items(self, page_name: str) ->  list[MenuEntrySpec]:
+        """Return the menu item where the current page matches page_name/target link."""
+        result: list[MenuEntrySpec] = []
         for item in self.ui_menu_entries:
             if isinstance(item, SubMenuEntrySpec):
-                item.is_active = False
                 for sub_item in item.submenus:
                     if page_name == sub_item.page_name:
-                        item.is_active = True
-                        sub_item.is_active = True
-                    else:
-                        sub_item.is_active = False
+                        result.append(item)
+                        # result.append(sub_item)
             else:
-                item.is_active = page_name == item.page_name
+                if page_name == item.page_name:
+                    result.append(item)
+
+        return result
 
     async def _ui_websocket_handler(self, request: aiohttp.web.Request) -> aiohttp.web.WebSocketResponse:
         ws = aiohttp.web.WebSocketResponse()

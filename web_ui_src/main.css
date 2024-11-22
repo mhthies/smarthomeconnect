@@ -22,9 +22,6 @@ body.pushable>.pusher, body:not(.pushable) {
     line-height: 36px;
 }
 
-.item.activated {
-    background: url("prism.png") !important;
-}
 
 /* ************************** *
  * Semantic UI extensions     *
@@ -101,6 +98,39 @@ body.pushable>.pusher, body:not(.pushable) {
   [class*="widescreen or lower hidden"] {
     display: none !important;
   }
+}
+
+/* **************************
+ * Menu things
+ *
+ * Fomantic-UI active class for menus conflicts w/ the submenu active class usage.
+ * Thus we define our own `activated` class.  Below is a adjusted copy from the Fomantic-UI project.
+ * See https://github.com/mhthies/smarthomeconnect/pull/91 for details
+ * ***************************/
+
+.ui.menu .ui.dropdown .menu > .activated.item {
+  background: rgba(0, 0, 0, 0.03) !important;
+  font-weight: bold !important;
+  color: rgba(0, 0, 0, 0.95) !important;
+}
+
+.ui.vertical.menu .dropdown.activated.item {
+  box-shadow: none;
+}
+/* --------------
+     Active
+--------------- */
+.ui.menu .activated.item {
+  background: rgba(50, 50, 50, 0.8);
+  font-weight: normal;
+  box-shadow: none;
+}
+.ui.menu .activated.item > i.icon {
+  opacity: 1;
+}
+
+.ui.menu .ui.dropdown .menu > .selected.item {
+  background: rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Fix divided lists in divided lists and segments */
