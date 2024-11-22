@@ -104,10 +104,9 @@ class WebServer(AbstractInterface):
         self._api_ws_last_will: Dict[aiohttp.web.WebSocketResponse, LastWillT] = {}
         # using class `MenuEntrySpec` and `SubMenuEntrySpec` as data structure for the user interface's main menu
         # The structure looks as follows:
-        # [('Label', 'icon', 'page_name', 'is_active'),
-        #  ('Submenu label', 'icon', None, 'is_active' [
-        #     ('Label 2', 'icon', 'page_name2', 'is_active'), ...
-        #   ]),
+        # [MenuEntrySpec('Label', 'icon', 'page_name', false),
+        #  SubMenuEntrySpec('Submenu label', 'icon', None, true, [
+        #     MenuEntrySpec('Label 2', 'icon', 'page_name2', true),
         #  ...]
         self.ui_menu_entries: List[MenuEntrySpec] = []
         # List of all static js URLs to be included in the user interface pages
