@@ -332,9 +332,9 @@ class WebServer(AbstractInterface):
         )
         return aiohttp.web.Response(body=body, content_type="text/html", charset='utf-8')
 
-    def _get_active_menu_items(self, page_name: str) -> list[MenuEntrySpec]:
+    def _get_active_menu_items(self, page_name: str) -> List[MenuEntrySpec]:
         """Return the menu item where the current page matches page_name/target link."""
-        result: list[MenuEntrySpec] = []
+        result: List[MenuEntrySpec] = []
         for item in self.ui_menu_entries:
             if isinstance(item, SubMenuEntrySpec):
                 for sub_item in item.submenus:
