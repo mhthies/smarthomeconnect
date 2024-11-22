@@ -340,7 +340,7 @@ class WebServer(AbstractInterface):
                 for sub_item in item.submenus:
                     if page_name == sub_item.page_name:
                         result.append(item)
-                        # result.append(sub_item)
+                        result.append(sub_item)
             else:
                 if page_name == item.page_name:
                     result.append(item)
