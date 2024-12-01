@@ -91,7 +91,7 @@ class AbstractWebTest(unittest.TestCase):
         """Should the selenium driver be shared or not.
 
         Checks whether the environment variable SHARE_SELENIUM_WEB_DRIVER is set.
-        On WSL default ist not sharing the driver since this causes concirrency conflicts.
+        On WSL default ist not sharing the driver since this causes concurrency conflicts.
         """
         if (value := os.getenv('SHARE_SELENIUM_WEB_DRIVER')) is not None:
             return value.strip().lower() in ['1', 'true', 'yes', 'on']
