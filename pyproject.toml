@@ -1,3 +1,125 @@
 [build-system]
-requires = ["setuptools >= 40.6.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "smarthomeconnect"
+version = "0.9.0"
+description = "The Smart Home Connect home automation framework based on AsyncIO"
+license = {file = "LICENSE"}
+readme = "README.md"
+authors = [{name = "Michael Thies", email = "mail@mhthies.de"}]
+requires-python = ">=3.7"
+dependencies = [
+    "aiohttp>=3.6,<4",
+    "jinja2>=2.11,<4",
+    "MarkupSafe>=1.1,<3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shc"]
+
+[project.optional-dependencies]
+mysql = ["aiomqtt>=2.0.0,<3"]
+knx = ["knxdclient>=0.4.0,<2"]
+dmx = ["pyserial-asyncio>=0.3,<0.7"]
+midi = ["mido>=1.2.9,<2", "python-rtmidi>=1.4.6,<2"]
+mqtt = ["aiomqtt>=2.0.0,<3"]
+pulse = ["pulsectl_asyncio>=1.0.0,<2"]
+telegram = ["aiogram>=3.0,<4"]
+file_persistence = ["aiofile>=3.7.4,<4"]
+dev = ["ruff~=0.8"]
+test = ["coverage~=7.6"]
+doc = [
+    "sphinx~=5.0",
+    "sphinx-rtd-theme~=2.0",
+    "sphinx-toolbox~=3.5",
+    "sphinxcontrib-httpdomain~=1.8",
+]
+
+
+[tool.ruff]
+line-length = 120
+output-format = "concise"
+# fix = true  # Enable automatic fixes by default  # FIXME: TBD
+exclude = [
+    ".cache",
+    ".git",
+    "dist",
+    "docs",
+    "htmlcov",
+    "node_modules",
+    "venv",
+    "venv*",
+    ".mypy_cache",
+    "test/assets",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "D", "I"]  # Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings, and Import sorting
+ignore = [  # FIXME: TBD what we want to ignore, some are easy to auto-fix
+    "B006",  # Do not use mutable data structures for argument defaults
+    "B007",  # Loop control variable `i` not used within loop body
+    "B012",  # `return` inside `finally` blocks cause exceptions to be silenced
+    "B015",  # Pointless comparison. Did you mean to assign a value? Otherwise, prepend `assert` or remove it.  # FIXME: enable again
+    "B018",  # Found useless expression. Either assign it to a variable or remove it.  # FIXME: enable again
+    "B023",  # Function definition does not bind loop variable `spec`
+    "B024",  # abstract base class, but it has no abstract methods or properties
+    "B027",  # empty method in an abstract base class, but has no abstract decorator
+    "B028",  # No explicit `stacklevel` keyword argument found
+    "B904",  # Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    "D100",  # Missing docstring in public module  # FIXME: enable again
+    "D101",  # Missing docstring in public class  # FIXME: enable again
+    "D102",  # Missing docstring in public method  # FIXME: enable again
+    "D103",  # Missing docstring in public function  # FIXME: enable again
+    "D104",  # Missing docstring in public package  # FIXME: enable again
+    "D105",  # Missing docstring in magic method
+    "D106",  # Missing docstring in public nested class
+    "D107",  # Ignore D107 Missing docstring  # FIXME: enable again???
+    "D200",  # One-line docstring should fit on one line
+    "D202",  # No blank lines allowed after function docstring (found 1)
+    "D203",  # Ignore one-blank-line-before-class as Black handles this
+    "D204",  # 1 blank line required after class docstring
+    "D205",  # 1 blank line required between summary line and description
+    "D209",  # Multi-line docstring closing quotes should be on a separate line
+    "D210",  # No whitespaces allowed surrounding docstring text
+    "D211",  # No blank lines allowed before class docstring
+    "D212",  # Multi-line docstring summary should start at the first line
+    "D213",  # Multi-line docstring summary should start at the second line
+    "D301",  # Use `r"""` if any backslashes in a docstring
+    "D400",  # First line should end with a period
+    "D401",  # First line of docstring should be in imperative mood
+    "D402",  # First line should not be the function's signature
+    "D404",  # First word of the docstring should not be "This"
+    "D415",  # First line should end with a period, question mark, or exclamation point
+    "E226",  # Missing whitespace around arithmetic operator  # FIXME: enable again
+    "E241",  # Multiple spaces after comma  # FIXME: enable again
+    "I001",  # Import block is un-sorted or un-formatted  # FIXME: enable again
+]
+preview = true
+
+[tool.ruff.lint.per-file-ignores]
+"*/__init__.py" = ["F401"]
+"example/*" = ["F403", "F405"]
+
+[tool.mypy]
+files = ["shc/", "test/", "example/"]
+disallow_untyped_decorators = true
+warn_unreachable = true
+check_untyped_defs = true
+namespace_packages = false
+plugins = ["shc/util/mypy_variable_plugin.py"]
+exclude = "^test/assets/mypy_plugin_test"
+[tool.mypy.overrides]
+"mido" = {ignore_missing_imports = true}
+"astropy" = {ignore_missing_imports = true}
+"astropy.*" = {ignore_missing_imports = true}
+"serial" = {ignore_missing_imports = true}
+"serial_asyncio" = {ignore_missing_imports = true}
+"paho.mqtt.*" = {ignore_missing_imports = true}
+"selenium.*" = {ignore_missing_imports = true}
+"pulsectl.*" = {ignore_missing_imports = true}
+"pulsectl_asyncio" = {ignore_missing_imports = true}
+"aiomysql" = {ignore_missing_imports = true}
+"aiogram" = {ignore_missing_imports = true}
+"aiogram.bot.api" = {ignore_missing_imports = true}
