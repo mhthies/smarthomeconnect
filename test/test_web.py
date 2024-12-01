@@ -58,7 +58,7 @@ class AbstractWebTest(unittest.TestCase):
     driver: webdriver.Firefox
 
     def setUp(self) -> None:
-        if not self.share_selenium_web_driver():
+        if not self.resue_selenium_web_driver():
             opts = selenium.webdriver.firefox.options.Options()
             opts.add_argument("-headless")
             self.driver = webdriver.Firefox(options=opts)
@@ -68,13 +68,13 @@ class AbstractWebTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        if cls.share_selenium_web_driver():
+        if cls.resue_selenium_web_driver():
             opts = selenium.webdriver.firefox.options.Options()
             opts.add_argument("-headless")
             cls.driver = webdriver.Firefox(options=opts)
 
     def tearDown(self) -> None:
-        if not self.share_selenium_web_driver():
+        if not self.resue_selenium_web_driver():
             self.driver.close()
             self.driver.quit()
 
@@ -82,18 +82,18 @@ class AbstractWebTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        if cls.share_selenium_web_driver():
+        if cls.resue_selenium_web_driver():
             cls.driver.close()
             cls.driver.quit()
 
     @staticmethod
-    def share_selenium_web_driver() -> bool:
-        """Should the selenium driver be shared or not.
+    def resue_selenium_web_driver() -> bool:
+        """Determine whether the selenium driver shall be shared between all consecutive tests in this class.
 
-        Checks whether the environment variable SHARE_SELENIUM_WEB_DRIVER is set.
+        Checks whether the environment variable SHC_TEST_REUSE_WEB_DRIVER is set.
         On WSL default ist not sharing the driver since this causes concurrency conflicts.
         """
-        if (value := os.getenv('SHARE_SELENIUM_WEB_DRIVER')) is not None:
+        if (value := os.getenv('SHC_TEST_REUSE_WEB_DRIVER')) is not None:
             return value.strip().lower() in ['1', 'true', 'yes', 'on']
 
         if "WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ:
