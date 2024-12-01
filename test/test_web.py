@@ -53,8 +53,7 @@ class StatusTestInterface(ReadableStatusInterface):
         return f"StatusTestInterface({self.name})"
 
 
-@unittest.skipIf(shutil.which("geckodriver") is None,
-                 "Selenium's geckodriver is not available in PATH")
+@unittest.skipIf(shutil.which("geckodriver") is None, "Selenium's geckodriver is not available in PATH")
 class AbstractWebTest(unittest.TestCase):
     driver: webdriver.Firefox
 
