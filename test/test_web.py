@@ -67,7 +67,6 @@ class AbstractWebTest(unittest.TestCase):
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, 'index')
         self.server = self.server_runner.interface
 
-
     @classmethod
     def setUpClass(cls) -> None:
         if cls.share_selenium_web_driver():
@@ -102,6 +101,7 @@ class AbstractWebTest(unittest.TestCase):
             return False
 
         return True
+
 
 class SimpleWebTest(AbstractWebTest):
     def test_basic(self) -> None:
