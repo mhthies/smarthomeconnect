@@ -58,7 +58,7 @@ class AbstractWebTest(unittest.TestCase):
     driver: webdriver.Firefox
 
     def setUp(self) -> None:
-        if not self.resue_selenium_web_driver():
+        if not self.reuse_selenium_web_driver():
             opts = selenium.webdriver.firefox.options.Options()
             opts.add_argument("-headless")
             self.driver = webdriver.Firefox(options=opts)
@@ -68,13 +68,13 @@ class AbstractWebTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        if cls.resue_selenium_web_driver():
+        if cls.reuse_selenium_web_driver():
             opts = selenium.webdriver.firefox.options.Options()
             opts.add_argument("-headless")
             cls.driver = webdriver.Firefox(options=opts)
 
     def tearDown(self) -> None:
-        if not self.resue_selenium_web_driver():
+        if not self.reuse_selenium_web_driver():
             self.driver.close()
             self.driver.quit()
 
@@ -82,12 +82,12 @@ class AbstractWebTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        if cls.resue_selenium_web_driver():
+        if cls.reuse_selenium_web_driver():
             cls.driver.close()
             cls.driver.quit()
 
     @staticmethod
-    def resue_selenium_web_driver() -> bool:
+    def reuse_selenium_web_driver() -> bool:
         """Determine whether the selenium driver shall be shared between all consecutive tests in this class.
 
         Checks whether the environment variable SHC_TEST_REUSE_WEB_DRIVER is set.
