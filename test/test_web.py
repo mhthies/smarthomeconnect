@@ -2,6 +2,7 @@ import asyncio
 import enum
 import json
 import math
+import os
 import shutil
 import socket
 import subprocess
@@ -52,28 +53,55 @@ class StatusTestInterface(ReadableStatusInterface):
         return f"StatusTestInterface({self.name})"
 
 
-@unittest.skipIf(shutil.which("geckodriver") is None, "Selenium's geckodriver is not available in PATH")
+@unittest.skipIf(shutil.which("geckodriver") is None,
+                 "Selenium's geckodriver is not available in PATH")
 class AbstractWebTest(unittest.TestCase):
     driver: webdriver.Firefox
 
     def setUp(self) -> None:
+        if not self.share_selenium_web_driver():
+            opts = selenium.webdriver.firefox.options.Options()
+            opts.add_argument("-headless")
+            self.driver = webdriver.Firefox(options=opts)
+
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, 'index')
         self.server = self.server_runner.interface
 
+
     @classmethod
     def setUpClass(cls) -> None:
-        opts = selenium.webdriver.firefox.options.Options()
-        opts.add_argument("-headless")
-        cls.driver = webdriver.Firefox(options=opts)
+        if cls.share_selenium_web_driver():
+            opts = selenium.webdriver.firefox.options.Options()
+            opts.add_argument("-headless")
+            cls.driver = webdriver.Firefox(options=opts)
 
     def tearDown(self) -> None:
+        if not self.share_selenium_web_driver():
+            self.driver.close()
+            self.driver.quit()
+
         self.server_runner.stop()
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.driver.close()
-        cls.driver.quit()
+        if cls.share_selenium_web_driver():
+            cls.driver.close()
+            cls.driver.quit()
 
+    @staticmethod
+    def share_selenium_web_driver() -> bool:
+        """Should the selenium driver be shared or not.
+
+        Checks whether the environment variable SHARE_SELENIUM_WEB_DRIVER is set.
+        On WSL default ist not sharing the driver since this causes concirrency conflicts.
+        """
+        if (value := os.getenv('SHARE_SELENIUM_WEB_DRIVER')) is not None:
+            return value.strip().lower() in ['1', 'true', 'yes', 'on']
+
+        if "WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ:
+            return False
+
+        return True
 
 class SimpleWebTest(AbstractWebTest):
     def test_basic(self) -> None:
