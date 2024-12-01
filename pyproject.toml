@@ -41,6 +41,7 @@ doc = [
 [tool.ruff]
 line-length = 120
 output-format = "concise"
+line-ending = "\n"  # Enforce Unix-style LF
 # fix = true  # Enable automatic fixes by default  # FIXME: TBD
 exclude = [
     ".cache",
@@ -123,3 +124,18 @@ exclude = "^test/assets/mypy_plugin_test"
 "aiomysql" = {ignore_missing_imports = true}
 "aiogram" = {ignore_missing_imports = true}
 "aiogram.bot.api" = {ignore_missing_imports = true}
+
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+# quote-style = "double"  # FIXME: do we want this now?
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+[tool.isort]
+profile = "black"  # Use the "black" profile for import sorting consistency with Black
+line_length = 120
