@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "smarthomeconnect"
@@ -20,7 +20,7 @@ dependencies = [
 packages = ["shc"]
 
 [project.optional-dependencies]
-mysql = ["aiomqtt>=2.0.0,<3", "aiomysql>=0.0.21,<=0.2.0"]
+mysql = ["aiomysql>=0.0.21,<=0.2.0"]
 knx = ["knxdclient>=0.4.0,<2"]
 dmx = ["pyserial-asyncio>=0.3,<0.7"]
 midi = ["mido>=1.2.9,<2", "python-rtmidi>=1.4.6,<2"]
@@ -37,6 +37,10 @@ doc = [
     "sphinxcontrib-httpdomain~=1.8",
 ]
 
+[tool.hatch.envs.doc]
+dependencies = [
+    "mysql","knx","dmx","midi","mqtt","pulse","telegram","file_persistence"
+]
 
 [tool.ruff]
 line-length = 120
@@ -56,8 +60,8 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-# Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings, Import sorting and MyPy (RUF100)
-select = ["E", "F", "B", "D", "I", "RUF100"]
+# Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings and Import sorting
+select = ["E", "F", "B", "D", "I"]
 ignore = [  # FIXME: TBD what we want to ignore, some are easy to auto-fix
     "B006",  # Do not use mutable data structures for argument defaults
     "B007",  # Loop control variable `i` not used within loop body
@@ -96,7 +100,6 @@ ignore = [  # FIXME: TBD what we want to ignore, some are easy to auto-fix
     "E226",  # Missing whitespace around arithmetic operator  # FIXME: enable again
     "E241",  # Multiple spaces after comma  # FIXME: enable again
     "I001",  # Import block is un-sorted or un-formatted  # FIXME: enable again
-    "RUF100",  # Unused `noqa` directive (non-enabled: `C901`, unused: `F401`, unused: `F841`)
 ]
 preview = true
 
