@@ -29,9 +29,6 @@ jobs:
         pip install .[test]
         pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence]
         pip uninstall python-rtmidi -y
-    - name: pip freeze
-      run: |
-        pip freeze
     - name: Install and pack web ui assets
       run: |
         npm install
