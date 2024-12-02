@@ -27,6 +27,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .[test]
+        pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence]
     - name: Install and pack web ui assets
       run: |
         npm install
@@ -67,9 +68,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .[dev]
+        pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence]
     - name: Lint code with ruff
       run: |
-        ruff check . --ignore M  # all except for mypy
+        ruff check . --ignore RUF100  # all except for mypy
 
   mypy:
     runs-on: ubuntu-latest
@@ -84,7 +86,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .[dev]
-        ruff check . --select M  # mypy only
+        ruff check . --select RUF100  # mypy only
     - name: Check typing with MyPy
       run: |
         mypy
@@ -101,7 +103,9 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
+        mkdir _static
         pip install .[doc]
+        pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence]
     - name: Build HTML docs with Sphinx
       run: |
         cd docs

@@ -20,7 +20,7 @@ dependencies = [
 packages = ["shc"]
 
 [project.optional-dependencies]
-mysql = ["aiomqtt>=2.0.0,<3"]
+mysql = ["aiomqtt>=2.0.0,<3", "aiomysql>=0.0.21,<=0.2.0"]
 knx = ["knxdclient>=0.4.0,<2"]
 dmx = ["pyserial-asyncio>=0.3,<0.7"]
 midi = ["mido>=1.2.9,<2", "python-rtmidi>=1.4.6,<2"]
