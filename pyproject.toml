@@ -110,20 +110,10 @@ check_untyped_defs = true
 namespace_packages = false
 plugins = ["shc/util/mypy_variable_plugin.py"]
 exclude = "^test/assets/mypy_plugin_test"
-[tool.mypy.overrides]
-"mido" = {ignore_missing_imports = true}
-"astropy" = {ignore_missing_imports = true}
-"astropy.*" = {ignore_missing_imports = true}
-"serial" = {ignore_missing_imports = true}
-"serial_asyncio" = {ignore_missing_imports = true}
-"paho.mqtt.*" = {ignore_missing_imports = true}
-"selenium.*" = {ignore_missing_imports = true}
-"pulsectl.*" = {ignore_missing_imports = true}
-"pulsectl_asyncio" = {ignore_missing_imports = true}
-"aiomysql" = {ignore_missing_imports = true}
-"aiogram" = {ignore_missing_imports = true}
-"aiogram.bot.api" = {ignore_missing_imports = true}
 
+[[tool.mypy.overrides]]
+module = "mido,astropy,astropy.*,serial,serial_asyncio,paho.mqtt.*,selenium.*,pulsectl.*,pulsectl_asyncio,aiomysql,aiogram.*,pymysql"
+ignore_missing_imports = true
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
