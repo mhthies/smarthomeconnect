@@ -22,12 +22,12 @@ jobs:
     - name: Install APT depenencies
       run: |
         sudo apt-get update
-        sudo apt-get -y install mosquitto libpulse0 pulseaudio knxd knxd-tools mariadb-server mariadb-client
+        sudo apt-get -y install mosquitto libpulse0 pulseaudio knxd knxd-tools mariadb-server mariadb-client alsa-utils libasound2-dev
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install .[test]
-        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence]
+        pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence]
     - name: Install and pack web ui assets
       run: |
         npm install
