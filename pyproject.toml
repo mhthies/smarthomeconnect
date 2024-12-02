@@ -28,7 +28,7 @@ mqtt = ["aiomqtt>=2.0.0,<3"]
 pulse = ["pulsectl_asyncio>=1.0.0,<2"]
 telegram = ["aiogram>=3.0,<4"]
 file_persistence = ["aiofile>=3.7.4,<4"]
-dev = ["ruff~=0.8"]
+dev = ["ruff~=0.8", "mypy~=1.13"]
 test = ["coverage~=7.6"]
 doc = [
     "sphinx~=5.0",
@@ -41,8 +41,7 @@ doc = [
 [tool.ruff]
 line-length = 120
 output-format = "concise"
-line-ending = "\n"  # Enforce Unix-style LF
-# fix = true  # Enable automatic fixes by default  # FIXME: TBD
+fix = false  # Enable automatic fixes by default  # FIXME: TBD
 exclude = [
     ".cache",
     ".git",
@@ -57,7 +56,8 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "D", "I"]  # Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings, and Import sorting
+# Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings, Import sorting and MyPy (RUF100)
+select = ["E", "F", "B", "D", "I", "RUF100"]
 ignore = [  # FIXME: TBD what we want to ignore, some are easy to auto-fix
     "B006",  # Do not use mutable data structures for argument defaults
     "B007",  # Loop control variable `i` not used within loop body
@@ -96,6 +96,7 @@ ignore = [  # FIXME: TBD what we want to ignore, some are easy to auto-fix
     "E226",  # Missing whitespace around arithmetic operator  # FIXME: enable again
     "E241",  # Multiple spaces after comma  # FIXME: enable again
     "I001",  # Import block is un-sorted or un-formatted  # FIXME: enable again
+    "RUF100",  # Unused `noqa` directive (non-enabled: `C901`, unused: `F401`, unused: `F841`)
 ]
 preview = true
 
