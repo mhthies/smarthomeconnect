@@ -85,7 +85,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[dev]
+        pip install .[test]
         pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence]
     - name: Check typing with MyPy
       run: |

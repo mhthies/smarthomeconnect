@@ -28,8 +28,8 @@ mqtt = ["aiomqtt>=2.0.0,<3"]
 pulse = ["pulsectl_asyncio>=1.0.0,<2"]
 telegram = ["aiogram>=3.0,<4"]
 file_persistence = ["aiofile>=3.7.4,<4"]
-dev = ["ruff~=0.8", "mypy~=1.13"]
-test = ["coverage~=7.6"]
+dev = ["ruff~=0.8"]
+test = ["coverage~=7.6", "mypy~=1.13"]
 doc = [
     "sphinx~=5.0",
     "sphinx-rtd-theme~=2.0",
