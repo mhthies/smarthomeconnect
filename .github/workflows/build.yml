@@ -26,8 +26,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .$(python scripts/extract_dependencies.py --exclude doc dev)
-        pip uninstall python-rtmidi -y
+        pip install .$(python scripts/extract_dependencies.py --exclude doc dev midi)
     - name: Install and pack web ui assets
       run: |
         npm install
@@ -103,7 +102,6 @@ jobs:
         python -m pip install --upgrade pip
         mkdir _static
         pip install .$(python scripts/extract_dependencies.py --exclude test dev)
-
     - name: Build HTML docs with Sphinx
       run: |
         cd docs
