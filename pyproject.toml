@@ -47,7 +47,6 @@ doc = [
 [tool.ruff]
 line-length = 120
 output-format = "concise"
-fix = false  # Enable automatic fixes by default  # FIXME: TBD
 exclude = [
     ".cache",
     ".git",
@@ -64,7 +63,7 @@ exclude = [
 [tool.ruff.lint]
 # Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings and Import sorting
 select = ["E", "F", "B", "D", "I"]
-ignore = [  # FIXME: TBD what we want to ignore, some are easy to auto-fix
+ignore = [
     "B006",  # Do not use mutable data structures for argument defaults
     "B007",  # Loop control variable `i` not used within loop body
     "B012",  # `return` inside `finally` blocks cause exceptions to be silenced
@@ -124,7 +123,7 @@ ignore_missing_imports = true
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
-# quote-style = "double"  # FIXME: do we want this now?
+# quote-style = "double"
 
 # Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
