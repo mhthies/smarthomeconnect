@@ -263,8 +263,8 @@ To run the static type checks and codestyle checks locally, simply install MyPy 
 
 To run code linting and formating checks, using `ruff`:
 ```bash
-ruff check .         # for linting checks
-ruff check --format  # for formating checks
+ruff check .           # for linting checks
+ruff format --check .  # for formating checks
 ``` 
 All these checks are also performed by the GitHub Actions CI for Pull Requests and the master branch.
 
