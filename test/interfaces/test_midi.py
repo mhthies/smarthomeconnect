@@ -2,14 +2,14 @@ import time
 import unittest
 import unittest.mock
 
-import mido
-import shc.interfaces.midi
-from shc.datatypes import RangeUInt8
-
 from .._helper import InterfaceThreadRunner
 
 
 try:
+    import mido
+    import shc.interfaces.midi
+    from shc.datatypes import RangeUInt8
+
     mido.backend.load()
     mido_backend_available = True
     mido_backend_error = ""
@@ -18,6 +18,7 @@ except Exception as e:
     mido_backend_error = str(e)
 
 
+@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not available: {}".format(mido_backend_error))
 class MIDITest(unittest.TestCase):
     def test_errors(self) -> None:
         with self.assertRaises(ValueError):
@@ -31,7 +32,7 @@ class MIDITest(unittest.TestCase):
             interface.note_velocity(42)
 
 
-@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
+@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not available: {}".format(mido_backend_error))
 class MIDIInputTest(unittest.TestCase):
     def setUp(self) -> None:
         self.port_name = 'TestOutPort' + self.id().split('.')[-1]
@@ -137,7 +138,7 @@ class MIDIInputTest(unittest.TestCase):
             publish_mock.assert_called_once_with(False, unittest.mock.ANY)
 
 
-@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
+@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not available: {}".format(mido_backend_error))
 class MIDIOutputTest(unittest.TestCase):
     def setUp(self) -> None:
         self.port_name = 'TestInPort' + self.id().split('.')[-1]
