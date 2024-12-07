@@ -2,6 +2,7 @@ import asyncio
 import enum
 import json
 import math
+import os
 import shutil
 import socket
 import subprocess
@@ -57,22 +58,48 @@ class AbstractWebTest(unittest.TestCase):
     driver: webdriver.Firefox
 
     def setUp(self) -> None:
+        if not self.reuse_selenium_web_driver():
+            opts = selenium.webdriver.firefox.options.Options()
+            opts.add_argument("-headless")
+            self.driver = webdriver.Firefox(options=opts)
+
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, 'index')
         self.server = self.server_runner.interface
 
     @classmethod
     def setUpClass(cls) -> None:
-        opts = selenium.webdriver.firefox.options.Options()
-        opts.add_argument("-headless")
-        cls.driver = webdriver.Firefox(options=opts)
+        if cls.reuse_selenium_web_driver():
+            opts = selenium.webdriver.firefox.options.Options()
+            opts.add_argument("-headless")
+            cls.driver = webdriver.Firefox(options=opts)
 
     def tearDown(self) -> None:
+        if not self.reuse_selenium_web_driver():
+            self.driver.close()
+            self.driver.quit()
+
         self.server_runner.stop()
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.driver.close()
-        cls.driver.quit()
+        if cls.reuse_selenium_web_driver():
+            cls.driver.close()
+            cls.driver.quit()
+
+    @staticmethod
+    def reuse_selenium_web_driver() -> bool:
+        """Determine whether the selenium driver shall be shared between all consecutive tests in this class.
+
+        Checks whether the environment variable SHC_TEST_REUSE_WEB_DRIVER is set.
+        On WSL default ist not sharing the driver since this causes concurrency conflicts.
+        """
+        if (value := os.getenv('SHC_TEST_REUSE_WEB_DRIVER')) is not None:
+            return value.strip().lower() in ['1', 'true', 'yes', 'on']
+
+        if "WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ:
+            return False
+
+        return True
 
 
 class SimpleWebTest(AbstractWebTest):
