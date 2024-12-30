@@ -228,6 +228,11 @@ class AtTimerTest(unittest.TestCase):
             once_timer = timer.At(weeknum=15)
             self._assert_datetime(datetime.datetime(2020, 4, 6, 0, 0, 0), once_timer._next_execution())
 
+    def test_2024_bug(self) -> None:
+        with ClockMock(datetime.datetime(2024, 12, 30, 14, 26, 17)):
+            at_timer = shc.timer.At(weekday=[1, 2, 3, 4, 5], hour=6, minute=10)
+            self._assert_datetime(datetime.datetime(2024, 12, 31, 6, 10), at_timer._next_execution())
+
     def test_spec_forms(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)):
             once_timer = timer.At(hour=timer.EveryNth(2))
