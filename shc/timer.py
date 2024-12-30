@@ -330,7 +330,7 @@ class At(_AbstractScheduleTimer):
                         - datetime.timedelta(days=1)).day
 
         if self.week_mode:
-            val = [now.year, now.isocalendar()[1], now.isocalendar()[2], now.hour, now.minute, now.second,
+            val = [now.isocalendar()[0], now.isocalendar()[1], now.isocalendar()[2], now.hour, now.minute, now.second,
                    round(now.microsecond / 1000)]
         else:
             val = [now.year, now.month, now.day, now.hour, now.minute, now.second, round(now.microsecond / 1000)]
