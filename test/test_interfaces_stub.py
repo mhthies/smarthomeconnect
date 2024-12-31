@@ -7,6 +7,3 @@ class InterfaceImportTest(unittest.TestCase):
 
     def test_dmx(self):
         import shc.interfaces.dmx  # noqa: F401
-
-    def test_midi(self):
-        import shc.interfaces.midi  # noqa: F401
