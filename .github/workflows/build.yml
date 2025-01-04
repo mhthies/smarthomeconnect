@@ -27,7 +27,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .$(python scripts/extract_dependencies.py --exclude doc dev)
-        pip uninstall python-rtmidi  # not working on GitHub actions
+        pip uninstall -y python-rtmidi  # not working on GitHub actions
     - name: Install and pack web ui assets
       run: |
         npm install
