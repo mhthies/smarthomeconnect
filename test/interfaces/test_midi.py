@@ -2,14 +2,14 @@ import time
 import unittest
 import unittest.mock
 
+import mido
+import shc.interfaces.midi
+from shc.datatypes import RangeUInt8
+
 from .._helper import InterfaceThreadRunner
 
 
 try:
-    import mido
-    import shc.interfaces.midi
-    from shc.datatypes import RangeUInt8
-
     mido.backend.load()
     mido_backend_available = True
     mido_backend_error = ""
@@ -18,7 +18,6 @@ except Exception as e:
     mido_backend_error = str(e)
 
 
-@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not available: {}".format(mido_backend_error))
 class MIDITest(unittest.TestCase):
     def test_errors(self) -> None:
         with self.assertRaises(ValueError):
