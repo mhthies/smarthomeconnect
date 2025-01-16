@@ -259,7 +259,7 @@ coverage html
 ``` 
 
 We also enforce static type correctness with MyPy and Python codestyle rules with ruff.
-To run the static type checks and codestyle checks locally, simply install MyPy and flake8 and execute the `mypy` command in the shc project repository.
+To run the static type checks and codestyle checks locally, simply install MyPy and execute the `mypy` command in the shc project repository.
 
 To run code linting and formating checks, using `ruff`:
 ```bash
