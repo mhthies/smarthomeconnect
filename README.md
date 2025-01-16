@@ -216,14 +216,6 @@ To install additional dependencies, listed in [Dependencies](#dependencies), e.g
 ```bash
 pip3 install -e .[mysql,knxdclient,midi]
 ```
-
-Use the convenient script `extract_dependencies.py` to get a list of all available dependencies
-or use it to install all or some of the dependencies only:
-```bash
-python3 scripts/extract_dependencies.py  # list all dependencies
-pip3 install .$(python scripts/extract_dependencies.py)  # install all dependencies
-pip3 install .$(python scripts/extract_dependencies.py --exclude midi test)  # install all dependencies except for midi and test
-```
 You may want to use a virtual environment to avoid messing up your Python packages.
 
 

@@ -15,4 +15,4 @@ sphinx:
 python:
   install:
     command: |
-      pip install .$(python scripts/extract_dependencies.py --exclude test dev)
+      pip install [mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence,doc]

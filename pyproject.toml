@@ -7,18 +7,35 @@ name = "smarthomeconnect"
 version = "0.9.0"
 description = "The Smart Home Connect home automation framework based on AsyncIO"
 license = {file = "LICENSE"}
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
 authors = [{name = "Michael Thies", email = "mail@mhthies.de"}]
 requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Home Automation",
+    "Framework :: AsyncIO"
+]
 dependencies = [
     "aiohttp>=3.6,<4",
     "jinja2>=2.11,<4",
     "MarkupSafe>=1.1,<3",
 ]
 
+[project.urls]
+Documentation = "https://smarthomeconnect.readthedocs.org/"
+Source = "https://github.com/mhthies/smarthomeconnect"
+Tracker = "https://github.com/mhthies/smarthomeconnect/issues"
+
 [tool.setuptools]
-packages = ["shc"]
-include-package-data = true
+license-files = ["LICENSE", "NOTICE"]
+
+[tool.setuptools.packages.find]
+include = ["shc.*"]
+exclude = ["shc.web.tests"]
+
+[tool.setuptools.package-data]
+"shc.web" = ["static/pack/*"]
 
 [project.optional-dependencies]
 mysql = ["aiomysql>=0.0.21,<=0.2.0"]
@@ -48,18 +65,8 @@ doc = [
 [tool.ruff]
 line-length = 120
 output-format = "concise"
-exclude = [
-    ".cache",
-    ".git",
-    "dist",
-    "docs",
-    "htmlcov",
-    "node_modules",
-    "venv",
-    "venv*",
-    ".mypy_cache",
-    "test/assets",
-]
+include = ["shc/**/*.py", "test/**/*.py"]
+exclude = ["test/assets"]
 
 [tool.ruff.lint]
 # Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings and Import sorting
@@ -103,7 +110,6 @@ ignore = [
     "E241",  # Multiple spaces after comma  # FIXME: enable again
     "I001",  # Import block is un-sorted or un-formatted  # FIXME: enable again
 ]
-preview = true
 
 [tool.ruff.lint.per-file-ignores]
 "*/__init__.py" = ["F401"]
