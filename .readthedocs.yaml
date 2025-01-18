@@ -14,5 +14,15 @@ sphinx:
 
 python:
   install:
-    command: |
-      pip install [mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence,doc]
+    - method: pip
+      path: .
+      extra_requirements:
+        - mysql
+        - knx
+        - dmx
+        - midi
+        - mqtt
+        - pulse
+        - telegram
+        - file_persistence
+        - doc
