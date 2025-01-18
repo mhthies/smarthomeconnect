@@ -31,7 +31,7 @@ class MIDITest(unittest.TestCase):
             interface.note_velocity(42)
 
 
-@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
+@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not available: {}".format(mido_backend_error))
 class MIDIInputTest(unittest.TestCase):
     def setUp(self) -> None:
         self.port_name = 'TestOutPort' + self.id().split('.')[-1]
@@ -137,7 +137,7 @@ class MIDIInputTest(unittest.TestCase):
             publish_mock.assert_called_once_with(False, unittest.mock.ANY)
 
 
-@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not awailable: {}".format(mido_backend_error))
+@unittest.skipUnless(mido_backend_available, "mido MIDI backend is not available: {}".format(mido_backend_error))
 class MIDIOutputTest(unittest.TestCase):
     def setUp(self) -> None:
         self.port_name = 'TestInPort' + self.id().split('.')[-1]

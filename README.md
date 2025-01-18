@@ -62,7 +62,7 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
    pip3 install smarthomeconnect
    ```
    It will be only install smarthomeconnect and the dependencies of its core features.
-   Additional depdencies are required for certain interface modules and can be installed via pip's/setuptool's 'extras' feature.
+   Additional dependencies are required for certain interface modules and can be installed via pip's/setuptool's 'extras' feature.
    See [Depdencies section](#Dependencies) of this readme for a complete list.
    If you install SHC from a source distribution (in contrast to a "binary" package, such as a "wheel" package from PyPI), you'll need NodeJS and npm installed on your machine, which are used to download the web UI assets during the Python package building process. 
 
@@ -206,13 +206,15 @@ If you want to help with the development of *Smart Home Connect*, your Pull Requ
 ### Development setup
 
 Setting up a dev environment for SHC is simple:
-Clone the git repository and install the development dependencies, listed in `requirements.txt` (+ the `python-rtmidi` module if you want to run the MIDI tests).
-These include all dependencies of smarthomeconnect with all extras:
+Clone the git repository and install the development dependencies.
 ```bash
 git clone https://github.com/mhthies/smarthomeconnect
 cd smarthomeconnect
-pip3 install -r requirements.txt
-pip3 install python-rtmidi
+pip3 install -e .[dev]
+```
+To install additional dependencies, listed in [Dependencies](#dependencies), e.g. use:  
+```bash
+pip3 install -e .[mysql,knxdclient,midi]
 ```
 You may want to use a virtual environment to avoid messing up your Python packages.
 
@@ -235,6 +237,7 @@ npx parcel web_ui_src/main.js --dist-dir shc/web/static/pack --public-url ./
 
 Please make sure that all the unittests are passing, when submitting a Pull Request:
 ```bash
+pip3 install -e .[test]
 python3 -m unittest
 ```
 The web tests require Firefox and `geckodriver` to be installed on your system and the frontend assets. 
@@ -247,7 +250,20 @@ coverage html
 # open htmlcov/index.html
 ``` 
 
-We also enforce static type correctness with MyPy and Python codestyle rules with flake8.
-To run the static type checks and codestyle checks locally, simply install MyPy and flake8 and execute the `mypy` and `flake8` commands in the shc project repository.
+We also enforce static type correctness with MyPy and Python codestyle rules with ruff.
+To run the static type checks and codestyle checks locally, simply install MyPy and execute the `mypy` command in the shc project repository.
 
+To run code linting and formating checks, using `ruff`:
+```bash
+ruff check .           # for linting checks
+ruff format --check .  # for formating checks
+``` 
 All these checks are also performed by the GitHub Actions CI for Pull Requests and the master branch.
+
+To fix errors using `ruff` use these commands:  
+```bash
+ruff check . -- fix  # for fixing linting errors
+ruff format .        # for fixing formating errors
+``` 
+Note that not all errors can be fixed automatically but may need your attentions.
+
