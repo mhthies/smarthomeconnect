@@ -23,6 +23,7 @@ class RangeFloat1(float):
     """
     A range / percentage value, represented as a floating point number from 0.0 (0%) to 1.0 (100%).
     """
+
     def __new__(cls, *args, **kwargs):
         # noinspection PyArgumentList
         res = float.__new__(cls, *args, **kwargs)
@@ -54,6 +55,7 @@ class RangeUInt8(int):
     """
     A range / percentage value, represented as an 8bit integer number from 0 (0%) to 255 (100%).
     """
+
     @classmethod
     def from_float(cls, value: float) -> "RangeUInt8":
         if not isinstance(value, RangeFloat1):
@@ -68,6 +70,7 @@ class RangeInt0To100(int):
     """
     A range / percentage value, represented as an 8bit integer percent number from 0 (0%) to 100 (100%).
     """
+
     @classmethod
     def from_float(cls, value: float) -> "RangeInt0To100":
         if not isinstance(value, RangeFloat1):
@@ -104,6 +107,7 @@ class AngleUInt8(int):
     """
     An angle, encoded as a 8-bit integer, from 0 (0°) to 255 (360°).
     """
+
     pass
 
 
@@ -117,6 +121,7 @@ class Balance(float):
     - front (surround audio balance)
     - no LFE (surround audio balance)
     """
+
     pass
 
 
@@ -128,6 +133,7 @@ class AbstractStep(Generic[T], metaclass=abc.ABCMeta):
     """
     Abstract base class for all difference/step types, that represent a step within an associated range type
     """
+
     @abc.abstractmethod
     def apply_to(self, value: T) -> T:
         """
@@ -146,6 +152,7 @@ class FadeStep(float, AbstractStep[RangeFloat1]):
 
     See :class:`shc.misc.FadeStepAdapter` to do this to SHC.
     """
+
     pass
 
     def apply_to(self, value: RangeFloat1) -> RangeFloat1:
@@ -159,6 +166,7 @@ class RGBUInt8(NamedTuple):
     """
     A 24bit color in RGB colorspace, composed of three :class:`RangeUInt8` values `red`, `green` and `blue`
     """
+
     red: RangeUInt8
     green: RangeUInt8
     blue: RangeUInt8
@@ -167,26 +175,27 @@ class RGBUInt8(NamedTuple):
         if not isinstance(other, RangeFloat1):
             other = get_converter(type(other), RangeFloat1)(other)
 
-        return RGBUInt8(RangeUInt8.from_float(self.red.as_float() * other),
-                        RangeUInt8.from_float(self.green.as_float() * other),
-                        RangeUInt8.from_float(self.blue.as_float() * other))
+        return RGBUInt8(
+            RangeUInt8.from_float(self.red.as_float() * other),
+            RangeUInt8.from_float(self.green.as_float() * other),
+            RangeUInt8.from_float(self.blue.as_float() * other),
+        )
 
     @classmethod
     def from_float(cls, value: "RGBFloat1") -> "RGBUInt8":
-        return RGBUInt8(RangeUInt8.from_float(value.red),
-                        RangeUInt8.from_float(value.green),
-                        RangeUInt8.from_float(value.blue))
+        return RGBUInt8(
+            RangeUInt8.from_float(value.red), RangeUInt8.from_float(value.green), RangeUInt8.from_float(value.blue)
+        )
 
     def as_float(self) -> "RGBFloat1":
-        return RGBFloat1(self.red.as_float(),
-                         self.green.as_float(),
-                         self.blue.as_float())
+        return RGBFloat1(self.red.as_float(), self.green.as_float(), self.blue.as_float())
 
 
 class RGBFloat1(NamedTuple):
     """
     A floating point RGB color, composed of three :class:`RangeFloat1` values `red`, `green` and `blue`
     """
+
     red: RangeFloat1
     green: RangeFloat1
     blue: RangeFloat1
@@ -195,9 +204,7 @@ class RGBFloat1(NamedTuple):
         if not isinstance(other, RangeFloat1):
             other = get_converter(type(other), RangeFloat1)(other)
 
-        return RGBFloat1(self.red * other,
-                         self.green * other,
-                         self.blue * other)
+        return RGBFloat1(self.red * other, self.green * other, self.blue * other)
 
 
 register_converter(RGBUInt8, RGBFloat1, lambda v: v.as_float())
@@ -209,6 +216,7 @@ class HSVFloat1(NamedTuple):
     A floating point color in HSV colorspace, composed of three :class:`RangeFloat1` values `hue`, `saturation` and
     `value`.
     """
+
     hue: RangeFloat1
     saturation: RangeFloat1
     value: RangeFloat1
@@ -226,10 +234,15 @@ class HSVFloat1(NamedTuple):
         b = value.blue
         max_v = max(r, g, b)
         min_v = min(r, g, b)
-        h = (0 if max_v == min_v
-             else 1/6 * (g - b) / (max_v - min_v) if max_v == r
-             else 2/6 + 1/6 * (b - r) / (max_v - min_v) if max_v == g
-             else 4/6 + 1/6 * (r - g) / (max_v - min_v))
+        h = (
+            0
+            if max_v == min_v
+            else 1 / 6 * (g - b) / (max_v - min_v)
+            if max_v == r
+            else 2 / 6 + 1 / 6 * (b - r) / (max_v - min_v)
+            if max_v == g
+            else 4 / 6 + 1 / 6 * (r - g) / (max_v - min_v)
+        )
         s = 0 if max_v == 0 else (max_v - min_v) / max_v
         v = max_v
         if h < 0:
@@ -247,12 +260,19 @@ class HSVFloat1(NamedTuple):
         q = v * (1 - s * f)
         t = v * (1 - s * (1 - f))
 
-        r, g, b = ((v, t, p) if hi in (0, 6)
-                   else (q, v, p) if hi == 1
-                   else (p, v, t) if hi == 2
-                   else (p, q, v) if hi == 3
-                   else (t, p, v) if hi == 4
-                   else (v, p, q))  # if hi == 5
+        r, g, b = (
+            (v, t, p)
+            if hi in (0, 6)
+            else (q, v, p)
+            if hi == 1
+            else (p, v, t)
+            if hi == 2
+            else (p, q, v)
+            if hi == 3
+            else (t, p, v)
+            if hi == 4
+            else (v, p, q)
+        )  # if hi == 5
         return RGBFloat1(RangeFloat1(r), RangeFloat1(g), RangeFloat1(b))
 
 
@@ -266,6 +286,7 @@ class RGBWUInt8(NamedTuple):
     """
     4-channel RGBW LED color value, composed of a :class:`RGBUInt8` for `rgb` and a :class:`RangeUInt8` for `white`.
     """
+
     rgb: RGBUInt8
     white: RangeUInt8
 
@@ -273,8 +294,7 @@ class RGBWUInt8(NamedTuple):
         if not isinstance(other, RangeFloat1):
             other = get_converter(type(other), RangeFloat1)(other)
 
-        return RGBWUInt8(self.rgb.dimmed(other),
-                         RangeUInt8.from_float(self.white.as_float() * other))
+        return RGBWUInt8(self.rgb.dimmed(other), RangeUInt8.from_float(self.white.as_float() * other))
 
 
 register_converter(RGBWUInt8, RGBUInt8, lambda x: x.rgb)
@@ -285,6 +305,7 @@ class CCTUInt8(NamedTuple):
     """
     A CCT LED brightness value, composed of two :class:`RangeUInt8` values `cold` and `warm`
     """
+
     cold: RangeUInt8
     warm: RangeUInt8
 
@@ -292,14 +313,16 @@ class CCTUInt8(NamedTuple):
         if not isinstance(other, RangeFloat1):
             other = get_converter(type(other), RangeFloat1)(other)
 
-        return CCTUInt8(RangeUInt8.from_float(self.cold.as_float() * other),
-                        RangeUInt8.from_float(self.warm.as_float() * other))
+        return CCTUInt8(
+            RangeUInt8.from_float(self.cold.as_float() * other), RangeUInt8.from_float(self.warm.as_float() * other)
+        )
 
 
 class RGBCCTUInt8(NamedTuple):
     """
     5 channel LED color value, composed of a :class:`RGBUInt8` for `rgb` and a :class:`CCTUInt8` for `white`.
     """
+
     rgb: RGBUInt8
     white: CCTUInt8
 
@@ -310,12 +333,13 @@ class RGBCCTUInt8(NamedTuple):
         return RGBCCTUInt8(self.rgb.dimmed(other), self.white.dimmed(other))
 
 
-register_converter(CCTUInt8, RangeUInt8, lambda x: RangeUInt8((x.cold + x.warm)/2))
+register_converter(CCTUInt8, RangeUInt8, lambda x: RangeUInt8((x.cold + x.warm) / 2))
 register_converter(RangeUInt8, CCTUInt8, lambda x: CCTUInt8(x, x))
 register_converter(RGBCCTUInt8, RGBUInt8, lambda x: x.rgb)
 register_converter(RGBUInt8, RGBCCTUInt8, lambda x: RGBCCTUInt8(x, CCTUInt8(RangeUInt8(0), RangeUInt8(0))))
 register_converter(RGBCCTUInt8, CCTUInt8, lambda x: x.white)
-register_converter(CCTUInt8, RGBCCTUInt8, lambda x: RGBCCTUInt8(RGBUInt8(RangeUInt8(0), RangeUInt8(0), RangeUInt8(0)),
-                                                                x))
-register_converter(RGBCCTUInt8, RGBWUInt8, lambda x: RGBWUInt8(x.rgb, RangeUInt8((x.white.cold + x.white.warm)/2)))
+register_converter(
+    CCTUInt8, RGBCCTUInt8, lambda x: RGBCCTUInt8(RGBUInt8(RangeUInt8(0), RangeUInt8(0), RangeUInt8(0)), x)
+)
+register_converter(RGBCCTUInt8, RGBWUInt8, lambda x: RGBWUInt8(x.rgb, RangeUInt8((x.white.cold + x.white.warm) / 2)))
 register_converter(RGBWUInt8, RGBCCTUInt8, lambda x: RGBCCTUInt8(x.rgb, CCTUInt8(x.white, x.white)))

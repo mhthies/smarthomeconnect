@@ -64,13 +64,27 @@ class MQTTClientInterface(SupervisedClientInterface):
         backoff (see `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not
         retried and will shutdown the SHC application on failure, even if `auto_reconnect` is True.
     """
-    def __init__(self, hostname: str = 'localhost', port: int = 1883, username: Optional[str] = None,
-                 password: Optional[str] = None, client_id: Optional[str] = None,
-                 protocol: Union[ProtocolVersion, int] = ProtocolVersion.V311,
-                 auto_reconnect: bool = True, failsafe_start: bool = False) -> None:
+
+    def __init__(
+        self,
+        hostname: str = "localhost",
+        port: int = 1883,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        client_id: Optional[str] = None,
+        protocol: Union[ProtocolVersion, int] = ProtocolVersion.V311,
+        auto_reconnect: bool = True,
+        failsafe_start: bool = False,
+    ) -> None:
         super().__init__(auto_reconnect, failsafe_start)
-        self.client = Client(hostname, port, username=username, password=password, identifier=client_id,
-                             protocol=ProtocolVersion(protocol))
+        self.client = Client(
+            hostname,
+            port,
+            username=username,
+            password=password,
+            identifier=client_id,
+            protocol=ProtocolVersion(protocol),
+        )
         self.matcher = MQTTMatcher()
         self.subscribe_topics: Dict[str, int] = {}  #: dict {topic: qos} for subscribing
         self.run_task: Optional[asyncio.Task] = None
@@ -98,8 +112,14 @@ class MQTTClientInterface(SupervisedClientInterface):
             self.client_context_entered = False
             await self.client.__aexit__(None, None, None)
 
-    def topic_raw(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False,
-                  force_mqtt_subscription: bool = False) -> "RawMQTTTopicVariable":
+    def topic_raw(
+        self,
+        topic: str,
+        subscribe_topics: Optional[str] = None,
+        qos: int = 0,
+        retain: bool = False,
+        force_mqtt_subscription: bool = False,
+    ) -> "RawMQTTTopicVariable":
         """
         Create a connector for publishing and receiving MQTT messages to/form a single topic as raw `bytes`
 
@@ -119,8 +139,14 @@ class MQTTClientInterface(SupervisedClientInterface):
             subscribe_topics = topic
         return RawMQTTTopicVariable(self, topic, subscribe_topics, qos, retain, force_mqtt_subscription)
 
-    def topic_string(self, topic: str, subscribe_topics: Optional[str] = None, qos: int = 0, retain: bool = False,
-                     force_mqtt_subscription: bool = False) -> "StringMQTTTopicVariable":
+    def topic_string(
+        self,
+        topic: str,
+        subscribe_topics: Optional[str] = None,
+        qos: int = 0,
+        retain: bool = False,
+        force_mqtt_subscription: bool = False,
+    ) -> "StringMQTTTopicVariable":
         """
         Create a connector for publishing and receiving MQTT messages to/form a single topic as UTF-8 encoded strings
 
@@ -140,8 +166,15 @@ class MQTTClientInterface(SupervisedClientInterface):
             subscribe_topics = topic
         return StringMQTTTopicVariable(self, topic, subscribe_topics, qos, retain, force_mqtt_subscription)
 
-    def topic_json(self, type_: Type[T], topic: str, subscribe_topics: Optional[str] = None, qos: int = 0,
-                   retain: bool = False, force_mqtt_subscription: bool = False) -> "JSONMQTTTopicVariable[T]":
+    def topic_json(
+        self,
+        type_: Type[T],
+        topic: str,
+        subscribe_topics: Optional[str] = None,
+        qos: int = 0,
+        retain: bool = False,
+        force_mqtt_subscription: bool = False,
+    ) -> "JSONMQTTTopicVariable[T]":
         """
         Create a connector for publishing and receiving arbitrary values as JSON-encoded MQTT messages
 
@@ -182,8 +215,9 @@ class MQTTClientInterface(SupervisedClientInterface):
         logger.debug("Sending MQTT message t: %s p: %s q: %s r: %s", topic, payload, qos, retain)
         await self.client.publish(topic, payload, qos, retain)
 
-    def register_filtered_receiver(self, topic_filter: str, receiver: Callable[[Message], None],
-                                   subscription_qos: int = 0) -> None:
+    def register_filtered_receiver(
+        self, topic_filter: str, receiver: Callable[[Message], None], subscription_qos: int = 0
+    ) -> None:
         """
         Subscribe to an MQTT topic filter and register a callback function to be called when a message matching this
         filter is received.
@@ -201,8 +235,9 @@ class MQTTClientInterface(SupervisedClientInterface):
         # If the topic is already subscribed (e.g. by another connector), merge the QOS values (in doubt, promote
         # it to 2)
         if topic_filter in self.subscribe_topics:
-            self.subscribe_topics[topic_filter] = \
+            self.subscribe_topics[topic_filter] = (
                 2 if self.subscribe_topics[topic_filter] != subscription_qos else subscription_qos
+            )
         else:
             self.subscribe_topics[topic_filter] = subscription_qos
         try:
@@ -215,8 +250,9 @@ class MQTTClientInterface(SupervisedClientInterface):
         self._running.set()
         async for message in self.client.messages:
             logger.debug("Incoming MQTT message: %s", message)
-            receivers: Iterable[List[Callable[[Message], Awaitable[None]]]] \
-                = self.matcher.iter_match(str(message.topic))
+            receivers: Iterable[List[Callable[[Message], Awaitable[None]]]] = self.matcher.iter_match(
+                str(message.topic)
+            )
             for receiver in itertools.chain.from_iterable(receivers):
                 receiver(message)
 
@@ -225,15 +261,24 @@ class MQTTClientInterface(SupervisedClientInterface):
 
 
 class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
-    def __init__(self, interface: MQTTClientInterface, publish_topic: str, subscribe_topics: str, qos: int,
-                 retain: bool, force_mqtt_subscription: bool) -> None:
+    def __init__(
+        self,
+        interface: MQTTClientInterface,
+        publish_topic: str,
+        subscribe_topics: str,
+        qos: int,
+        retain: bool,
+        force_mqtt_subscription: bool,
+    ) -> None:
         super().__init__()
         self.interface = interface
         self.publish_topic = publish_topic
         self.subscribe_topics = subscribe_topics
         if not check_topic_matches_filter(publish_topic, subscribe_topics):
-            raise ValueError("The publishing topic must match the subscribe topics filter! (Use an additional connector"
-                             "otherwise.)")
+            raise ValueError(
+                "The publishing topic must match the subscribe topics filter! (Use an additional connector"
+                "otherwise.)"
+            )
         self.qos = qos
         self.retain = retain
         self._receiver_registered = False
@@ -314,32 +359,40 @@ class StringMQTTTopicVariable(AbstractMQTTTopicVariable[str]):
     type = str
 
     def _encode(self, value: str) -> bytes:
-        return value.encode('utf-8')
+        return value.encode("utf-8")
 
     def _decode(self, value: bytes) -> str:
-        return value.decode('utf-8-sig')
+        return value.decode("utf-8-sig")
 
 
 class JSONMQTTTopicVariable(AbstractMQTTTopicVariable[T], Generic[T]):
-    def __init__(self, type_: Type[T], interface: MQTTClientInterface, publish_topic: str, subscribe_topics: str,
-                 qos: int, retain: bool, force_mqtt_subscription: bool) -> None:
+    def __init__(
+        self,
+        type_: Type[T],
+        interface: MQTTClientInterface,
+        publish_topic: str,
+        subscribe_topics: str,
+        qos: int,
+        retain: bool,
+        force_mqtt_subscription: bool,
+    ) -> None:
         self.type = type_
         super().__init__(interface, publish_topic, subscribe_topics, qos, retain, force_mqtt_subscription)
 
     def _encode(self, value: T) -> bytes:
-        return json.dumps(value, cls=SHCJsonEncoder).encode('utf-8')
+        return json.dumps(value, cls=SHCJsonEncoder).encode("utf-8")
 
     def _decode(self, value: bytes) -> T:
-        return from_json(self.type, json.loads(value.decode('utf-8-sig')))
+        return from_json(self.type, json.loads(value.decode("utf-8-sig")))
 
 
 def check_topic_matches_filter(topic: str, topic_filter: str) -> bool:
     """Returns true if the topic matches the topic_filter (which may contain wildcards).
     It can also be used to check if one topic_filter represents a subset of topics of another filter"""
-    for a, b in itertools.zip_longest(topic.split('/'), topic_filter.split('/'), fillvalue=None):
-        if b == '#':
+    for a, b in itertools.zip_longest(topic.split("/"), topic_filter.split("/"), fillvalue=None):
+        if b == "#":
             return True
-        if b == '+' and a is not None:
+        if b == "+" and a is not None:
             continue
         if a != b:
             return False

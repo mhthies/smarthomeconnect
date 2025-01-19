@@ -36,6 +36,7 @@ class PeriodicReader(Readable[T], Subscribable[T], Generic[T]):
     :param interval: The interval in which the object's `.read()` coroutine is called and the result is published, e.g.
         ``datetime.timedelta(seconds=15)``.
     """
+
     def __init__(self, wrapped: Readable[T], interval: datetime.timedelta):
         self.type = wrapped.type
         super().__init__()
@@ -75,6 +76,7 @@ class TwoWayPipe(ConnectableWrapper[T], Generic[T]):
     :param type_: The `type` of the values to be forwarded. This is used as the `type` of the two pipe-end *connectable*
         objects.
     """
+
     def __init__(self, type_: Type[T]):
         self.type = type_
         self.left = _PipeEnd(type_)
@@ -135,6 +137,7 @@ class BreakableSubscription(Subscribable[T], Generic[T]):
     :param wrapped: The Subscribable object to be wrapped
     :param control: The Readable control object
     """
+
     _synchronous_publishing = True
 
     def __init__(self, wrapped: Subscribable[T], control: Readable[bool]):
@@ -184,20 +187,25 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
         the first value outside of the bounds is received. Attention: If `inverted` is True, the initial value is
         inverted, too.
     """
+
     type = bool
 
-    def __init__(self, wrapped: Subscribable[T], lower: T, upper: T, inverted: bool = False,
-                 initial_value: bool = False):
+    def __init__(
+        self, wrapped: Subscribable[T], lower: T, upper: T, inverted: bool = False, initial_value: bool = False
+    ):
         super().__init__()
         wrapped.trigger(self._new_value, synchronous=True)
         self._value = initial_value  #: Current output value (uninverted)
         if not isinstance(lower, wrapped.type) or not isinstance(upper, wrapped.type):
-            raise TypeError("'lower' and 'upper' must be instances of the wrapped Subscribable's type, which is {}"
-                            .format(wrapped.type.__name__))
+            raise TypeError(
+                "'lower' and 'upper' must be instances of the wrapped Subscribable's type, which is {}".format(
+                    wrapped.type.__name__
+                )
+            )
         self.lower = lower
         self.upper = upper
         if lower > upper:  # type: ignore  # To defined that T is comparable, we need to use Protocols from Python 3.8
-            raise ValueError('Lower bound of hysteresis must be lower than upper bound.')
+            raise ValueError("Lower bound of hysteresis must be lower than upper bound.")
         self.inverted = inverted
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
@@ -238,14 +246,16 @@ class FadeStepAdapter(Subscribable[RangeFloat1], Reading[RangeFloat1]):
     :param wrapped: The Subscribable object which shall be wrapped to apply its published FadeStep values to connected
         objects
     """
+
     type = RangeFloat1
     is_reading_optional = False
 
     def __init__(self, wrapped: Subscribable[FadeStep]):
         super().__init__()
         if not issubclass(wrapped.type, FadeStep):
-            raise TypeError("First Parameter to `FadeStepAdapter` must be a Subscribable object with value type "
-                            "`FadeStep`")
+            raise TypeError(
+                "First Parameter to `FadeStepAdapter` must be a Subscribable object with value type " "`FadeStep`"
+            )
         wrapped.trigger(self._update, synchronous=True)
 
     async def _update(self, value: FadeStep, origin: List[Any]) -> None:
@@ -298,6 +308,7 @@ class UpdateExchange(Subscribable[T], Writable[T], Generic[T]):
     *UpdateExchange*. In contrast to *Variable*'s fields, the *UpdateExchangeField* objects are not *Writable*; only the
     *UpdateExchange* itself can receive value updates.
     """
+
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
@@ -316,8 +327,10 @@ class UpdateExchange(Subscribable[T], Writable[T], Generic[T]):
 
     def field(self, name: str) -> "_UpdateExchangeField":
         if not issubclass(self.type, tuple) or not self.type.__annotations__:
-            raise TypeError(f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
-                            f"NamedTuple-typed VariableFields.")
+            raise TypeError(
+                f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
+                f"NamedTuple-typed VariableFields."
+            )
         return self._fields[name]
 
 
@@ -341,7 +354,8 @@ class _UpdateExchangeField(Subscribable[T], Generic[T]):
         if not issubclass(self.type, tuple) or not self.type.__annotations__:
             raise TypeError(
                 f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
-                f"NamedTuple-typed VariableFields.")
+                f"NamedTuple-typed VariableFields."
+            )
         return self._fields[name]
 
     async def _recursive_publish(self, new_value: T, origin: List[Any]):
@@ -363,6 +377,7 @@ class SimpleInputConnector(Reading[T], Writable[T], Generic[T]):
         objects, make sure to pass the `origin` along when publishing these value updates and to return from this
         coroutine only as soon as the subsequent value updates have been published/written.
     """
+
     is_reading_optional = False
 
     def __init__(self, type_: Type[T], callback: Optional[Callable[[List[Any]], Awaitable[None]]] = None):

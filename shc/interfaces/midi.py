@@ -59,10 +59,14 @@ class MidiInterface(AbstractInterface):
         channel number [0-15] or a list of channel numbers which should be processed. Other than the specified MIDI
         channel(s) are ignored.
     """
-    def __init__(self, input_port_name: Optional[str] = None,
-                 output_port_name: Optional[str] = None,
-                 send_channel: int = 0,
-                 receive_channel: Union[None, int, Iterable[int]] = None) -> None:
+
+    def __init__(
+        self,
+        input_port_name: Optional[str] = None,
+        output_port_name: Optional[str] = None,
+        send_channel: int = 0,
+        receive_channel: Union[None, int, Iterable[int]] = None,
+    ) -> None:
         if not input_port_name and not output_port_name:
             raise ValueError("Either MIDI input port name or output port name must be specified.")
         super().__init__()
@@ -97,40 +101,40 @@ class MidiInterface(AbstractInterface):
             self.input_port = mido.open_input(self.input_port_name, callback=incoming_message_callback)
 
     async def stop(self) -> None:
-        logger.info('Stopping MIDI interface.')
+        logger.info("Stopping MIDI interface.")
 
         if self.input_port_name:
-            logger.debug('First, closing down mido input_port ...')
+            logger.debug("First, closing down mido input_port ...")
             await asyncio.get_event_loop().run_in_executor(None, self.input_port.close)
 
         if self.output_port_name:
-            logger.debug('Sending None value to _send_thread() to shut it down ...')
+            logger.debug("Sending None value to _send_thread() to shut it down ...")
             await self._output_queue.put(None)
             await self._send_thread_stopped.wait()
-        logger.debug('MIDI interface shutdown finished.')
+        logger.debug("MIDI interface shutdown finished.")
 
     def _dispatch_message(self, message) -> None:
-        logger.debug('Received MIDI message: %s', message)
+        logger.debug("Received MIDI message: %s", message)
         msg_type = message.type
         channel = message.channel
         # Filter by MIDI event type
-        if msg_type not in ('note_on', 'note_off', 'control_change'):
-            logger.debug('Unsupported MIDI message type %s', msg_type)
+        if msg_type not in ("note_on", "note_off", "control_change"):
+            logger.debug("Unsupported MIDI message type %s", msg_type)
             return
         # Filter by MIDI channel
         if isinstance(self.receive_channel, int):
             if channel != self.receive_channel:
-                logger.debug('Ignoring message from wrong input channel %s', channel)
+                logger.debug("Ignoring message from wrong input channel %s", channel)
                 return
         elif self.receive_channel is not None and channel not in self.receive_channel:
-            logger.debug('Ignoring message from wrong input channel %s', channel)
+            logger.debug("Ignoring message from wrong input channel %s", channel)
             return
 
         # Check if a *Connectable* object is registered for this type/index combination
-        key = message.control if msg_type == 'control_change' else message.note
+        key = message.control if msg_type == "control_change" else message.note
         variable = self._variable_map.get((msg_type, key))
         if variable is None:
-            logger.debug('MIDI message is not assigned to any variable')
+            logger.debug("MIDI message is not assigned to any variable")
             return
 
         # Dispatch new value in a new asyncio Task
@@ -152,12 +156,12 @@ class MidiInterface(AbstractInterface):
                 if message is None:
                     logger.debug("_send_thread got None value. Exiting send loop.")
                     break
-                logger.debug('Sending MIDI message: %s', message)
+                logger.debug("Sending MIDI message: %s", message)
                 output_port.send(message)
 
-            logger.info('Closing mido output_port ...')
+            logger.info("Closing mido output_port ...")
             output_port.close()
-            logger.debug('_send_thread() done.')
+            logger.debug("_send_thread() done.")
         except Exception as e:
             logger.critical("Exception in MIDI send thread. Shutting down SHC ...", exc_info=e)
             asyncio.run_coroutine_threadsafe(stop(), loop)
@@ -174,8 +178,9 @@ class MidiInterface(AbstractInterface):
         if self.output_port_name:
             self._output_queue.put_nowait(message)
 
-    def note_on_off(self, note: int, emulate_toggle: bool = False,
-                    off_output_velocity: int = 0, on_output_velocity: int = 127) -> "NoteOnOffVariable":
+    def note_on_off(
+        self, note: int, emulate_toggle: bool = False, off_output_velocity: int = 0, on_output_velocity: int = 127
+    ) -> "NoteOnOffVariable":
         """
         Create a *Connectable* object for this MIDI interface which handles Note on/off events as boolean values.
 
@@ -219,15 +224,16 @@ class MidiInterface(AbstractInterface):
         :param on_output_velocity: The MIDI velocity of outbound *Note on* events. Defaults to 127.
         :return: The *Connectible* object with the given specification
         """
-        existing_variable = self._variable_map.get(('note_on', note))
+        existing_variable = self._variable_map.get(("note_on", note))
         if existing_variable and isinstance(existing_variable, NoteOnOffVariable):
             return existing_variable
         elif existing_variable:
-            raise ValueError("A variable for MIDI note {} is already existing but with a different variable type."
-                             .format(note))
+            raise ValueError(
+                "A variable for MIDI note {} is already existing but with a different variable type.".format(note)
+            )
         variable = NoteOnOffVariable(self, note, emulate_toggle, off_output_velocity, on_output_velocity)
-        self._variable_map[('note_on', note)] = variable
-        self._variable_map[('note_off', note)] = variable
+        self._variable_map[("note_on", note)] = variable
+        self._variable_map[("note_off", note)] = variable
         return variable
 
     def control_change(self, control_channel: int) -> "ControlChangeVariable":
@@ -242,12 +248,12 @@ class MidiInterface(AbstractInterface):
         :param control_channel: The MIDI control number (0-127)
         :return: The *Connectable* object with `RangeUInt8` type to interact with the specified MIDI control channel
         """
-        existing_variable = self._variable_map.get(('control_change', control_channel))
+        existing_variable = self._variable_map.get(("control_change", control_channel))
         if existing_variable:
             assert isinstance(existing_variable, ControlChangeVariable)
             return existing_variable
         variable = ControlChangeVariable(self, control_channel=control_channel)
-        self._variable_map[('control_change', control_channel)] = variable
+        self._variable_map[("control_change", control_channel)] = variable
         return variable
 
     def note_velocity(self, note: int) -> "NoteVelocityVariable":
@@ -268,21 +274,26 @@ class MidiInterface(AbstractInterface):
         :param note: The MIDI control number (0-127)
         :return: The *Connectable* object with `RangeUInt8` type to interact with the specified MIDI note.
         """
-        existing_variable = self._variable_map.get(('note_on', note))
+        existing_variable = self._variable_map.get(("note_on", note))
         if existing_variable and isinstance(existing_variable, NoteVelocityVariable):
             return existing_variable
         elif existing_variable:
-            raise ValueError("A variable for MIDI note {} is already existing but with a different variable type."
-                             .format(note))
+            raise ValueError(
+                "A variable for MIDI note {} is already existing but with a different variable type.".format(note)
+            )
         variable = NoteVelocityVariable(self, note=note)
-        self._variable_map[('note_on', note)] = variable
-        self._variable_map[('note_off', note)] = variable
+        self._variable_map[("note_on", note)] = variable
+        self._variable_map[("note_off", note)] = variable
         return variable
 
     def __repr__(self) -> str:
-        return "{}(input_port_name={}, output_port_name={}, send_channel={}, receive_channel={})"\
-            .format(self.__class__.__name__, self.input_port_name, self.output_port_name, self.send_channel,
-                    self.receive_channel)
+        return "{}(input_port_name={}, output_port_name={}, send_channel={}, receive_channel={})".format(
+            self.__class__.__name__,
+            self.input_port_name,
+            self.output_port_name,
+            self.send_channel,
+            self.receive_channel,
+        )
 
 
 class AbstractMidiVariable(metaclass=abc.ABCMeta):
@@ -300,10 +311,15 @@ class NoteVelocityVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abstr
         self.note = note
 
     async def _write(self, value: RangeUInt8, origin: List[Any]) -> None:
-        midi_value = value//2
-        self.interface._send_message(mido.Message('note_off' if midi_value == 0 else 'note_on',
-                                                  channel=self.interface.send_channel, note=self.note,
-                                                  velocity=midi_value))
+        midi_value = value // 2
+        self.interface._send_message(
+            mido.Message(
+                "note_off" if midi_value == 0 else "note_on",
+                channel=self.interface.send_channel,
+                note=self.note,
+                velocity=midi_value,
+            )
+        )
 
     def _incoming_message(self, message: mido.Message) -> None:
         value = message.velocity
@@ -320,8 +336,11 @@ class ControlChangeVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abst
         self.control_channel = control_channel
 
     async def _write(self, value: RangeUInt8, origin: List[Any]) -> None:
-        self.interface._send_message(mido.Message('control_change', channel=self.interface.send_channel,
-                                                  control=self.control_channel, value=value//2))
+        self.interface._send_message(
+            mido.Message(
+                "control_change", channel=self.interface.send_channel, control=self.control_channel, value=value // 2
+            )
+        )
 
     def _incoming_message(self, message: mido.Message) -> None:
         value = message.value
@@ -332,8 +351,14 @@ class ControlChangeVariable(Subscribable[RangeUInt8], Writable[RangeUInt8], Abst
 class NoteOnOffVariable(Subscribable[bool], Writable[bool], AbstractMidiVariable):
     type = bool
 
-    def __init__(self, interface: MidiInterface, note: int, emulate_toggle: bool,
-                 off_output_velocity: int, on_output_velocity: int):
+    def __init__(
+        self,
+        interface: MidiInterface,
+        note: int,
+        emulate_toggle: bool,
+        off_output_velocity: int,
+        on_output_velocity: int,
+    ):
         super().__init__()
         self.interface = interface
         self.note = note
@@ -349,12 +374,17 @@ class NoteOnOffVariable(Subscribable[bool], Writable[bool], AbstractMidiVariable
         self._to_midi(value)
 
     def _to_midi(self, value) -> None:
-        self.interface._send_message(mido.Message('note_on' if value else 'note_off',
-                                                  channel=self.interface.send_channel, note=self.note,
-                                                  velocity=self.on_velocity if value else self.off_velocity))
+        self.interface._send_message(
+            mido.Message(
+                "note_on" if value else "note_off",
+                channel=self.interface.send_channel,
+                note=self.note,
+                velocity=self.on_velocity if value else self.off_velocity,
+            )
+        )
 
     def _incoming_message(self, message: mido.Message) -> None:
-        on = message.type == 'note_on' and message.velocity > 0
+        on = message.type == "note_on" and message.velocity > 0
         if self.emulate_toggle:
             if on:
                 self.value = not self.value

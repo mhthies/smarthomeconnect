@@ -63,6 +63,7 @@ class MySQLConnector(ReadableStatusInterface):
     * ``db: str`` – name ot the database
     * (optional) ``read_default_file`` – path to my.cnf file to read all these options from
     """
+
     def __init__(self, **kwargs):
         super().__init__()
         # see https://aiomysql.readthedocs.io/en/latest/connection.html#connection for valid parameters
@@ -112,8 +113,11 @@ class MySQLConnector(ReadableStatusInterface):
         if name in self.variables:
             variable = self.variables[name]
             if variable.type is not type_:
-                raise ValueError("MySQL log variable with name {} has already been defined with type {}"
-                                 .format(name, variable.type.__name__))
+                raise ValueError(
+                    "MySQL log variable with name {} has already been defined with type {}".format(
+                        name, variable.type.__name__
+                    )
+                )
             return variable
         else:
             variable = MySQLLogVariable(self, type_, name)
@@ -136,8 +140,11 @@ class MySQLConnector(ReadableStatusInterface):
         if name in self.persistence_variables:
             variable = self.persistence_variables[name]
             if variable.type is not type_:
-                raise ValueError("MySQL persistence variable with name {} has already been defined with type {}"
-                                 .format(name, variable.type.__name__))
+                raise ValueError(
+                    "MySQL persistence variable with name {} has already been defined with type {}".format(
+                        name, variable.type.__name__
+                    )
+                )
             return variable
         else:
             variable = MySQLPersistenceVariable(self, type_, name)
@@ -145,8 +152,10 @@ class MySQLConnector(ReadableStatusInterface):
             return variable
 
     def __repr__(self) -> str:
-        return "{}({})".format(self.__class__.__name__, {k: v for k, v in self.connect_args.items()
-                                                         if k in ('host', 'db', 'port', 'unix_socket')})
+        return "{}({})".format(
+            self.__class__.__name__,
+            {k: v for k, v in self.connect_args.items() if k in ("host", "db", "port", "unix_socket")},
+        )
 
 
 class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
@@ -168,7 +177,7 @@ class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
         assert self.interface.pool is not None
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(self._read_query, {'name': self.name})
+                await cur.execute(self._read_query, {"name": self.name})
                 value = await cur.fetchone()
         if value is None:
             raise UninitializedError("No value has been persisted in MySQL database yet")
@@ -180,23 +189,26 @@ class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
         assert self.interface.pool is not None
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(self._write_query,
-                                  {'ts': datetime.datetime.now().astimezone(datetime.timezone.utc),
-                                   'value': self._to_mysql_converter(value),
-                                   'name': self.name})
+                await cur.execute(
+                    self._write_query,
+                    {
+                        "ts": datetime.datetime.now().astimezone(datetime.timezone.utc),
+                        "value": self._to_mysql_converter(value),
+                        "name": self.name,
+                    },
+                )
             await conn.commit()
 
     def _get_write_query(self) -> str:
-        return f"INSERT INTO `{self.table}` (`name`, `ts`, `value`) " \
-               f"VALUES (%(name)s, %(ts)s, %(value)s)" \
-               f"ON DUPLICATE KEY UPDATE " \
-               f"`value`=%(value)s, `ts`=%(ts)s"
+        return (
+            f"INSERT INTO `{self.table}` (`name`, `ts`, `value`) "
+            f"VALUES (%(name)s, %(ts)s, %(value)s)"
+            f"ON DUPLICATE KEY UPDATE "
+            f"`value`=%(value)s, `ts`=%(ts)s"
+        )
 
     def _get_read_query(self) -> str:
-        return f"SELECT `value` " \
-               f"FROM `{self.table}` " \
-               f"WHERE `name` = %(name)s " \
-               f"ORDER BY `ts` DESC LIMIT 1"
+        return f"SELECT `value` " f"FROM `{self.table}` " f"WHERE `name` = %(name)s " f"ORDER BY `ts` DESC LIMIT 1"
 
     @staticmethod
     def _get_to_mysql_converter(type_: Type[T]) -> Callable[[T], Any]:
@@ -231,7 +243,7 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         assert self.interface.pool is not None
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(self._read_query, {'name': self.name})
+                await cur.execute(self._read_query, {"name": self.name})
                 value = await cur.fetchone()
         if value is None:
             raise UninitializedError("No value has been persisted in MySQL database yet")
@@ -243,15 +255,22 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         assert self.interface.pool is not None
         async with self.interface.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.executemany(self._insert_query,
-                                      [{'ts': ts.astimezone(datetime.timezone.utc),
-                                        'value': self._to_mysql_converter(value),
-                                        'name': self.name}
-                                       for ts, value in values])
+                await cur.executemany(
+                    self._insert_query,
+                    [
+                        {
+                            "ts": ts.astimezone(datetime.timezone.utc),
+                            "value": self._to_mysql_converter(value),
+                            "name": self.name,
+                        }
+                        for ts, value in values
+                    ],
+                )
             await conn.commit()
 
-    async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
-                           include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
+    async def retrieve_log(
+        self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = True
+    ) -> List[Tuple[datetime.datetime, T]]:
         await self.interface.pool_ready.wait()
         assert self.interface.pool is not None
         async with self.interface.pool.acquire() as conn:
@@ -259,56 +278,73 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
                 if include_previous:
                     await cur.execute(
                         self._retrieve_with_prev_query,
-                        {'name': self.name,
-                         'start': start_time.astimezone(datetime.timezone.utc),
-                         'end': end_time.astimezone(datetime.timezone.utc)})
+                        {
+                            "name": self.name,
+                            "start": start_time.astimezone(datetime.timezone.utc),
+                            "end": end_time.astimezone(datetime.timezone.utc),
+                        },
+                    )
                 else:
-                    await cur.execute(self._retrieve_query,
-                                      {'name': self.name,
-                                       'start': start_time.astimezone(datetime.timezone.utc),
-                                       'end': end_time.astimezone(datetime.timezone.utc)})
+                    await cur.execute(
+                        self._retrieve_query,
+                        {
+                            "name": self.name,
+                            "start": start_time.astimezone(datetime.timezone.utc),
+                            "end": end_time.astimezone(datetime.timezone.utc),
+                        },
+                    )
 
-                return [(row[0].replace(tzinfo=datetime.timezone.utc), self._from_mysql_converter(row[1]))
-                        for row in await cur.fetchall()]
+                return [
+                    (row[0].replace(tzinfo=datetime.timezone.utc), self._from_mysql_converter(row[1]))
+                    for row in await cur.fetchall()
+                ]
 
     def _get_insert_query(self) -> str:
-        return f"INSERT INTO `{self.table}` (`name`, `ts`, `{self._type_to_column(self.type)}`) " \
-               f"VALUES (%(name)s, %(ts)s, %(value)s)"
+        return (
+            f"INSERT INTO `{self.table}` (`name`, `ts`, `{self._type_to_column(self.type)}`) "
+            f"VALUES (%(name)s, %(ts)s, %(value)s)"
+        )
 
     def _get_retrieve_query(self, include_previous: bool) -> str:
         if include_previous:
-            return f"(SELECT `ts`, `{self._type_to_column(self.type)}` " \
-                   f" FROM `{self.table}` " \
-                   f" WHERE `name` = %(name)s AND `ts` < %(start)s " \
-                   f" ORDER BY `ts` DESC LIMIT 1) " \
-                   f"UNION (SELECT `ts`, `{self._type_to_column(self.type)}` " \
-                   f"       FROM `{self.table}` " \
-                   f"       WHERE `name` = %(name)s AND `ts` >= %(start)s AND `ts` < %(end)s " \
-                   f"       ORDER BY `ts` ASC)"
+            return (
+                f"(SELECT `ts`, `{self._type_to_column(self.type)}` "
+                f" FROM `{self.table}` "
+                f" WHERE `name` = %(name)s AND `ts` < %(start)s "
+                f" ORDER BY `ts` DESC LIMIT 1) "
+                f"UNION (SELECT `ts`, `{self._type_to_column(self.type)}` "
+                f"       FROM `{self.table}` "
+                f"       WHERE `name` = %(name)s AND `ts` >= %(start)s AND `ts` < %(end)s "
+                f"       ORDER BY `ts` ASC)"
+            )
         else:
-            return f"SELECT `ts`, `{self._type_to_column(self.type)}` " \
-                   f"FROM `{self.table}` " \
-                   f"WHERE `name` = %(name)s AND `ts` >= %(start)s AND `ts` < %(end)s " \
-                   f"ORDER BY `ts` ASC"
+            return (
+                f"SELECT `ts`, `{self._type_to_column(self.type)}` "
+                f"FROM `{self.table}` "
+                f"WHERE `name` = %(name)s AND `ts` >= %(start)s AND `ts` < %(end)s "
+                f"ORDER BY `ts` ASC"
+            )
 
     def _get_read_query(self) -> str:
-        return f"SELECT `{self._type_to_column(self.type)}` " \
-               f"FROM `{self.table}` " \
-               f"WHERE `name` = %(name)s " \
-               f"ORDER BY `ts` DESC LIMIT 1"
+        return (
+            f"SELECT `{self._type_to_column(self.type)}` "
+            f"FROM `{self.table}` "
+            f"WHERE `name` = %(name)s "
+            f"ORDER BY `ts` DESC LIMIT 1"
+        )
 
     @classmethod
     def _type_to_column(cls, type_: Type) -> str:
         if issubclass(type_, (int, bool)):
-            return 'value_int'
+            return "value_int"
         elif issubclass(type_, float):
-            return 'value_float'
+            return "value_float"
         elif issubclass(type_, str):
-            return 'value_str'
+            return "value_str"
         elif issubclass(type_, enum.Enum):
             return cls._type_to_column(type(next(iter(type_.__members__.values())).value))
         else:
-            return 'value_str'
+            return "value_str"
 
     @staticmethod
     def _get_to_mysql_converter(type_: Type[T]) -> Callable[[T], Any]:
@@ -316,18 +352,15 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
             return lambda x: x
         elif issubclass(type_, int):
             # we know that type_ is equivalent to T -> int(a: int) is valid
-            return cast(Callable[[T], Any],
-                        lambda value: int(value))
+            return cast(Callable[[T], Any], lambda value: int(value))
         elif issubclass(type_, float):
             # we know that type_ is equivalent to T -> float(a: float) is valid
-            return cast(Callable[[T], Any],
-                        lambda value: None if math.isnan(value) else float(value))
+            return cast(Callable[[T], Any], lambda value: None if math.isnan(value) else float(value))
         elif issubclass(type_, str):
             return lambda value: str(value)
         elif issubclass(type_, enum.Enum):
             # we know that type_ is equivalent to T -> T is subclass of enum
-            return cast(Callable[[T], Any],
-                        lambda value: value.value)
+            return cast(Callable[[T], Any], lambda value: value.value)
         else:
             return lambda value: json.dumps(value, cls=SHCJsonEncoder)
 
@@ -336,19 +369,15 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         # type_ must be a subclass of T, so we can return a Callable[[...], type_] as Callable[[...], T].
         # For some reason, MyPy does not unterstand this...
         if type_ is bool:
-            return cast(Callable[[Any], T],
-                        lambda x: bool(x))
+            return cast(Callable[[Any], T], lambda x: bool(x))
         elif type_ in (int, str):
             return lambda x: x
         elif type_ is float:
-            return cast(Callable[[Any], T],
-                        lambda x: x if x is not None else float("nan"))
+            return cast(Callable[[Any], T], lambda x: x if x is not None else float("nan"))
         elif issubclass(type_, (bool, int, str, enum.Enum)):
-            return cast(Callable[[Any], T],
-                        lambda value: type_(value))
+            return cast(Callable[[Any], T], lambda value: type_(value))
         elif issubclass(type_, float):
-            return cast(Callable[[Any], T],
-                        lambda value: type_(value) if value is not None else type_(float("nan")))
+            return cast(Callable[[Any], T], lambda value: type_(value) if value is not None else type_(float("nan")))
         else:
             return lambda value: from_json(type_, json.loads(value))
 

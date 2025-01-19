@@ -16,7 +16,7 @@ import re
 from shc.base import Subscribable
 from shc.timer import Every
 
-WINDOWS = os.name == 'nt'
+WINDOWS = os.name == "nt"
 
 
 class Ping(Subscribable[bool]):
@@ -35,11 +35,17 @@ class Ping(Subscribable[bool]):
     :param timeout: The timeout for each individual ECHO request in seconds, passed to `ping` via the `-W` argument
         (resp. `-w` on Windows)
     """
-    type = bool
-    RE_WIN_PING_TTL = re.compile(rb'TTL=\d+\s*\n')
 
-    def __init__(self, address: str, interval: datetime.timedelta = datetime.timedelta(minutes=5), number: int = 5,
-                 timeout: float = 1.0):
+    type = bool
+    RE_WIN_PING_TTL = re.compile(rb"TTL=\d+\s*\n")
+
+    def __init__(
+        self,
+        address: str,
+        interval: datetime.timedelta = datetime.timedelta(minutes=5),
+        number: int = 5,
+        timeout: float = 1.0,
+    ):
         super().__init__()
         self.address = address
         self.number = number
@@ -49,10 +55,10 @@ class Ping(Subscribable[bool]):
 
     async def _exec(self, _v, _o) -> None:
         ping_process = await asyncio.create_subprocess_exec(
-            'ping',
-            '-c' if not WINDOWS else '-n',
+            "ping",
+            "-c" if not WINDOWS else "-n",
             str(self.number),
-            '-W' if not WINDOWS else '-w',
+            "-W" if not WINDOWS else "-w",
             str(self.timeout) if not WINDOWS else str(round(self.timeout * 1000)),
             self.address,
             stdout=asyncio.subprocess.PIPE,

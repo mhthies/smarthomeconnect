@@ -54,37 +54,41 @@ class AbstractTimerTest(unittest.TestCase):
     @async_test
     async def test_run(self) -> None:
         clock_mock = ClockMock(datetime.datetime(2020, 8, 20, 21, 8, 0), actual_sleep=0.01)
-        expected_events = [datetime.datetime(2020, 8, 20, 21, 8, 2).astimezone(),
-                           datetime.datetime(2020, 8, 20, 22, 0, 0).astimezone()]
+        expected_events = [
+            datetime.datetime(2020, 8, 20, 21, 8, 2).astimezone(),
+            datetime.datetime(2020, 8, 20, 22, 0, 0).astimezone(),
+        ]
         events = []
 
         def store_time(*args, **kwargs):
             events.append(clock_mock.now().astimezone())
 
         t = self.TestTimer(expected_events)
-        with unittest.mock.patch('shc.timer._AbstractScheduleTimer._publish', new=store_time):
+        with unittest.mock.patch("shc.timer._AbstractScheduleTimer._publish", new=store_time):
             with clock_mock:
                 await t.run()
         await asyncio.sleep(0.01)  # Allow async tasks to run to make sure all _publish tasks have been executed
         self.assertListEqual(expected_events, events)
 
         assert t.last_execution is not None
-        self.assertAlmostEqual(t.last_execution,
-                               expected_events[-1],
-                               delta=datetime.timedelta(seconds=1))
+        self.assertAlmostEqual(t.last_execution, expected_events[-1], delta=datetime.timedelta(seconds=1))
 
 
 class TimerDecoratorText(unittest.TestCase):
     def test_decorators(self) -> None:
-        for decorator, timer_class, attr in ((timer.every, timer.Every, {'delta': datetime.timedelta(seconds=5)}),
-                                             (timer.once, timer.Once, {'offset': datetime.timedelta(seconds=7)}),
-                                             (timer.at, timer.At, {'random': datetime.timedelta(seconds=20)}),):
+        for decorator, timer_class, attr in (
+            (timer.every, timer.Every, {"delta": datetime.timedelta(seconds=5)}),
+            (timer.once, timer.Once, {"offset": datetime.timedelta(seconds=7)}),
+            (timer.at, timer.At, {"random": datetime.timedelta(seconds=20)}),
+        ):
             with self.subTest(decorator=decorator.__name__):
+
                 async def my_function(_val, _origin):
                     return
 
-                with unittest.mock.patch('shc.base.Subscribable.trigger',
-                                         autospec=True, side_effect=lambda s, t: t) as trigger_mock:
+                with unittest.mock.patch(
+                    "shc.base.Subscribable.trigger", autospec=True, side_effect=lambda s, t: t
+                ) as trigger_mock:
                     returned = decorator(**attr)(my_function)
 
                 trigger_mock.assert_called_once()
@@ -101,44 +105,47 @@ class EveryTimerTest(unittest.TestCase):
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=False)
             next_execution = every_timer._next_execution()
             assert next_execution is not None
-            self.assertAlmostEqual(clock.now().astimezone(), next_execution,
-                                   delta=datetime.timedelta(seconds=1))
+            self.assertAlmostEqual(clock.now().astimezone(), next_execution, delta=datetime.timedelta(seconds=1))
             every_timer.last_execution = clock.now().astimezone()
             next_execution = every_timer._next_execution()
             assert next_execution is not None
-            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5), next_execution,
-                                   delta=datetime.timedelta(seconds=1))
+            self.assertAlmostEqual(
+                clock.now().astimezone() + datetime.timedelta(minutes=5),
+                next_execution,
+                delta=datetime.timedelta(seconds=1),
+            )
             clock.sleep(5 * 60)
             every_timer.last_execution = clock.now().astimezone()
             next_execution = every_timer._next_execution()
             assert next_execution is not None
-            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5), next_execution,
-                                   delta=datetime.timedelta(seconds=1))
+            self.assertAlmostEqual(
+                clock.now().astimezone() + datetime.timedelta(minutes=5),
+                next_execution,
+                delta=datetime.timedelta(seconds=1),
+            )
 
     def test_unaligned_random(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=False, random=datetime.timedelta(seconds=20))
             next_execution = every_timer._next_execution()
             assert next_execution is not None
-            self.assertGreaterEqual(next_execution,
-                                    clock.now().astimezone() - datetime.timedelta(seconds=20))
-            self.assertLessEqual(next_execution,
-                                 clock.now().astimezone() + datetime.timedelta(seconds=20))
+            self.assertGreaterEqual(next_execution, clock.now().astimezone() - datetime.timedelta(seconds=20))
+            self.assertLessEqual(next_execution, clock.now().astimezone() + datetime.timedelta(seconds=20))
             every_timer.last_execution = clock.now().astimezone()
             next_execution = every_timer._next_execution()
             assert next_execution is not None
-            self.assertGreaterEqual(next_execution,
-                                    clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20))
-            self.assertLessEqual(next_execution,
-                                 clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
+            self.assertGreaterEqual(
+                next_execution, clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20)
+            )
+            self.assertLessEqual(next_execution, clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
             clock.sleep(5 * 60 + 20)
             every_timer.last_execution = clock.now().astimezone()
             next_execution = every_timer._next_execution()
             assert next_execution is not None
-            self.assertGreaterEqual(next_execution,
-                                    clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20))
-            self.assertLessEqual(next_execution,
-                                 clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
+            self.assertGreaterEqual(
+                next_execution, clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=-20)
+            )
+            self.assertLessEqual(next_execution, clock.now().astimezone() + datetime.timedelta(minutes=5, seconds=20))
 
     def test_aligned(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)) as clock:
@@ -151,18 +158,20 @@ class EveryTimerTest(unittest.TestCase):
             clock.current_time = base + datetime.timedelta(microseconds=1)  # We slept till the first execution
             next_execution = every_timer._next_execution()
             assert next_execution is not None
-            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(minutes=5),
-                                   next_execution,
-                                   delta=datetime.timedelta(seconds=1))
+            self.assertAlmostEqual(
+                clock.now().astimezone() + datetime.timedelta(minutes=5),
+                next_execution,
+                delta=datetime.timedelta(seconds=1),
+            )
 
         # A new timer (after a restart 5 minutes later) should give us exactly base + 5 minutes as the first execution
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17) + datetime.timedelta(minutes=5)) as clock:
             every_timer = timer.Every(datetime.timedelta(minutes=5), align=True)
             next_execution = every_timer._next_execution()
             assert next_execution is not None
-            self.assertAlmostEqual(base + datetime.timedelta(minutes=5),
-                                   next_execution,
-                                   delta=datetime.timedelta(seconds=1))
+            self.assertAlmostEqual(
+                base + datetime.timedelta(minutes=5), next_execution, delta=datetime.timedelta(seconds=1)
+            )
 
 
 class OnceTimerTest(unittest.TestCase):
@@ -171,8 +180,7 @@ class OnceTimerTest(unittest.TestCase):
             once_timer = timer.Once()
             next_execution = once_timer._next_execution()
             assert next_execution is not None
-            self.assertAlmostEqual(clock.now().astimezone(), next_execution,
-                                   delta=datetime.timedelta(seconds=1))
+            self.assertAlmostEqual(clock.now().astimezone(), next_execution, delta=datetime.timedelta(seconds=1))
             clock.sleep(1)
             once_timer.last_execution = clock.now().astimezone()
             self.assertIsNone(once_timer._next_execution())
@@ -182,9 +190,12 @@ class OnceTimerTest(unittest.TestCase):
             once_timer = timer.Once(datetime.timedelta(hours=1))
             next_execution = once_timer._next_execution()
             assert next_execution is not None
-            self.assertAlmostEqual(clock.now().astimezone() + datetime.timedelta(hours=1), next_execution,
-                                   delta=datetime.timedelta(seconds=1))
-            clock.sleep(60*60)
+            self.assertAlmostEqual(
+                clock.now().astimezone() + datetime.timedelta(hours=1),
+                next_execution,
+                delta=datetime.timedelta(seconds=1),
+            )
+            clock.sleep(60 * 60)
             once_timer.last_execution = clock.now().astimezone()
             self.assertIsNone(once_timer._next_execution())
 
@@ -193,11 +204,9 @@ class OnceTimerTest(unittest.TestCase):
             once_timer = timer.Once(datetime.timedelta(hours=1), random=datetime.timedelta(seconds=20))
             next_execution = once_timer._next_execution()
             assert next_execution is not None
-            self.assertGreaterEqual(next_execution,
-                                    clock.now().astimezone() + datetime.timedelta(hours=1, seconds=-20))
-            self.assertLessEqual(next_execution,
-                                 clock.now().astimezone() + datetime.timedelta(hours=1, seconds=20))
-            clock.sleep(60*60)
+            self.assertGreaterEqual(next_execution, clock.now().astimezone() + datetime.timedelta(hours=1, seconds=-20))
+            self.assertLessEqual(next_execution, clock.now().astimezone() + datetime.timedelta(hours=1, seconds=20))
+            clock.sleep(60 * 60)
             once_timer.last_execution = clock.now().astimezone()
             self.assertIsNone(once_timer._next_execution())
 
@@ -205,7 +214,7 @@ class OnceTimerTest(unittest.TestCase):
 class AtTimerTest(unittest.TestCase):
     def _assert_datetime(self, expected: datetime.datetime, actual: Optional[datetime.datetime]) -> None:
         assert actual is not None
-        self.assertAlmostEqual(expected.astimezone(), actual, delta=datetime.timedelta(seconds=.1))
+        self.assertAlmostEqual(expected.astimezone(), actual, delta=datetime.timedelta(seconds=0.1))
 
     def test_simple_next(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 7, 17)):
@@ -305,8 +314,9 @@ class BoolTimerTest(unittest.TestCase):
                 await base.publish(True, [self])
                 await asyncio.sleep(45)
                 publish_mock.assert_called_with(True, unittest.mock.ANY)
-                self.assertAlmostEqual(begin + datetime.timedelta(seconds=42.01), call_times[-1],
-                                       delta=datetime.timedelta(seconds=.01))
+                self.assertAlmostEqual(
+                    begin + datetime.timedelta(seconds=42.01), call_times[-1], delta=datetime.timedelta(seconds=0.01)
+                )
 
                 # False should now be forwarded immediately
                 publish_mock.reset_mock()
@@ -330,8 +340,9 @@ class BoolTimerTest(unittest.TestCase):
                 await base.publish(True, [self])
                 await asyncio.sleep(30)
                 publish_mock.assert_called_with(True, unittest.mock.ANY)
-                self.assertAlmostEqual(tic + datetime.timedelta(seconds=42), call_times[-1],
-                                       delta=datetime.timedelta(seconds=.01))
+                self.assertAlmostEqual(
+                    tic + datetime.timedelta(seconds=42), call_times[-1], delta=datetime.timedelta(seconds=0.01)
+                )
 
     @async_test
     async def test_toff(self) -> None:
@@ -363,8 +374,9 @@ class BoolTimerTest(unittest.TestCase):
                 await base.publish(False, [self])
                 await asyncio.sleep(45)
                 publish_mock.assert_called_with(False, unittest.mock.ANY)
-                self.assertAlmostEqual(begin + datetime.timedelta(seconds=42.01), call_times[-1],
-                                       delta=datetime.timedelta(seconds=.01))
+                self.assertAlmostEqual(
+                    begin + datetime.timedelta(seconds=42.01), call_times[-1], delta=datetime.timedelta(seconds=0.01)
+                )
 
                 # False delay should be suppressable with True ...
                 await base.publish(True, [self])
@@ -384,8 +396,9 @@ class BoolTimerTest(unittest.TestCase):
                 await base.publish(False, [self])
                 await asyncio.sleep(30)
                 publish_mock.assert_called_with(False, unittest.mock.ANY)
-                self.assertAlmostEqual(tic + datetime.timedelta(seconds=42), call_times[-1],
-                                       delta=datetime.timedelta(seconds=.01))
+                self.assertAlmostEqual(
+                    tic + datetime.timedelta(seconds=42), call_times[-1], delta=datetime.timedelta(seconds=0.01)
+                )
 
     @async_test
     async def test_pulse(self) -> None:
@@ -414,8 +427,9 @@ class BoolTimerTest(unittest.TestCase):
                 await asyncio.sleep(45)
                 self.assertEqual(2, publish_mock.call_count)
                 publish_mock.assert_called_with(False, unittest.mock.ANY)
-                self.assertAlmostEqual(begin + datetime.timedelta(seconds=42.01), call_times[-1],
-                                       delta=datetime.timedelta(seconds=.01))
+                self.assertAlmostEqual(
+                    begin + datetime.timedelta(seconds=42.01), call_times[-1], delta=datetime.timedelta(seconds=0.01)
+                )
 
                 # Pulse should not be stoppable with False or extendable with a second rising edge
                 publish_mock.reset_mock()
@@ -439,8 +453,9 @@ class BoolTimerTest(unittest.TestCase):
                 await asyncio.sleep(25)
                 self.assertEqual(2, publish_mock.call_count)
                 publish_mock.assert_called_with(False, unittest.mock.ANY)
-                self.assertAlmostEqual(start + datetime.timedelta(seconds=42.01), call_times[-1],
-                                       delta=datetime.timedelta(seconds=.01))
+                self.assertAlmostEqual(
+                    start + datetime.timedelta(seconds=42.01), call_times[-1], delta=datetime.timedelta(seconds=0.01)
+                )
 
                 # And a two consecutive True values should not trigger a second pulse
                 publish_mock.reset_mock()
@@ -459,8 +474,9 @@ class BoolTimerTest(unittest.TestCase):
                 await asyncio.sleep(45)
                 self.assertEqual(2, publish_mock.call_count)
                 publish_mock.assert_called_with(False, unittest.mock.ANY)
-                self.assertAlmostEqual(start + datetime.timedelta(seconds=42.01), call_times[-1],
-                                       delta=datetime.timedelta(seconds=.01))
+                self.assertAlmostEqual(
+                    start + datetime.timedelta(seconds=42.01), call_times[-1], delta=datetime.timedelta(seconds=0.01)
+                )
 
 
 class TimerSwitchTest(unittest.TestCase):
@@ -592,13 +608,16 @@ class RampTest(unittest.TestCase):
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
         BLACK = datatypes.RGBWUInt8(
             datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-            datatypes.RangeUInt8(0))
+            datatypes.RangeUInt8(0),
+        )
         RED = datatypes.RGBWUInt8(
             datatypes.RGBUInt8(datatypes.RangeUInt8(255), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-            datatypes.RangeUInt8(0))
+            datatypes.RangeUInt8(0),
+        )
         MED_WHITE = datatypes.RGBWUInt8(
             datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-            datatypes.RangeUInt8(127))
+            datatypes.RangeUInt8(127),
+        )
 
         subscribable1 = ExampleSubscribable(datatypes.RangeUInt8)
         ramp1 = timer.IntRamp(subscribable1, datetime.timedelta(seconds=1), max_frequency=2)
@@ -635,34 +654,46 @@ class RampTest(unittest.TestCase):
             # Assert first step
             writable1._write.assert_called_once_with(datatypes.RangeUInt8(128), [ramp1])
             writable2._write.assert_called_once_with(datatypes.RangeFloat1(0.25), [ramp2])
-            writable3._write.assert_called_once_with(datatypes.RGBWUInt8(
-                datatypes.RGBUInt8(datatypes.RangeUInt8(64), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-                datatypes.RangeUInt8(0)),
-                [ramp3])
+            writable3._write.assert_called_once_with(
+                datatypes.RGBWUInt8(
+                    datatypes.RGBUInt8(datatypes.RangeUInt8(64), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                    datatypes.RangeUInt8(0),
+                ),
+                [ramp3],
+            )
 
             # Wait for and assert second step
             await asyncio.sleep(0.5)
             writable1._write.assert_called_with(datatypes.RangeUInt8(255), [ramp1])
             writable2._write.assert_called_with(datatypes.RangeFloat1(0.75), [ramp2])
-            writable3._write.assert_called_with(datatypes.RGBWUInt8(
-                datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-                datatypes.RangeUInt8(0)),
-                [ramp3])
+            writable3._write.assert_called_with(
+                datatypes.RGBWUInt8(
+                    datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                    datatypes.RangeUInt8(0),
+                ),
+                [ramp3],
+            )
             self.assertEqual(datatypes.RangeUInt8(255), await ramp1.read())
-            self.assertEqual(datatypes.RGBWUInt8(
-                datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-                datatypes.RangeUInt8(0)),
-                await ramp3.read())
+            self.assertEqual(
+                datatypes.RGBWUInt8(
+                    datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                    datatypes.RangeUInt8(0),
+                ),
+                await ramp3.read(),
+            )
 
             # Let's interrupt ramp3 and ramp to MED_WHITE
             # (both channels only ramp half the way, so it should reduce the duration to 1s
             writable3._write.reset_mock()
             await subscribable3.publish(MED_WHITE, [self])
             await asyncio.sleep(0.5)
-            writable3._write.assert_called_once_with(datatypes.RGBWUInt8(
-                datatypes.RGBUInt8(datatypes.RangeUInt8(85), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-                datatypes.RangeUInt8(42)),
-                [ramp3])
+            writable3._write.assert_called_once_with(
+                datatypes.RGBWUInt8(
+                    datatypes.RGBUInt8(datatypes.RangeUInt8(85), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
+                    datatypes.RangeUInt8(42),
+                ),
+                [ramp3],
+            )
 
             # (due to rounding errors and precautions, it uses 3 instead of 2 steps for this ramp)
             await asyncio.sleep(0.66)
@@ -696,8 +727,8 @@ class RampTest(unittest.TestCase):
             await subscribable1.publish(RED, [self])
             await asyncio.sleep(0.05)
             writable1._write.assert_called_once_with(
-                datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)),
-                [ramp1])
+                datatypes.RGBUInt8(datatypes.RangeUInt8(128), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0)), [ramp1]
+            )
             await asyncio.sleep(0.5)
             writable1._write.assert_called_with(RED, [ramp1])
             self.assertEqual(RED, await ramp1.read())
@@ -759,8 +790,9 @@ class RampTest(unittest.TestCase):
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
 
         subscribable1 = ExampleSubscribable(datatypes.FadeStep)
-        ramp1 = timer.FadeStepRamp(subscribable1, datetime.timedelta(seconds=1), max_frequency=2,
-                                   dynamic_duration=False)
+        ramp1 = timer.FadeStepRamp(
+            subscribable1, datetime.timedelta(seconds=1), max_frequency=2, dynamic_duration=False
+        )
         variable1 = shc.Variable(datatypes.RangeFloat1).connect(ramp1)
         writable1 = ExampleWritable(datatypes.RangeFloat1).connect(variable1)
 

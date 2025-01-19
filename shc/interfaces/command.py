@@ -1,4 +1,5 @@
 """Command interface."""
+
 import asyncio
 import logging
 from typing import List, Union, cast
@@ -28,6 +29,7 @@ class Command(Readable[str]):
     :param check: If True, the exit code of the command will be checked the read() method raises an UninitializedError
         instead of returning the output of the command in case of a non-zero exit code.
     """
+
     type = str
 
     def __init__(self, command: Union[str, List[str]], shell=False, include_std_err=False, check=False):
@@ -43,14 +45,14 @@ class Command(Readable[str]):
         stderr = asyncio.subprocess.STDOUT if self.include_std_err else asyncio.subprocess.DEVNULL
         if self.shell:
             command = cast(str, self.command)
-            command_process = await asyncio.create_subprocess_shell(command,
-                                                                    stdout=asyncio.subprocess.PIPE,
-                                                                    stderr=stderr)
+            command_process = await asyncio.create_subprocess_shell(
+                command, stdout=asyncio.subprocess.PIPE, stderr=stderr
+            )
         else:
             command_args = cast(List[str], self.command)
-            command_process = await asyncio.create_subprocess_exec(*command_args,
-                                                                   stdout=asyncio.subprocess.PIPE,
-                                                                   stderr=stderr)
+            command_process = await asyncio.create_subprocess_exec(
+                *command_args, stdout=asyncio.subprocess.PIPE, stderr=stderr
+            )
 
         std_out, _std_err = await command_process.communicate()
         if self.check:
@@ -79,6 +81,7 @@ class CommandExitCode(Readable[int]):
         it should be list of the command and its individual command line arguments.
     :param shell: If True, the command will be within a shell, otherwise it will be started as a plain subprocess
     """
+
     type = int
 
     def __init__(self, command: Union[str, List[str]], shell=False):
@@ -90,14 +93,14 @@ class CommandExitCode(Readable[int]):
     async def read(self) -> int:
         if self.shell:
             command = cast(str, self.command)
-            command_process = await asyncio.create_subprocess_shell(command,
-                                                                    stdout=asyncio.subprocess.DEVNULL,
-                                                                    stderr=asyncio.subprocess.DEVNULL)
+            command_process = await asyncio.create_subprocess_shell(
+                command, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+            )
         else:
             command_args = cast(List[str], self.command)
-            command_process = await asyncio.create_subprocess_exec(*command_args,
-                                                                   stdout=asyncio.subprocess.DEVNULL,
-                                                                   stderr=asyncio.subprocess.DEVNULL)
+            command_process = await asyncio.create_subprocess_exec(
+                *command_args, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+            )
 
         result = await command_process.wait()
         return result

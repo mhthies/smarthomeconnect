@@ -14,8 +14,8 @@ import enum
 import json
 from typing import TypeVar, Dict, Tuple, Type, Callable, Any
 
-S = TypeVar('S')
-T = TypeVar('T')
+S = TypeVar("S")
+T = TypeVar("T")
 
 _TYPE_CONVERSIONS: Dict[Tuple[Type, Type], Callable[[Any], Any]] = {}
 _JSON_CONVERSIONS: Dict[Type, Tuple[Callable[[Any], Any], Callable[[Any], Any]]] = {}
@@ -41,8 +41,9 @@ def get_converter(from_type: Type[S], to_type: Type[T]) -> Callable[[S], T]:
     try:
         return _TYPE_CONVERSIONS[(from_type, to_type)]
     except KeyError as e:
-        raise TypeError("No converter available to convert {} into {}"
-                        .format(from_type.__name__, to_type.__name__)) from e
+        raise TypeError(
+            "No converter available to convert {} into {}".format(from_type.__name__, to_type.__name__)
+        ) from e
 
 
 class SHCJsonEncoder(json.JSONEncoder):
@@ -76,8 +77,8 @@ register_converter(str, float, lambda v: float(v))
 register_converter(int, bool, lambda v: bool(v))
 register_converter(float, bool, lambda v: bool(v))
 register_converter(str, bool, lambda v: bool(v))
-register_converter(bytes, str, lambda v: v.decode('utf-8-sig'))
-register_converter(str, bytes, lambda v: v.encode('utf-8'))
+register_converter(bytes, str, lambda v: v.decode("utf-8-sig"))
+register_converter(str, bytes, lambda v: v.encode("utf-8"))
 register_json_conversion(datetime.date, lambda o: o.isoformat(), lambda v: datetime.date.fromisoformat(v))
 register_json_conversion(datetime.datetime, lambda o: o.isoformat(), lambda v: datetime.datetime.fromisoformat(v))
 register_json_conversion(datetime.timedelta, lambda o: o.total_seconds(), lambda v: datetime.timedelta(seconds=v))

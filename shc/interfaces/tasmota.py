@@ -57,8 +57,14 @@ class TasmotaInterface(AbstractInterface):
     :param telemetry_interval: The expected interval of periodic telemetry messages from the Tasmota device in seconds.
         This is used by the status monitoring to detect device failures. Use `0` to disable telemetry monitoring.
     """
-    def __init__(self, mqtt_interface: MQTTClientInterface, device_topic: str,
-                 topic_template: str = "{prefix}/{topic}/", telemetry_interval: float = 300):
+
+    def __init__(
+        self,
+        mqtt_interface: MQTTClientInterface,
+        device_topic: str,
+        topic_template: str = "{prefix}/{topic}/",
+        telemetry_interval: float = 300,
+    ):
         super().__init__()
         self.mqtt_interface = mqtt_interface
         self.device_topic = device_topic
@@ -71,19 +77,27 @@ class TasmotaInterface(AbstractInterface):
         self._telemetry_connector = TasmotaTelemetryConnector()
 
         # Subscribe relevant MQTT topics and register message handlers
-        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'RESULT',
-                                                  self._handle_result_or_status, 1)
-        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'RESULT',
-                                                  functools.partial(self._handle_result_or_status, result=True), 1)
-        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'STATE',
-                                                  self._handle_result_or_status, 1)
-        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'SENSOR',
-                                                  self._handle_result_or_status, 1)
+        mqtt_interface.register_filtered_receiver(
+            topic_template.format(prefix="tele", topic=device_topic) + "RESULT", self._handle_result_or_status, 1
+        )
+        mqtt_interface.register_filtered_receiver(
+            topic_template.format(prefix="stat", topic=device_topic) + "RESULT",
+            functools.partial(self._handle_result_or_status, result=True),
+            1,
+        )
+        mqtt_interface.register_filtered_receiver(
+            topic_template.format(prefix="tele", topic=device_topic) + "STATE", self._handle_result_or_status, 1
+        )
+        mqtt_interface.register_filtered_receiver(
+            topic_template.format(prefix="tele", topic=device_topic) + "SENSOR", self._handle_result_or_status, 1
+        )
         # TODO allow listening to STATUS8 responses for sensors
-        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='stat', topic=device_topic) + 'STATUS11',
-                                                  self._handle_status11, 1)
-        mqtt_interface.register_filtered_receiver(topic_template.format(prefix='tele', topic=device_topic) + 'LWT',
-                                                  self._handle_lwt, 1)
+        mqtt_interface.register_filtered_receiver(
+            topic_template.format(prefix="stat", topic=device_topic) + "STATUS11", self._handle_status11, 1
+        )
+        mqtt_interface.register_filtered_receiver(
+            topic_template.format(prefix="tele", topic=device_topic) + "LWT", self._handle_lwt, 1
+        )
 
     async def start(self) -> None:
         # Send status request (for telemetry data and state) as soon as the MQTT interface is up
@@ -101,7 +115,7 @@ class TasmotaInterface(AbstractInterface):
         """
         Callback function to handle incoming MQTT messages on the Last Will Topic
         """
-        value = msg.payload == b'Online'
+        value = msg.payload == b"Online"
         self._online_connector._update_from_mqtt(value)
         self._status_connector.on_lwt(value)
 
@@ -114,7 +128,7 @@ class TasmotaInterface(AbstractInterface):
             probably a result to a Tasmota command we issued recently)
         """
         try:
-            data = json.loads(typing.cast(bytes, msg.payload).decode('utf-8'))
+            data = json.loads(typing.cast(bytes, msg.payload).decode("utf-8"))
             assert isinstance(data, dict)
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota result as JSON object: %s", msg.payload, exc_info=e)
@@ -127,14 +141,14 @@ class TasmotaInterface(AbstractInterface):
         command.
         """
         try:
-            data = json.loads(typing.cast(bytes, msg.payload).decode('utf-8'))
+            data = json.loads(typing.cast(bytes, msg.payload).decode("utf-8"))
             assert isinstance(data, dict)
-            assert 'StatusSTS' in data
-            assert isinstance(data['StatusSTS'], dict)
+            assert "StatusSTS" in data
+            assert isinstance(data["StatusSTS"], dict)
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota telemetry status as JSON object: %s", msg.payload, exc_info=e)
             return
-        self._dispatch_status(data['StatusSTS'], False)
+        self._dispatch_status(data["StatusSTS"], False)
 
     def _dispatch_status(self, data: Dict[str, JSONType], result: bool) -> None:
         """
@@ -166,8 +180,12 @@ class TasmotaInterface(AbstractInterface):
                 if field in data:
                     origin = origin_
                     event = event_
-                    logger.debug("The result/status is considered a result to our recent command for '%s' field, "
-                                 "originating from %s", field, origin_)
+                    logger.debug(
+                        "The result/status is considered a result to our recent command for '%s' field, "
+                        "originating from %s",
+                        field,
+                        origin_,
+                    )
                     break
 
         for key, value in data.items():
@@ -175,8 +193,14 @@ class TasmotaInterface(AbstractInterface):
                 try:
                     connector._publish(connector._decode(value), origin)
                 except Exception as e:
-                    logger.error("Error while processing Tasmota result/status field %s=%s from %s in Tasmota "
-                                 "connector %s", key, value, self.device_topic, connector, exc_info=e)
+                    logger.error(
+                        "Error while processing Tasmota result/status field %s=%s from %s in Tasmota " "connector %s",
+                        key,
+                        value,
+                        self.device_topic,
+                        connector,
+                        exc_info=e,
+                    )
         if event:
             event.set()
 
@@ -304,8 +328,9 @@ class TasmotaInterface(AbstractInterface):
            The TasmotaInterface.energy_power() method is deprecated. Use :meth:`energy` with a connected
             :class:`shc.misc.UpdateExchange` instead.
         """
-        warnings.warn("The TasmotaInterface.energy_power() method is deprecated. Use energy() instead.",
-                      DeprecationWarning)
+        warnings.warn(
+            "The TasmotaInterface.energy_power() method is deprecated. Use energy() instead.", DeprecationWarning
+        )
         return self._get_or_create_connector(TasmotaEnergyPowerConnector)
 
     def energy_voltage(self) -> "TasmotaEnergyVoltageConnector":
@@ -317,8 +342,9 @@ class TasmotaInterface(AbstractInterface):
            The TasmotaInterface.energy_voltage() method is deprecated. Use :meth:`energy` with a connected
             :class:`shc.misc.UpdateExchange` instead.
         """
-        warnings.warn("The TasmotaInterface.energy_voltage() method is deprecated. Use energy() instead.",
-                      DeprecationWarning)
+        warnings.warn(
+            "The TasmotaInterface.energy_voltage() method is deprecated. Use energy() instead.", DeprecationWarning
+        )
         return self._get_or_create_connector(TasmotaEnergyVoltageConnector)
 
     def energy_current(self) -> "TasmotaEnergyCurrentConnector":
@@ -330,8 +356,9 @@ class TasmotaInterface(AbstractInterface):
            The TasmotaInterface.energy_current() method is deprecated. Use :meth:`energy` with a connected
             :class:`shc.misc.UpdateExchange` instead.
         """
-        warnings.warn("The TasmotaInterface.energy_current() method is deprecated. Use energy() instead.",
-                      DeprecationWarning)
+        warnings.warn(
+            "The TasmotaInterface.energy_current() method is deprecated. Use energy() instead.", DeprecationWarning
+        )
         return self._get_or_create_connector(TasmotaEnergyCurrentConnector)
 
     def energy_total(self) -> "TasmotaEnergyTotalConnector":
@@ -343,8 +370,9 @@ class TasmotaInterface(AbstractInterface):
            The TasmotaInterface.energy_total() method is deprecated. Use :meth:`energy` with a connected
             :class:`shc.misc.UpdateExchange` instead.
         """
-        warnings.warn("The TasmotaInterface.energy_total() method is deprecated. Use energy() instead.",
-                      DeprecationWarning)
+        warnings.warn(
+            "The TasmotaInterface.energy_total() method is deprecated. Use energy() instead.", DeprecationWarning
+        )
         return self._get_or_create_connector(TasmotaEnergyTotalConnector)
 
     def energy_power_factor(self) -> "TasmotaEnergyFactorConnector":
@@ -356,8 +384,9 @@ class TasmotaInterface(AbstractInterface):
            The TasmotaInterface.energy_power_factor() method is deprecated. Use :meth:`energy` with a connected
             :class:`shc.misc.UpdateExchange` instead.
         """
-        warnings.warn("The TasmotaInterface.energy_power_factor() method is deprecated. Use energy() instead.",
-                      DeprecationWarning)
+        warnings.warn(
+            "The TasmotaInterface.energy_power_factor() method is deprecated. Use energy() instead.", DeprecationWarning
+        )
         return self._get_or_create_connector(TasmotaEnergyFactorConnector)
 
     def energy_apparent_power(self) -> "TasmotaEnergyApparentPowerConnector":
@@ -369,8 +398,10 @@ class TasmotaInterface(AbstractInterface):
            The TasmotaInterface.energy_apparent_power() method is deprecated. Use :meth:`energy` with a connected
             :class:`shc.misc.UpdateExchange` instead.
         """
-        warnings.warn("The TasmotaInterface.energy_apparent_power() method is deprecated. Use energy() instead.",
-                      DeprecationWarning)
+        warnings.warn(
+            "The TasmotaInterface.energy_apparent_power() method is deprecated. Use energy() instead.",
+            DeprecationWarning,
+        )
         return self._get_or_create_connector(TasmotaEnergyApparentPowerConnector)
 
     def energy_reactive_power(self) -> "TasmotaEnergyReactivePowerConnector":
@@ -382,8 +413,10 @@ class TasmotaInterface(AbstractInterface):
            The TasmotaInterface.energy_reactive_power() method is deprecated. Use :meth:`energy` with a connected
             :class:`shc.misc.UpdateExchange` instead.
         """
-        warnings.warn("The TasmotaInterface.energy_reactive_power() method is deprecated. Use energy() instead.",
-                      DeprecationWarning)
+        warnings.warn(
+            "The TasmotaInterface.energy_reactive_power() method is deprecated. Use energy() instead.",
+            DeprecationWarning,
+        )
         return self._get_or_create_connector(TasmotaEnergyReactivePowerConnector)
 
     def _get_or_create_connector(self, type_: Type[ConnType]) -> ConnType:
@@ -416,8 +449,8 @@ class TasmotaInterface(AbstractInterface):
         """
         # TODO raise exception if device is disconnected
         await self.mqtt_interface.publish_message(
-            self.topic_template.format(prefix='cmnd', topic=self.device_topic) + command,
-            value.encode())
+            self.topic_template.format(prefix="cmnd", topic=self.device_topic) + command, value.encode()
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.device_topic})"
@@ -449,8 +482,9 @@ class AbstractTasmotaRWConnector(AbstractTasmotaConnector[T], Writable[T], Gener
             await self.interface._send_command(self.command, encoded_value)
             await asyncio.wait_for(event.wait(), 5)
         except asyncio.TimeoutError:
-            logger.warning("No Result from Tasmota device %s to %s command within 5s.", self.interface.device_topic,
-                           self.command)
+            logger.warning(
+                "No Result from Tasmota device %s to %s command within 5s.", self.interface.device_topic, self.command
+            )
         finally:
             # Remove queue entry
             index = -1
@@ -473,11 +507,11 @@ class TasmotaPowerConnector(AbstractTasmotaRWConnector[bool]):
         super().__init__(interface, "Power", "POWER")
 
     def _encode(self, value: bool) -> str:
-        return 'ON' if value else 'OFF'
+        return "ON" if value else "OFF"
 
     def _decode(self, value: JSONType) -> bool:
         assert isinstance(value, str)
-        return value.lower() in ('on', '1', 'true')
+        return value.lower() in ("on", "1", "true")
 
 
 class TasmotaDimmerConnector(AbstractTasmotaRWConnector[RangeInt0To100]):
@@ -501,7 +535,7 @@ class TasmotaColorCCTConnector(AbstractTasmotaRWConnector[CCTUInt8]):
         super().__init__(interface, "color", "Color")
 
     def _encode(self, value: CCTUInt8) -> str:
-        return '#{:0>2X}{:0>2X}'.format(value.cold, value.warm)
+        return "#{:0>2X}{:0>2X}".format(value.cold, value.warm)
 
     def _decode(self, value: JSONType) -> CCTUInt8:
         assert isinstance(value, str)
@@ -517,7 +551,7 @@ class TasmotaColorRGBConnector(AbstractTasmotaRWConnector[RGBUInt8]):
         super().__init__(interface, "color", "Color")
 
     def _encode(self, value: RGBUInt8) -> str:
-        return '#{:0>2X}{:0>2X}{:0>2X}'.format(value.red, value.green, value.blue)
+        return "#{:0>2X}{:0>2X}{:0>2X}".format(value.red, value.green, value.blue)
 
     def _decode(self, value: JSONType) -> RGBUInt8:
         assert isinstance(value, str)
@@ -533,7 +567,7 @@ class TasmotaColorRGBWConnector(AbstractTasmotaRWConnector[RGBWUInt8]):
         super().__init__(interface, "color", "Color")
 
     def _encode(self, value: RGBWUInt8) -> str:
-        return '#{:0>2X}{:0>2X}{:0>2X}{:0>2X}'.format(value.rgb.red, value.rgb.green, value.rgb.blue, value.white)
+        return "#{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(value.rgb.red, value.rgb.green, value.rgb.blue, value.white)
 
     def _decode(self, value: JSONType) -> RGBWUInt8:
         assert isinstance(value, str)
@@ -549,15 +583,17 @@ class TasmotaColorRGBCCTConnector(AbstractTasmotaRWConnector[RGBCCTUInt8]):
         super().__init__(interface, "color", "Color")
 
     def _encode(self, value: RGBCCTUInt8) -> str:
-        return '#{:0>2X}{:0>2X}{:0>2X}{:0>2X}{:0>2X}'.format(value.rgb.red, value.rgb.green, value.rgb.blue,
-                                                             value.white.cold, value.white.warm)
+        return "#{:0>2X}{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(
+            value.rgb.red, value.rgb.green, value.rgb.blue, value.white.cold, value.white.warm
+        )
 
     def _decode(self, value: JSONType) -> RGBCCTUInt8:
         assert isinstance(value, str)
         data = bytes.fromhex(value)
         data += bytes([0] * (5 - len(data)))
-        return RGBCCTUInt8(RGBUInt8(*(RangeUInt8(v) for v in data[0:3])),
-                           CCTUInt8(RangeUInt8(data[3]), RangeUInt8(data[4])))
+        return RGBCCTUInt8(
+            RGBUInt8(*(RangeUInt8(v) for v in data[0:3])), CCTUInt8(RangeUInt8(data[3]), RangeUInt8(data[4]))
+        )
 
 
 class TasmotaIRReceiverConnector(AbstractTasmotaConnector[bytes]):
@@ -569,7 +605,7 @@ class TasmotaIRReceiverConnector(AbstractTasmotaConnector[bytes]):
     def _decode(self, value: JSONType) -> bytes:
         assert isinstance(value, dict)
         # TODO this is hacky. We should probably add the detected protocol
-        data = value['Data'] if 'Data' in value else value['Hash']
+        data = value["Data"] if "Data" in value else value["Hash"]
         return bytes.fromhex(data[2:])
 
 
@@ -581,7 +617,7 @@ class TasmotaEnergyPowerConnector(AbstractTasmotaConnector[float]):
 
     def _decode(self, value: JSONType) -> float:
         assert isinstance(value, dict)
-        return float(value['Power'])
+        return float(value["Power"])
 
 
 class TasmotaEnergyVoltageConnector(AbstractTasmotaConnector[float]):
@@ -592,7 +628,7 @@ class TasmotaEnergyVoltageConnector(AbstractTasmotaConnector[float]):
 
     def _decode(self, value: JSONType) -> float:
         assert isinstance(value, dict)
-        return float(value['Voltage'])
+        return float(value["Voltage"])
 
 
 class TasmotaEnergyCurrentConnector(AbstractTasmotaConnector[float]):
@@ -603,7 +639,7 @@ class TasmotaEnergyCurrentConnector(AbstractTasmotaConnector[float]):
 
     def _decode(self, value: JSONType) -> float:
         assert isinstance(value, dict)
-        return float(value['Current'])
+        return float(value["Current"])
 
 
 class TasmotaEnergyTotalConnector(AbstractTasmotaConnector[float]):
@@ -614,7 +650,7 @@ class TasmotaEnergyTotalConnector(AbstractTasmotaConnector[float]):
 
     def _decode(self, value: JSONType) -> float:
         assert isinstance(value, dict)
-        return float(value['Total'])
+        return float(value["Total"])
 
 
 class TasmotaEnergyApparentPowerConnector(AbstractTasmotaConnector[float]):
@@ -625,7 +661,7 @@ class TasmotaEnergyApparentPowerConnector(AbstractTasmotaConnector[float]):
 
     def _decode(self, value: JSONType) -> float:
         assert isinstance(value, dict)
-        return float(value['ApparentPower'])
+        return float(value["ApparentPower"])
 
 
 class TasmotaEnergyReactivePowerConnector(AbstractTasmotaConnector[float]):
@@ -636,7 +672,7 @@ class TasmotaEnergyReactivePowerConnector(AbstractTasmotaConnector[float]):
 
     def _decode(self, value: JSONType) -> float:
         assert isinstance(value, dict)
-        return float(value['ReactivePower'])
+        return float(value["ReactivePower"])
 
 
 class TasmotaEnergyFactorConnector(AbstractTasmotaConnector[float]):
@@ -647,7 +683,7 @@ class TasmotaEnergyFactorConnector(AbstractTasmotaConnector[float]):
 
     def _decode(self, value: JSONType) -> float:
         assert isinstance(value, dict)
-        return float(value['Factor'])
+        return float(value["Factor"])
 
 
 class TasmotaEnergyMeasurement(NamedTuple):
@@ -675,7 +711,7 @@ class TasmotaEnergyMeasurement(NamedTuple):
 
 class TasmotaEnergyConnector(AbstractTasmotaConnector[TasmotaEnergyMeasurement]):
     type = TasmotaEnergyMeasurement
-    NAN = float('NaN')
+    NAN = float("NaN")
 
     def __init__(self, _interface: TasmotaInterface):
         super().__init__("ENERGY")
@@ -683,16 +719,16 @@ class TasmotaEnergyConnector(AbstractTasmotaConnector[TasmotaEnergyMeasurement])
     def _decode(self, value: JSONType) -> TasmotaEnergyMeasurement:
         assert isinstance(value, dict)
         return TasmotaEnergyMeasurement(
-            float(value.get('Power', self.NAN)),
-            float(value.get('Voltage', self.NAN)),
-            float(value.get('Current', self.NAN)),
-            float(value.get('ApparentPower', self.NAN)),
-            float(value.get('ReactivePower', self.NAN)),
-            float(value.get('Factor', self.NAN)),
-            float(value.get('Frequency', self.NAN)),
-            float(value.get('Total', self.NAN)),
-            float(value.get('Today', self.NAN)),
-            float(value.get('Yesterday', self.NAN)),
+            float(value.get("Power", self.NAN)),
+            float(value.get("Voltage", self.NAN)),
+            float(value.get("Current", self.NAN)),
+            float(value.get("ApparentPower", self.NAN)),
+            float(value.get("ReactivePower", self.NAN)),
+            float(value.get("Factor", self.NAN)),
+            float(value.get("Frequency", self.NAN)),
+            float(value.get("Total", self.NAN)),
+            float(value.get("Today", self.NAN)),
+            float(value.get("Yesterday", self.NAN)),
         )
 
 
@@ -716,8 +752,9 @@ class TasmotaMonitoringConnector(Readable[InterfaceStatus], Subscribable[Interfa
 
     def __init__(self, warning_timeout: float, critical_timeout: float):
         super().__init__()
-        self.value = InterfaceStatus(status=ServiceStatus.CRITICAL,
-                                     message="No Last Will or telemetry received from Tasmota device by now")
+        self.value = InterfaceStatus(
+            status=ServiceStatus.CRITICAL, message="No Last Will or telemetry received from Tasmota device by now"
+        )
         self.online = False
         self.timeout_handles: Optional[Tuple[asyncio.TimerHandle, asyncio.TimerHandle]] = None
         self.warning_timeout = warning_timeout
@@ -745,8 +782,9 @@ class TasmotaMonitoringConnector(Readable[InterfaceStatus], Subscribable[Interfa
             status = ServiceStatus.CRITICAL if critical else ServiceStatus.WARNING
             min_age = self.critical_timeout if critical else self.warning_timeout
             self.value = self.value._replace(status=status)
-            self.value = self.value._replace(message=f"No telemetry data from Tasmota device received for more than "
-                                                     f"{min_age}s")
+            self.value = self.value._replace(
+                message=f"No telemetry data from Tasmota device received for more than " f"{min_age}s"
+            )
             self._publish(self.value, [])
 
     def _reset_timeouts(self, start_new: bool) -> None:
@@ -757,7 +795,7 @@ class TasmotaMonitoringConnector(Readable[InterfaceStatus], Subscribable[Interfa
         if start_new:
             self.timeout_handles = (
                 asyncio.get_running_loop().call_later(self.warning_timeout, self._on_telemetry_timeout, False),
-                asyncio.get_running_loop().call_later(self.critical_timeout, self._on_telemetry_timeout, True)
+                asyncio.get_running_loop().call_later(self.critical_timeout, self._on_telemetry_timeout, True),
             )
 
     async def read(self) -> InterfaceStatus:
@@ -770,6 +808,7 @@ class TasmotaTelemetry(NamedTuple):
 
     Values of this type are published by the :meth:`TasmotaInterface.telemetry` connector
     """
+
     telemetry_timestamp: datetime.datetime
     uptime: datetime.timedelta
     voltage: float
@@ -793,25 +832,29 @@ class TasmotaTelemetryConnector(Subscribable[TasmotaTelemetry]):
         super().__init__()
 
     def on_telemetry(self, data: Dict[str, JSONType]) -> None:
-        wifi_downtime_match = TASMOTA_TIMEDELTA_RE.match(data.get('Wifi', {}).get('Downtime', 0))  # type: ignore
-        wifi_downtime = (datetime.timedelta(days=float(wifi_downtime_match[1]),
-                                            hours=float(wifi_downtime_match[2]),
-                                            minutes=float(wifi_downtime_match[3]),
-                                            seconds=float(wifi_downtime_match[4]))
-                         if wifi_downtime_match
-                         else datetime.timedelta(0))
+        wifi_downtime_match = TASMOTA_TIMEDELTA_RE.match(data.get("Wifi", {}).get("Downtime", 0))  # type: ignore
+        wifi_downtime = (
+            datetime.timedelta(
+                days=float(wifi_downtime_match[1]),
+                hours=float(wifi_downtime_match[2]),
+                minutes=float(wifi_downtime_match[3]),
+                seconds=float(wifi_downtime_match[4]),
+            )
+            if wifi_downtime_match
+            else datetime.timedelta(0)
+        )
 
         value = TasmotaTelemetry(
             datetime.datetime.now(),
-            datetime.timedelta(seconds=data.get('UptimeSec', 0)),  # type: ignore
-            data.get('Vcc', 0.0),  # type: ignore
-            data.get('Heap', 0),  # type: ignore
-            data.get('LoadAvg', 0),  # type: ignore
-            data.get('Wifi', {}).get('SSId', ""),  # type: ignore
-            data.get('Wifi', {}).get('BSSId', ""),  # type: ignore
-            data.get('Wifi', {}).get('Channel', 0),  # type: ignore
-            data.get('Wifi', {}).get('RSSI', 0),  # type: ignore
-            data.get('Wifi', {}).get('Signal', 0),  # type: ignore
+            datetime.timedelta(seconds=data.get("UptimeSec", 0)),  # type: ignore
+            data.get("Vcc", 0.0),  # type: ignore
+            data.get("Heap", 0),  # type: ignore
+            data.get("LoadAvg", 0),  # type: ignore
+            data.get("Wifi", {}).get("SSId", ""),  # type: ignore
+            data.get("Wifi", {}).get("BSSId", ""),  # type: ignore
+            data.get("Wifi", {}).get("Channel", 0),  # type: ignore
+            data.get("Wifi", {}).get("RSSI", 0),  # type: ignore
+            data.get("Wifi", {}).get("Signal", 0),  # type: ignore
             wifi_downtime,
         )
         self._publish(value, [])

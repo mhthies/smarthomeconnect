@@ -13,9 +13,10 @@ class InMemoryTest(AbstractLoggingTest):
     do_write_tests = True
     do_subscribe_tests = True
 
-    async def _create_log_variable_with_data(self, type_: Type[T], data: Iterable[Tuple[datetime.datetime, T]]) \
-            -> shc.data_logging.DataLogVariable[T]:
-        var = shc.interfaces.in_memory_data_logging.InMemoryDataLogVariable(type_, datetime.timedelta(days=1000*365))
+    async def _create_log_variable_with_data(
+        self, type_: Type[T], data: Iterable[Tuple[datetime.datetime, T]]
+    ) -> shc.data_logging.DataLogVariable[T]:
+        var = shc.interfaces.in_memory_data_logging.InMemoryDataLogVariable(type_, datetime.timedelta(days=1000 * 365))
         var.data = list(data)
         return var
 

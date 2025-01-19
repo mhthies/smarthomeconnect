@@ -13,8 +13,7 @@ from ._helper import async_test, ExampleReadable, ExampleWritable
 
 
 class SimpleVariableTest(unittest.TestCase):
-
-    @unittest.mock.patch('shc.variables.Variable._publish')
+    @unittest.mock.patch("shc.variables.Variable._publish")
     @async_test
     async def test_basic_behaviour(self, publish_patch):
         var = variables.Variable(int)
@@ -91,22 +90,22 @@ class VariableFieldsTest(unittest.TestCase):
     async def test_field_subscribing(self):
         var = variables.Variable(ExampleTupleType)
         field_subscriber = ExampleWritable(int)
-        var.field('a').subscribe(field_subscriber)
+        var.field("a").subscribe(field_subscriber)
 
         with self.assertRaises(TypeError):
             var2 = variables.Variable(float)
-            await var2.field('c')  # type: ignore
+            await var2.field("c")  # type: ignore
 
         with self.assertRaises(KeyError):
-            await var.field('c')  # type: ignore
+            await var.field("c")  # type: ignore
 
         with self.assertRaises(base.UninitializedError):
-            await var.field('a').read()
+            await var.field("a").read()
 
         await var.write(ExampleTupleType(42, 3.1416), [self])
-        self.assertEqual(42, await var.field('a').read())
+        self.assertEqual(42, await var.field("a").read())
         await asyncio.sleep(0.01)
-        field_subscriber._write.assert_called_once_with(42, [self, var.field('a')])
+        field_subscriber._write.assert_called_once_with(42, [self, var.field("a")])
 
         field_subscriber._write.reset_mock()
         await var.write(ExampleTupleType(42, 2.719), [self])
@@ -119,11 +118,11 @@ class VariableFieldsTest(unittest.TestCase):
         other_field_subscriber = ExampleWritable(float)
         subscriber = ExampleWritable(ExampleTupleType)
         var.subscribe(subscriber)
-        var.field('a').subscribe(field_subscriber)
-        var.field('b').subscribe(other_field_subscriber)
+        var.field("a").subscribe(field_subscriber)
+        var.field("b").subscribe(other_field_subscriber)
 
         with self.assertRaises(base.UninitializedError):
-            await var.field('a').write(21, [self])
+            await var.field("a").write(21, [self])
 
         await var.write(ExampleTupleType(42, 3.1416), [self])
         await asyncio.sleep(0.01)
@@ -132,29 +131,29 @@ class VariableFieldsTest(unittest.TestCase):
         field_subscriber._write.reset_mock()
         other_field_subscriber._write.reset_mock()
 
-        await var.field('a').write(21, [self])
-        self.assertEqual(21, await var.field('a').read())
+        await var.field("a").write(21, [self])
+        self.assertEqual(21, await var.field("a").read())
         await asyncio.sleep(0.01)
-        subscriber._write.assert_called_once_with(ExampleTupleType(21, 3.1416), [self, var.field('a'), var])
-        field_subscriber._write.assert_called_once_with(21, [self, var.field('a'), var.field('a')])
+        subscriber._write.assert_called_once_with(ExampleTupleType(21, 3.1416), [self, var.field("a"), var])
+        field_subscriber._write.assert_called_once_with(21, [self, var.field("a"), var.field("a")])
         other_field_subscriber._write.assert_not_called()
 
     @async_test
     async def test_recursive_field_subscribing(self):
         var = variables.Variable(ExampleRecursiveTupleType)
         field_subscriber = ExampleWritable(int)
-        var.field('a').field('a').subscribe(field_subscriber)
+        var.field("a").field("a").subscribe(field_subscriber)
 
         with self.assertRaises(KeyError):
-            await var.field('a').field('c')  # type: ignore
+            await var.field("a").field("c")  # type: ignore
 
         with self.assertRaises(base.UninitializedError):
-            await var.field('a').field('a').read()
+            await var.field("a").field("a").read()
 
         await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 3.1416), 7), [self])
-        self.assertEqual(42, await var.field('a').field('a').read())
+        self.assertEqual(42, await var.field("a").field("a").read())
         await asyncio.sleep(0.01)
-        field_subscriber._write.assert_called_once_with(42, [self, var.field('a').field('a')])
+        field_subscriber._write.assert_called_once_with(42, [self, var.field("a").field("a")])
 
         field_subscriber._write.reset_mock()
         await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 3.1416), 6), [self])
@@ -201,10 +200,12 @@ class VariableFieldsTest(unittest.TestCase):
             self.assertEqual(21, await var.a.a.read())
             self.assertEqual(ExampleTupleType(21, 3.1416), await var.a.read())
             await asyncio.sleep(0.01)
-            subscriber._write.assert_called_once_with(ExampleRecursiveTupleType(ExampleTupleType(21, 3.1416), 7),
-                                                      [self, var.a.a, var.a, var])
+            subscriber._write.assert_called_once_with(
+                ExampleRecursiveTupleType(ExampleTupleType(21, 3.1416), 7), [self, var.a.a, var.a, var]
+            )
             intermediate_subscriber._write.assert_called_once_with(
-                ExampleTupleType(21, 3.1416), [self, var.a.a, var.a, var.a])
+                ExampleTupleType(21, 3.1416), [self, var.a.a, var.a, var.a]
+            )
             field_subscriber._write.assert_called_once_with(21, [self, var.a.a, var.a, var.a.a])
             other_field_subscriber._write.assert_not_called()
             another_field_subscriber._write.assert_not_called()
@@ -218,13 +219,13 @@ class VariableFieldsTest(unittest.TestCase):
         other_field_subscriber = ExampleWritable(float)
         another_field_subscriber = ExampleWritable(int)
         var.subscribe(subscriber)
-        var.field('a').subscribe(intermediate_subscriber)
-        var.field('a').field('a').subscribe(field_subscriber)
-        var.field('a').field('b').subscribe(other_field_subscriber)
-        var.field('b').subscribe(another_field_subscriber)
+        var.field("a").subscribe(intermediate_subscriber)
+        var.field("a").field("a").subscribe(field_subscriber)
+        var.field("a").field("b").subscribe(other_field_subscriber)
+        var.field("b").subscribe(another_field_subscriber)
 
         with self.assertRaises(base.UninitializedError):
-            await var.field('a').field('a').write(21, [self])
+            await var.field("a").field("a").write(21, [self])
 
         await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 3.1416), 7), [self])
         await asyncio.sleep(0.01)
@@ -235,33 +236,35 @@ class VariableFieldsTest(unittest.TestCase):
         other_field_subscriber._write.reset_mock()
         another_field_subscriber._write.reset_mock()
 
-        await var.field('a').field('a').write(21, [self])
-        self.assertEqual(21, await var.field('a').field('a').read())
-        self.assertEqual(ExampleTupleType(21, 3.1416), await var.field('a').read())
+        await var.field("a").field("a").write(21, [self])
+        self.assertEqual(21, await var.field("a").field("a").read())
+        self.assertEqual(ExampleTupleType(21, 3.1416), await var.field("a").read())
         await asyncio.sleep(0.01)
-        subscriber._write.assert_called_once_with(ExampleRecursiveTupleType(ExampleTupleType(21, 3.1416), 7),
-                                                  [self, var.field('a').field('a'), var.field('a'), var])
+        subscriber._write.assert_called_once_with(
+            ExampleRecursiveTupleType(ExampleTupleType(21, 3.1416), 7),
+            [self, var.field("a").field("a"), var.field("a"), var],
+        )
         intermediate_subscriber._write.assert_called_once_with(
-            ExampleTupleType(21, 3.1416),
-            [self, var.field('a').field('a'), var.field('a'), var.field('a')])
+            ExampleTupleType(21, 3.1416), [self, var.field("a").field("a"), var.field("a"), var.field("a")]
+        )
         field_subscriber._write.assert_called_once_with(
-            21,
-            [self, var.field('a').field('a'), var.field('a'), var.field('a').field('a')])
+            21, [self, var.field("a").field("a"), var.field("a"), var.field("a").field("a")]
+        )
         other_field_subscriber._write.assert_not_called()
         another_field_subscriber._write.assert_not_called()
 
     @async_test
     async def test_expression_wrapper(self):
         var = variables.Variable(ExampleTupleType, initial_value=ExampleTupleType(42, 3.1416))
-        wrapper = var.field('a').EX
+        wrapper = var.field("a").EX
         subscriber = ExampleWritable(int)
         wrapper.subscribe(subscriber)
 
         self.assertIsInstance(wrapper, expressions.ExpressionBuilder)
         self.assertEqual(42, await wrapper.read())
-        await var.field('a').write(21, [self])
+        await var.field("a").write(21, [self])
         await asyncio.sleep(0.01)
-        subscriber._write.assert_called_with(21, [self, var.field('a'), var.field('a')])
+        subscriber._write.assert_called_with(21, [self, var.field("a"), var.field("a")])
 
 
 class ConnectedVariablesTest(unittest.TestCase):
@@ -278,14 +281,14 @@ class ConnectedVariablesTest(unittest.TestCase):
     async def test_concurrent_field_update_publishing(self) -> None:
         var1 = variables.Variable(ExampleTupleType)
         var2 = variables.Variable(ExampleTupleType).connect(var1)
-        var3 = variables.Variable(int).connect(var2.field('a'))
+        var3 = variables.Variable(int).connect(var2.field("a"))
 
-        writable1 = ExampleWritable(int).connect(var1.field('a'))  # TODO add different delays
+        writable1 = ExampleWritable(int).connect(var1.field("a"))  # TODO add different delays
         writable3 = ExampleWritable(int).connect(var3)
 
         await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
         await asyncio.sleep(0.1)
-        self.assertEqual(await var1.field('a').read(), await var3.read())
+        self.assertEqual(await var1.field("a").read(), await var3.read())
 
         self.assertLessEqual(writable1._write.call_count, 3)
         self.assertLessEqual(writable3._write.call_count, 3)
@@ -310,30 +313,32 @@ class DelayedVariableTest(unittest.TestCase):
 
     @async_test
     async def test_field_update(self):
-        var = variables.DelayedVariable(ExampleTupleType,
-                                        name="A test variable",
-                                        initial_value=ExampleTupleType(0, 0.0),
-                                        publish_delay=datetime.timedelta(seconds=0.02))
+        var = variables.DelayedVariable(
+            ExampleTupleType,
+            name="A test variable",
+            initial_value=ExampleTupleType(0, 0.0),
+            publish_delay=datetime.timedelta(seconds=0.02),
+        )
         field_subscriber = ExampleWritable(int)
         subscriber = ExampleWritable(ExampleTupleType)
         var.subscribe(subscriber)
-        var.field('a').subscribe(field_subscriber)
+        var.field("a").subscribe(field_subscriber)
 
-        await var.field('a').write(21, [self])
+        await var.field("a").write(21, [self])
         await asyncio.sleep(0)
-        await var.field('b').write(3.1416, [self])
+        await var.field("b").write(3.1416, [self])
         self.assertEqual(ExampleTupleType(21, 3.1416), await var.read())
         await asyncio.sleep(0.025)
-        subscriber._write.assert_called_once_with(ExampleTupleType(21, 3.1416), [self, var.field('b'), var])
-        field_subscriber._write.assert_called_once_with(21, [self, var.field('b'), var.field('a')])
+        subscriber._write.assert_called_once_with(ExampleTupleType(21, 3.1416), [self, var.field("b"), var])
+        field_subscriber._write.assert_called_once_with(21, [self, var.field("b"), var.field("a")])
 
 
 class MyPyPluginTest(unittest.TestCase):
     def test_mypy_plugin_variable(self) -> None:
-        asset_dir = Path(__file__).parent / 'assets' / 'mypy_plugin_test'
-        result = mypy.api.run(['--config-file',
-                               str(asset_dir / 'mypy.ini'),
-                               str(asset_dir / 'variable_typing_example.py')])
+        asset_dir = Path(__file__).parent / "assets" / "mypy_plugin_test"
+        result = mypy.api.run(
+            ["--config-file", str(asset_dir / "mypy.ini"), str(asset_dir / "variable_typing_example.py")]
+        )
         self.assertIn("variable_typing_example.py:22: error", result[0])
         self.assertNotIn("variable_typing_example.py:23: error", result[0])
         self.assertIn("variable_typing_example.py:25: error", result[0])
@@ -344,10 +349,10 @@ class MyPyPluginTest(unittest.TestCase):
         self.assertEqual(1, result[2])
 
     def test_mypy_plugin_exchange(self) -> None:
-        asset_dir = Path(__file__).parent / 'assets' / 'mypy_plugin_test'
-        result = mypy.api.run(['--config-file',
-                               str(asset_dir / 'mypy.ini'),
-                               str(asset_dir / 'exchange_typing_example.py')])
+        asset_dir = Path(__file__).parent / "assets" / "mypy_plugin_test"
+        result = mypy.api.run(
+            ["--config-file", str(asset_dir / "mypy.ini"), str(asset_dir / "exchange_typing_example.py")]
+        )
         self.assertIn("exchange_typing_example.py:24: error", result[0])
         self.assertIn("exchange_typing_example.py:25: error", result[0])
         self.assertNotIn("exchange_typing_example.py:26: error", result[0])

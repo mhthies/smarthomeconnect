@@ -42,8 +42,9 @@ class KNXDataTypesTest(unittest.TestCase):
 class KNXDConnectorTest(unittest.TestCase):
     def setUp(self) -> None:
         self.knxd_socket = tempfile.mktemp(suffix=".sock", prefix="knxdclient-test-knxd-")
-        self.knxd_process = subprocess.Popen(["knxd", f"--listen-local={self.knxd_socket}", "-e", "0.5.1", "-E",
-                                              "0.5.2:10", "dummy"])
+        self.knxd_process = subprocess.Popen(
+            ["knxd", f"--listen-local={self.knxd_socket}", "-e", "0.5.1", "-E", "0.5.2:10", "dummy"]
+        )
         time.sleep(0.25)
         self.interface_runner = InterfaceThreadRunner(knx.KNXConnector, sock=self.knxd_socket)
         self.interface: knx.KNXConnector = self.interface_runner.interface
@@ -62,14 +63,22 @@ class KNXDConnectorTest(unittest.TestCase):
 
         self.interface_runner.start()
 
-        proc = await asyncio.create_subprocess_exec('knxtool', 'on', f'local://{self.knxd_socket}', '1/2/3',
-                                                    env=dict(PATH=os.environ['PATH']))
+        proc = await asyncio.create_subprocess_exec(
+            "knxtool", "on", f"local://{self.knxd_socket}", "1/2/3", env=dict(PATH=os.environ["PATH"])
+        )
         await proc.communicate()
         if proc.returncode:
             raise RuntimeError(f"knxtool failed with exit code {proc.returncode}")
-        proc = await asyncio.create_subprocess_exec('knxtool', 'groupwrite', f'local://{self.knxd_socket}',
-                                                    '17/5/127', 'c6', '00', '0b',
-                                                    env=dict(PATH=os.environ['PATH']))
+        proc = await asyncio.create_subprocess_exec(
+            "knxtool",
+            "groupwrite",
+            f"local://{self.knxd_socket}",
+            "17/5/127",
+            "c6",
+            "00",
+            "0b",
+            env=dict(PATH=os.environ["PATH"]),
+        )
         await proc.communicate()
         if proc.returncode:
             raise RuntimeError(f"knxtool failed with exit code {proc.returncode}")
@@ -77,8 +86,7 @@ class KNXDConnectorTest(unittest.TestCase):
         await asyncio.sleep(0.05)
 
         target1._write.assert_called_once_with(True, unittest.mock.ANY)
-        target2._write.assert_called_once_with(knxdclient.KNXTime(datetime.time(6, 0, 11), 5),
-                                               unittest.mock.ANY)
+        target2._write.assert_called_once_with(knxdclient.KNXTime(datetime.time(6, 0, 11), 5), unittest.mock.ANY)
 
     @async_test
     async def test_send(self) -> None:
@@ -91,11 +99,11 @@ class KNXDConnectorTest(unittest.TestCase):
 
         # Start busmonitor
         proc = await asyncio.create_subprocess_exec(
-            'knxtool',
-            'vbusmonitor1',
-            f'local://{self.knxd_socket}',
+            "knxtool",
+            "vbusmonitor1",
+            f"local://{self.knxd_socket}",
             stdout=asyncio.subprocess.PIPE,
-            env=dict(PATH=os.environ['PATH'])
+            env=dict(PATH=os.environ["PATH"]),
         )
         await asyncio.sleep(0.1)
 
@@ -103,7 +111,8 @@ class KNXDConnectorTest(unittest.TestCase):
             # Send value
             await self.interface_runner.run_coro_async(group_connector1.write(False, [self]))
             await self.interface_runner.run_coro_async(
-                group_connector2.write(knxdclient.KNXTime(datetime.time(6, 0, 11), 5), [self]))
+                group_connector2.write(knxdclient.KNXTime(datetime.time(6, 0, 11), 5), [self])
+            )
 
         except Exception:
             proc.terminate()
@@ -117,48 +126,52 @@ class KNXDConnectorTest(unittest.TestCase):
             raise RuntimeError(f"knxtool vbusmonitor1 failed with unexpected exit code {proc.returncode}")
 
         # Analyze output
-        lines = stdout.strip().split(b'\n')
+        lines = stdout.strip().split(b"\n")
         # self.assertEqual(2, len(lines))  # exactly two line of Busmonitor output (=2 telegrams) are expected
-        self.assertRegex(lines[0], rb"to 1/2/3 hops: \d+ (T_Data_Group|T_DATA_XXX_REQ) "
-                                   rb"A_GroupValue_Write \(small\) 00")
-        self.assertRegex(lines[1], rb"to 17/5/127 hops: \d+ (T_Data_Group|T_DATA_XXX_REQ) "
-                                   rb"A_GroupValue_Write C6 00 0B")
+        self.assertRegex(
+            lines[0], rb"to 1/2/3 hops: \d+ (T_Data_Group|T_DATA_XXX_REQ) " rb"A_GroupValue_Write \(small\) 00"
+        )
+        self.assertRegex(
+            lines[1], rb"to 17/5/127 hops: \d+ (T_Data_Group|T_DATA_XXX_REQ) " rb"A_GroupValue_Write C6 00 0B"
+        )
 
         target1._write.assert_called_once_with(False, [self, group_connector1])
-        target2._write.assert_called_once_with(knxdclient.KNXTime(datetime.time(6, 0, 11), 5),
-                                               [self, group_connector2])
+        target2._write.assert_called_once_with(knxdclient.KNXTime(datetime.time(6, 0, 11), 5), [self, group_connector2])
 
     @async_test
     async def test_respond(self) -> None:
-        _group_connector1 = self.interface.group(knx.KNXGAD(1, 2, 3), "1")\
-            .connect(ExampleReadable(bool, True), read=True)  # noqa: F841
-        _group_connector2 = self.interface.group(knx.KNXGAD(17, 5, 127), "10")\
-            .connect(ExampleReadable(knxdclient.KNXTime, knxdclient.KNXTime(datetime.time(6, 0, 11), 5)),  # noqa: F841
-                     read=True)
+        _group_connector1 = self.interface.group(knx.KNXGAD(1, 2, 3), "1").connect(
+            ExampleReadable(bool, True), read=True
+        )  # noqa: F841
+        _group_connector2 = self.interface.group(knx.KNXGAD(17, 5, 127), "10").connect(
+            ExampleReadable(knxdclient.KNXTime, knxdclient.KNXTime(datetime.time(6, 0, 11), 5)),  # noqa: F841
+            read=True,
+        )
 
         self.interface_runner.start()
 
         # Start busmonitor
         proc = await asyncio.create_subprocess_exec(
-            'knxtool',
-            'vbusmonitor1',
-            f'local://{self.knxd_socket}',
+            "knxtool",
+            "vbusmonitor1",
+            f"local://{self.knxd_socket}",
             stdout=asyncio.subprocess.PIPE,
-            env=dict(PATH=os.environ['PATH'])
+            env=dict(PATH=os.environ["PATH"]),
         )
         await asyncio.sleep(0.1)
 
         try:
             # Send GroupRead requests
-            proc2 = await asyncio.create_subprocess_exec('knxtool', 'groupread', f'local://{self.knxd_socket}', '1/2/3',
-                                                         env=dict(PATH=os.environ['PATH']))
+            proc2 = await asyncio.create_subprocess_exec(
+                "knxtool", "groupread", f"local://{self.knxd_socket}", "1/2/3", env=dict(PATH=os.environ["PATH"])
+            )
             await proc2.communicate()
             if proc2.returncode:
                 raise RuntimeError(f"knxtool groupread failed with exit code {proc.returncode}")
             await asyncio.sleep(0.1)
-            proc2 = await asyncio.create_subprocess_exec('knxtool', 'groupread', f'local://{self.knxd_socket}',
-                                                         '17/5/127',
-                                                         env=dict(PATH=os.environ['PATH']))
+            proc2 = await asyncio.create_subprocess_exec(
+                "knxtool", "groupread", f"local://{self.knxd_socket}", "17/5/127", env=dict(PATH=os.environ["PATH"])
+            )
             await proc2.communicate()
             if proc2.returncode:
                 raise RuntimeError(f"knxtool groupread failed with exit code {proc.returncode}")
@@ -176,9 +189,11 @@ class KNXDConnectorTest(unittest.TestCase):
             raise RuntimeError(f"knxtool vbusmonitor1 failed with unexpected exit code {proc.returncode}")
 
         # Analyze output
-        lines = stdout.strip().split(b'\n')
+        lines = stdout.strip().split(b"\n")
         # lines 0 and 2 should be the GroupRead reqest telegrams
-        self.assertRegex(lines[1], rb"to 1/2/3 hops: \d+ (T_Data_Group|T_DATA_XXX_REQ) "
-                                   rb"A_GroupValue_Response \(small\) 01")
-        self.assertRegex(lines[3], rb"to 17/5/127 hops: \d+ (T_Data_Group|T_DATA_XXX_REQ) "
-                                   rb"A_GroupValue_Response C6 00 0B")
+        self.assertRegex(
+            lines[1], rb"to 1/2/3 hops: \d+ (T_Data_Group|T_DATA_XXX_REQ) " rb"A_GroupValue_Response \(small\) 01"
+        )
+        self.assertRegex(
+            lines[3], rb"to 17/5/127 hops: \d+ (T_Data_Group|T_DATA_XXX_REQ) " rb"A_GroupValue_Response C6 00 0B"
+        )

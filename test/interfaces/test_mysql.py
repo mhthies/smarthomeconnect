@@ -23,7 +23,7 @@ def parse_mysql_url(url: str) -> Dict[str, Any]:
         print(f"Could not parse MySQL connection URL: {e}")
     if parts.scheme != "mysql":
         print("Could not parse MySQL connection URL: Schema is not 'mysql'")
-    result: Dict[str, Any] = {'user': parts.username, 'password': parts.password, 'db': parts.path.lstrip("/")}
+    result: Dict[str, Any] = {"user": parts.username, "password": parts.password, "db": parts.path.lstrip("/")}
     if parts.netloc.startswith("/"):
         result["unix_socket"] = parts.hostname
     else:
@@ -51,15 +51,19 @@ class ExampleTuple(NamedTuple):
     c: str
 
 
-@unittest.skipIf(not MYSQL_ARGS, "No MySQL database connection given. Must be specified as URL "
-                                 "mysql://user:pass@host/database in env variable SHC_TEST_MSQL_URL")
+@unittest.skipIf(
+    not MYSQL_ARGS,
+    "No MySQL database connection given. Must be specified as URL "
+    "mysql://user:pass@host/database in env variable SHC_TEST_MSQL_URL",
+)
 class MySQLTest(AbstractLoggingTest):
     do_write_tests = True
     do_subscribe_tests = True
 
     def setUp(self) -> None:
-        self._run_mysql_sync([
-            """
+        self._run_mysql_sync(
+            [
+                """
             CREATE TABLE `log` (
                 name VARCHAR(256) NOT NULL,
                 ts DATETIME(6) NOT NULL,
@@ -68,14 +72,16 @@ class MySQLTest(AbstractLoggingTest):
                 value_str LONGTEXT,
                 KEY name_ts(name, ts)
             );""",
-            """
+                """
             CREATE TABLE `persistence` (
                 name VARCHAR(256) NOT NULL,
                 ts DATETIME(6) NOT NULL,
                 value LONGTEXT,
                 UNIQUE KEY name(name)
             );
-            """])
+            """,
+            ]
+        )
         self.interface = shc.interfaces.mysql.MySQLConnector(**MYSQL_ARGS)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.interface.start())
@@ -94,8 +100,9 @@ class MySQLTest(AbstractLoggingTest):
         connection.commit()
         connection.close()
 
-    async def _create_log_variable_with_data(self, type_: Type[T], data: Iterable[Tuple[datetime.datetime, T]]) \
-            -> shc.data_logging.DataLogVariable[T]:
+    async def _create_log_variable_with_data(
+        self, type_: Type[T], data: Iterable[Tuple[datetime.datetime, T]]
+    ) -> shc.data_logging.DataLogVariable[T]:
         async with aiomysql.connect(**MYSQL_ARGS) as conn:
             async with conn.cursor() as cur:
                 # All data in the tests is float, int or str, so we don't need to convert
@@ -107,8 +114,11 @@ class MySQLTest(AbstractLoggingTest):
                 }[type_]
                 await cur.executemany(
                     f"INSERT INTO `log` (`name`, `ts`, `{column}`) VALUES (%(name)s, %(ts)s, %(value)s)",
-                    [{'ts': ts.astimezone(datetime.timezone.utc), 'value': value, 'name': "test_variable"}
-                     for ts, value in data])
+                    [
+                        {"ts": ts.astimezone(datetime.timezone.utc), "value": value, "name": "test_variable"}
+                        for ts, value in data
+                    ],
+                )
             await conn.commit()
 
         var = self.interface.variable(type_, "test_variable")

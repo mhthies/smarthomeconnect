@@ -36,7 +36,6 @@ class FilePersistenceTest(unittest.TestCase):
             runner2 = InterfaceThreadRunner(file_persistence.FilePersistenceStore, Path(tempdir) / "store.json")
             interface2: file_persistence.FilePersistenceStore = runner2.interface
             try:
-
                 conn21 = interface2.connector(float, "conn1")
                 conn22 = interface2.connector(ExampleTupleType, "conn2")
                 conn23 = interface2.connector(int, "conn3")
@@ -52,7 +51,7 @@ class FilePersistenceTest(unittest.TestCase):
     def test_existing_json(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             path = Path(tempdir) / "store.json"
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump({"conn1": 3.14, "conn2": [56, 0.0]}, f)
 
             runner = InterfaceThreadRunner(file_persistence.FilePersistenceStore, Path(tempdir) / "store.json")
@@ -88,7 +87,7 @@ class FilePersistenceTest(unittest.TestCase):
                 # Since we abandon 1 line per cycle (see below), this should trigger at least one full rewrite
                 for i in range(1, 11):
                     for j in range(1, 11):
-                        n = i*10+j
+                        n = i * 10 + j
                         runner.run_coro(conn1.write(n, [self]))
                         # String grows more than our buffer in each cycle → new line each cycle
                         text = "0123456789ab" * n

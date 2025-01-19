@@ -36,6 +36,7 @@ class KNXHVACMode(enum.Enum):
 
     The value mapping corresponds to KNX' native value encoding of this datatype.
     """
+
     AUTO = 0
     COMFORT = 1
     STANDBY = 2
@@ -49,6 +50,7 @@ class KNXUpDown(enum.Enum):
 
     Values of this type can also be used as bool values, using the native KNX value mapping (to datapoint type 1.001).
     """
+
     UP = False
     DOWN = True
 
@@ -64,6 +66,7 @@ class KNXControlDimming(NamedTuple):
     :param increase: True: Increase dimmer brightness / lower blinds; False: Decrese dimmer brightness / raise blinds
     :param step_exponent: 0: Break dimmming action; 1-7 define step size = 2^(1-stepcode)
     """
+
     increase: bool
     step_exponent: int
 
@@ -97,27 +100,27 @@ register_converter(datetime.datetime, knxdclient.KNXTime, knxdclient.KNXTime.fro
 
 
 KNXDPTs: Dict[str, Tuple[type, knxdclient.KNXDPT]] = {
-    '1': (bool, knxdclient.KNXDPT.BOOLEAN),
-    '1.008': (KNXUpDown, knxdclient.KNXDPT.BOOLEAN),
-    '3': (KNXControlDimming, knxdclient.KNXDPT.BOOLEAN_UINT3),
-    '4': (str, knxdclient.KNXDPT.CHAR),
-    '5': (int, knxdclient.KNXDPT.UINT8),
-    '5.001': (datatypes.RangeUInt8, knxdclient.KNXDPT.UINT8),
-    '5.003': (datatypes.AngleUInt8, knxdclient.KNXDPT.UINT8),
-    '5.004': (datatypes.RangeInt0To100, knxdclient.KNXDPT.UINT8),
-    '6': (int, knxdclient.KNXDPT.INT8),
-    '7': (int, knxdclient.KNXDPT.UINT16),
-    '8': (int, knxdclient.KNXDPT.INT16),
-    '9': (float, knxdclient.KNXDPT.FLOAT16),
-    '10': (knxdclient.KNXTime, knxdclient.KNXDPT.TIME),
-    '11': (datetime.date, knxdclient.KNXDPT.DATE),
-    '12': (int, knxdclient.KNXDPT.UINT32),
-    '13': (int, knxdclient.KNXDPT.INT32),
-    '14': (float, knxdclient.KNXDPT.FLOAT32),
-    '16': (str, knxdclient.KNXDPT.STRING),
-    '17': (int, knxdclient.KNXDPT.SCENE_NUMBER),
-    '19': (datetime.datetime, knxdclient.KNXDPT.DATE_TIME),
-    '20.102': (KNXHVACMode, knxdclient.KNXDPT.ENUM8),
+    "1": (bool, knxdclient.KNXDPT.BOOLEAN),
+    "1.008": (KNXUpDown, knxdclient.KNXDPT.BOOLEAN),
+    "3": (KNXControlDimming, knxdclient.KNXDPT.BOOLEAN_UINT3),
+    "4": (str, knxdclient.KNXDPT.CHAR),
+    "5": (int, knxdclient.KNXDPT.UINT8),
+    "5.001": (datatypes.RangeUInt8, knxdclient.KNXDPT.UINT8),
+    "5.003": (datatypes.AngleUInt8, knxdclient.KNXDPT.UINT8),
+    "5.004": (datatypes.RangeInt0To100, knxdclient.KNXDPT.UINT8),
+    "6": (int, knxdclient.KNXDPT.INT8),
+    "7": (int, knxdclient.KNXDPT.UINT16),
+    "8": (int, knxdclient.KNXDPT.INT16),
+    "9": (float, knxdclient.KNXDPT.FLOAT16),
+    "10": (knxdclient.KNXTime, knxdclient.KNXDPT.TIME),
+    "11": (datetime.date, knxdclient.KNXDPT.DATE),
+    "12": (int, knxdclient.KNXDPT.UINT32),
+    "13": (int, knxdclient.KNXDPT.INT32),
+    "14": (float, knxdclient.KNXDPT.FLOAT32),
+    "16": (str, knxdclient.KNXDPT.STRING),
+    "17": (int, knxdclient.KNXDPT.SCENE_NUMBER),
+    "19": (datetime.datetime, knxdclient.KNXDPT.DATE_TIME),
+    "20.102": (KNXHVACMode, knxdclient.KNXDPT.ENUM8),
 }
 
 
@@ -149,8 +152,16 @@ class KNXConnector(SupervisedClientInterface):
         `auto_reconnect` option). Otherwise (default), the first connection attempt on startup is not retried and will
         shutdown the SHC application on failure, even if `auto_reconnect` is True.
     """
-    def __init__(self, host: str = 'localhost', port: int = 6720, sock: Optional[str] = None,
-                 auto_reconnect: bool = True, read_init_after_reconnect: bool = True, failsafe_start: bool = False):
+
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 6720,
+        sock: Optional[str] = None,
+        auto_reconnect: bool = True,
+        read_init_after_reconnect: bool = True,
+        failsafe_start: bool = False,
+    ):
         super().__init__(auto_reconnect, failsafe_start)
         self.backoff_base = 5
         self.host = host
@@ -263,8 +274,11 @@ class KNXConnector(SupervisedClientInterface):
         if addr in self.groups:
             group_var = self.groups[addr]
             if group_var.dpt != dpt:
-                raise ValueError("KNX Datapoint Type conflict: Group Variable {} has been created with type {} before"
-                                 .format(group_var.addr, group_var.dpt))
+                raise ValueError(
+                    "KNX Datapoint Type conflict: Group Variable {} has been created with type {} before".format(
+                        group_var.addr, group_var.dpt
+                    )
+                )
         else:
             group_var = KNXGroupVar(self, addr, dpt)
             self.groups[addr] = group_var
@@ -273,8 +287,9 @@ class KNXConnector(SupervisedClientInterface):
         return group_var
 
     async def _send_init_requests(self):
-        await asyncio.gather(*(self.knx.group_write(addr, knxdclient.KNXDAPDUType.READ, 0)
-                               for addr in self.init_request_groups))
+        await asyncio.gather(
+            *(self.knx.group_write(addr, knxdclient.KNXDAPDUType.READ, 0) for addr in self.init_request_groups)
+        )
 
     def _dispatch_telegram(self, packet: knxdclient.ReceivedGroupAPDU) -> None:
         if packet.payload.type is knxdclient.KNXDAPDUType.READ:

@@ -23,7 +23,6 @@ different pages). To create two or more similar and synchronized widgets/buttons
 settings and `connect` both of them to the same :class:`shc.Variable`.
 """
 
-
 import abc
 import enum
 import itertools
@@ -47,28 +46,46 @@ from typing import (
 import markupsafe
 from markupsafe import Markup
 
-from .interface import WebPageItem, WebDisplayDatapoint, WebActionDatapoint, jinja_env, WebConnectorContainer, \
-    WebUIConnector, WebPage, WebServer
+from .interface import (
+    WebPageItem,
+    WebDisplayDatapoint,
+    WebActionDatapoint,
+    jinja_env,
+    WebConnectorContainer,
+    WebUIConnector,
+    WebPage,
+    WebServer,
+)
 from ..base import T, ConnectableWrapper, Connectable
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1, RGBUInt8
 
 
 __all__ = [
-    'icon',
-    'Switch',
-    'Select', 'EnumSelect',
-    'ButtonGroup', 'ValueListButtonGroup', 'EnumButtonGroup',
-    'ToggleButton', 'ValueButton', 'DisplayButton', 'StatelessButton',
-    'TextDisplay', 'TextInput',
-    'Slider', 'MinMaxButtonSlider',
-    'HideRowBox', 'HideRow',
-    'ColorChoser',
-    'ImageMap', 'ImageMapLabel',
+    "icon",
+    "Switch",
+    "Select",
+    "EnumSelect",
+    "ButtonGroup",
+    "ValueListButtonGroup",
+    "EnumButtonGroup",
+    "ToggleButton",
+    "ValueButton",
+    "DisplayButton",
+    "StatelessButton",
+    "TextDisplay",
+    "TextInput",
+    "Slider",
+    "MinMaxButtonSlider",
+    "HideRowBox",
+    "HideRow",
+    "ColorChoser",
+    "ImageMap",
+    "ImageMapLabel",
 ]
 
 
-def icon(icon_name: str, label: str = '') -> Markup:
+def icon(icon_name: str, label: str = "") -> Markup:
     """
     Create HTML markup for a Fontawesome/Semantic UI icon, to be used in PageItem labels, button labels, etc.
 
@@ -101,8 +118,14 @@ class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
         `[False]`, only switching off must be confirmed. Defaults to `[False, True]`, i.e. every change must be
         confirmed.
     """
-    def __init__(self, label: Union[str, Markup], color: str = '', confirm_message: str = '',
-                 confirm_values: Iterable[bool] = (False, True)):
+
+    def __init__(
+        self,
+        label: Union[str, Markup],
+        color: str = "",
+        confirm_message: str = "",
+        confirm_values: Iterable[bool] = (False, True),
+    ):
         self.type = bool
         super().__init__()
         self.label = label
@@ -111,9 +134,13 @@ class Switch(WebDisplayDatapoint[bool], WebActionDatapoint[bool], WebPageItem):
         self.confirm = confirm_values if confirm_message else ()
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/switch.htm').render_async(
-            id=id(self), label=self.label, color=self.color,
-            confirm_csv_int=",".join(str(int(v)) for v in self.confirm), confirm_message=self.confirm_message)
+        return await jinja_env.get_template("widgets/switch.htm").render_async(
+            id=id(self),
+            label=self.label,
+            color=self.color,
+            confirm_csv_int=",".join(str(int(v)) for v in self.confirm),
+            confirm_message=self.confirm_message,
+        )
 
 
 class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic[T]):
@@ -131,16 +158,19 @@ class Select(WebDisplayDatapoint[T], WebActionDatapoint[T], WebPageItem, Generic
         embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML, e.g.
         produced by :func:`icon`.
     """
-    def __init__(self, options: List[Tuple[T, Union[str, Markup]]], label: str = ''):
+
+    def __init__(self, options: List[Tuple[T, Union[str, Markup]]], label: str = ""):
         self.type = type(options[0][0])
         super().__init__()
         self.options = options
         self.label = label
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/select.htm').render_async(
-            id=id(self), label=self.label, options=[(json.dumps(value, cls=SHCJsonEncoder), label)
-                                                    for value, label in self.options])
+        return await jinja_env.get_template("widgets/select.htm").render_async(
+            id=id(self),
+            label=self.label,
+            options=[(json.dumps(value, cls=SHCJsonEncoder), label) for value, label in self.options],
+        )
 
 
 class EnumSelect(Select):
@@ -153,12 +183,13 @@ class EnumSelect(Select):
         embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML, e.g.
         produced by :func:`icon`.
     """
-    def __init__(self, type_: Type[enum.Enum], label: Union[str, Markup] = ''):
+
+    def __init__(self, type_: Type[enum.Enum], label: Union[str, Markup] = ""):
         values = [(entry, entry.name) for entry in type_]
         super().__init__(values, label)
 
 
-Ti = TypeVar('Ti', int, float, str)
+Ti = TypeVar("Ti", int, float, str)
 
 
 class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Generic[Ti]):
@@ -182,8 +213,16 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
     :param input_suffix: A plain string or HTML markup to be appended to the right of the input field, using Semantic
         UI's `labeled inputs <https://fomantic-ui.com/elements/input.html#labeled>`_.
     """
-    def __init__(self, type_: Type[Ti], label: Union[str, Markup] = '', min: Optional[Ti] = None,
-                 max: Optional[Ti] = None, step: Optional[Ti] = None, input_suffix: Union[str, Markup] = ''):
+
+    def __init__(
+        self,
+        type_: Type[Ti],
+        label: Union[str, Markup] = "",
+        min: Optional[Ti] = None,
+        max: Optional[Ti] = None,
+        step: Optional[Ti] = None,
+        input_suffix: Union[str, Markup] = "",
+    ):
         self.type = type_
         super().__init__()
         self.label = label
@@ -199,9 +238,15 @@ class TextInput(WebDisplayDatapoint[Ti], WebActionDatapoint[Ti], WebPageItem, Ge
         return self.type(value)
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/textinput.htm').render_async(
-            id=id(self), label=self.label, type=self.input_type, min=self.min, max=self.max, step=self.step,
-            input_suffix=self.input_suffix)
+        return await jinja_env.get_template("widgets/textinput.htm").render_async(
+            id=id(self),
+            label=self.label,
+            type=self.input_type,
+            min=self.min,
+            max=self.max,
+            step=self.step,
+            input_suffix=self.input_suffix,
+        )
 
 
 class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
@@ -230,21 +275,22 @@ class TextDisplay(WebDisplayDatapoint[T], WebPageItem):
         escaped for embedding in HTML) or a :class:`markupsafe.Markup` object, which may contain pre-formattet HTML,
         e.g. produced by :func:`icon`.
     """
-    def __init__(self, type_: Type[T], format: Union[str, Markup, Callable[[T], Union[str, Markup]]],
-                 label: Union[str, Markup]):
+
+    def __init__(
+        self, type_: Type[T], format: Union[str, Markup, Callable[[T], Union[str, Markup]]], label: Union[str, Markup]
+    ):
         self.type = type_
         super().__init__()
         self.formatter: Callable[[T], Union[str, Markup]] = (
-            (lambda x: format.format(x))
-            if isinstance(format, (str, Markup))
-            else format)
+            (lambda x: format.format(x)) if isinstance(format, (str, Markup)) else format
+        )
         self.label = label
 
     def convert_to_ws_value(self, value: T) -> Any:
         return markupsafe.escape(self.formatter(value))
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/textdisplay.htm').render_async(id=id(self), label=self.label)
+        return await jinja_env.get_template("widgets/textdisplay.htm").render_async(id=id(self), label=self.label)
 
 
 class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], WebPageItem):
@@ -266,8 +312,14 @@ class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], 
         independently from `left_button`).  All different kinds of buttons and all layout features of
         :class:`AbstractButton` are supported.
     """
-    def __init__(self, label: Union[str, Markup] = '', color: str = '',
-                 left_button: Optional["AbstractButton"] = None, right_button: Optional["AbstractButton"] = None, ):
+
+    def __init__(
+        self,
+        label: Union[str, Markup] = "",
+        color: str = "",
+        left_button: Optional["AbstractButton"] = None,
+        right_button: Optional["AbstractButton"] = None,
+    ):
         self.type = RangeFloat1
         super().__init__()
         self.label = label
@@ -279,9 +331,13 @@ class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], 
         return RangeFloat1(float(value))
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/slider.htm').render_async(
-            id=id(self), label=self.label, color=self.color, left_button=self.left_button,
-            right_button=self.right_button)
+        return await jinja_env.get_template("widgets/slider.htm").render_async(
+            id=id(self),
+            label=self.label,
+            color=self.color,
+            left_button=self.left_button,
+            right_button=self.right_button,
+        )
 
 
 class MinMaxButtonSlider(WebPageItem, ConnectableWrapper[RangeFloat1]):
@@ -302,10 +358,11 @@ class MinMaxButtonSlider(WebPageItem, ConnectableWrapper[RangeFloat1]):
         (when hightlighted). Must be one of Semantic UI's predefined slider colors:
         https://fomantic-ui.com/modules/slider.html#colored
     """
-    def __init__(self, label: Union[str, Markup] = '', color: str = ''):
+
+    def __init__(self, label: Union[str, Markup] = "", color: str = ""):
         super().__init__()
-        self.left_button = ValueButton(RangeFloat1(0), icon('circle outline'), color=color or 'black')
-        self.right_button = ValueButton(RangeFloat1(1), icon('circle'), color=color or 'black')
+        self.left_button = ValueButton(RangeFloat1(0), icon("circle outline"), color=color or "black")
+        self.right_button = ValueButton(RangeFloat1(1), icon("circle"), color=color or "black")
         self.slider = Slider(label, color, self.left_button, self.right_button)
 
     async def render(self) -> str:
@@ -314,10 +371,15 @@ class MinMaxButtonSlider(WebPageItem, ConnectableWrapper[RangeFloat1]):
     def get_connectors(self) -> Iterable["WebUIConnector"]:
         return self.slider, self.left_button, self.right_button
 
-    def connect(self, other: "Connectable", send: Optional[bool] = None, receive: Optional[bool] = None,
-                read: Optional[bool] = None, provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[RangeFloat1], Any], Callable[[Any], RangeFloat1]]] = False
-                ) -> "MinMaxButtonSlider":
+    def connect(
+        self,
+        other: "Connectable",
+        send: Optional[bool] = None,
+        receive: Optional[bool] = None,
+        read: Optional[bool] = None,
+        provide: Optional[bool] = None,
+        convert: Union[bool, Tuple[Callable[[RangeFloat1], Any], Callable[[Any], RangeFloat1]]] = False,
+    ) -> "MinMaxButtonSlider":
         self.slider.connect(other, send, receive, read, provide, convert)
         self.left_button.connect(other, send, receive, read, provide, convert)
         self.right_button.connect(other, send, receive, read, provide, convert)
@@ -338,6 +400,7 @@ class ButtonGroup(WebPageItem):
         grouped all together, whereas providing multiple lists each list will be grouped together with a small gap
         between each group of button descriptors.
     """
+
     def __init__(
         self,
         label: Union[str, Markup],
@@ -356,8 +419,9 @@ class ButtonGroup(WebPageItem):
         return self.buttons  # type: ignore
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/buttongroup.htm')\
-            .render_async(label=self.label, button_groups=self.button_groups)
+        return await jinja_env.get_template("widgets/buttongroup.htm").render_async(
+            label=self.label, button_groups=self.button_groups
+        )
 
 
 class AbstractButton(metaclass=abc.ABCMeta):
@@ -392,8 +456,9 @@ class AbstractButton(metaclass=abc.ABCMeta):
     :var confirm_message: The message to be shown in the confirm window, when a confirmation is required for an
         interaction with this button.
     """
-    label: Union[str, Markup] = ''
-    color: str = ''
+
+    label: Union[str, Markup] = ""
+    color: str = ""
     stateful: bool = True
     enabled: bool = True
     outline: bool = False
@@ -405,7 +470,7 @@ class AbstractButton(metaclass=abc.ABCMeta):
         return ",".join(str(int(v)) for v in self.confirm)
 
 
-jinja_env.tests['button'] = lambda item: isinstance(item, AbstractButton)
+jinja_env.tests["button"] = lambda item: isinstance(item, AbstractButton)
 
 
 class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
@@ -428,10 +493,17 @@ class StatelessButton(WebActionDatapoint[T], AbstractButton, Generic[T]):
         (`Semantic UI basic button <https://fomantic-ui.com/elements/button.html#basic>`_). Since the button has no
         on/off state, this holds all the time.
     """
+
     stateful = False
 
-    def __init__(self, value: T, label: Union[str, Markup] = '', color: str = '', confirm_message: str = '',
-                 outline: bool = False):
+    def __init__(
+        self,
+        value: T,
+        label: Union[str, Markup] = "",
+        color: str = "",
+        confirm_message: str = "",
+        outline: bool = False,
+    ):
         self.type = type(value)
         super().__init__()
         self.value = value
@@ -473,8 +545,15 @@ class ValueButton(WebActionDatapoint[T], WebDisplayDatapoint[T], AbstractButton,
     :param outline: If True, the button is shown with a colored outline in its configured `color` **when not lit up**,
         instead of its grey-ish default appearance.
     """
-    def __init__(self, value: T, label: Union[str, Markup] = '', color: str = 'blue',
-                 confirm_message: str = '', outline: bool = False):
+
+    def __init__(
+        self,
+        value: T,
+        label: Union[str, Markup] = "",
+        color: str = "blue",
+        confirm_message: str = "",
+        outline: bool = False,
+    ):
         self.type = type(value)
         super().__init__()
         self.value = value
@@ -518,8 +597,15 @@ class ToggleButton(WebActionDatapoint[bool], AbstractButton, WebDisplayDatapoint
     :param outline: If True, the button is shown with a colored outline in its configured `color` **in 'off' state**,
         instead of its grey-ish default appearance.
     """
-    def __init__(self, label: Union[str, Markup] = '', color: str = 'blue', confirm_message: str = '',
-                 confirm_values: Iterable[bool] = (False, True), outline: bool = False):
+
+    def __init__(
+        self,
+        label: Union[str, Markup] = "",
+        color: str = "blue",
+        confirm_message: str = "",
+        confirm_values: Iterable[bool] = (False, True),
+        outline: bool = False,
+    ):
         self.type = bool
         super().__init__()
         self.label = label
@@ -552,10 +638,16 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
     :param outline: If True, the button is shown with a colored outline in its configured `color` **when not lit up**,
         instead of its grey-ish default appearance.
     """
+
     enabled = False
 
-    def __init__(self, value: T = True,  label: Union[str, Markup] = '',  # type: ignore
-                 color: str = 'blue', outline: bool = False):
+    def __init__(
+        self,
+        value: T = True,
+        label: Union[str, Markup] = "",  # type: ignore
+        color: str = "blue",
+        outline: bool = False,
+    ):
         self.type = type(value)
         super().__init__()
         self.value = value
@@ -581,8 +673,14 @@ class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
     :param color: A common `color` for all buttons
     :param confirm_message: A common `confirm_message` for all buttons
     """
-    def __init__(self, values: List[Tuple[T, Union[str, Markup]]], label: Union[str, Markup],
-                 color: str = 'blue', confirm_message: str = ''):
+
+    def __init__(
+        self,
+        values: List[Tuple[T, Union[str, Markup]]],
+        label: Union[str, Markup],
+        color: str = "blue",
+        confirm_message: str = "",
+    ):
         buttons = [ValueButton(value=v[0], label=v[1], color=color, confirm_message=confirm_message) for v in values]
         super().__init__(label, buttons)
 
@@ -607,8 +705,10 @@ class EnumButtonGroup(ValueListButtonGroup):
     :param color: A common `color` for all buttons
     :param confirm_message: A common `confirm_message` for all buttons
     """
-    def __init__(self, type_: Type[enum.Enum], label: Union[str, Markup], color: str = 'blue',
-                 confirm_message: str = ''):
+
+    def __init__(
+        self, type_: Type[enum.Enum], label: Union[str, Markup], color: str = "blue", confirm_message: str = ""
+    ):
         values = [(entry, entry.name) for entry in type_]
         super().__init__(values, label, color, confirm_message)
 
@@ -620,6 +720,7 @@ class HideRowBox(WebPageItem):
     The HideRowBox is a *WebPageItem*, so it can be added to web pages, and takes a list of :class:`HideRow` which are
     dynamically shown or hidden.
     """
+
     def __init__(self, rows: List["HideRow"]):
         self.rows = rows
 
@@ -627,7 +728,7 @@ class HideRowBox(WebPageItem):
         return itertools.chain.from_iterable(row.get_connectors() for row in self.rows)
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/hiderowbox.htm').render_async(rows=self.rows)
+        return await jinja_env.get_template("widgets/hiderowbox.htm").render_async(rows=self.rows)
 
 
 class HideRow(WebDisplayDatapoint[bool], WebConnectorContainer):
@@ -651,8 +752,13 @@ class HideRow(WebDisplayDatapoint[bool], WebConnectorContainer):
                    side of the *HideRow* when displayed.
     :param color: The background color of the *HideRow* when displayed. Must be one Fomantic UI's color names
     """
-    def __init__(self, label: Union[str, Markup], button: Optional[AbstractButton] = None,
-                 color: str = 'blue',):
+
+    def __init__(
+        self,
+        label: Union[str, Markup],
+        button: Optional[AbstractButton] = None,
+        color: str = "blue",
+    ):
         self.type = bool
         super().__init__()
         self.label = label
@@ -673,11 +779,12 @@ class ColorChoser(WebActionDatapoint[RGBUInt8], WebDisplayDatapoint[RGBUInt8], W
     an interactive color chooser widget. It is updated dynamically from *connected* objects and allows the user to
     select a color, which is published by the *ColorChoser* object in SHC.
     """
+
     type = RGBUInt8
 
     async def render(self) -> str:
         # TODO add label
-        return await jinja_env.get_template('widgets/colorchoser.htm').render_async(id=id(self))
+        return await jinja_env.get_template("widgets/colorchoser.htm").render_async(id=id(self))
 
 
 ImageMapItem = Union[AbstractButton, "ImageMapLabel"]
@@ -743,22 +850,33 @@ class ImageMap(WebPageItem):
     :param max_width: If given and not None, defines the maximum width of the background image on large screens in
                       pixels.
     """
-    def __init__(self, image: Union[PathLike, str],
-                 items: Iterable[Union[Tuple[float, float, ImageMapItem],
-                                       Tuple[float, float, ImageMapItem, List[WebPageItem]]]],
-                 max_width: Optional[int] = None):
+
+    def __init__(
+        self,
+        image: Union[PathLike, str],
+        items: Iterable[Union[Tuple[float, float, ImageMapItem], Tuple[float, float, ImageMapItem, List[WebPageItem]]]],
+        max_width: Optional[int] = None,
+    ):
         super().__init__()
         self.image = image
-        self.image_url: str = ''
+        self.image_url: str = ""
         # Allow using external images: If `image` is an absolute URI, simply use it as the img src, instead of trying
         # to serve it via our http server
-        if isinstance(image, str) and '://' in image:
+        if isinstance(image, str) and "://" in image:
             self.image_url = image
 
         self.max_width = max_width
-        self.items: List[Tuple[float, float, ImageMapItem, List[WebPageItem]]]\
-            = [item if len(item) >= 4 else (item[0], item[1], item[2], [],)
-               for item in items]
+        self.items: List[Tuple[float, float, ImageMapItem, List[WebPageItem]]] = [
+            item
+            if len(item) >= 4
+            else (
+                item[0],
+                item[1],
+                item[2],
+                [],
+            )
+            for item in items
+        ]
 
     def register_with_server(self, _page: WebPage, server: WebServer) -> None:
         if not self.image_url:
@@ -771,8 +889,9 @@ class ImageMap(WebPageItem):
             yield from itertools.chain.from_iterable(i.get_connectors() for i in sub_items)
 
     async def render(self) -> str:
-        return await jinja_env.get_template('widgets/imagemap.htm')\
-            .render_async(items=self.items, image_url=self.image_url, max_width=self.max_width)
+        return await jinja_env.get_template("widgets/imagemap.htm").render_async(
+            items=self.items, image_url=self.image_url, max_width=self.max_width
+        )
 
 
 class ImageMapLabel(WebDisplayDatapoint[T]):
@@ -786,4 +905,4 @@ class ImageMapLabel(WebDisplayDatapoint[T]):
         return self.format_string.format(value)
 
 
-jinja_env.tests['imageMapLabel'] = lambda item: isinstance(item, ImageMapLabel)
+jinja_env.tests["imageMapLabel"] = lambda item: isinstance(item, ImageMapLabel)

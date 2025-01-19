@@ -19,8 +19,14 @@ import aiohttp
 
 import shc.web
 import shc.interfaces.shc_client
-from test._helper import ExampleReadable, InterfaceThreadRunner, ExampleWritable, ExampleSubscribable, async_test, \
-    AsyncMock
+from test._helper import (
+    ExampleReadable,
+    InterfaceThreadRunner,
+    ExampleWritable,
+    ExampleSubscribable,
+    async_test,
+    AsyncMock,
+)
 
 
 class ExampleType(NamedTuple):
@@ -31,7 +37,7 @@ class ExampleType(NamedTuple):
 class SHCWebsocketClientTest(unittest.TestCase):
     def setUp(self) -> None:
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
-        self.client_runner = InterfaceThreadRunner(shc.interfaces.shc_client.SHCWebClient, 'http://localhost:42080')
+        self.client_runner = InterfaceThreadRunner(shc.interfaces.shc_client.SHCWebClient, "http://localhost:42080")
         self.server = self.server_runner.interface
         self.client = self.client_runner.interface
 
@@ -41,12 +47,11 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
     def test_subscribe(self) -> None:
         self.server.api(int, "foo")
-        bar_object = self.server.api(ExampleType, "bar")\
-            .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        bar_object = self.server.api(ExampleType, "bar").connect(ExampleReadable(ExampleType, ExampleType(42, True)))
         bar_source = ExampleSubscribable(ExampleType).connect(bar_object)
 
-        client_foo = self.client.object(int, 'foo')
-        client_bar = self.client.object(ExampleType, 'bar')
+        client_foo = self.client.object(int, "foo")
+        client_bar = self.client.object(ExampleType, "bar")
         foo_target = ExampleWritable(int).connect(client_foo)
         bar_target = ExampleWritable(ExampleType).connect(client_bar)
 
@@ -68,12 +73,12 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.server.api(int, "foo")
         self.server.api(ExampleType, "bar")
 
-        bar_client = self.client.object(int, 'bar')
+        bar_client = self.client.object(int, "bar")
 
         # Creating an option with equal name should return the same object again or raise a type error
-        self.assertIs(self.client.object(int, 'bar'), bar_client)
+        self.assertIs(self.client.object(int, "bar"), bar_client)
         with self.assertRaises(TypeError):
-            self.client.object(str, 'bar')
+            self.client.object(str, "bar")
 
         # Test raising of connection errors on startup (server is not started yet)
         with self.assertRaises(aiohttp.ClientConnectionError):
@@ -83,8 +88,8 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
         # Test raising of subscription errors on startup (inexistent api object name)
         # This requires that the object has a local subscriber (otherwise, subscription is skipped)
-        another_client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
-        foobar = another_client.object(int, 'foobar')
+        another_client = shc.interfaces.shc_client.SHCWebClient("http://localhost:42080")
+        foobar = another_client.object(int, "foobar")
         foobar.subscribe(ExampleWritable(int))
         try:
             with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
@@ -94,11 +99,10 @@ class SHCWebsocketClientTest(unittest.TestCase):
 
     def test_read(self) -> None:
         self.server.api(int, "foo")
-        self.server.api(ExampleType, "bar")\
-            .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        self.server.api(ExampleType, "bar").connect(ExampleReadable(ExampleType, ExampleType(42, True)))
 
-        client_foo = self.client.object(int, 'foo')
-        client_bar = self.client.object(ExampleType, 'bar')
+        client_foo = self.client.object(int, "foo")
+        client_bar = self.client.object(ExampleType, "bar")
 
         self.server_runner.start()
         self.client_runner.start()
@@ -114,7 +118,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         server_bar = self.server.api(ExampleType, "bar")
         target = ExampleWritable(ExampleType).connect(server_bar)
 
-        client_bar = self.client.object(ExampleType, 'bar')
+        client_bar = self.client.object(ExampleType, "bar")
 
         self.server_runner.start()
         self.client_runner.start()
@@ -142,7 +146,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         target._write.assert_called_with(False, unittest.mock.ANY)
 
         # Test raising of an error on startup if the object does not exist at the server
-        another_client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080', client_online_object="foobar")
+        another_client = shc.interfaces.shc_client.SHCWebClient("http://localhost:42080", client_online_object="foobar")
         try:
             with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
                 asyncio.get_event_loop().run_until_complete(another_client.start())
@@ -150,17 +154,15 @@ class SHCWebsocketClientTest(unittest.TestCase):
             asyncio.get_event_loop().run_until_complete(another_client.stop())
 
     def test_reconnect(self) -> None:
-        self.server.api(ExampleType, "bar")\
-            .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        self.server.api(ExampleType, "bar").connect(ExampleReadable(ExampleType, ExampleType(42, True)))
         foo_server_target = ExampleWritable(int).connect(self.server.api(int, "foo"))
 
-        client_bar = self.client.object(ExampleType, 'bar')
-        bar_target = ExampleWritable(ExampleType)\
-            .connect(client_bar)
-        _client_foo = self.client.object(int, 'foo')\
-            .connect(ExampleReadable(int, 56), read=True)  # noqa: F841
-        client_status_target = ExampleWritable(shc.supervisor.InterfaceStatus)\
-            .connect(self.client.monitoring_connector())
+        client_bar = self.client.object(ExampleType, "bar")
+        bar_target = ExampleWritable(ExampleType).connect(client_bar)
+        _client_foo = self.client.object(int, "foo").connect(ExampleReadable(int, 56), read=True)  # noqa: F841
+        client_status_target = ExampleWritable(shc.supervisor.InterfaceStatus).connect(
+            self.client.monitoring_connector()
+        )
 
         self.server_runner.start()
         self.client_runner.start()
@@ -168,8 +170,10 @@ class SHCWebsocketClientTest(unittest.TestCase):
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
         bar_target._write.reset_mock()
         foo_server_target._write.assert_called_once_with(56, unittest.mock.ANY)
-        self.assertEqual(shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""),
-                         self.client_runner.run_coro(self.client.monitoring_connector().read()))
+        self.assertEqual(
+            shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""),
+            self.client_runner.run_coro(self.client.monitoring_connector().read()),
+        )
         client_status_target._write.reset_mock()
         # We cannot use ClockMock here, since it does not support asyncio.wait()
 
@@ -178,17 +182,16 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.assertIn("Unexpected shutdown", ctx.output[0])
         self.assertIn("SHCWebClient", ctx.output[0])
 
-        expected_status = shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.CRITICAL,
-                                                         "Unexpected shutdown of interface")
-        self.assertEqual(expected_status,
-                         self.client_runner.run_coro(self.client.monitoring_connector().read()))
+        expected_status = shc.supervisor.InterfaceStatus(
+            shc.supervisor.ServiceStatus.CRITICAL, "Unexpected shutdown of interface"
+        )
+        self.assertEqual(expected_status, self.client_runner.run_coro(self.client.monitoring_connector().read()))
         client_status_target._write.assert_called_with(expected_status, unittest.mock.ANY)
 
         # Re-setup server
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
         self.server = self.server_runner.interface
-        self.server.api(ExampleType, "bar")\
-            .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        self.server.api(ExampleType, "bar").connect(ExampleReadable(ExampleType, ExampleType(42, True)))
         foo_server_target = ExampleWritable(int).connect(self.server.api(int, "foo"))
 
         # Wait for first reconnect attempt
@@ -201,7 +204,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.server_runner.start()
 
         # Wait for second reconnect attempt
-        with unittest.mock.patch.object(self.client._session, 'ws_connect', new=AsyncMock()) as connect_mock:
+        with unittest.mock.patch.object(self.client._session, "ws_connect", new=AsyncMock()) as connect_mock:
             time.sleep(1)
             connect_mock.assert_not_called()
         time.sleep(0.3)
@@ -209,14 +212,17 @@ class SHCWebsocketClientTest(unittest.TestCase):
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
         foo_server_target._write.assert_called_once_with(56, unittest.mock.ANY)
 
-        self.assertEqual(shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""),
-                         self.client_runner.run_coro(self.client.monitoring_connector().read()))
+        self.assertEqual(
+            shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""),
+            self.client_runner.run_coro(self.client.monitoring_connector().read()),
+        )
         client_status_target._write.assert_called_with(
-            shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""), unittest.mock.ANY)
+            shc.supervisor.InterfaceStatus(shc.supervisor.ServiceStatus.OK, ""), unittest.mock.ANY
+        )
 
     def test_initial_reconnect(self) -> None:
         self.client.failsafe_start = True
-        client_bar = self.client.object(ExampleType, 'bar')
+        client_bar = self.client.object(ExampleType, "bar")
         bar_target = ExampleWritable(ExampleType).connect(client_bar)
 
         # We cannot use ClockMock here, since the server seems to be too slow then
@@ -240,12 +246,11 @@ class SHCWebsocketClientTest(unittest.TestCase):
         self.server_runner.stop()
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
         self.server = self.server_runner.interface
-        self.server.api(ExampleType, "bar") \
-            .connect(ExampleReadable(ExampleType, ExampleType(42, True)))
+        self.server.api(ExampleType, "bar").connect(ExampleReadable(ExampleType, ExampleType(42, True)))
         self.server_runner.start()
 
         # wait for second reconnect attempt
-        with unittest.mock.patch.object(self.client._session, 'ws_connect', new=AsyncMock()) as connect_mock:
+        with unittest.mock.patch.object(self.client._session, "ws_connect", new=AsyncMock()) as connect_mock:
             time.sleep(1)
             connect_mock.assert_not_called()
         time.sleep(0.3)
@@ -256,7 +261,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
 class SHCWebsocketClientConcurrentUpdateTest(unittest.TestCase):
     def setUp(self) -> None:
         self.server = shc.web.WebServer("localhost", 42080)
-        self.client = shc.interfaces.shc_client.SHCWebClient('http://localhost:42080')
+        self.client = shc.interfaces.shc_client.SHCWebClient("http://localhost:42080")
 
     def tearDown(self) -> None:
         loop = asyncio.get_event_loop()
@@ -265,9 +270,9 @@ class SHCWebsocketClientConcurrentUpdateTest(unittest.TestCase):
 
     @async_test
     async def test_concurrent_update(self) -> None:
-        foo_api = self.server.api(int, 'foo')
+        foo_api = self.server.api(int, "foo")
         server_var = shc.Variable(int, initial_value=0).connect(foo_api)
-        foo_client = self.client.object(int, 'foo')
+        foo_client = self.client.object(int, "foo")
         client_var = shc.Variable(int).connect(foo_client)
 
         await self.server.start()
@@ -276,8 +281,6 @@ class SHCWebsocketClientConcurrentUpdateTest(unittest.TestCase):
 
         self.assertEqual(0, await client_var.read())
 
-        await asyncio.gather(foo_api.write(42, [self]),
-                             foo_client.write(56, [self]))
+        await asyncio.gather(foo_api.write(42, [self]), foo_client.write(56, [self]))
         await asyncio.sleep(0.1)
-        self.assertEqual(await client_var.read(),
-                         await server_var.read())
+        self.assertEqual(await client_var.read(), await server_var.read())

@@ -14,12 +14,14 @@ class BasicTest(unittest.TestCase):
     def test_ui_showcase(self) -> None:
         shc.supervisor.event_loop.create_task(shutdown())
         import example.ui_showcase  # type: ignore  # noqa: F401
+
         shc.main()
 
     def test_ui_logging_showcase(self) -> None:
         shc.supervisor.event_loop.create_task(shutdown())
 
         import example.ui_logging_showcase  # type: ignore  # noqa: F401
+
         shc.main()
 
     def test_server_client_example(self) -> None:
@@ -28,6 +30,7 @@ class BasicTest(unittest.TestCase):
         # The examples should actually be able to coexist in a single SHC instance
         import example.server_client.server  # type: ignore  # noqa: F401
         import example.server_client.client  # type: ignore  # noqa: F401
+
         shc.main()
 
     def test_tasmota_led_example(self) -> None:

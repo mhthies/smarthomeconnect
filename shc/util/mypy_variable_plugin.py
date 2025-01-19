@@ -17,6 +17,7 @@ Currently, it allows to improve the typechecking for VariableField objects which
 To enable this plugin, set `plugins = shc.util.mypy_variable_plugin` in the global `[mypy]` section of your MyPy config
 file (other Plugins can be added with comma-separation).
 """
+
 from typing import Optional, Callable
 
 from mypy import errorcodes
@@ -27,8 +28,12 @@ from mypy.types import Instance, Type, TupleType, TypeAliasType
 
 class SHCVariable(Plugin):
     def get_method_hook(self, fullname: str) -> Optional[Callable[[MethodContext], Type]]:
-        if fullname in ("shc.variables.Variable.field", "shc.variables.VariableField.field",
-                        "shc.misc.UpdateExchange.field", "shc.misc._UpdateExchangeField.field"):
+        if fullname in (
+            "shc.variables.Variable.field",
+            "shc.variables.VariableField.field",
+            "shc.misc.UpdateExchange.field",
+            "shc.misc._UpdateExchangeField.field",
+        ):
             return self._shc_variable_field_callback
         return None
 
@@ -42,22 +47,28 @@ class SHCVariable(Plugin):
         if isinstance(wrapped_type, TypeAliasType) and wrapped_type.alias is not None:
             wrapped_type = wrapped_type.alias.target
         if not isinstance(wrapped_type, TupleType) or not wrapped_type.partial_fallback.type.is_named_tuple:
-            context.api.fail(f".field() can only be used with NamedTuple-typed SHC containers, not {wrapped_type}",
-                             context.context, code=errorcodes.MISC)
+            context.api.fail(
+                f".field() can only be used with NamedTuple-typed SHC containers, not {wrapped_type}",
+                context.context,
+                code=errorcodes.MISC,
+            )
             return context.default_return_type
         field_name_expression = context.args[0][0]
         if not isinstance(field_name_expression, StrExpr):
             # If the field name is not specified as a simple string expression, we cannot check the value
             return context.default_return_type
         field_name = field_name_expression.value
-        tuple_field_names = wrapped_type.partial_fallback.type.metadata['namedtuple']['fields']
+        tuple_field_names = wrapped_type.partial_fallback.type.metadata["namedtuple"]["fields"]
         assert isinstance(tuple_field_names, list)
         try:
             field_index = tuple_field_names.index(field_name)
         except ValueError:
-            context.api.fail(f"NamedTuple \"{wrapped_type}\" has no field \"{field_name}\" to create a variable/"
-                             f"update-exchange field  for",
-                             context.context, code=errorcodes.ATTR_DEFINED)
+            context.api.fail(
+                f'NamedTuple "{wrapped_type}" has no field "{field_name}" to create a variable/'
+                f"update-exchange field  for",
+                context.context,
+                code=errorcodes.ATTR_DEFINED,
+            )
             return context.default_return_type
         field_type = wrapped_type.items[field_index]
         return Instance(context.default_return_type.type, [field_type])

@@ -46,6 +46,7 @@ class DataLogNotSubscribable(RuntimeError):
     Exception to be raised by :meth:`DataLogVariable.subscribe_data_log` if the variable does not support
     subscription.
     """
+
     pass
 
 
@@ -85,8 +86,9 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     type: Type[T]
 
     @abc.abstractmethod
-    async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
-                           include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
+    async def retrieve_log(
+        self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = True
+    ) -> List[Tuple[datetime.datetime, T]]:
         """
         Retrieve all log entries for this log variable in the specified time range from the data log backend/database
 
@@ -100,9 +102,13 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         """
         pass
 
-    async def retrieve_aggregated_log(self, start_time: datetime.datetime, end_time: datetime.datetime,  # noqa: C901
-                                      aggregation_method: AggregationMethod, aggregation_interval: datetime.timedelta
-                                      ) -> List[Tuple[datetime.datetime, float]]:
+    async def retrieve_aggregated_log(
+        self,
+        start_time: datetime.datetime,
+        end_time: datetime.datetime,  # noqa: C901
+        aggregation_method: AggregationMethod,
+        aggregation_interval: datetime.timedelta,
+    ) -> List[Tuple[datetime.datetime, float]]:
         """
         Retrieve an aggregated time series from the underlying time series
 
@@ -130,8 +136,9 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         # TODO run aggregation in thread pool?
         return aggregate(data, self.type, start_time, end_time, aggregation_method, aggregation_interval)
 
-    async def retrieve_log_sync(self, start_time: datetime.datetime, end_time: datetime.datetime,
-                                include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
+    async def retrieve_log_sync(
+        self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = True
+    ) -> List[Tuple[datetime.datetime, T]]:
         """
         Retrieve the current log, synchronized with push updates
 
@@ -181,6 +188,7 @@ class WritableDataLogVariable(DataLogVariable[T], Writable[T], Generic[T], metac
         will make this class unsubscribable (because we cannot guarantee to reproduce a consistent log through push
         updates), so attached `LiveDataLogView` will fall back to periodic polling of the log.
     """
+
     type: Type[T]
     external_updates = False
 
@@ -207,8 +215,9 @@ class WritableDataLogVariable(DataLogVariable[T], Writable[T], Generic[T], metac
                 current_finish_event = self._flushing_finished
                 self._flushing_finished = None
                 # in parallel: Write new values to data log backend and subscribers
-                tasks = [self._write_to_data_log(flushed_values)] + [subscriber._new_log_values_written(flushed_values)
-                                                                     for subscriber in self._data_log_subscribers]
+                tasks = [self._write_to_data_log(flushed_values)] + [
+                    subscriber._new_log_values_written(flushed_values) for subscriber in self._data_log_subscribers
+                ]
                 if len(tasks) == 1:
                     await tasks[0]
                 else:
@@ -224,8 +233,9 @@ class WritableDataLogVariable(DataLogVariable[T], Writable[T], Generic[T], metac
         # TODO comment: timestamps are timezone-aware in UTC
         raise NotImplementedError()
 
-    async def retrieve_log_sync(self, start_time: datetime.datetime, end_time: datetime.datetime,
-                                include_previous: bool = True) -> List[Tuple[datetime.datetime, T]]:
+    async def retrieve_log_sync(
+        self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = True
+    ) -> List[Tuple[datetime.datetime, T]]:
         async with self._mutex:
             return await self.retrieve_log(start_time, end_time, include_previous)
 
@@ -282,12 +292,15 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         update. If not specified, it is set to 1/20th of the `interval`, but not more than 1min.
     """
 
-    def __init__(self, data_log: DataLogVariable[T],
-                 interval: datetime.timedelta,
-                 aggregation: Optional[AggregationMethod] = None,
-                 aggregation_interval: Optional[datetime.timedelta] = None,
-                 align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
-                 update_interval: Optional[datetime.timedelta] = None):
+    def __init__(
+        self,
+        data_log: DataLogVariable[T],
+        interval: datetime.timedelta,
+        aggregation: Optional[AggregationMethod] = None,
+        aggregation_interval: Optional[datetime.timedelta] = None,
+        align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
+        update_interval: Optional[datetime.timedelta] = None,
+    ):
         super().__init__()
         self.data_log = data_log
         self.interval = interval
@@ -304,8 +317,9 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         except DataLogNotSubscribable:
             self.push = False
         if not self.push:
-            update_interval = (update_interval if update_interval is not None
-                               else min(interval / 20, datetime.timedelta(minutes=1)))
+            update_interval = (
+                update_interval if update_interval is not None else min(interval / 20, datetime.timedelta(minutes=1))
+            )
             self.timer = timer.Every(update_interval)
             self.timer.trigger(self._update, synchronous=True)
 
@@ -328,15 +342,17 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
             data: Sequence[Tuple[datetime.datetime, Union[T, float]]]
             if self.aggregation is not None:
                 assert self.aggregation_interval is not None
-                data = await self.data_log.retrieve_aggregated_log(begin_time, end_time, self.aggregation,
-                                                                   self.aggregation_interval)
+                data = await self.data_log.retrieve_aggregated_log(
+                    begin_time, end_time, self.aggregation, self.aggregation_interval
+                )
             else:
                 data = await self.data_log.retrieve_log(begin_time, end_time, include_previous=False)
             await self._process_new_logvalues(data)
             self._last_retrieved_timestamp = end_time
 
-    async def get_current_view(self, include_previous: bool = False
-                               ) -> Sequence[Tuple[datetime.datetime, Union[T, float]]]:
+    async def get_current_view(
+        self, include_previous: bool = False
+    ) -> Sequence[Tuple[datetime.datetime, Union[T, float]]]:
         """
         Retrieve the recent log values from the `DataLogVariable`, as specified by this object's constructor arguments
 
@@ -348,9 +364,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
             # With push updates, we need to use the synchronized retrieve_log() method to avoid losing
             # new values during the retrieval
             begin_time, end_time = self._data_retrieval_interval(False)
-            return await self.data_log.retrieve_log_sync(begin_time,
-                                                         end_time,
-                                                         include_previous=include_previous)
+            return await self.data_log.retrieve_log_sync(begin_time, end_time, include_previous=include_previous)
         else:
             async with self._mutex:
                 begin_time, end_time = self._data_retrieval_interval(False)
@@ -358,13 +372,15 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
                     self._last_retrieved_timestamp = end_time
                 if self.aggregation is not None:
                     assert self.aggregation_interval is not None
-                    return await self.data_log.retrieve_aggregated_log(begin_time, end_time, self.aggregation,
-                                                                       self.aggregation_interval)
+                    return await self.data_log.retrieve_aggregated_log(
+                        begin_time, end_time, self.aggregation, self.aggregation_interval
+                    )
                 else:
                     return await self.data_log.retrieve_log(
                         datetime.datetime.now(datetime.timezone.utc) - self.interval,
                         end_time,
-                        include_previous=include_previous)
+                        include_previous=include_previous,
+                    )
 
     def _data_retrieval_interval(self, for_update: bool) -> Tuple[datetime.datetime, datetime.datetime]:
         """
@@ -425,39 +441,51 @@ class LoggingWebUIView(LiveDataLogView[T], WebUIConnector, Generic[T]):
     for a specified time interval and via the Webinterface UI websocket.
     """
 
-    def __init__(self, data_log: DataLogVariable[T],
-                 interval: datetime.timedelta,
-                 aggregation: Optional[AggregationMethod] = None,
-                 aggregation_interval: Optional[datetime.timedelta] = None,
-                 align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
-                 update_interval: Optional[datetime.timedelta] = None,
-                 converter: Optional[Callable[[T], Any]] = None,
-                 include_previous: bool = True):
-        super().__init__(data_log=data_log, interval=interval, aggregation=aggregation,
-                         aggregation_interval=aggregation_interval, align_to=align_to, update_interval=update_interval)
+    def __init__(
+        self,
+        data_log: DataLogVariable[T],
+        interval: datetime.timedelta,
+        aggregation: Optional[AggregationMethod] = None,
+        aggregation_interval: Optional[datetime.timedelta] = None,
+        align_to: datetime.datetime = datetime.datetime(2020, 1, 1, 0, 0, 0),
+        update_interval: Optional[datetime.timedelta] = None,
+        converter: Optional[Callable[[T], Any]] = None,
+        include_previous: bool = True,
+    ):
+        super().__init__(
+            data_log=data_log,
+            interval=interval,
+            aggregation=aggregation,
+            aggregation_interval=aggregation_interval,
+            align_to=align_to,
+            update_interval=update_interval,
+        )
         self.converter: Callable = converter or (lambda x: x)
         self.include_previous = include_previous
 
     async def _process_new_logvalues(self, values: Sequence[Tuple[datetime.datetime, Union[T, float]]]) -> None:
-        await self._websocket_publish({
-            'init': False,
-            'data': [(timestamp, self.converter(value))
-                     for (timestamp, value) in values]
-        })
+        await self._websocket_publish(
+            {"init": False, "data": [(timestamp, self.converter(value)) for (timestamp, value) in values]}
+        )
 
     async def _websocket_before_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
         data = await self.get_current_view(self.include_previous)
-        await ws.send_str(json.dumps({'id': id(self),
-                                      'v': {
-                                          'init': True,
-                                          'data': [(ts, self.converter(v)) for ts, v in data]
-                                      }},
-                                     cls=SHCJsonEncoder))
+        await ws.send_str(
+            json.dumps(
+                {"id": id(self), "v": {"init": True, "data": [(ts, self.converter(v)) for ts, v in data]}},
+                cls=SHCJsonEncoder,
+            )
+        )
 
 
-def aggregate(data: List[Tuple[datetime.datetime, T]], type_: Type[T], start_time: datetime.datetime,  # noqa: C901
-              end_time: datetime.datetime, aggregation_method: AggregationMethod,
-              aggregation_interval: datetime.timedelta) -> List[Tuple[datetime.datetime, float]]:
+def aggregate(
+    data: List[Tuple[datetime.datetime, T]],
+    type_: Type[T],
+    start_time: datetime.datetime,  # noqa: C901
+    end_time: datetime.datetime,
+    aggregation_method: AggregationMethod,
+    aggregation_interval: datetime.timedelta,
+) -> List[Tuple[datetime.datetime, float]]:
     """
     Pure-Python implementation of the time series aggregation method
 
@@ -475,8 +503,9 @@ def aggregate(data: List[Tuple[datetime.datetime, T]], type_: Type[T], start_tim
         of the points of the returned aggregated time series
 
     """
-    aggregation_timestamps = [start_time + i * aggregation_interval
-                              for i in range(math.ceil((end_time - start_time) / aggregation_interval))]
+    aggregation_timestamps = [
+        start_time + i * aggregation_interval for i in range(math.ceil((end_time - start_time) / aggregation_interval))
+    ]
 
     # The last aggregation_timestamps is not added to the results, but only used to delimit the last aggregation
     # interval.
@@ -535,8 +564,11 @@ def aggregate(data: List[Tuple[datetime.datetime, T]], type_: Type[T], start_tim
             # Do the same for every following empty interval
             while ts >= aggregation_timestamps[next_aggr_ts_index]:
                 aggregator.reset()
-                aggregator.aggregate(aggregation_timestamps[next_aggr_ts_index - 1],
-                                     aggregation_timestamps[next_aggr_ts_index], last_value)
+                aggregator.aggregate(
+                    aggregation_timestamps[next_aggr_ts_index - 1],
+                    aggregation_timestamps[next_aggr_ts_index],
+                    last_value,
+                )
                 result.append((aggregation_timestamps[next_aggr_ts_index - 1], aggregator.get()))
 
                 next_aggr_ts_index += 1
@@ -565,15 +597,16 @@ def aggregate(data: List[Tuple[datetime.datetime, T]], type_: Type[T], start_tim
     # Fill remaining aggregation intervals
     while next_aggr_ts_index < len(aggregation_timestamps):
         aggregator.reset()
-        aggregator.aggregate(aggregation_timestamps[next_aggr_ts_index - 1],
-                             aggregation_timestamps[next_aggr_ts_index], last_value)
+        aggregator.aggregate(
+            aggregation_timestamps[next_aggr_ts_index - 1], aggregation_timestamps[next_aggr_ts_index], last_value
+        )
         result.append((aggregation_timestamps[next_aggr_ts_index - 1], aggregator.get()))
 
         next_aggr_ts_index += 1
     return result
 
 
-S = TypeVar('S')
+S = TypeVar("S")
 
 
 class AbstractAggregator(Generic[T, S], metaclass=abc.ABCMeta):
@@ -591,6 +624,7 @@ class AbstractAggregator(Generic[T, S], metaclass=abc.ABCMeta):
     * :meth:`get` is called at the end of every aggregation interval to retrieve the aggregated value
 
     """
+
     __slots__ = ()
 
     def reset(self) -> None:
@@ -610,7 +644,8 @@ class AverageAggregator(AbstractAggregator[Union[float, int], float]):
     Aggregator implementation for AggregationMethod.AVERAGE. It calculates an average of the values, weighted by their
     respective time intervals.
     """
-    __slots__ = ('value_sum', 'time_sum')
+
+    __slots__ = ("value_sum", "time_sum")
     value_sum: float
     time_sum: float
 
@@ -632,11 +667,12 @@ class MinAggregator(AbstractAggregator[Union[float, int], float]):
     Aggregator implementation for AggregationMethod.MINIMUM. It calculates the minimum of all values in an aggregation
     interval. The value's begin..end interval is ignored. Thus, even values with 0 duration are taken into account.
     """
-    __slots__ = ('value',)
+
+    __slots__ = ("value",)
     value: float
 
     def reset(self) -> None:
-        self.value = float('inf')
+        self.value = float("inf")
 
     def get(self) -> float:
         return self.value
@@ -650,11 +686,12 @@ class MaxAggregator(AbstractAggregator[Union[float, int], float]):
     Aggregator implementation for AggregationMethod.MAXIMUM. It calculates the maximum of all values in an aggregation
     interval. The value's begin..end interval is ignored. Thus, even values with 0 duration are taken into account.
     """
-    __slots__ = ('value',)
+
+    __slots__ = ("value",)
     value: float
 
     def reset(self) -> None:
-        self.value = float('-inf')
+        self.value = float("-inf")
 
     def get(self) -> float:
         return self.value
@@ -668,7 +705,8 @@ class OnTimeAggregator(AbstractAggregator[Any, float]):
     Aggregator implementation for AggregationMethod.ONTIME. It calculates the aggregated duration of all intervals where
     the value evaluates to True. The value is returned in seconds.
     """
-    __slots__ = ('value',)
+
+    __slots__ = ("value",)
     value: datetime.timedelta
 
     def reset(self) -> None:
@@ -687,7 +725,8 @@ class OnTimeRatioAggregator(AbstractAggregator[Any, float]):
     # Aggregator implementation for AggregationMethod.ONTIME. It calculates the ratio of all intervals where the value
     evaluates to True to the total duration of the aggregation interval.
     """
-    __slots__ = ('value', 'total_time')
+
+    __slots__ = ("value", "total_time")
     value: datetime.timedelta
     total_time: datetime.timedelta
 
