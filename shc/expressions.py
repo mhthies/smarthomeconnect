@@ -54,6 +54,7 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
 
     Additionally, the following methods are provided:
     """
+
     @staticmethod
     def __get_other_type(other: object) -> type:
         if isinstance(other, Readable) and isinstance(other, Subscribable):
@@ -244,6 +245,7 @@ class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     Wrapper for any *Readable* + *Subscribable* object to equip it with expression-building capabilities, inherited from
     :class:`ExpressionBuilder`
     """
+
     def __init__(self, wrapped: Subscribable[T]):
         super().__init__()
         self.wrapped = wrapped
@@ -269,6 +271,7 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
     objects are *Readable* (to evaluate the expression's current value on demand) and *Subscribable* (to evaluate and
     publish the expression's new value, when any of the operands is updated).
     """
+
     def __init__(self, type_: Type[T], operands: Iterable[object]):
         super().__init__()
         self.type = type_
@@ -309,6 +312,7 @@ class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic
 # Operator-based ExpressionHandlers #
 # ################################# #
 
+
 class BinaryExpressionHandler(ExpressionHandler[T], Generic[T]):
     def __init__(self, type_: Type[T], a, b, operator_: Callable[[Any, Any], T]):
         self.a = self._wrap_static_value(a)
@@ -317,8 +321,10 @@ class BinaryExpressionHandler(ExpressionHandler[T], Generic[T]):
         super().__init__(type_, (a, b))
 
     async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
-        return self.operator(received_value if received_from is self.a else await self.a.read(),
-                             received_value if received_from is self.b else await self.b.read())
+        return self.operator(
+            received_value if received_from is self.a else await self.a.read(),
+            received_value if received_from is self.b else await self.b.read(),
+        )
 
     def __repr__(self) -> str:
         return "{}[{}({}, {})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a), repr(self.b))
@@ -351,6 +357,7 @@ class UnaryCastExpressionHandler(UnaryExpressionHandler[T]):
 # Functional ExpressionHandlers #
 # ############################# #
 
+
 class IfThenElse(ExpressionHandler, Generic[T]):
     """
     A :class:`ExpressionHandler` version of the ``x if condition else y`` python syntax
@@ -365,17 +372,21 @@ class IfThenElse(ExpressionHandler, Generic[T]):
     :class:`TimerSwitch <shc.timer.TimerSwitch>` on a :class:`Variable <shc.variables.Variable>`), take a look at
     :class:`shc.misc.BreakableSubscription` instead.
     """
-    def __init__(self, condition: Union[bool, Readable[bool]], then: Union[T, Readable[T]],
-                 otherwise: Union[T, Readable[T]]):
+
+    def __init__(
+        self, condition: Union[bool, Readable[bool]], then: Union[T, Readable[T]], otherwise: Union[T, Readable[T]]
+    ):
         super().__init__(then.type if isinstance(then, Connectable) else type(then), (condition, then, otherwise))
         self.condition: Readable[bool] = self._wrap_static_value(condition)
         self.then = self._wrap_static_value(then)
         self.otherwise = self._wrap_static_value(otherwise)
 
     async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
-        return ((received_value if received_from is self.then else await self.then.read())  # type: ignore
-                if (received_value if received_from is self.condition else await self.condition.read())
-                else (received_value if received_from is self.otherwise else await self.otherwise.read()))
+        return (
+            (received_value if received_from is self.then else await self.then.read())  # type: ignore
+            if (received_value if received_from is self.condition else await self.condition.read())
+            else (received_value if received_from is self.otherwise else await self.otherwise.read())
+        )
 
 
 class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]):
@@ -402,20 +413,23 @@ class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]
     :class:`TimerSwitch <shc.timer.TimerSwitch>` on a :class:`Variable <shc.variables.Variable>`), take a look at
     :class:`shc.misc.BreakableSubscription` instead.
     """
+
     _synchronous_publishing = True
 
     def __init__(self, control: Readable[int], *inputs: Union[T, Readable[T]]):
         super().__init__()
         if not inputs:
             raise ValueError("Multiplexer must have at least one input")
-        self.inputs: List[Readable[T]] = [input_ if isinstance(input_, Readable)
-                                          else ExpressionHandler._wrap_static_value(input_)
-                                          for input_ in inputs]
+        self.inputs: List[Readable[T]] = [
+            input_ if isinstance(input_, Readable) else ExpressionHandler._wrap_static_value(input_)
+            for input_ in inputs
+        ]
         self.type: Type[T] = self.inputs[0].type
         for i, input_ in enumerate(self.inputs):
             if input_.type != self.type:
-                raise ValueError("Type of input {} ({}) does not match: {} instead of {}"
-                                 .format(i, input, input_.type, self.type))
+                raise ValueError(
+                    "Type of input {} ({}) does not match: {} instead of {}".format(i, input, input_.type, self.type)
+                )
             if isinstance(input_, Subscribable):
                 input_.trigger(self._new_value, synchronous=True)
 
@@ -475,8 +489,9 @@ def and_(a, b) -> Union[bool, BinaryCastExpressionHandler[bool]]:
 
     This is the workaround for Python's limitations on overriding the ``and`` operator.
     """
-    if (not (isinstance(a, Readable) and isinstance(a, Subscribable))
-            and not (isinstance(b, Readable) and isinstance(b, Subscribable))):
+    if not (isinstance(a, Readable) and isinstance(a, Subscribable)) and not (
+        isinstance(b, Readable) and isinstance(b, Subscribable)
+    ):
         return bool(a and b)
     return BinaryCastExpressionHandler(bool, a, b, operator.and_)
 
@@ -488,8 +503,9 @@ def or_(a, b) -> Union[bool, BinaryCastExpressionHandler[bool]]:
 
     This is the workaround for Python's limitations on overriding the ``or`` operator.
     """
-    if (not (isinstance(a, Readable) and isinstance(a, Subscribable))
-            and not (isinstance(b, Readable) and isinstance(b, Subscribable))):
+    if not (isinstance(a, Readable) and isinstance(a, Subscribable)) and not (
+        isinstance(b, Readable) and isinstance(b, Subscribable)
+    ):
         return bool(a or b)
     return BinaryCastExpressionHandler(bool, a, b, operator.or_)
 
@@ -526,10 +542,11 @@ def expression(func: Callable[..., T]) -> Type[ExpressionFunctionHandler[T]]:
 
     Currently only positional arguments (no keyword arguments) are supported for the functions.
     """
+
     class WrapHandler(ExpressionHandler[T]):
         def __init__(self, *args):
             self.args = [self._wrap_static_value(a) for a in args]
-            type_ = typing.get_type_hints(func).get('return')
+            type_ = typing.get_type_hints(func).get("return")
             if not type_:
                 raise TypeError("@expression requires the wrapped function to have a return type annotation")
             # Check if the type annotation is valid for runtime type checking
@@ -545,9 +562,8 @@ def expression(func: Callable[..., T]) -> Type[ExpressionFunctionHandler[T]]:
 
         async def evaluate(self, received_value: Optional[Any], received_from: Optional[Any]) -> T:
             return func(
-                *(await asyncio.gather(
-                    *(self._get_arg_value(a, received_value, received_from)
-                      for a in self.args))))
+                *(await asyncio.gather(*(self._get_arg_value(a, received_value, received_from) for a in self.args)))
+            )
 
         def __repr__(self) -> str:
             return "@expression[{}({})]".format(func.__name__, repr(self.args))
@@ -613,7 +629,7 @@ TYPES_MUL: Dict[Tuple[Type, Type], Type] = {
     (float, RangeFloat1): float,
     (RangeFloat1, int): int,
     (int, RangeFloat1): int,
-    (RangeFloat1, RangeFloat1): RangeFloat1
+    (RangeFloat1, RangeFloat1): RangeFloat1,
 }
 TYPES_FLOORDIV: Dict[Tuple[Type, Type], Type] = {
     (int, int): int,

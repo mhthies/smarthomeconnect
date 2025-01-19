@@ -17,6 +17,7 @@ The time series data, incl. live updates, is fetched from interfaces, which impl
 :class:`shc.data_logging.DataLogVariable` interface.
 See :ref:`data_logging`.
 """
+
 from dataclasses import dataclass
 import datetime
 import enum
@@ -32,13 +33,14 @@ from .interface import WebPageItem, WebUIConnector, jinja_env
 @dataclass
 class LogListDataSpec(Generic[T]):
     """Specification of one data log source and the formatting of its datapoints within a :class:`LogListWidget`"""
+
     #: The `DataLogVariable` (i.e. logging database connector) to retrieve the recent datapoints and updates from
     variable: DataLogVariable[T]
     #: Formatter function or format string to format the values
     format: Union[str, Markup, Callable[[Union[T, float]], Union[str, Markup]]] = "{}"
     #: A color name to highlight all rows belonging to this data log in the `LogListWidget`. Must be one of
     #: Fomantic-UIs's color names.
-    color: str = ''
+    color: str = ""
     #: Aggregation method of this datalog or None to disable aggregation
     aggregation: Optional[AggregationMethod] = None
     #: If `aggregation` is not None: The time span/period of the single aggregation intervals and aggregated datapoints
@@ -92,6 +94,7 @@ class LogListWidget(WebPageItem):
     :param data_spec: The list of data log sources and their individual display settings. See :class:`LogListDataSpec`'s
         documentation for available fields.
     """
+
     def __init__(self, interval: datetime.timedelta, data_spec: List[LogListDataSpec]):
         self.interval = interval
 
@@ -102,18 +105,25 @@ class LogListWidget(WebPageItem):
             formatter: Callable[[T], Union[str, Markup]] = (
                 (lambda x: spec.format.format(x))  # type: ignore
                 if isinstance(spec.format, (str, Markup))
-                else spec.format)
+                else spec.format
+            )
             aggregation_interval = spec.aggregation_interval if spec.aggregation_interval is not None else interval / 10
-            connector = LoggingWebUIView(spec.variable, interval, spec.aggregation, aggregation_interval,
-                                         converter=formatter, include_previous=False)
+            connector = LoggingWebUIView(
+                spec.variable,
+                interval,
+                spec.aggregation,
+                aggregation_interval,
+                converter=formatter,
+                include_previous=False,
+            )
             color = "" if not spec.color else spec.color + " colored"
             self.connectors.append(connector)
-            self.specs.append({'id': id(connector),
-                               'color': color})
+            self.specs.append({"id": id(connector), "color": color})
 
     async def render(self) -> str:
-        return await jinja_env.get_template('log/loglist.htm').render_async(
-            spec=self.specs, interval=round(self.interval.total_seconds() * 1000))
+        return await jinja_env.get_template("log/loglist.htm").render_async(
+            spec=self.specs, interval=round(self.interval.total_seconds() * 1000)
+        )
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         return self.connectors
@@ -148,6 +158,7 @@ class ChartLineInterpolation(enum.Enum):
 @dataclass
 class ChartDataSpec:
     """Specification of one data log source and the formatting of its datapoints within a :class:`ChartWidget`"""
+
     #: The `DataLogVariable` (i.e. logging database connector) to retrieve the recent datapoints and updates from
     variable: DataLogVariable
     label: str
@@ -223,6 +234,7 @@ class ChartWidget(WebPageItem):
     :param data_spec: The list of data log sources and their individual display settings. See :class:`ChartDataSpec`'s
         documentation for available fields.
     """
+
     COLORS = [
         (0, 181, 173),
         (219, 40, 40),
@@ -231,7 +243,7 @@ class ChartWidget(WebPageItem):
         (251, 189, 8),
     ]
 
-    def __init__(self, interval: datetime.timedelta,  data_spec: List[ChartDataSpec]):
+    def __init__(self, interval: datetime.timedelta, data_spec: List[ChartDataSpec]):
         self.interval = interval
         self.align_ticks_to = datetime.datetime(2020, 1, 1, 0, 0, 0)
         self.row_specs = []
@@ -242,10 +254,15 @@ class ChartWidget(WebPageItem):
             if aggregation_interval is None:
                 aggregation_interval = interval / 10
             is_aggregated = spec.aggregation is not None
-            connector = LoggingWebUIView(spec.variable, interval, spec.aggregation,
-                                         aggregation_interval, align_to=self.align_ticks_to,
-                                         converter=None if spec.scale_factor == 1.0 else lambda x: x*spec.scale_factor,
-                                         include_previous=True)
+            connector = LoggingWebUIView(
+                spec.variable,
+                interval,
+                spec.aggregation,
+                aggregation_interval,
+                align_to=self.align_ticks_to,
+                converter=None if spec.scale_factor == 1.0 else lambda x: x * spec.scale_factor,
+                include_previous=True,
+            )
             line_interpolation = spec.line_interpolation
             if line_interpolation == ChartLineInterpolation.AUTO:
                 line_interpolation = ChartLineInterpolation.SMOOTH if is_aggregated else ChartLineInterpolation.LINEAR
@@ -253,20 +270,25 @@ class ChartWidget(WebPageItem):
             if plot_style == ChartPlotStyle.AUTO:
                 plot_style = ChartPlotStyle.LINE_DOTS if is_aggregated else ChartPlotStyle.LINE_FILLED
             self.connectors.append(connector)
-            self.row_specs.append({'id': id(connector),
-                                   'color': spec.color if spec.color is not None else self.COLORS[i % len(self.COLORS)],
-                                   'label': spec.label,
-                                   'unit_symbol': spec.unit_symbol,
-                                   'extend_graph_to_now': not is_aggregated,
-                                   'stack_group': spec.stack_group,
-                                   'style': plot_style.value,
-                                   'interpolation': line_interpolation.value,
-                                   })
+            self.row_specs.append(
+                {
+                    "id": id(connector),
+                    "color": spec.color if spec.color is not None else self.COLORS[i % len(self.COLORS)],
+                    "label": spec.label,
+                    "unit_symbol": spec.unit_symbol,
+                    "extend_graph_to_now": not is_aggregated,
+                    "stack_group": spec.stack_group,
+                    "style": plot_style.value,
+                    "interpolation": line_interpolation.value,
+                }
+            )
 
     async def render(self) -> str:
-        return await jinja_env.get_template('log/chart.htm').render_async(
-            spec=self.row_specs, interval=round(self.interval.total_seconds() * 1000),
-            align_ticks_to=self.align_ticks_to.timestamp() * 1000)
+        return await jinja_env.get_template("log/chart.htm").render_async(
+            spec=self.row_specs,
+            interval=round(self.interval.total_seconds() * 1000),
+            align_ticks_to=self.align_ticks_to.timestamp() * 1000,
+        )
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
         return self.connectors

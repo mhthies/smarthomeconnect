@@ -88,7 +88,7 @@ class TestExpressions(unittest.TestCase):
         with self.assertRaises(TypeError):
             5.5 * var2.EX
         with self.assertRaises(TypeError):
-            (- var2.EX)
+            (-var2.EX)
         with self.assertRaises(TypeError):
             abs(var2.EX)
         with self.assertRaises(TypeError):

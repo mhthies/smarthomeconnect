@@ -8,7 +8,6 @@ from test.test_variables import ExampleTupleType
 
 
 class MiscTests(unittest.TestCase):
-
     @async_test
     async def test_two_way_pipe(self) -> None:
         pipe = shc.misc.TwoWayPipe(float)
@@ -141,8 +140,7 @@ class MiscTests(unittest.TestCase):
     @async_test
     async def test_fade_step_adapter(self) -> None:
         subscribable1 = ExampleSubscribable(shc.datatypes.FadeStep)
-        variable1 = shc.Variable(shc.datatypes.RangeFloat1)\
-            .connect(shc.misc.FadeStepAdapter(subscribable1))
+        variable1 = shc.Variable(shc.datatypes.RangeFloat1).connect(shc.misc.FadeStepAdapter(subscribable1))
 
         with self.assertLogs() as logs:
             await subscribable1.publish(shc.datatypes.FadeStep(0.5), [self])
@@ -177,9 +175,7 @@ class UpdateExchangeTest(unittest.TestCase):
     async def test_simple(self) -> None:
         target1 = ExampleWritable(int)
         target2 = ExampleWritable(int)
-        exchange = shc.misc.UpdateExchange(int) \
-            .connect(target1)\
-            .connect(target2)
+        exchange = shc.misc.UpdateExchange(int).connect(target1).connect(target2)
 
         await exchange.write(42, [self])
         await asyncio.sleep(0.05)
@@ -197,15 +193,13 @@ class UpdateExchangeTest(unittest.TestCase):
     async def test_field(self) -> None:
         target1 = ExampleWritable(ExampleTupleType)
         target2 = ExampleWritable(int)
-        exchange = shc.misc.UpdateExchange(ExampleTupleType) \
-            .connect(target1)
-        exchange.field('a')\
-            .connect(target2)
+        exchange = shc.misc.UpdateExchange(ExampleTupleType).connect(target1)
+        exchange.field("a").connect(target2)
 
         await exchange.write(ExampleTupleType(42, 3.1416), [self])
         await asyncio.sleep(0.05)
         target1._write.assert_called_once_with(ExampleTupleType(42, 3.1416), [self, exchange])
-        target2._write.assert_called_once_with(42, [self, exchange, exchange.field('a')])
+        target2._write.assert_called_once_with(42, [self, exchange, exchange.field("a")])
 
 
 class ConnectedExchangeVariableTest(unittest.TestCase):
@@ -213,9 +207,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
     async def test_simple_concurrent_update(self) -> None:
         var1 = shc.Variable(int)
         var2 = shc.Variable(int)
-        _exchange = shc.misc.UpdateExchange(int) \
-            .connect(var1)\
-            .connect(var2)  # noqa: F841
+        _exchange = shc.misc.UpdateExchange(int).connect(var1).connect(var2)  # noqa: F841
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
         await asyncio.sleep(0.1)
@@ -240,19 +232,17 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
     async def test_concurrent_field_update_publishing(self) -> None:
         for i in range(50):
             var1 = shc.Variable(ExampleTupleType, "var1")
-            exchange = shc.misc.UpdateExchange(ExampleTupleType)\
-                .connect(var1)
-            var3 = shc.Variable(int, "var3")\
-                .connect(exchange.field('a'))
+            exchange = shc.misc.UpdateExchange(ExampleTupleType).connect(var1)
+            var3 = shc.Variable(int, "var3").connect(exchange.field("a"))
             # For the back-direction to field-subscription, we do a manual up-conversion
             var3.subscribe(exchange, convert=lambda a: ExampleTupleType(a, 3.1416))
 
-            writable1 = ExampleWritable(int).connect(var1.field('a'))
+            writable1 = ExampleWritable(int).connect(var1.field("a"))
             writable3 = ExampleWritable(int).connect(var3)
 
             await asyncio.gather(var1.write(ExampleTupleType(42, 3.1416), []), var3.write(56, []))
             await asyncio.sleep(0.2)
-            self.assertEqual(await var1.field('a').read(), await var3.read())
+            self.assertEqual(await var1.field("a").read(), await var3.read())
 
             self.assertLessEqual(writable1._write.call_count, 10)
             self.assertLessEqual(writable3._write.call_count, 10)
@@ -268,6 +258,7 @@ class ExampleAdderFunctionBlock:
     should be created as an :ref:`SHC expression <expressions>`. Still, we can use it to test the simple connector
     types.
     """
+
     def __init__(self):
         self.a = shc.misc.SimpleInputConnector(int, self.__update)
         self.b = shc.misc.SimpleInputConnector(int, self.__update)
@@ -283,8 +274,7 @@ class SimpleConnectorTest(unittest.TestCase):
         adder = ExampleAdderFunctionBlock()
         adder.a.connect(ExampleReadable(int, 3))
         adder.b.connect(ExampleReadable(int, 0))
-        target = ExampleWritable(int)\
-            .connect(adder.result)
+        target = ExampleWritable(int).connect(adder.result)
 
         # Default value of result
         self.assertEqual(0, await adder.result.read())

@@ -21,6 +21,7 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
     :param keep: timespan for which to keep the values. Older values will be deleted upon the next `write` to the
                  object.
     """
+
     type: Type[T]
 
     def __init__(self, type_: Type[T], keep: datetime.timedelta):
@@ -37,8 +38,7 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
         # We do not need the complicated locking, queuing and flushing from WritableDataLogVariable here, since querying
         # and appending the in-memory log is "atomic" (in the sense of asyncio tasks), i.e. does not include an 'await'
         # statement.
-        tasks = [subscriber._new_log_values_written([entry])
-                 for subscriber in self._data_log_subscribers]
+        tasks = [subscriber._new_log_values_written([entry]) for subscriber in self._data_log_subscribers]
         if len(tasks) == 1:
             await tasks[0]
         else:
@@ -61,8 +61,9 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
     def subscribe_data_log(self, subscriber: LiveDataLogView) -> None:
         self._data_log_subscribers.append(subscriber)
 
-    async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
-                           include_previous: bool = False) -> List[Tuple[datetime.datetime, T]]:
+    async def retrieve_log(
+        self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = False
+    ) -> List[Tuple[datetime.datetime, T]]:
         iterator = iter(enumerate(self.data))
         try:
             start_index = next(i for i, (ts, _v) in iterator if ts >= start_time)
@@ -73,7 +74,7 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
                 return []
         if self.data[start_index][0] >= end_time:
             if include_previous and self.data:
-                return self.data[start_index:start_index+1]
+                return self.data[start_index : start_index + 1]
             else:
                 return []
         if include_previous and start_index > 0:

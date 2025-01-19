@@ -8,16 +8,17 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
-""" Outsourced C function bindings for volume conversion in the pulse interface datatypes.
+"""Outsourced C function bindings for volume conversion in the pulse interface datatypes.
 
 Loading this module requires libpulse to be installed.
 """
+
 import ctypes as c
 import ctypes.util
 from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP
 
 
-libpulse = c.CDLL(ctypes.util.find_library('libpulse') or 'libpulse.so.0')
+libpulse = c.CDLL(ctypes.util.find_library("libpulse") or "libpulse.so.0")
 
 pa_volume_t = c.c_uint32
 pa_cvolume_max = libpulse.pa_cvolume_max

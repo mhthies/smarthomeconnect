@@ -58,6 +58,7 @@ class FilePersistenceStore(AbstractInterface):
     :param file: Path of the JSON file to be used for persistence. Will be created if not already exists. If already
         existent, it must be a valid JSON file with a single object as top-level structure.
     """
+
     def __init__(self, file: Path):
         super().__init__()
         self.file = file
@@ -73,14 +74,14 @@ class FilePersistenceStore(AbstractInterface):
         file_exists = await asyncio.get_event_loop().run_in_executor(None, self.file.exists)
         if file_exists:
             logger.info("Using existing file persistence store at %s ...", self.file)
-            fd = aiofile.async_open(self.file, 'rb')
+            fd = aiofile.async_open(self.file, "rb")
             assert isinstance(fd, aiofile.BinaryFileWrapper)
             self._fd = fd
             await self._fd.file.open()
             await self.rewrite()
         else:
             logger.info("Creating new file persistence store at %s ...", self.file)
-            fd = aiofile.async_open(self.file, 'xb+')
+            fd = aiofile.async_open(self.file, "xb+")
             assert isinstance(fd, aiofile.BinaryFileWrapper)
             self._fd = fd
             await self._fd.file.open()
@@ -99,23 +100,28 @@ class FilePersistenceStore(AbstractInterface):
         async with self._file_mutex:
             # Read all current data in main file as JSON document
             self._fd.seek(0)
-            data = json.loads((await self._fd.read()).decode('utf-8'))
+            data = json.loads((await self._fd.read()).decode("utf-8"))
             assert isinstance(data, dict)
 
             # Re-write data into temp file
-            new_fd = aiofile.async_open(tmp_file, 'xb+')
+            new_fd = aiofile.async_open(tmp_file, "xb+")
             assert isinstance(new_fd, aiofile.BinaryFileWrapper)
             await new_fd.file.open()
             await new_fd.write(b"{\n")
             new_map = {}
             for key, value in data.items():
-                if key == '_':
+                if key == "_":
                     continue
                 start = new_fd.tell()
                 key_written = await new_fd.write(b'"' + key.encode() + b'":')
-                value_written = await new_fd.write(json.dumps(value, separators=(',', ':')).encode('utf-8')
-                                                   + (b' ' * NUM_BUFFER_SPACES) + b',\n')
-                new_map[key] = (start, key_written, value_written-2)  # Do not count the ',\n' into the available length
+                value_written = await new_fd.write(
+                    json.dumps(value, separators=(",", ":")).encode("utf-8") + (b" " * NUM_BUFFER_SPACES) + b",\n"
+                )
+                new_map[key] = (
+                    start,
+                    key_written,
+                    value_written - 2,
+                )  # Do not count the ',\n' into the available length
             self._footer_offset = new_fd.tell()
             await new_fd.write(FOOTER)
             await new_fd.file.fsync()
@@ -136,11 +142,11 @@ class FilePersistenceStore(AbstractInterface):
                 return None
             offset, key_length, capacity = self._element_map[name]
             self._fd.seek(offset + key_length)
-            return json.loads((await self._fd.read(capacity)).decode('utf-8'))
+            return json.loads((await self._fd.read(capacity)).decode("utf-8"))
 
     async def set_element(self, name: str, value: Any) -> None:
         await self._file_ready.wait()
-        data = json.dumps(value, separators=(',', ':')).encode('utf-8')
+        data = json.dumps(value, separators=(",", ":")).encode("utf-8")
         logger.debug("Writing to file persistence store %s: %s = %s ...", name, data)
         length = len(data)
         await self._file_ready.wait()
@@ -151,12 +157,12 @@ class FilePersistenceStore(AbstractInterface):
                     # Clear out current element line with spaces and activate appending a new line to the end of the
                     # file
                     self._fd.seek(offset)
-                    await self._fd.write(b' ' * (key_length + capacity + 1))  # overwrite ',' at the end with ' '
+                    await self._fd.write(b" " * (key_length + capacity + 1))  # overwrite ',' at the end with ' '
                     self._abandoned_lines += 1
                     append = True
                 else:
                     self._fd.seek(offset + key_length)
-                    await self._fd.write(data + (b' ' * (capacity - length)))
+                    await self._fd.write(data + (b" " * (capacity - length)))
                     append = False
                     logger.debug("Updated file persistence store in-place")
             else:
@@ -165,8 +171,9 @@ class FilePersistenceStore(AbstractInterface):
                 self._fd.seek(self._footer_offset)  # overwrite full-footer at the end of the file to rewrite it later
                 start = self._fd.tell()
                 key_written = await self._fd.write(b'"' + name.encode() + b'":')
-                value_written = await self._fd.write(json.dumps(value, separators=(',', ':')).encode('utf-8')
-                                                     + (b' ' * NUM_BUFFER_SPACES) + b',\n')
+                value_written = await self._fd.write(
+                    json.dumps(value, separators=(",", ":")).encode("utf-8") + (b" " * NUM_BUFFER_SPACES) + b",\n"
+                )
                 self._footer_offset = self._fd.tell()
                 await self._fd.write(FOOTER)
                 self._element_map[name] = (start, key_written, value_written - 2)

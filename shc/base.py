@@ -20,18 +20,18 @@ from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar,
 
 from . import conversion
 
-S = TypeVar('S')
-T = TypeVar('T')
-T_co = TypeVar('T_co')
-T_con = TypeVar('T_con')
+S = TypeVar("S")
+T = TypeVar("T")
+T_co = TypeVar("T_co")
+T_con = TypeVar("T_con")
 LogicHandler = Callable[[T, List[Any]], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
-magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar('shc_origin')
+magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar("shc_origin")
 MAX_CONCURRENT_UPDATE_DELAY = 0.02
 
-C = TypeVar('C', bound="Connectable")
+C = TypeVar("C", bound="Connectable")
 
 
 class ResetOriginSentinel:
@@ -45,14 +45,18 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
     """
     :cvar type: The type of the values, this object is supposed to handle
     """
+
     type: Type[T]
 
-    def connect(self: C, other: "Connectable[S]",
-                send: Optional[bool] = None,
-                receive: Optional[bool] = None,
-                read: Optional[bool] = None,
-                provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[T], S], Callable[[S], T]]] = False) -> C:
+    def connect(
+        self: C,
+        other: "Connectable[S]",
+        send: Optional[bool] = None,
+        receive: Optional[bool] = None,
+        read: Optional[bool] = None,
+        provide: Optional[bool] = None,
+        convert: Union[bool, Tuple[Callable[[T], S], Callable[[S], T]]] = False,
+    ) -> C:
         """
         Subscribe self to other and set as default_provider and vice versa (depending on the two object's capabilities,
         optionalities and given parameters).
@@ -83,43 +87,62 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
         if isinstance(other, ConnectableWrapper):
             # If other object is not connectable itself but wraps one or more connectable objects (like, for example, a
             # `web.widgets.ValueButtonGroup`), let it use its special implementation of `connect()`.
-            other.connect(self, send=receive, receive=send, read=provide, provide=read,
-                          convert=((convert[1], convert[0]) if isinstance(convert, tuple) else convert))
+            other.connect(
+                self,
+                send=receive,
+                receive=send,
+                read=provide,
+                provide=read,
+                convert=((convert[1], convert[0]) if isinstance(convert, tuple) else convert),
+            )
         else:
             self._connect_with(self, other, send, provide, convert[0] if isinstance(convert, tuple) else convert)
             self._connect_with(other, self, receive, read, convert[1] if isinstance(convert, tuple) else convert)
         return self
 
     @staticmethod
-    def _connect_with(source: "Connectable", target: "Connectable", send: Optional[bool], provide: Optional[bool],
-                      convert: Union[bool, Callable]):
+    def _connect_with(
+        source: "Connectable",
+        target: "Connectable",
+        send: Optional[bool],
+        provide: Optional[bool],
+        convert: Union[bool, Callable],
+    ):
         if isinstance(source, Subscribable) and isinstance(target, Writable) and (send or send is None):
             source.subscribe(target, convert=convert)
         elif send and not isinstance(source, Subscribable):
             raise TypeError("Cannot subscribe {} to {}, since the latter is not Subscribable".format(target, source))
         elif send and not isinstance(target, Writable):
             raise TypeError("Cannot subscribe {} to {}, since the former is not Writable".format(target, source))
-        if isinstance(source, Readable) and isinstance(target, Reading) \
-                and (provide or (provide is None and not target.is_reading_optional)):
+        if (
+            isinstance(source, Readable)
+            and isinstance(target, Reading)
+            and (provide or (provide is None and not target.is_reading_optional))
+        ):
             target.set_provider(source, convert=convert)
         elif provide and not isinstance(source, Readable):
-            raise TypeError("Cannot use {} as read provider for {}, since the former is not Readable"
-                            .format(source, target))
+            raise TypeError(
+                "Cannot use {} as read provider for {}, since the former is not Readable".format(source, target)
+            )
         elif provide and not isinstance(target, Reading):
-            raise TypeError("Cannot use {} as read provider for {}, since the latter is not Reading"
-                            .format(source, target))
+            raise TypeError(
+                "Cannot use {} as read provider for {}, since the latter is not Reading".format(source, target)
+            )
 
 
 class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     type: Type[T]
 
     @abc.abstractmethod
-    def connect(self: C, other: "Connectable",
-                send: Optional[bool] = None,
-                receive: Optional[bool] = None,
-                read: Optional[bool] = None,
-                provide: Optional[bool] = None,
-                convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False) -> C:
+    def connect(
+        self: C,
+        other: "Connectable",
+        send: Optional[bool] = None,
+        receive: Optional[bool] = None,
+        read: Optional[bool] = None,
+        provide: Optional[bool] = None,
+        convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False,
+    ) -> C:
         pass
 
 
@@ -208,8 +231,15 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         self._triggers: List[Tuple[LogicHandler, bool]] = []
         self._pending_updates: Dict[int, Dict[asyncio.Task, Optional[int]]] = {}
 
-    async def __publish_write(self, subscriber: Writable[S], converter: Optional[Callable[[T_co], S]], value: T_co,
-                              origin: List[Any], use_pending: bool, wait_and_check: Optional[int] = None):
+    async def __publish_write(
+        self,
+        subscriber: Writable[S],
+        converter: Optional[Callable[[T_co], S]],
+        value: T_co,
+        origin: List[Any],
+        use_pending: bool,
+        wait_and_check: Optional[int] = None,
+    ):
         try:
             if wait_and_check is not None:
                 await asyncio.sleep(random.random() * 0.02)
@@ -222,8 +252,14 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             if use_pending:
                 del self._pending_updates[id(subscriber)][asyncio.current_task()]  # type: ignore
 
-    async def __publish_trigger(self, target: LogicHandler, value: T_co,
-                                origin: List[Any], use_pending: bool, wait_and_check: Optional[int] = None):
+    async def __publish_trigger(
+        self,
+        target: LogicHandler,
+        value: T_co,
+        origin: List[Any],
+        use_pending: bool,
+        wait_and_check: Optional[int] = None,
+    ):
         try:
             if wait_and_check is not None:
                 await asyncio.sleep(random.random() * 0.02)
@@ -272,28 +308,42 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             for subscriber, converter in self._subscribers:
                 prev_step = id(origin[-1]) if origin else None
                 first_step = origin[0] if origin else None
-                reset_origin = (any(o != prev_step for o in self._pending_updates[id(subscriber)].values())
-                                or first_step is RESET_ORIGIN_SENTINEL)
+                reset_origin = (
+                    any(o != prev_step for o in self._pending_updates[id(subscriber)].values())
+                    or first_step is RESET_ORIGIN_SENTINEL
+                )
                 if reset_origin:
                     logger.info("Resetting origin from %s to %s; value=%s; origin=%s", self, subscriber, value, origin)
                 if reset_origin or not any(s is subscriber for s in origin):
                     task = asyncio.create_task(
-                        self.__publish_write(subscriber, converter, value,
-                                             [RESET_ORIGIN_SENTINEL] if reset_origin else origin,
-                                             use_pending=True,
-                                             wait_and_check=self._publish_count if reset_origin else None))
+                        self.__publish_write(
+                            subscriber,
+                            converter,
+                            value,
+                            [RESET_ORIGIN_SENTINEL] if reset_origin else origin,
+                            use_pending=True,
+                            wait_and_check=self._publish_count if reset_origin else None,
+                        )
+                    )
                     self._pending_updates[id(subscriber)][task] = prev_step
             for target, sync in self._triggers:
                 reset_origin = False
                 if sync:
                     prev_step = id(origin[-1]) if origin else None
                     first_step = origin[0] if origin else None
-                    reset_origin = (any(o != prev_step for o in self._pending_updates[id(target)].values())
-                                    or first_step is RESET_ORIGIN_SENTINEL)
+                    reset_origin = (
+                        any(o != prev_step for o in self._pending_updates[id(target)].values())
+                        or first_step is RESET_ORIGIN_SENTINEL
+                    )
                 task = asyncio.create_task(
-                    self.__publish_trigger(target, value, [RESET_ORIGIN_SENTINEL] if reset_origin else origin,
-                                           use_pending=sync,
-                                           wait_and_check=(self._publish_count if reset_origin else None)))
+                    self.__publish_trigger(
+                        target,
+                        value,
+                        [RESET_ORIGIN_SENTINEL] if reset_origin else origin,
+                        use_pending=sync,
+                        wait_and_check=(self._publish_count if reset_origin else None),
+                    )
+                )
                 if sync:
                     self._pending_updates[id(target)][task] = prev_step
 
@@ -322,13 +372,14 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         for target, sync in self._triggers:
             if not sync:
                 asyncio.create_task(self.__publish_trigger(target, value, origin, False))
-        sync_jobs = [self.__publish_write(subscriber, converter, value, origin, False)
-                     for subscriber, converter in self._subscribers
-                     if not any(s is subscriber for s in origin)]
+        sync_jobs = [
+            self.__publish_write(subscriber, converter, value, origin, False)
+            for subscriber, converter in self._subscribers
+            if not any(s is subscriber for s in origin)
+        ]
         sync_jobs.extend(
-            self.__publish_trigger(target, value, origin, False)
-            for target, sync in self._triggers
-            if sync)
+            self.__publish_trigger(target, value, origin, False) for target, sync in self._triggers if sync
+        )
         if len(sync_jobs) == 1:
             await sync_jobs[0]
         elif sync_jobs:
@@ -358,8 +409,11 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         elif convert:
             converter = conversion.get_converter(self.type, subscriber.type)
         else:
-            raise TypeError("Type mismatch of subscriber {} ({}) for {} ({})"
-                            .format(repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__))
+            raise TypeError(
+                "Type mismatch of subscriber {} ({}) for {} ({})".format(
+                    repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__
+                )
+            )
         self._subscribers.append((subscriber, converter))
         if self._stateful_publishing:
             self._pending_updates[id(subscriber)] = {}
@@ -431,8 +485,11 @@ class Reading(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
         elif convert:
             converter = conversion.get_converter(provider.type, self.type)
         else:
-            raise TypeError("Type mismatch of Readable {} ({}) as provider for {} ({})"
-                            .format(repr(provider), provider.type.__name__, repr(self), self.type.__name__))
+            raise TypeError(
+                "Type mismatch of Readable {} ({}) as provider for {} ({})".format(
+                    repr(provider), provider.type.__name__, repr(self), self.type.__name__
+                )
+            )
         self._default_provider = (provider, converter)
 
     async def _from_provider(self) -> Optional[T_con]:
@@ -454,9 +511,7 @@ class Reading(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
         return convert(val) if convert else val
 
 
-LogicHandlerOptionalParams = Union[LogicHandler,
-                                   Callable[[T], Awaitable[None]],
-                                   Callable[[], Awaitable[None]]]
+LogicHandlerOptionalParams = Union[LogicHandler, Callable[[T], Awaitable[None]], Callable[[], Awaitable[None]]]
 
 
 def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandlerOptionalParams], LogicHandler]:
@@ -483,6 +538,7 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
         passed values and/or the `origin` list itself to prevent infinite feedback loops via `write` calls or calls to
         other logic handlers – especiaally when used together with `reset_origin`.
     """
+
     def decorator(f: LogicHandlerOptionalParams) -> LogicHandler:
         num_args = _count_function_args(f)
 
@@ -508,13 +564,13 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
                 magicOriginVar.reset(token)
             except Exception as e:
                 logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
+
         return wrapper
+
     return decorator
 
 
-BlockingLogicHandlerOptionalParams = Union[Callable[[T, List[Any]], None],
-                                           Callable[[T], None],
-                                           Callable[[], None]]
+BlockingLogicHandlerOptionalParams = Union[Callable[[T, List[Any]], None], Callable[[T], None], Callable[[], None]]
 
 
 def blocking_handler() -> Callable[[BlockingLogicHandlerOptionalParams], LogicHandler]:
@@ -531,6 +587,7 @@ def blocking_handler() -> Callable[[BlockingLogicHandlerOptionalParams], LogicHa
     include special measures for preparing and passing the `origin` list or avoiding recursive execution. Still, it
     takes care of the correct number of arguments (zero to two) for calling the function.
     """
+
     def decorator(f: BlockingLogicHandlerOptionalParams) -> LogicHandler:
         num_args = _count_function_args(f)
 
@@ -549,7 +606,9 @@ def blocking_handler() -> Callable[[BlockingLogicHandlerOptionalParams], LogicHa
                 await loop.run_in_executor(None, f, *args)  # type: ignore
             except Exception as e:
                 logger.error("Error while executing handler %s():", f.__name__, exc_info=e)
+
         return wrapper
+
     return decorator
 
 

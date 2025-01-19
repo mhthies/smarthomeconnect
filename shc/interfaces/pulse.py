@@ -13,12 +13,23 @@ import asyncio
 import logging
 from collections import defaultdict, deque
 from typing import (
-    NamedTuple, List, Optional, Generic, Type, Any, DefaultDict, Tuple, Callable, Deque, Set, TYPE_CHECKING)
+    NamedTuple,
+    List,
+    Optional,
+    Generic,
+    Type,
+    Any,
+    DefaultDict,
+    Tuple,
+    Callable,
+    Deque,
+    Set,
+    TYPE_CHECKING,
+)
 import ctypes as c
 
 if TYPE_CHECKING:
-    from pulsectl import (
-        PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo)
+    from pulsectl import PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo
     from pulsectl_asyncio import PulseAsync
 
 import shc.conversion
@@ -41,6 +52,7 @@ class PulseVolumeRaw(NamedTuple):
             for reference. This is required for converting into the component-based :class:`PulseVolumeComponents`
             representation.
     """
+
     values: list = []
     map: list = []
 
@@ -69,6 +81,7 @@ class PulseVolumeComponents(NamedTuple):
             for typical 5.1 surround devices. See https://freedesktop.org/software/pulseaudio/doxygen/channelmap_8h.html
             for reference. This is required for the conversion functions to/from :class:`PulseVolumeRaw`.
     """
+
     volume: RangeFloat1 = RangeFloat1(1.0)
     balance: Balance = Balance(0.0)
     fade: Balance = Balance(0.0)
@@ -87,8 +100,13 @@ class PulseVolumeComponents(NamedTuple):
         This method is the SHC default converter from :class:`PulseVolumeComponents` to :class:`PulseVolumeRaw`.
         """
         from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
-        from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
-            pa_cvolume_set_balance, pa_cvolume_scale
+        from shc.interfaces._pulse_ffi import (
+            pa_volume_t,
+            pa_cvolume_set_lfe_balance,
+            pa_cvolume_set_fade,
+            pa_cvolume_set_balance,
+            pa_cvolume_scale,
+        )
 
         num_channels = len(self.normalized_values)
         cvolume = PA_CVOLUME(num_channels, (pa_volume_t * PA_CHANNELS_MAX)(*self.normalized_values))
@@ -97,7 +115,7 @@ class PulseVolumeComponents(NamedTuple):
         pa_cvolume_set_fade(cvolume, cmap, self.fade)
         pa_cvolume_set_balance(cvolume, cmap, self.balance)
         pa_cvolume_scale(cvolume, round(self.volume * PA_VOLUME_NORM))
-        return PulseVolumeRaw([v / PA_VOLUME_NORM for v in cvolume.values[:cvolume.channels]], self.map)
+        return PulseVolumeRaw([v / PA_VOLUME_NORM for v in cvolume.values[: cvolume.channels]], self.map)
 
     @classmethod
     def from_channels(cls, raw_volume: PulseVolumeRaw) -> "PulseVolumeComponents":
@@ -110,13 +128,22 @@ class PulseVolumeComponents(NamedTuple):
         This method is the SHC default converter from :class:`PulseVolumeRaw` to :class:`PulseVolumeComponents`.
         """
         from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
-        from shc.interfaces._pulse_ffi import pa_volume_t, pa_cvolume_set_lfe_balance, pa_cvolume_set_fade, \
-            pa_cvolume_set_balance, pa_cvolume_scale, pa_cvolume_max, pa_cvolume_get_balance, pa_cvolume_get_fade, \
-            pa_cvolume_get_lfe_balance
+        from shc.interfaces._pulse_ffi import (
+            pa_volume_t,
+            pa_cvolume_set_lfe_balance,
+            pa_cvolume_set_fade,
+            pa_cvolume_set_balance,
+            pa_cvolume_scale,
+            pa_cvolume_max,
+            pa_cvolume_get_balance,
+            pa_cvolume_get_fade,
+            pa_cvolume_get_lfe_balance,
+        )
 
         num_channels = len(raw_volume.values)
-        cvolume = PA_CVOLUME(num_channels, (pa_volume_t * PA_CHANNELS_MAX)(*(round(PA_VOLUME_NORM * v)
-                                                                             for v in raw_volume.values)))
+        cvolume = PA_CVOLUME(
+            num_channels, (pa_volume_t * PA_CHANNELS_MAX)(*(round(PA_VOLUME_NORM * v) for v in raw_volume.values))
+        )
         cmap = PA_CHANNEL_MAP(num_channels, (c.c_int * PA_CHANNELS_MAX)(*raw_volume.map))
         volume = pa_cvolume_max(cvolume) / PA_VOLUME_NORM
         pa_cvolume_scale(cvolume, PA_VOLUME_NORM)
@@ -126,8 +153,14 @@ class PulseVolumeComponents(NamedTuple):
         pa_cvolume_set_fade(cvolume, cmap, 0.0)
         lfe_balance = pa_cvolume_get_lfe_balance(cvolume, cmap)
         pa_cvolume_set_lfe_balance(cvolume, cmap, 0.0)
-        return cls(RangeFloat1(volume), Balance(balance), Balance(fade), Balance(lfe_balance),
-                   list(cvolume.values)[:num_channels], raw_volume.map)
+        return cls(
+            RangeFloat1(volume),
+            Balance(balance),
+            Balance(fade),
+            Balance(lfe_balance),
+            list(cvolume.values)[:num_channels],
+            raw_volume.map,
+        )
 
 
 shc.conversion.register_converter(PulseVolumeRaw, PulseVolumeComponents, PulseVolumeComponents.from_channels)
@@ -214,8 +247,14 @@ class PulseAudioInterface(SupervisedClientInterface):
         attempt on startup is not retried and will raise an exception from `start()` on failure, even if
         `auto_reconnect` is True.
     """
-    def __init__(self, pulse_client_name: str = "smarthomeconnect", pulse_server_socket: Optional[str] = None,
-                 auto_reconnect: bool = True, failsafe_start: bool = False):
+
+    def __init__(
+        self,
+        pulse_client_name: str = "smarthomeconnect",
+        pulse_server_socket: Optional[str] = None,
+        auto_reconnect: bool = True,
+        failsafe_start: bool = False,
+    ):
         super().__init__(auto_reconnect, failsafe_start)
         from pulsectl_asyncio import PulseAsync
 
@@ -226,9 +265,11 @@ class PulseAudioInterface(SupervisedClientInterface):
         self.source_connectors_by_name: DefaultDict[Optional[str], List["SourceConnector"]] = defaultdict(list)
 
         self._default_sink_name_connector = DefaultNameConnector(
-            self.pulse, "default_sink_name", self._register_origin_callback)
+            self.pulse, "default_sink_name", self._register_origin_callback
+        )
         self._default_source_name_connector = DefaultNameConnector(
-            self.pulse, "default_source_name", self._register_origin_callback)
+            self.pulse, "default_source_name", self._register_origin_callback
+        )
         #: A subset of {'source', 'sink', 'server'}
         self._subscribe_facilities: Set[str] = set()
 
@@ -251,31 +292,43 @@ class PulseAudioInterface(SupervisedClientInterface):
             if sink_info.name == server_info.default_sink_name:
                 sink_connectors += self.sink_connectors_by_name.get(None, [])
             if sink_connectors:
-                logging.debug("Pulseaudio sink \"%s\" is already available. Mapping %s connectors to sink id %s",
-                              sink_info.name, len(sink_connectors), sink_info.index)
+                logging.debug(
+                    'Pulseaudio sink "%s" is already available. Mapping %s connectors to sink id %s',
+                    sink_info.name,
+                    len(sink_connectors),
+                    sink_info.index,
+                )
             for connector in sink_connectors:
                 try:
                     connector.change_id(sink_info.index)
                     self.sink_connectors_by_id[sink_info.index].append(connector)
                     connector.on_change(sink_info, [])
                 except Exception as e:
-                    logging.error("Error while initializing connector %s with current data of sink", connector,
-                                  exc_info=e)
+                    logging.error(
+                        "Error while initializing connector %s with current data of sink", connector, exc_info=e
+                    )
         for source_info in await self.pulse.source_list():
             source_connectors = self.source_connectors_by_name.get(source_info.name, [])
             if source_info.name == server_info.default_source_name:
                 source_connectors += self.source_connectors_by_name.get(None, [])
             if source_connectors:
-                logging.debug("Pulseaudio source \"%s\" is already available. Mapping %s connectors to source id %s",
-                              source_info.name, len(source_connectors), source_info.index)
+                logging.debug(
+                    'Pulseaudio source "%s" is already available. Mapping %s connectors to source id %s',
+                    source_info.name,
+                    len(source_connectors),
+                    source_info.index,
+                )
             for source_connector in source_connectors:
                 try:
                     source_connector.change_id(source_info.index)
                     self.source_connectors_by_id[source_info.index].append(source_connector)
                     source_connector.on_change(source_info, [])
                 except Exception as e:
-                    logging.error("Error while initializing connector %s with current data of source", source_connector,
-                                  exc_info=e)
+                    logging.error(
+                        "Error while initializing connector %s with current data of source",
+                        source_connector,
+                        exc_info=e,
+                    )
 
     async def _run(self) -> None:
         self._running.set()
@@ -287,6 +340,7 @@ class PulseAudioInterface(SupervisedClientInterface):
 
     async def _dispatch_pulse_event(self, event: "PulseEventInfo") -> None:
         from pulsectl import PulseEventTypeEnum, PulseEventFacilityEnum
+
         logger.debug("Dispatching Pulse audio event: %s", event)
 
         if event.t is PulseEventTypeEnum.new:
@@ -387,113 +441,113 @@ class PulseAudioInterface(SupervisedClientInterface):
         self._change_event_origin[(facility, index)].append(origin)
 
     def sink_volume(self, sink_name: str) -> "SinkVolumeConnector":
-        self._subscribe_facilities.add('sink')
+        self._subscribe_facilities.add("sink")
         connector = SinkVolumeConnector(self.pulse, self._register_origin_callback)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_muted(self, sink_name: str) -> "SinkMuteConnector":
-        self._subscribe_facilities.add('sink')
+        self._subscribe_facilities.add("sink")
         connector = SinkMuteConnector(self.pulse, self._register_origin_callback)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_running(self, sink_name: str) -> "SinkStateConnector":
-        self._subscribe_facilities.add('sink')
+        self._subscribe_facilities.add("sink")
         connector = SinkStateConnector(self.pulse)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_peak_monitor(self, sink_name: str, frequency: int = 1) -> "SinkPeakConnector":
-        self._subscribe_facilities.add('sink')
+        self._subscribe_facilities.add("sink")
         connector = SinkPeakConnector(self.pulse, frequency)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def default_sink_volume(self) -> "SinkVolumeConnector":
-        self._subscribe_facilities.add('server')
-        self._subscribe_facilities.add('sink')
+        self._subscribe_facilities.add("server")
+        self._subscribe_facilities.add("sink")
         connector = SinkVolumeConnector(self.pulse, self._register_origin_callback)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_muted(self) -> "SinkMuteConnector":
-        self._subscribe_facilities.add('server')
-        self._subscribe_facilities.add('sink')
+        self._subscribe_facilities.add("server")
+        self._subscribe_facilities.add("sink")
         connector = SinkMuteConnector(self.pulse, self._register_origin_callback)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_running(self) -> "SinkStateConnector":
-        self._subscribe_facilities.add('server')
-        self._subscribe_facilities.add('sink')
+        self._subscribe_facilities.add("server")
+        self._subscribe_facilities.add("sink")
         connector = SinkStateConnector(self.pulse)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_peak_monitor(self, frequency: int = 1) -> "SinkPeakConnector":
-        self._subscribe_facilities.add('server')
+        self._subscribe_facilities.add("server")
         connector = SinkPeakConnector(self.pulse, frequency)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_name(self) -> "DefaultNameConnector":
-        self._subscribe_facilities.add('server')
+        self._subscribe_facilities.add("server")
         return self._default_sink_name_connector
 
     def source_volume(self, source_name: str) -> "SourceVolumeConnector":
-        self._subscribe_facilities.add('source')
+        self._subscribe_facilities.add("source")
         connector = SourceVolumeConnector(self.pulse, self._register_origin_callback)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
     def source_muted(self, source_name: str) -> "SourceMuteConnector":
-        self._subscribe_facilities.add('source')
+        self._subscribe_facilities.add("source")
         connector = SourceMuteConnector(self.pulse, self._register_origin_callback)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
     def source_running(self, source_name: str) -> "SourceStateConnector":
-        self._subscribe_facilities.add('source')
+        self._subscribe_facilities.add("source")
         connector = SourceStateConnector(self.pulse)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
     def source_peak_monitor(self, source_name: str, frequency: int = 1) -> "SourcePeakConnector":
-        self._subscribe_facilities.add('source')
+        self._subscribe_facilities.add("source")
         connector = SourcePeakConnector(self.pulse, frequency)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
     def default_source_volume(self) -> "SourceVolumeConnector":
-        self._subscribe_facilities.add('source')
-        self._subscribe_facilities.add('server')
+        self._subscribe_facilities.add("source")
+        self._subscribe_facilities.add("server")
         connector = SourceVolumeConnector(self.pulse, self._register_origin_callback)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
     def default_source_muted(self) -> "SourceMuteConnector":
-        self._subscribe_facilities.add('source')
-        self._subscribe_facilities.add('server')
+        self._subscribe_facilities.add("source")
+        self._subscribe_facilities.add("server")
         connector = SourceMuteConnector(self.pulse, self._register_origin_callback)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
     def default_source_running(self) -> "SourceStateConnector":
-        self._subscribe_facilities.add('source')
-        self._subscribe_facilities.add('server')
+        self._subscribe_facilities.add("source")
+        self._subscribe_facilities.add("server")
         connector = SourceStateConnector(self.pulse)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
     def default_source_peak_monitor(self, frequency: int = 1) -> "SourcePeakConnector":
-        self._subscribe_facilities.add('server')
+        self._subscribe_facilities.add("server")
         connector = SourcePeakConnector(self.pulse, frequency)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
     def default_source_name(self) -> "DefaultNameConnector":
-        self._subscribe_facilities.add('server')
+        self._subscribe_facilities.add("server")
         return self._default_source_name_connector
 
     def __repr__(self) -> str:
@@ -610,7 +664,7 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
-        self.register_origin_callback('sink', self.current_id, origin)
+        self.register_origin_callback("sink", self.current_id, origin)
         await self.pulse.sink_mute(self.current_id, value)
 
 
@@ -625,7 +679,7 @@ class SourceMuteConnector(SourceAttributeConnector[bool], Writable[bool]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
             raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
-        self.register_origin_callback('source', self.current_id, origin)
+        self.register_origin_callback("source", self.current_id, origin)
         await self.pulse.source_mute(self.current_id, value)
 
 
@@ -642,7 +696,7 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
 
         if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
-        self.register_origin_callback('sink', self.current_id, origin)
+        self.register_origin_callback("sink", self.current_id, origin)
         await self.pulse.sink_volume_set(self.current_id, PulseVolumeInfo(value.values))
 
 
@@ -659,7 +713,7 @@ class SourceVolumeConnector(SourceAttributeConnector[PulseVolumeRaw], Writable[P
 
         if self.current_id is None:
             raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
-        self.register_origin_callback('source', self.current_id, origin)
+        self.register_origin_callback("source", self.current_id, origin)
         await self.pulse.source_volume_set(self.current_id, PulseVolumeInfo(value.values))
 
 
@@ -740,8 +794,8 @@ class DefaultNameConnector(Subscribable[str], Readable[str], Writable[str]):
         return getattr(server_info, self.attr)
 
     async def _write(self, value: str, origin: List[Any]) -> None:
-        self.register_origin_callback('server', 0, origin)
-        if self.attr == 'default_source_name':
+        self.register_origin_callback("server", 0, origin)
+        if self.attr == "default_source_name":
             await self.pulse.source_default_set(value)
         else:
             await self.pulse.sink_default_set(value)

@@ -51,8 +51,14 @@ class SHCWebClient(SupervisedClientInterface):
         value to this object when (re)connecting and use the server's ‘last will’ feature to let a `False` value be
         published when the websocket connection is lost.
     """
-    def __init__(self, server: str, auto_reconnect: bool = True, failsafe_start: bool = False,
-                 client_online_object: Optional[str] = None) -> None:
+
+    def __init__(
+        self,
+        server: str,
+        auto_reconnect: bool = True,
+        failsafe_start: bool = False,
+        client_online_object: Optional[str] = None,
+    ) -> None:
         super().__init__(auto_reconnect, failsafe_start)
         self.server = server
         self.client_online_object = client_online_object
@@ -78,11 +84,14 @@ class SHCWebClient(SupervisedClientInterface):
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         assert self._ws is not None
-        await self._ws.send_json({'action': 'subscribe', 'name': name, 'handle': id(future)})
+        await self._ws.send_json({"action": "subscribe", "name": name, "handle": id(future)})
         result = await asyncio.wait_for(future, TIMEOUT)
-        if not 200 <= result['status'] < 300:
-            raise WebSocketAPIError("Failed to subscribe SHC API object '{}' with status {}: {}"
-                                    .format(name, result['status'], result.get('error')))
+        if not 200 <= result["status"] < 300:
+            raise WebSocketAPIError(
+                "Failed to subscribe SHC API object '{}' with status {}: {}".format(
+                    name, result["status"], result.get("error")
+                )
+            )
 
     async def start(self) -> None:
         self._session = aiohttp.ClientSession()
@@ -90,16 +99,19 @@ class SHCWebClient(SupervisedClientInterface):
 
     async def _connect(self) -> None:
         # TODO change timeout: https://docs.aiohttp.org/en/stable/client_quickstart.html#timeouts
-        self._ws = await self._session.ws_connect(self.server + '/api/v1/ws')
+        self._ws = await self._session.ws_connect(self.server + "/api/v1/ws")
 
     async def _subscribe(self) -> None:
         # First send the value all objects with a default_provider to the server
-        await asyncio.gather(*(obj._read_and_send()
-                               for obj in self._api_objects.values()))
+        await asyncio.gather(*(obj._read_and_send() for obj in self._api_objects.values()))
         # then subscribe all objects with subscribers for updates from the server
-        await asyncio.gather(*(self._subscribe_and_wait(name)
-                               for name, obj in self._api_objects.items()
-                               if obj._subscribers or obj._triggers))
+        await asyncio.gather(
+            *(
+                self._subscribe_and_wait(name)
+                for name, obj in self._api_objects.items()
+                if obj._subscribers or obj._triggers
+            )
+        )
         if self.client_online_object is not None:
             await self._set_last_will(self.client_online_object, False)
             await self._send_value(self.client_online_object, True)
@@ -126,9 +138,9 @@ class SHCWebClient(SupervisedClientInterface):
             if msg.type == aiohttp.WSMsgType.TEXT:
                 self._websocket_dispatch(msg)
             elif msg.type == aiohttp.WSMsgType.ERROR:
-                logger.error('SHC API websocket failed with %s', self._ws.exception())
+                logger.error("SHC API websocket failed with %s", self._ws.exception())
 
-        logger.debug('SHC API websocket connection closed')
+        logger.debug("SHC API websocket connection closed")
 
     def _websocket_dispatch(self, msg: aiohttp.WSMessage) -> None:
         try:
@@ -143,13 +155,14 @@ class SHCWebClient(SupervisedClientInterface):
             name = message["name"]
             _status = message["status"]  # noqa: F841
         except KeyError:
-            logger.warning("Websocket message from SHC server does not include 'name' and 'status' fields: %s",
-                           msg.data)
+            logger.warning(
+                "Websocket message from SHC server does not include 'name' and 'status' fields: %s", msg.data
+            )
             return
 
         # If the message has a handle and the handle is associated with a waiting future, set the message as result
-        if 'handle' in message:
-            future = self._waiting_futures.get(message['handle'])
+        if "handle" in message:
+            future = self._waiting_futures.get(message["handle"])
             if future is None:
                 logger.info("Received websocket API message with handle, which refers to non-existent future: %s", msg)
             else:
@@ -157,11 +170,11 @@ class SHCWebClient(SupervisedClientInterface):
                 del self._waiting_futures[id(future)]
 
         # New (or initial) value for subscribed object (not on read response)
-        if 'value' in message and ('action' not in message or message['action'] == 'subscribe'):
+        if "value" in message and ("action" not in message or message["action"] == "subscribe"):
             # We don't need to do this in an asynchronous task, since the new_value method uses asynchronous publishing
-            self._api_objects[name].new_value(message['value'])
+            self._api_objects[name].new_value(message["value"])
 
-        elif 'handle' not in message:
+        elif "handle" not in message:
             logger.warning("Received unexpected message from SHC websocket API: %s", msg)
 
     async def _send_value(self, name: str, value: Any) -> None:
@@ -184,15 +197,17 @@ class SHCWebClient(SupervisedClientInterface):
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         logger.debug("Writing value from SHC API object %s ...", name)
-        await self._ws.send_str(json.dumps({'action': 'post', 'name': name, 'value': value, 'handle': id(future)},
-                                           cls=SHCJsonEncoder))
+        await self._ws.send_str(
+            json.dumps({"action": "post", "name": name, "value": value, "handle": id(future)}, cls=SHCJsonEncoder)
+        )
 
         result = await asyncio.wait_for(future, TIMEOUT)
-        if 200 <= result['status'] < 300:
+        if 200 <= result["status"] < 300:
             logger.debug("Writing value to SHC API object %s succeeded", name)
         else:
-            raise WebSocketAPIError("Writing value to SHC API failed with error {}: {}"
-                                    .format(result['status'], result.get('error')))
+            raise WebSocketAPIError(
+                "Writing value to SHC API failed with error {}: {}".format(result["status"], result.get("error"))
+            )
 
     async def _set_last_will(self, name: str, value: Any) -> None:
         """
@@ -215,15 +230,17 @@ class SHCWebClient(SupervisedClientInterface):
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         logger.debug("Setting last will at SHC API for object name %s ...", name)
-        await self._ws.send_str(json.dumps({'action': 'lastwill', 'name': name, 'value': value, 'handle': id(future)},
-                                           cls=SHCJsonEncoder))
+        await self._ws.send_str(
+            json.dumps({"action": "lastwill", "name": name, "value": value, "handle": id(future)}, cls=SHCJsonEncoder)
+        )
 
         result = await asyncio.wait_for(future, TIMEOUT)
-        if 200 <= result['status'] < 300:
+        if 200 <= result["status"] < 300:
             logger.debug("Setting last will at SHC API for object %s succeeded", name)
         else:
-            raise WebSocketAPIError("Setting last will at SHC API failed with error {}: {}"
-                                    .format(result['status'], result.get('error')))
+            raise WebSocketAPIError(
+                "Setting last will at SHC API failed with error {}: {}".format(result["status"], result.get("error"))
+            )
 
     async def _read_value(self, name: str) -> Any:
         """
@@ -247,17 +264,18 @@ class SHCWebClient(SupervisedClientInterface):
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         logger.debug("Reading value from SHC API object %s ...", name)
-        await self._ws.send_str(json.dumps({'action': 'get', 'name': name, 'handle': id(future)}, cls=SHCJsonEncoder))
+        await self._ws.send_str(json.dumps({"action": "get", "name": name, "handle": id(future)}, cls=SHCJsonEncoder))
         result = await asyncio.wait_for(future, TIMEOUT)
-        if 200 <= result['status'] < 300:
-            logger.debug("Read value %s from SHC API for object %s", result['value'], name)
-            return result['value']
-        elif result['status'] == 409:
+        if 200 <= result["status"] < 300:
+            logger.debug("Read value %s from SHC API for object %s", result["value"], name)
+            return result["value"]
+        elif result["status"] == 409:
             logger.debug("'get' action of SHC API for object %s returned uninitialized (status 409)", name)
             raise UninitializedError
         else:
-            raise WebSocketAPIError("Writing value to SHC API failed with error {}: {}"
-                                    .format(result['status'], result.get('error')))
+            raise WebSocketAPIError(
+                "Writing value to SHC API failed with error {}: {}".format(result["status"], result.get("error"))
+            )
 
     def object(self, type_: Type, name: str) -> "WebApiClientObject":
         """
@@ -274,8 +292,11 @@ class SHCWebClient(SupervisedClientInterface):
         if name in self._api_objects:
             existing = self._api_objects[name]
             if existing.type is not type_:
-                raise TypeError("Type {} does not match type {} of existing API client object with same name"
-                                .format(type_, existing.type))
+                raise TypeError(
+                    "Type {} does not match type {} of existing API client object with same name".format(
+                        type_, existing.type
+                    )
+                )
             return existing
         else:
             api_object = WebApiClientObject(self, type_, name)
@@ -302,6 +323,7 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Reading[T], 
     subscribing for updates from the server to ensure that the local value prevails over the server's value in case of
     diverged values in the unconnected time.
     """
+
     _stateful_publishing = True
     is_reading_optional = True
 
@@ -362,4 +384,5 @@ class WebSocketAPIError(RuntimeError):
     Exception to be raised by :meth:`WebApiClientObject.read`, :meth:`WebApiClientObject.write` and on startup of the
     :class:`SHCWebClient`, when an SHC websocket API action fails with an non-200 status code.
     """
+
     pass

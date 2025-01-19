@@ -35,6 +35,7 @@ class _TimerSupervisor:
 
     Should be used as a singleton instance.
     """
+
     def __init__(self):
         self.supervised_timers: List[_AbstractScheduleTimer] = []
         self.timer_tasks: List[asyncio.Task] = []
@@ -75,7 +76,7 @@ async def _logarithmic_sleep(target: datetime.datetime):
             await asyncio.sleep(diff / 2)
 
 
-def _random_time(maximum_offset: Optional[datetime.timedelta], random_function: str = 'uniform') -> datetime.timedelta:
+def _random_time(maximum_offset: Optional[datetime.timedelta], random_function: str = "uniform") -> datetime.timedelta:
     """
     Generate a random timedelta within a given range.
 
@@ -88,9 +89,9 @@ def _random_time(maximum_offset: Optional[datetime.timedelta], random_function: 
     """
     if not maximum_offset:
         return datetime.timedelta()
-    if random_function == 'uniform':
+    if random_function == "uniform":
         random_value = random.uniform(-1, 1)
-    elif random_function == 'gauss':
+    elif random_function == "gauss":
         random_value = random.gauss(0, 0.5)
     else:
         raise ValueError("Unsupported random function '{}'".format(random_function))
@@ -111,6 +112,7 @@ class _AbstractScheduleTimer(Subscribable[None], metaclass=abc.ABCMeta):
 
     :ivar:`last_execution`: Timestamp of the last execution. May be used by the *_next_execution* method.
     """
+
     type = type(None)
 
     def __init__(self):
@@ -157,9 +159,15 @@ class Every(_AbstractScheduleTimer):
     :param random_function: Identifier of a random distribution function to be used for calculating the `random`
         offset. See :func:`_random_time`'s documentation for supported values.
     """
-    def __init__(self, delta: datetime.timedelta, align: bool = True,
-                 offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
-                 random_function: str = 'uniform'):
+
+    def __init__(
+        self,
+        delta: datetime.timedelta,
+        align: bool = True,
+        offset: datetime.timedelta = datetime.timedelta(),
+        random: Optional[datetime.timedelta] = None,
+        random_function: str = "uniform",
+    ):
         super().__init__()
         self.delta = delta
         self.align = align
@@ -172,8 +180,8 @@ class Every(_AbstractScheduleTimer):
             delta_seconds = self.delta.total_seconds()
             now_timestamp = datetime.datetime.now().timestamp()
             next_execution = datetime.datetime.fromtimestamp(
-                (math.floor(now_timestamp / delta_seconds) + 1) * delta_seconds)\
-                .astimezone()
+                (math.floor(now_timestamp / delta_seconds) + 1) * delta_seconds
+            ).astimezone()
         else:
             if self.last_execution is None:
                 next_execution = datetime.datetime.now().astimezone()
@@ -203,8 +211,13 @@ class Once(_AbstractScheduleTimer):
     :param random_function: Identifier of a random distribution function to be used for calculating the `random`
         offset. See :func:`_random_time`'s documentation for supported values.
     """
-    def __init__(self, offset: datetime.timedelta = datetime.timedelta(), random: Optional[datetime.timedelta] = None,
-                 random_function: str = 'uniform'):
+
+    def __init__(
+        self,
+        offset: datetime.timedelta = datetime.timedelta(),
+        random: Optional[datetime.timedelta] = None,
+        random_function: str = "uniform",
+    ):
         super().__init__()
         self.offset = offset
         self.random = random
@@ -234,6 +247,7 @@ class EveryNth(int):
 
     E.g. ``month=EveryNth(2)`` equals ``month=[1,3,5,7,9,11]``, ``hour=EveryNth(6) equals hour=[0,6,12,18]``
     """
+
     pass
 
 
@@ -272,18 +286,21 @@ class At(_AbstractScheduleTimer):
     :param random_function: Identifier of a random distribution function to be used for calculating the `random`
         offset. See :func:`_random_time`'s documentation for supported values.
     """
-    def __init__(self,
-                 year: ValSpec = None,
-                 month: ValSpec = None,
-                 day: ValSpec = None,
-                 weeknum: ValSpec = None,
-                 weekday: ValSpec = None,
-                 hour: ValSpec = 0,
-                 minute: ValSpec = 0,
-                 second: ValSpec = 0,
-                 millis: ValSpec = 0,
-                 random: Optional[datetime.timedelta] = None,
-                 random_function: str = 'uniform'):
+
+    def __init__(
+        self,
+        year: ValSpec = None,
+        month: ValSpec = None,
+        day: ValSpec = None,
+        weeknum: ValSpec = None,
+        weekday: ValSpec = None,
+        hour: ValSpec = 0,
+        minute: ValSpec = 0,
+        second: ValSpec = 0,
+        millis: ValSpec = 0,
+        random: Optional[datetime.timedelta] = None,
+        random_function: str = "uniform",
+    ):
         super().__init__()
         if weekday is None and weeknum is None:
             self.spec = (year, month, day, hour, minute, second, millis)
@@ -292,8 +309,10 @@ class At(_AbstractScheduleTimer):
             self.spec = (year, weeknum, weekday, hour, minute, second, millis)
             self.week_mode = True
         else:
-            raise ValueError("At-Timer cannot constrain month/day and week/weekday at the same time. Either month and "
-                             "day or weeknum and weekday must be None.")
+            raise ValueError(
+                "At-Timer cannot constrain month/day and week/weekday at the same time. Either month and "
+                "day or weeknum and weekday must be None."
+            )
         self.random = random
         self.random_function = random_function
 
@@ -326,12 +345,21 @@ class At(_AbstractScheduleTimer):
             elif i == 2 and self.week_mode:
                 return 7
             else:
-                return (datetime.date(val[0] + (1 if val[1] == 12 else 0), 1 if val[1] == 12 else val[1] + 1, 1)
-                        - datetime.timedelta(days=1)).day
+                return (
+                    datetime.date(val[0] + (1 if val[1] == 12 else 0), 1 if val[1] == 12 else val[1] + 1, 1)
+                    - datetime.timedelta(days=1)
+                ).day
 
         if self.week_mode:
-            val = [now.isocalendar()[0], now.isocalendar()[1], now.isocalendar()[2], now.hour, now.minute, now.second,
-                   round(now.microsecond / 1000)]
+            val = [
+                now.isocalendar()[0],
+                now.isocalendar()[1],
+                now.isocalendar()[2],
+                now.hour,
+                now.minute,
+                now.second,
+                round(now.microsecond / 1000),
+            ]
         else:
             val = [now.year, now.month, now.day, now.hour, now.minute, now.second, round(now.microsecond / 1000)]
 
@@ -372,10 +400,12 @@ class At(_AbstractScheduleTimer):
         if self.week_mode:
             # Unfortunately, the fromisocalendar() function has only been added in Python 3.8:
             # val_date = datetime.date.fromisocalendar(val[0], val[1], val[2])
-            val_date = datetime.datetime.strptime("{}-W{}-1".format(val[0], val[1]), '%G-W%V-%u') \
-                       + datetime.timedelta(days=val[2]-1)
-            result = datetime.datetime(val_date.year, val_date.month, val_date.day, val[3], val[4], val[5],
-                                       val[6] * 1000).astimezone()
+            val_date = datetime.datetime.strptime("{}-W{}-1".format(val[0], val[1]), "%G-W%V-%u") + datetime.timedelta(
+                days=val[2] - 1
+            )
+            result = datetime.datetime(
+                val_date.year, val_date.month, val_date.day, val[3], val[4], val[5], val[6] * 1000
+            ).astimezone()
         else:
             result = datetime.datetime(val[0], val[1], val[2], val[3], val[4], val[5], val[6] * 1000).astimezone()
         return result + _random_time(self.random, self.random_function)
@@ -444,6 +474,7 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
     * :class:`TPulse`: Each True value triggers a True pulse of exactly ``delay`` length, but only if no pulse is
         currently active (i.e. the current value is False; a pulse is not re-triggerable).
     """
+
     type = bool
 
     def __init__(self, wrapped: Subscribable[bool], delay: datetime.timedelta):
@@ -493,6 +524,7 @@ class TOn(_DelayedBool):
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
     :param delay: The power-up delay time. E.g. `datetime.timedelta(seconds=5)`
     """
+
     async def _update(self, value: bool, origin: List[Any]):
         if value and self._change_task is None:
             self._change_task = asyncio.create_task(self._set_delayed(True, origin))
@@ -521,6 +553,7 @@ class TOff(_DelayedBool):
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
     :param delay: The turn-off delay time. E.g. `datetime.timedelta(seconds=5)`
     """
+
     async def _update(self, value: bool, origin: List[Any]):
         if not value and self._change_task is None:
             self._change_task = asyncio.create_task(self._set_delayed(False, origin))
@@ -550,6 +583,7 @@ class TOnOff(_DelayedBool):
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
     :param delay: The delay time. E.g. `datetime.timedelta(seconds=5)`
     """
+
     async def _update(self, value: bool, origin: List[Any]):
         if value == self._value and self._change_task is None:
             return
@@ -573,6 +607,7 @@ class TPulse(_DelayedBool):
     :param wrapped: The *Subscribable* object to be wrapped for delaying its value
     :param delay: The pulse length. E.g. `datetime.timedelta(seconds=5)`
     """
+
     def __init__(self, wrapped: Subscribable[bool], delay: datetime.timedelta):
         super().__init__(wrapped, delay)
         self._prev_value = False
@@ -598,6 +633,7 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
         the `wrapped` object (and passed the delay period). If not given, :meth:`read` raises an
         :class:`shc.base.UninitializedError` in this case.
     """
+
     def __init__(self, wrapped: Subscribable[T], delay: datetime.timedelta, initial_value: Optional[T] = None):
         self.type = wrapped.type
         super().__init__()
@@ -659,10 +695,16 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
         `duration` is used, a random timedelta between ``-duration_random`` and ``+duration_random`` will be added to
         each individual 'on' period.
     """
+
     type = bool
 
-    def __init__(self, on: Iterable[Subscribable], off: Optional[Iterable[Subscribable]] = None,
-                 duration: Optional[datetime.timedelta] = None, duration_random: Optional[datetime.timedelta] = None):
+    def __init__(
+        self,
+        on: Iterable[Subscribable],
+        off: Optional[Iterable[Subscribable]] = None,
+        duration: Optional[datetime.timedelta] = None,
+        duration_random: Optional[datetime.timedelta] = None,
+    ):
         super().__init__()
         if not off and duration is None:
             raise ValueError("Either 'off' timer specs or a 'duration' must be specified")
@@ -699,8 +741,9 @@ class TimerSwitch(Subscribable[bool], Readable[bool]):
 
     async def _delayed_off(self, origin) -> None:
         assert self.duration is not None
-        await _logarithmic_sleep(datetime.datetime.now().astimezone() + self.duration
-                                 + _random_time(self.duration_random))
+        await _logarithmic_sleep(
+            datetime.datetime.now().astimezone() + self.duration + _random_time(self.duration_random)
+        )
         await self._off(False, origin)
 
     async def read(self) -> bool:
@@ -721,6 +764,7 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
     :param wrapped: The Subscribable object to be wrapped
     :param min_interval: The minimal allowed interval between published values in seconds
     """
+
     def __init__(self, wrapped: Subscribable[T], min_interval: float):
         self.type = wrapped.type
         super().__init__()
@@ -800,10 +844,17 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         republished immediately. If the value is `True`, the ramp generator is enabled. If no object is given, the ramp
         generator is always on.
     """
+
     is_reading_optional = False
 
-    def __init__(self, type_: Type[T], ramp_duration: datetime.timedelta, dynamic_duration: bool = True,
-                 max_frequency: float = 25.0, enable_ramp: Optional[Readable[bool]] = None):
+    def __init__(
+        self,
+        type_: Type[T],
+        ramp_duration: datetime.timedelta,
+        dynamic_duration: bool = True,
+        max_frequency: float = 25.0,
+        enable_ramp: Optional[Readable[bool]] = None,
+    ):
         self.type = type_
         super().__init__()
         self.ramp_duration = ramp_duration
@@ -968,7 +1019,7 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         pass
 
 
-IntRampT = TypeVar('IntRampT', int, RangeUInt8, RangeInt0To100)
+IntRampT = TypeVar("IntRampT", int, RangeUInt8, RangeInt0To100)
 
 
 class IntRamp(AbstractRamp[IntRampT], Generic[IntRampT]):
@@ -981,10 +1032,14 @@ class IntRamp(AbstractRamp[IntRampT], Generic[IntRampT]):
         super().__init__(type_, *args, **kwargs)  # type: ignore  # Mypy does not understand that type_ *is*  FloatRampT
 
     def _calculate_ramp(self, begin: IntRampT, target: IntRampT) -> Tuple[float, int]:
-        diff = abs(target-begin)
-        height = (diff/255 if issubclass(self.type, RangeUInt8) else
-                  diff/100 if issubclass(self.type, RangeInt0To100) else
-                  1.0)
+        diff = abs(target - begin)
+        height = (
+            diff / 255
+            if issubclass(self.type, RangeUInt8)
+            else diff / 100
+            if issubclass(self.type, RangeInt0To100)
+            else 1.0
+        )
         return height, diff
 
     def _init_ramp(self, begin: IntRampT, target: IntRampT, num_steps: int) -> None:
@@ -995,14 +1050,14 @@ class IntRamp(AbstractRamp[IntRampT], Generic[IntRampT]):
         return self.type(round(self._begin + self._diff * step))
 
 
-FloatRampT = TypeVar('FloatRampT', float, RangeFloat1)
+FloatRampT = TypeVar("FloatRampT", float, RangeFloat1)
 
 
 class AbstractFloatRamp(AbstractRamp[FloatRampT], Generic[FloatRampT]):
     def _calculate_ramp(self, begin: FloatRampT, target: FloatRampT) -> Tuple[float, int]:
-        diff = abs(target-begin)
-        height = diff/1.0 if issubclass(self.type, RangeFloat1) else 1.0
-        return height, 2**64-1
+        diff = abs(target - begin)
+        height = diff / 1.0 if issubclass(self.type, RangeFloat1) else 1.0
+        return height, 2**64 - 1
 
     def _init_ramp(self, begin: FloatRampT, target: FloatRampT, num_steps: int) -> None:
         self._begin: FloatRampT = begin
@@ -1029,27 +1084,29 @@ class FadeStepRamp(AbstractFloatRamp[RangeFloat1]):
 
 
 def _normalize_hsv_ramp(begin: HSVFloat1, target: HSVFloat1) -> Tuple[HSVFloat1, HSVFloat1]:
-    return begin._replace(hue=begin.hue if begin.saturation != 0 else target.hue,
-                          saturation=begin.saturation if begin.value != 0 else target.saturation), \
-           target._replace(hue=target.hue if target.saturation != 0 else begin.hue,
-                           saturation=target.saturation if target.value != 0 else begin.saturation)
+    return begin._replace(
+        hue=begin.hue if begin.saturation != 0 else target.hue,
+        saturation=begin.saturation if begin.value != 0 else target.saturation,
+    ), target._replace(
+        hue=target.hue if target.saturation != 0 else begin.hue,
+        saturation=target.saturation if target.value != 0 else begin.saturation,
+    )
 
 
 def _hsv_diff(begin: HSVFloat1, target: HSVFloat1) -> Tuple[float, float, float]:
     return (
-        ((target.hue - begin.hue) % 1
-         if abs((target.hue - begin.hue) % 1) < 0.5
-         else -((begin.hue - target.hue) % 1)
-         ),
+        ((target.hue - begin.hue) % 1 if abs((target.hue - begin.hue) % 1) < 0.5 else -((begin.hue - target.hue) % 1)),
         (target.saturation - begin.saturation),
-        (target.value - begin.value)
+        (target.value - begin.value),
     )
 
 
 def _hsv_step(begin: HSVFloat1, diff: Tuple[float, float, float], step: int) -> HSVFloat1:
-    return HSVFloat1(RangeFloat1((begin.hue + diff[0] * step) % 1.0),
-                     RangeFloat1(begin.saturation + diff[1] * step),
-                     RangeFloat1(begin.value + diff[2] * step))
+    return HSVFloat1(
+        RangeFloat1((begin.hue + diff[0] * step) % 1.0),
+        RangeFloat1(begin.saturation + diff[1] * step),
+        RangeFloat1(begin.value + diff[2] * step),
+    )
 
 
 class HSVRamp(AbstractRamp[HSVFloat1]):
@@ -1061,11 +1118,11 @@ class HSVRamp(AbstractRamp[HSVFloat1]):
     def _calculate_ramp(self, begin: HSVFloat1, target: HSVFloat1) -> Tuple[float, int]:
         diff = _hsv_diff(begin, target)
         height = max(abs(diff[0] * 2), abs(diff[1]), abs(diff[2]))
-        return height, 2**64-1
+        return height, 2**64 - 1
 
     def _init_ramp(self, begin: HSVFloat1, target: HSVFloat1, num_steps: int) -> None:
         self._begin = begin
-        self._diff: Tuple[float, float, float] = tuple(v/num_steps for v in _hsv_diff(begin, target))  # type: ignore
+        self._diff: Tuple[float, float, float] = tuple(v / num_steps for v in _hsv_diff(begin, target))  # type: ignore
 
     def _next_step(self, step: int) -> HSVFloat1:
         return _hsv_step(self._begin, self._diff, step)
@@ -1078,19 +1135,21 @@ class RGBHSVRamp(AbstractRamp[RGBUInt8]):
             wrapped.trigger(self.ramp_to, synchronous=True)
 
     def _calculate_ramp(self, begin: RGBUInt8, target: RGBUInt8) -> Tuple[float, int]:
-        begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.as_float()),
-                                                    HSVFloat1.from_rgb(target.as_float()))
+        begin_hsv, target_hsv = _normalize_hsv_ramp(
+            HSVFloat1.from_rgb(begin.as_float()), HSVFloat1.from_rgb(target.as_float())
+        )
         diff = _hsv_diff(begin_hsv, target_hsv)
         height = max(abs(diff[0] * 2), abs(diff[1]), abs(diff[2]))
-        max_steps = max(2*abs(b-t) for b, t in zip(begin, target))  # rough estimation
+        max_steps = max(2 * abs(b - t) for b, t in zip(begin, target))  # rough estimation
         return height, max_steps
 
     def _init_ramp(self, begin: RGBUInt8, target: RGBUInt8, num_steps: int) -> None:
-        begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.as_float()),
-                                                    HSVFloat1.from_rgb(target.as_float()))
+        begin_hsv, target_hsv = _normalize_hsv_ramp(
+            HSVFloat1.from_rgb(begin.as_float()), HSVFloat1.from_rgb(target.as_float())
+        )
         self._hsv_begin = begin_hsv
         hsv_diff = _hsv_diff(begin_hsv, target_hsv)
-        self._hsv_diff: Tuple[float, float, float] = tuple(v/num_steps for v in hsv_diff)  # type: ignore
+        self._hsv_diff: Tuple[float, float, float] = tuple(v / num_steps for v in hsv_diff)  # type: ignore
 
     def _next_step(self, step: int) -> RGBUInt8:
         return RGBUInt8.from_float(_hsv_step(self._hsv_begin, self._hsv_diff, step).as_rgb())
@@ -1103,23 +1162,27 @@ class RGBWHSVRamp(AbstractRamp[RGBWUInt8]):
             wrapped.trigger(self.ramp_to, synchronous=True)
 
     def _calculate_ramp(self, begin: RGBWUInt8, target: RGBWUInt8) -> Tuple[float, int]:
-        begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.rgb.as_float()),
-                                                    HSVFloat1.from_rgb(target.rgb.as_float()))
+        begin_hsv, target_hsv = _normalize_hsv_ramp(
+            HSVFloat1.from_rgb(begin.rgb.as_float()), HSVFloat1.from_rgb(target.rgb.as_float())
+        )
         hsv_diff = _hsv_diff(begin_hsv, target_hsv)
         w_diff = abs(target.white - begin.white)
         height = max(abs(hsv_diff[0] * 2), abs(hsv_diff[1]), abs(hsv_diff[2]), w_diff / 255)
-        max_steps = max(*(2*abs(b-t) for b, t in zip(begin.rgb, target.rgb)), w_diff)  # rough estimation
+        max_steps = max(*(2 * abs(b - t) for b, t in zip(begin.rgb, target.rgb)), w_diff)  # rough estimation
         return height, max_steps
 
     def _init_ramp(self, begin: RGBWUInt8, target: RGBWUInt8, num_steps: int) -> None:
         self._w_begin: int = begin.white
         self._w_diff: float = (target.white - begin.white) / num_steps
-        begin_hsv, target_hsv = _normalize_hsv_ramp(HSVFloat1.from_rgb(begin.rgb.as_float()),
-                                                    HSVFloat1.from_rgb(target.rgb.as_float()))
+        begin_hsv, target_hsv = _normalize_hsv_ramp(
+            HSVFloat1.from_rgb(begin.rgb.as_float()), HSVFloat1.from_rgb(target.rgb.as_float())
+        )
         self._hsv_begin = begin_hsv
         hsv_diff = _hsv_diff(begin_hsv, target_hsv)
-        self._hsv_diff: Tuple[float, float, float] = tuple(v/num_steps for v in hsv_diff)  # type: ignore
+        self._hsv_diff: Tuple[float, float, float] = tuple(v / num_steps for v in hsv_diff)  # type: ignore
 
     def _next_step(self, step: int) -> RGBWUInt8:
-        return RGBWUInt8(RGBUInt8.from_float(_hsv_step(self._hsv_begin, self._hsv_diff, step).as_rgb()),
-                         RangeUInt8(round(self._w_begin + self._w_diff * step)))
+        return RGBWUInt8(
+            RGBUInt8.from_float(_hsv_step(self._hsv_begin, self._hsv_diff, step).as_rgb()),
+            RangeUInt8(round(self._w_begin + self._w_diff * step)),
+        )

@@ -10,7 +10,7 @@ class PingTest(unittest.TestCase):
     @async_test
     async def test_ping(self) -> None:
         timer_mock = ExampleSubscribable(type(None))
-        with unittest.mock.patch('shc.interfaces.ping.Every', return_value=timer_mock):
+        with unittest.mock.patch("shc.interfaces.ping.Every", return_value=timer_mock):
             ping_localhost1 = ping.Ping("localhost", number=3, timeout=0.5)
             ping_localhost2 = ping.Ping("127.0.0.1", number=3, timeout=0.5)
             ping_unreachable = ping.Ping("192.0.2.0", number=3, timeout=0.5)

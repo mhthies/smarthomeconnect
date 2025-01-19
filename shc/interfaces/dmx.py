@@ -57,6 +57,7 @@ class AbstractDMXConnector(AbstractInterface, metaclass=abc.ABCMeta):
 
     Instances of these classes provide a method :meth:`address` to create a `writable` object for a given DMX channel.
     """
+
     def __init__(self, universe_size: int = 512):
         super().__init__()
         self.universe = [0] * universe_size
@@ -92,6 +93,7 @@ class DMXAddress(Writable[RangeUInt8]):
     Writing a value to a `DMXAddress` object sets the corresponding channel in the cached DMX universe to that value and
     triggers transmission of the universe to the hardware DMX interface.
     """
+
     type = RangeUInt8
 
     def __init__(self, connector: AbstractDMXConnector, address: int) -> None:
@@ -108,6 +110,7 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
     """
     A DMX Interface for the Enttec DMX USB PRO and compatible devices (with the same serial protocol).
     """
+
     # Build according to this spec:
     # https://web.archive.org/web/20200822142042/https://dol2kh495zr52.cloudfront.net/pdf/misc/dmx_usb_pro_api_spec.pdf
 
@@ -129,8 +132,8 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
 
     @staticmethod
     def _universe_to_enttec(universe: List[int]) -> "EnttecMessage":
-        """ Helper method to serialize a DMX universe (as List[int]) into an EnttacMessage to be sent to the DMX
-        interface """
+        """Helper method to serialize a DMX universe (as List[int]) into an EnttacMessage to be sent to the DMX
+        interface"""
         DMX_LIGHTNING_DATA_START_CODE = 0
         data = bytes([DMX_LIGHTNING_DATA_START_CODE] + universe + [0] * (24 - len(universe)))
         return EnttecMessage(EntTecMessageLabel.OUTPUT_ONLY_SEND_DMX_PACKET, data)
@@ -163,8 +166,10 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
 
         # In case there is a running _transmit and a Future for the next, simply await that future.
         else:
-            logger.debug("DMX transmit is already running. Queued next transmit already exists. Wating for queued "
-                         "transmit to finish ...")
+            logger.debug(
+                "DMX transmit is already running. Queued next transmit already exists. Wating for queued "
+                "transmit to finish ..."
+            )
             await self.next_transmit
 
     async def _transmit(self) -> None:
@@ -201,4 +206,4 @@ class EnttecMessage(NamedTuple):
 
     def encode(self) -> bytes:
         length = len(self.data)
-        return bytes((0x7e, self.label.value, length & 0xff, (length >> 8) & 0xff)) + self.data + bytes((0xe7,))
+        return bytes((0x7E, self.label.value, length & 0xFF, (length >> 8) & 0xFF)) + self.data + bytes((0xE7,))

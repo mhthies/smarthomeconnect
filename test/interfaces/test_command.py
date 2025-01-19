@@ -1,4 +1,5 @@
 """Test for the command binary interface."""
+
 import unittest
 import unittest.mock
 

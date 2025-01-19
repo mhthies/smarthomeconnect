@@ -39,6 +39,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         set via :meth:`set_provider`, the Variable is initialized with a None value and any :meth:`read` request
         will raise an :exc:`shc.base.UninitializedError` until the first value update is received.
     """
+
     _stateful_publishing = True
 
     def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None):
@@ -58,14 +59,19 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     def field(self, name: str) -> "VariableField":
         if not issubclass(self.type, tuple) or not self.type.__annotations__:
-            raise TypeError(f"{self.type.__name__} is not a NamedTuple, but Variable.field() only works with "
-                            f"NamedTuple-typed Variables.")
+            raise TypeError(
+                f"{self.type.__name__} is not a NamedTuple, but Variable.field() only works with "
+                f"NamedTuple-typed Variables."
+            )
         return self._variable_fields[name]
 
     def __getattr__(self, item: str):
         if item in self._variable_fields:
-            warnings.warn("Retrieving VariableFields via dynamic attribute names is deprecated. Use .field() instead.",
-                          DeprecationWarning, 2)
+            warnings.warn(
+                "Retrieving VariableFields via dynamic attribute names is deprecated. Use .field() instead.",
+                DeprecationWarning,
+                2,
+            )
             return self._variable_fields[item]
         else:
             raise AttributeError()
@@ -82,9 +88,9 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         assert self._value is not None
         self._publish(self._value, origin)
         for name, field in self._variable_fields.items():
-            field._recursive_publish(getattr(self._value, name),
-                                     None if old_value is None else getattr(old_value, name),
-                                     origin)
+            field._recursive_publish(
+                getattr(self._value, name), None if old_value is None else getattr(old_value, name), origin
+            )
 
     async def read(self) -> T:
         if self._value is None:
@@ -103,7 +109,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     def __repr__(self) -> str:
         if self.name:
-            return "<{} \"{}\">".format(self.__class__.__name__, self.name)
+            return '<{} "{}">'.format(self.__class__.__name__, self.name)
         else:
             return super().__repr__()
 
@@ -115,7 +121,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self.type = type_
         super().__init__()
         self.parent = parent
-        self.variable: Variable = parent.variable if hasattr(parent, 'variable') else parent  # type: ignore
+        self.variable: Variable = parent.variable if hasattr(parent, "variable") else parent  # type: ignore
         self.field_name: str = field_name
         self._variable_fields: Dict[str, "VariableField"] = {}
 
@@ -127,14 +133,19 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
     def field(self, name: str) -> "VariableField":
         if not issubclass(self.type, tuple) or not self.type.__annotations__:
-            raise TypeError(f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
-                            f"NamedTuple-typed VariableFields.")
+            raise TypeError(
+                f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
+                f"NamedTuple-typed VariableFields."
+            )
         return self._variable_fields[name]
 
     def __getattr__(self, item: str):
         if item in self._variable_fields:
-            warnings.warn("Retrieving VariableFields via dynamic attribute names is deprecated. Use .field() instead.",
-                          DeprecationWarning, 2)
+            warnings.warn(
+                "Retrieving VariableFields via dynamic attribute names is deprecated. Use .field() instead.",
+                DeprecationWarning,
+                2,
+            )
             return self._variable_fields[item]
         else:
             raise AttributeError()
@@ -143,9 +154,9 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         if old_value != new_value:
             self._publish(new_value, origin)
             for name, field in self._variable_fields.items():
-                field._recursive_publish(getattr(new_value, name),
-                                         None if old_value is None else getattr(old_value, name),
-                                         origin)
+                field._recursive_publish(
+                    getattr(new_value, name), None if old_value is None else getattr(old_value, name), origin
+                )
 
     @property
     def _value(self):
@@ -153,8 +164,11 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.parent._value is None:
-            raise UninitializedError("Cannot set field {} within Variable {}, since it is uninitialized"
-                                     .format(self.field_name, self.variable))
+            raise UninitializedError(
+                "Cannot set field {} within Variable {}, since it is uninitialized".format(
+                    self.field_name, self.variable
+                )
+            )
         await self.parent._write(self.parent._value._replace(**{self.field_name: value}), origin + [self])
 
     async def read(self) -> T:
@@ -187,8 +201,14 @@ class DelayedVariable(Variable[T], Generic[T]):
         will raise an :exc:`shc.base.UninitializedError` until the first value update is received.
     :param publish_delay: Amount of time to delay the publishing of a new value.
     """
-    def __init__(self, type_: Type[T], name: Optional[str] = None, initial_value: Optional[T] = None,
-                 publish_delay: datetime.timedelta = datetime.timedelta(seconds=0.25)):
+
+    def __init__(
+        self,
+        type_: Type[T],
+        name: Optional[str] = None,
+        initial_value: Optional[T] = None,
+        publish_delay: datetime.timedelta = datetime.timedelta(seconds=0.25),
+    ):
         super().__init__(type_, name, initial_value)
         self._publish_delay = publish_delay
         self._pending_publish_task: Optional[asyncio.Task] = None

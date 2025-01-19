@@ -34,6 +34,7 @@ class ServiceCriticality(enum.Enum):
     """
     Enum of possible criticality values of interfaces.
     """
+
     INFO = 0
     WARNING = 1
     CRITICAL = 2
@@ -49,6 +50,7 @@ class AbstractInterface(metaclass=abc.ABCMeta):
 
     If an interface inherits from this base class, it is automatically registered for startup via :func:`main`.
     """
+
     def __init__(self):
         register_interface(self)
 
@@ -120,6 +122,7 @@ class ServiceStatus(enum.Enum):
     """
     Enum of possible service status, derived from Nagios/Icinga status.
     """
+
     OK = 0
     WARNING = 1
     CRITICAL = 2
@@ -133,6 +136,7 @@ class InterfaceStatus(NamedTuple):
     Contains the overall interface status (:attr:`status`), a human readable :attr:`message`, typically describing the
     current status, especially the error if any.
     """
+
     status: ServiceStatus = ServiceStatus.OK  #: Overall status of the interface.
     message: str = ""  #: A textual description of the error. E.g. an error message, if status != ServiceStatus.OK
 
@@ -190,8 +194,9 @@ async def run():
 
 async def stop():
     logger.info("Shutting down interfaces ...")
-    await asyncio.gather(*(interface.stop() for interface in _REGISTERED_INTERFACES), timer_supervisor.stop(),
-                         return_exceptions=True)
+    await asyncio.gather(
+        *(interface.stop() for interface in _REGISTERED_INTERFACES), timer_supervisor.stop(), return_exceptions=True
+    )
     _SHC_STOPPED.set()
 
 

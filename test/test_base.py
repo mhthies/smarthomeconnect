@@ -5,8 +5,15 @@ import unittest
 import unittest.mock
 from typing import List, Any
 
-from ._helper import async_test, AsyncMock, ExampleReadable, ExampleSubscribable, ExampleWritable, ExampleReading, \
-    SimpleIntRepublisher
+from ._helper import (
+    async_test,
+    AsyncMock,
+    ExampleReadable,
+    ExampleSubscribable,
+    ExampleWritable,
+    ExampleReading,
+    SimpleIntRepublisher,
+)
 from shc import base
 
 
@@ -180,9 +187,7 @@ class TestHandler(unittest.TestCase):
         await part_handler(2, [self, object])
         await empty_handler(3, [self, unittest.mock.sentinel])
         await asyncio.sleep(0.01)
-        mock.assert_has_calls([unittest.mock.call(1, [self]),
-                               unittest.mock.call(2),
-                               unittest.mock.call()])
+        mock.assert_has_calls([unittest.mock.call(1, [self]), unittest.mock.call(2), unittest.mock.call()])
 
 
 class TestBlockingHandler(unittest.TestCase):
@@ -242,9 +247,7 @@ class TestBlockingHandler(unittest.TestCase):
         await part_handler(2, [self, object])
         await empty_handler(3, [self, unittest.mock.sentinel])
         await asyncio.sleep(0.01)
-        mock.assert_has_calls([unittest.mock.call(1, [self]),
-                               unittest.mock.call(2),
-                               unittest.mock.call()])
+        mock.assert_has_calls([unittest.mock.call(1, [self]), unittest.mock.call(2), unittest.mock.call()])
 
 
 class TestReading(unittest.TestCase):
@@ -322,7 +325,7 @@ class TestConnecting(unittest.TestCase):
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
 
-        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe:
+        with unittest.mock.patch.object(a, "subscribe") as mock_subscribe:
             a.connect(b, receive=False)  # `read` should not have an effect here
             mock_subscribe.assert_called_once_with(b, convert=False)
 
@@ -349,7 +352,7 @@ class TestConnecting(unittest.TestCase):
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, False)
 
-        with unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
+        with unittest.mock.patch.object(b, "set_provider") as mock_set_provider:
             # Since Reading is mandatory, a should be registered with b by default
             a.connect(b, read=False)  # `read=False` should not have an effect here
             mock_set_provider.assert_called_once_with(a, convert=False)
@@ -377,7 +380,7 @@ class TestConnecting(unittest.TestCase):
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, True)
 
-        with unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
+        with unittest.mock.patch.object(b, "set_provider") as mock_set_provider:
             a.connect(b)
             mock_set_provider.assert_not_called()
 
@@ -397,8 +400,9 @@ class TestConnecting(unittest.TestCase):
         with self.assertRaises(TypeError):
             b.connect(a)
 
-        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe, \
-                unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
+        with unittest.mock.patch.object(a, "subscribe") as mock_subscribe, unittest.mock.patch.object(
+            b, "set_provider"
+        ) as mock_set_provider:
             a.connect(b, convert=True)
             mock_subscribe.assert_called_once_with(b, convert=True)
             mock_set_provider.assert_called_once_with(a, convert=True)
@@ -414,13 +418,14 @@ class TestConnecting(unittest.TestCase):
         b = DummyFloatReadingWritable()
 
         def a2b(x: int) -> float:
-            return float(x/255)
+            return float(x / 255)
 
         def b2a(x: float) -> int:
-            return round(x*255)
+            return round(x * 255)
 
-        with unittest.mock.patch.object(a, 'subscribe') as mock_subscribe, \
-                unittest.mock.patch.object(b, 'set_provider') as mock_set_provider:
+        with unittest.mock.patch.object(a, "subscribe") as mock_subscribe, unittest.mock.patch.object(
+            b, "set_provider"
+        ) as mock_set_provider:
             a.connect(b, convert=(a2b, b2a))
             mock_subscribe.assert_called_once_with(b, convert=a2b)
             mock_set_provider.assert_called_once_with(a, convert=a2b)
@@ -436,10 +441,10 @@ class TestConnecting(unittest.TestCase):
         b = DummyIntWrapper()
 
         def a2b(x: int) -> int:
-            return x*2
+            return x * 2
 
         def b2a(x: int) -> int:
-            return x//2
+            return x // 2
 
         a.connect(b, read=False, provide=True, convert=True)
         b.connect.assert_called_once_with(a, send=None, receive=None, read=True, provide=False, convert=True)

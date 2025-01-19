@@ -28,6 +28,7 @@ class ReadableStatusInterface(AbstractInterface, metaclass=abc.ABCMeta):
     *readable* connector that triggers this interfaces health checks when being *read*. The health checks must be
     implemented for each interface implementation by overriding the :meth:`_get_status` method.
     """
+
     def __init__(self):
         super().__init__()
         self.__status_connector: Optional[ReadableStatusConnector] = None
@@ -130,6 +131,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
     `metrics`. So, you can fill the `metrics` with custom values from your derived interface class via
     ``self._status_connector.update_status(metrics={…})``.
     """
+
     def __init__(self, auto_reconnect: bool = True, failsafe_start: bool = False):
         """
         :param auto_reconnect: If True (default), the supervisor tries to reconnect the interface automatically with
@@ -345,8 +347,9 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
                 await run_task
             run_exception = run_task.exception()
             if run_exception:
-                raise RuntimeError("Run task raised an exception while awaiting _subscribe: %s", repr(run_exception)) \
-                    from run_exception
+                raise RuntimeError(
+                    "Run task raised an exception while awaiting _subscribe: %s", repr(run_exception)
+                ) from run_exception
             else:
                 raise RuntimeError("Run task stopped before _subscribe task finished")
         subscribe_exception = subscribe_task.exception()
@@ -355,8 +358,12 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
             try:
                 await run_task
             except Exception as e:
-                logger.debug("Ignoring Exception %s in run task of interface %s, during shutdown due to "
-                             "exception in _subscribe task", repr(e), self)
+                logger.debug(
+                    "Ignoring Exception %s in run task of interface %s, during shutdown due to "
+                    "exception in _subscribe task",
+                    repr(e),
+                    self,
+                )
             raise subscribe_exception
 
     async def __handle_exception(self, exception: Optional[Exception]) -> bool:
@@ -411,6 +418,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
             self._status_connector.update_status(status=ServiceStatus.CRITICAL, message=str(exception))
         else:
             logger.error("Unexpected shutdown of interface %s. Attempting reconnect ...", self)
-            self._status_connector.update_status(status=ServiceStatus.CRITICAL,
-                                                 message="Unexpected shutdown of interface")
+            self._status_connector.update_status(
+                status=ServiceStatus.CRITICAL, message="Unexpected shutdown of interface"
+            )
         return False

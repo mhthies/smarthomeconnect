@@ -13,8 +13,8 @@ from aiogram.client.telegram import TelegramAPIServer, PRODUCTION
 from ..base import Writable, Subscribable, Reading, T
 from ..supervisor import AbstractInterface
 
-RoleT = TypeVar('RoleT')
-UserT = TypeVar('UserT')
+RoleT = TypeVar("RoleT")
+UserT = TypeVar("UserT")
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +40,12 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         testing purposes.
     """
 
-    def __init__(self, api_token: str, auth_provider: "TelegramAuthProvider[UserT, RoleT]",
-                 telegram_server: TelegramAPIServer = PRODUCTION):
+    def __init__(
+        self,
+        api_token: str,
+        auth_provider: "TelegramAuthProvider[UserT, RoleT]",
+        telegram_server: TelegramAPIServer = PRODUCTION,
+    ):
         super().__init__()
         self.auth_provider = auth_provider
 
@@ -85,8 +89,11 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         user = self.auth_provider.get_telegram_user(chat_id)
         if user is None:
             logger.warning("Telegram chat %s is not authorized to do /start", chat_id)
-            await message.reply(f"Unauthorized! Please make sure that this Telegram chat's ID ({chat_id}) is "
-                                f"authorized to interact with this bot.", reply=False)
+            await message.reply(
+                f"Unauthorized! Please make sure that this Telegram chat's ID ({chat_id}) is "
+                f"authorized to interact with this bot.",
+                reply=False,
+            )
 
     async def _handle_select(self, message: aiogram.types.Message) -> None:
         """
@@ -107,8 +114,11 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         assert message.text is not None  # to make mypy happy. The message obviously contains a text with the /s command
         connector_id = message.text[3:]  # strip the '/select ' prefix
         if connector_id not in self.connectors:
-            logger.debug("Received /s (select) command for non-existing object '%s' for Telegram chat %s", connector_id,
-                         message.chat.id)
+            logger.debug(
+                "Received /s (select) command for non-existing object '%s' for Telegram chat %s",
+                connector_id,
+                message.chat.id,
+            )
             await message.reply("Unknown connector/object")
             return
         connector = self.connectors[connector_id]
@@ -132,7 +142,8 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             if keyboard is None:
                 markup = aiogram.types.InlineKeyboardMarkup(
                     row_width=1,
-                    inline_keyboard=[[aiogram.types.InlineKeyboardButton(text="cancel", callback_data="cancel")]])
+                    inline_keyboard=[[aiogram.types.InlineKeyboardButton(text="cancel", callback_data="cancel")]],
+                )
                 inline_keyboard = True
             else:
                 keyboard.keyboard.append([aiogram.types.KeyboardButton(text="/cancel")])
@@ -165,8 +176,9 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         user = self.auth_provider.get_telegram_user(chat_id)
         if user is None:
             await message.reply("Not authorized!")
-            logger.warning("Received non-command message '%s' from unauthorized Telegram user (chat id %s)",
-                           message.text, chat_id)
+            logger.warning(
+                "Received non-command message '%s' from unauthorized Telegram user (chat id %s)", message.text, chat_id
+            )
             return
         logger.debug("Received non-command message '%s' from Telegram user %s", message.text, user)
         if chat_id in self.chat_state:
@@ -205,8 +217,9 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             logger.warning("Invalid value '%s' received for Telegram connector %s: %s", value, context.name, e)
             await message.reply(f"Invalid value for connector/object {context.name}: {e}")
         except Exception as e:
-            logger.error("Error while sending value '%s' to Telegram connector/object %s:", value, context.name,
-                         exc_info=e)
+            logger.error(
+                "Error while sending value '%s' to Telegram connector/object %s:", value, context.name, exc_info=e
+            )
             await message.reply(f"Internal error while setting value for connector/object {context.name}")
 
     async def _do_connector_search(self, message: aiogram.types.Message, user: UserT) -> None:
@@ -225,11 +238,15 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             return
         connectors = self._find_matching_connectors(message.text, user)
         if connectors:
-            await message.reply("Please chose", reply_markup=aiogram.types.ReplyKeyboardMarkup(
-                keyboard=[[aiogram.types.KeyboardButton(text=f"/s {var.name}")]
-                          for var in connectors],
-                one_time_keyboard=True,
-                resize_keyboard=True), reply=False)
+            await message.reply(
+                "Please chose",
+                reply_markup=aiogram.types.ReplyKeyboardMarkup(
+                    keyboard=[[aiogram.types.KeyboardButton(text=f"/s {var.name}")] for var in connectors],
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                ),
+                reply=False,
+            )
         else:
             await message.reply("No matching connector/object found")
 
@@ -241,11 +258,17 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         This method is used to present a connector selection list to the user, when they enter a search term.
         """
         regex = re.compile(re.escape(search_term), re.IGNORECASE)
-        return [var
-                for name, var in self.connectors.items()
-                if regex.search(name) and (
-                    self.auth_provider.has_user_role(user, var.read_roles) and var.is_readable()
-                    or self.auth_provider.has_user_role(user, var.set_roles) and var.is_settable())]
+        return [
+            var
+            for name, var in self.connectors.items()
+            if regex.search(name)
+            and (
+                self.auth_provider.has_user_role(user, var.read_roles)
+                and var.is_readable()
+                or self.auth_provider.has_user_role(user, var.set_roles)
+                and var.is_settable()
+            )
+        ]
 
     async def _handle_callback_query(self, query: aiogram.types.CallbackQuery) -> None:
         """
@@ -257,7 +280,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         if query.message is None:
             logger.warning("Received CallbackQuery without message, so the originating chat cannot be identified.")
             return
-        if query.data == 'cancel':
+        if query.data == "cancel":
             # Remove inline keyboard. Just to be sure. (Should also be done by _do_cancel(), when chat state is tracked
             # correctly)
             chat_id = int(query.message.chat.id)
@@ -293,14 +316,21 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             del self.chat_state[chat_id]
             await self.bot.send_message(chat_id, "Action cancelled", reply_markup=aiogram.types.ReplyKeyboardRemove())
         elif not silent:
-            await self.bot.send_message(chat_id, "No action in progress.",
-                                        reply_markup=aiogram.types.ReplyKeyboardRemove())
+            await self.bot.send_message(
+                chat_id, "No action in progress.", reply_markup=aiogram.types.ReplyKeyboardRemove()
+            )
 
-    def generic_connector(self, type_: Type[T], name: str,
-                          to_message: Callable[[T], str], parse_value: Callable[[str], T],
-                          read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                          send_users: Set[UserT] = set(), options: Optional[List[str]] = None
-                          ) -> "TelegramConnector[T, RoleT]":
+    def generic_connector(
+        self,
+        type_: Type[T],
+        name: str,
+        to_message: Callable[[T], str],
+        parse_value: Callable[[str], T],
+        read_roles: Set[RoleT],
+        set_roles: Optional[Set[RoleT]] = None,
+        send_users: Set[UserT] = set(),
+        options: Optional[List[str]] = None,
+    ) -> "TelegramConnector[T, RoleT]":
         """
         Create a new connector object with any type, using the given formatting and parsing callback functions
 
@@ -327,16 +357,24 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         if name in self.connectors:
             raise ValueError(f"Connector with name {name} already exists in this Telegram bot.")
         var = TelegramConnector(
-            self, type_, name, read_roles, send_users,
+            self,
+            type_,
+            name,
+            read_roles,
+            send_users,
             set_roles if set_roles is not None else read_roles,
-            "Change to?", parse_value,
-            lambda x: f"{name} is currently {to_message(x)}", lambda x: f"{name} is now {to_message(x)}",
-            options)
+            "Change to?",
+            parse_value,
+            lambda x: f"{name} is currently {to_message(x)}",
+            lambda x: f"{name} is now {to_message(x)}",
+            options,
+        )
         self.connectors[name] = var
         return var
 
-    def str_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                      send_users: Set[UserT] = set()) -> "TelegramConnector[str, RoleT]":
+    def str_connector(
+        self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
+    ) -> "TelegramConnector[str, RoleT]":
         """
         Create a new connector object with string type values
 
@@ -354,16 +392,24 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         if name in self.connectors:
             raise ValueError(f"Connector with name {name} already exists in this Telegram bot.")
         var = TelegramConnector(
-            self, str, name, read_roles, send_users,
+            self,
+            str,
+            name,
+            read_roles,
+            send_users,
             set_roles if set_roles is not None else read_roles,
-            "Change to?", lambda x: x,
-            lambda x: f"{name} is currently {x}", lambda x: f"{name} is now {x}",
-            None)
+            "Change to?",
+            lambda x: x,
+            lambda x: f"{name} is currently {x}",
+            lambda x: f"{name} is now {x}",
+            None,
+        )
         self.connectors[name] = var
         return var
 
-    def on_off_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                         send_users: Set[UserT] = set()) -> "TelegramConnector[bool, RoleT]":
+    def on_off_connector(
+        self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
+    ) -> "TelegramConnector[bool, RoleT]":
         """
         Create a new connector object with bool values, represented to the user as 'on' and 'off'
 
@@ -390,18 +436,24 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
                 raise ValueError("Invalid on/off value.")
 
         var = TelegramConnector(
-            self, bool, name, read_roles, send_users,
+            self,
+            bool,
+            name,
+            read_roles,
+            send_users,
             set_roles if set_roles is not None else read_roles,
             "Switch?",
             parse_value,
             lambda x: f"{name} is currently {'on' if x else 'off'}.",
             lambda x: f"{name} is now {'on' if x else 'off'}",
-            ['off', 'on'])
+            ["off", "on"],
+        )
         self.connectors[name] = var
         return var
 
-    def trigger_connector(self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None,
-                          send_users: Set[UserT] = set()) -> "TelegramConnector[None, RoleT]":
+    def trigger_connector(
+        self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
+    ) -> "TelegramConnector[None, RoleT]":
         """
         Create a new connector object None-type values
 
@@ -435,13 +487,18 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
                 raise ValueError("Invalid value. Must be 'do'. Otherwise, use /cancel to cancel triggering.")
 
         var = TelegramConnector(
-            self, type(None), name, read_roles, send_users,
+            self,
+            type(None),
+            name,
+            read_roles,
+            send_users,
             set_roles if set_roles is not None else read_roles,
             "Trigger?",
             parse_value,
             lambda x: "",
             lambda x: f"{name} has been triggered",
-            ['do'])
+            ["do"],
+        )
         self.connectors[name] = var
         return var
 
@@ -464,18 +521,26 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
                 logger.warning("Could not resolve user %s to Telegram chat_id for sending message to them", user)
             else:
                 user_chats.add(chat)
-        await asyncio.gather(*(self.bot.send_message(chat_id, text)
-                               for chat_id in chat_ids | user_chats))
+        await asyncio.gather(*(self.bot.send_message(chat_id, text) for chat_id in chat_ids | user_chats))
 
 
-class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T],
-                        metaclass=abc.ABCMeta):
+class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T], metaclass=abc.ABCMeta):
     is_reading_optional = False
 
-    def __init__(self, interface: TelegramBot, type_: Type[T], name: str, read_roles: Set[RoleT],
-                 send_users: Set[UserT], set_roles: Set[RoleT], set_message: str, parse_value: Callable[[str], T],
-                 format_value_read: Callable[[T], str], format_value_send: Callable[[T], str],
-                 options: Optional[List[str]]):
+    def __init__(
+        self,
+        interface: TelegramBot,
+        type_: Type[T],
+        name: str,
+        read_roles: Set[RoleT],
+        send_users: Set[UserT],
+        set_roles: Set[RoleT],
+        set_message: str,
+        parse_value: Callable[[str], T],
+        format_value_read: Callable[[T], str],
+        format_value_send: Callable[[T], str],
+        options: Optional[List[str]],
+    ):
         self.type = type_
         super().__init__()
         self.interface = interface
@@ -491,25 +556,27 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         self.keyboard: Optional[aiogram.types.ReplyKeyboardMarkup]
         if options:
             self.keyboard = aiogram.types.ReplyKeyboardMarkup(
-                keyboard=[[aiogram.types.KeyboardButton(text=o)
-                          for o in options[i:i+2]]
-                          for i in range(0, len(options), 2)])
+                keyboard=[
+                    [aiogram.types.KeyboardButton(text=o) for o in options[i : i + 2]]
+                    for i in range(0, len(options), 2)
+                ]
+            )
         else:
             self.keyboard = None
 
     def is_settable(self) -> bool:
-        """ Returns True, if the connector has subscribers, i.e. it is meaningfully readable from Telegram """
+        """Returns True, if the connector has subscribers, i.e. it is meaningfully readable from Telegram"""
         return bool(self._subscribers or self._triggers)
 
     def is_readable(self) -> bool:
-        """ Returns True, if the connector has a default_provider, i.e. it is meaningfully writable from Telegram """
+        """Returns True, if the connector has a default_provider, i.e. it is meaningfully writable from Telegram"""
         return self._default_provider is not None
 
     async def _write(self, value: T, _origin: List[Any]) -> None:
         await self.interface.send_message(text=self.format_value_send_fn(value), users=self.send_users)
 
     async def read_message(self) -> Optional[str]:
-        """ Create a response to a read-request from Telegram.
+        """Create a response to a read-request from Telegram.
 
         :return: A message with the current value from the default_provider, using the :attr:`format_value_read_fn` or
         """
@@ -547,6 +614,7 @@ class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
 
     * :class:`SimpleTelegramAuth`
     """
+
     @abc.abstractmethod
     def get_telegram_user(self, chat_id: int) -> Optional[UserT]:
         pass
@@ -569,6 +637,7 @@ class SimpleTelegramAuth(TelegramAuthProvider[str, str]):
 
     :param users: Dict of users in the form {user_id: telegram_chat_id}
     """
+
     def __init__(self, users: Dict[str, int]):
         self.users = users
         self.user_by_id = {v: k for k, v in users.items()}

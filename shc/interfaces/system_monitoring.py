@@ -52,9 +52,16 @@ class EventLoopMonitor(SubscribableStatusInterface):
     :ivar lag: *readable* and *subscribable* connector, representing and publishing the current call delay (maximum
         within the sample interval)
     """
-    def __init__(self, interval: float = 5.0, num_aggr_samples: int = 60,
-                 lag_warning: float = 0.005, lag_error: float = 0.02,
-                 tasks_warning: int = 1000, tasks_error: int = 10000):
+
+    def __init__(
+        self,
+        interval: float = 5.0,
+        num_aggr_samples: int = 60,
+        lag_warning: float = 0.005,
+        lag_error: float = 0.02,
+        tasks_warning: int = 1000,
+        tasks_error: int = 10000,
+    ):
         super().__init__()
         self.interval = interval
         self.num_aggr_samples = num_aggr_samples
@@ -101,11 +108,16 @@ class EventLoopMonitor(SubscribableStatusInterface):
         warning = lag_max >= self.lag_warning or tasks_max >= self.tasks_warning
         error = lag_max >= self.lag_error or tasks_max >= self.tasks_error
         self._status_connector.update_status(
-            (ServiceStatus.UNKNOWN if len(self._samples) == 0
-             else ServiceStatus.CRITICAL if error
-             else ServiceStatus.WARNING if warning
-             else ServiceStatus.OK),
-            ""
+            (
+                ServiceStatus.UNKNOWN
+                if len(self._samples) == 0
+                else ServiceStatus.CRITICAL
+                if error
+                else ServiceStatus.WARNING
+                if warning
+                else ServiceStatus.OK
+            ),
+            "",
         )
         self.tasks.set_generated_value(tasks_max)
         self.lag.set_generated_value(lag_max)

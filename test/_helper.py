@@ -32,10 +32,12 @@ def async_test(f: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
     """
     Decorator to transform async unittest coroutines into normal test methods
     """
+
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(f(*args, **kwargs))
+
     return wrapper
 
 
@@ -50,6 +52,7 @@ class AsyncMock(unittest.mock.MagicMock):
     The async calls are passed to the normal call/enter/exit methods of the super class to use its usual builtin
     evaluation/assertion functionality (e.g. :meth:`unittest.mock.NonCallableMock.assert_called_with`).
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not hasattr(self, "__signature__"):
@@ -81,14 +84,19 @@ class ClockMock:
     which inherit from their original pendants. To avoid failing type checks in other tests, the replacement is reverted
     when exiting the patch context.
     """
+
     class NewDate(datetime.date):
         pass
 
     class NewDateTime(datetime.datetime):
         pass
 
-    def __init__(self, start_time: datetime.datetime, overshoot: datetime.timedelta = datetime.timedelta(),
-                 actual_sleep: float = 0.0):
+    def __init__(
+        self,
+        start_time: datetime.datetime,
+        overshoot: datetime.timedelta = datetime.timedelta(),
+        actual_sleep: float = 0.0,
+    ):
         self.current_time = start_time
         self.overshoot = overshoot
         self.actual_sleep = actual_sleep
@@ -194,15 +202,16 @@ class ClockMock:
 
     def __enter__(self) -> "ClockMock":
         import datetime
+
         datetime.date = self.NewDate  # type: ignore
         datetime.datetime = self.NewDateTime  # type: ignore
 
         self.patches = (
-            unittest.mock.patch('time.sleep', new=self.sleep),
-            unittest.mock.patch('asyncio.sleep', new=self.async_sleep),
-            unittest.mock.patch('datetime.datetime.now', new=self.now),
-            unittest.mock.patch('time.time', new=self.time),
-            unittest.mock.patch('datetime.date.today', new=self.today),
+            unittest.mock.patch("time.sleep", new=self.sleep),
+            unittest.mock.patch("asyncio.sleep", new=self.async_sleep),
+            unittest.mock.patch("datetime.datetime.now", new=self.now),
+            unittest.mock.patch("time.time", new=self.time),
+            unittest.mock.patch("datetime.date.today", new=self.today),
         )
         for p in self.patches:
             p.__enter__()
@@ -220,7 +229,7 @@ class ClockMock:
 # Example Connectable objects
 # ###########################
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ExampleReadable(base.Readable[T], Generic[T]):
@@ -271,7 +280,7 @@ class SimpleIntRepublisher(base.Writable, base.Subscribable):
         await self._publish_and_wait(value, origin)
 
 
-IT = TypeVar('IT', bound=AbstractInterface)
+IT = TypeVar("IT", bound=AbstractInterface)
 
 
 class InterfaceThreadRunner(Generic[IT]):
@@ -302,6 +311,7 @@ class InterfaceThreadRunner(Generic[IT]):
     :param kwargs: keyword arguments to be passed to the interface's constructor
     :raises TimeoutError: When the interface cannot be constructed within 5 seconds.
     """
+
     executor = concurrent.futures.ThreadPoolExecutor()
 
     def __init__(self, interface_class: Type[IT], *args, **kwargs):
