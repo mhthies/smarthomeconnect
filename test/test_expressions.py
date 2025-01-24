@@ -3,10 +3,10 @@ import datetime
 import unittest
 import unittest.mock
 
-from shc import variables, expressions
+from shc import expressions, variables
 from shc.base import UninitializedError
-from shc.expressions import not_, or_, and_, ExpressionHandler
-from test._helper import async_test, ExampleWritable
+from shc.expressions import ExpressionHandler, and_, not_, or_
+from test._helper import ExampleWritable, async_test
 
 
 class TestExpressions(unittest.TestCase):

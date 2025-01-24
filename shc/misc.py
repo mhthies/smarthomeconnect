@@ -11,11 +11,11 @@
 
 import datetime
 import logging
-from typing import Generic, Type, List, Any, Optional, Callable, Dict, Awaitable
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Type
 
 from shc import conversion
-from shc.base import Readable, Subscribable, Writable, T, ConnectableWrapper, UninitializedError, Reading, S
-from shc.datatypes import RangeFloat1, FadeStep
+from shc.base import ConnectableWrapper, Readable, Reading, S, Subscribable, T, UninitializedError, Writable
+from shc.datatypes import FadeStep, RangeFloat1
 from shc.expressions import ExpressionWrapper
 from shc.timer import Every
 

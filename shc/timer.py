@@ -17,10 +17,10 @@ import math
 import random
 import time
 import weakref
-from typing import List, Optional, Callable, Any, Type, Union, Tuple, Iterable, Generic, TypeVar
+from typing import Any, Callable, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
-from .base import Subscribable, LogicHandler, Readable, Writable, T, UninitializedError, Reading
-from .datatypes import RangeFloat1, RangeUInt8, RangeInt0To100, HSVFloat1, RGBUInt8, RGBWUInt8, FadeStep, AbstractStep
+from .base import LogicHandler, Readable, Reading, Subscribable, T, UninitializedError, Writable
+from .datatypes import AbstractStep, FadeStep, HSVFloat1, RangeFloat1, RangeInt0To100, RangeUInt8, RGBUInt8, RGBWUInt8
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)

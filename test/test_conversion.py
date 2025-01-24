@@ -2,7 +2,7 @@ import datetime
 import json
 import unittest
 
-from shc import conversion, Variable
+from shc import Variable, conversion
 
 
 class ConverterRegistrationTest(unittest.TestCase):

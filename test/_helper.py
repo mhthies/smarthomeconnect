@@ -10,17 +10,16 @@
 # specific language governing permissions and limitations under the License.
 import asyncio
 import concurrent.futures
+import datetime
 import functools
 import heapq
 import inspect
 import threading
 import time
 import unittest.mock
-import datetime
-from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List, Union, Tuple, Set, Optional, Coroutine
+from typing import Any, Awaitable, Callable, Coroutine, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from shc import base
-
 
 # #############################################
 # General helper classes for testing async code

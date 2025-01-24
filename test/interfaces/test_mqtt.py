@@ -13,7 +13,7 @@ import aiomqtt
 
 import shc.interfaces.mqtt
 
-from .._helper import InterfaceThreadRunner, async_test, ExampleWritable, AsyncMock
+from .._helper import AsyncMock, ExampleWritable, InterfaceThreadRunner, async_test
 
 
 @unittest.skipIf(shutil.which("mosquitto") is None, "mosquitto MQTT broker is not available in PATH")

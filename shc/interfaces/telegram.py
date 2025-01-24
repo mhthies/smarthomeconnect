@@ -2,15 +2,15 @@ import abc
 import asyncio
 import logging
 import re
-from typing import Generic, TypeVar, Set, Type, Optional, List, Dict, Any, Callable, Union
+from typing import Any, Callable, Dict, Generic, List, Optional, Set, Type, TypeVar, Union
 
 import aiogram
 import aiogram.client
-import aiogram.filters
 import aiogram.client.session.aiohttp
-from aiogram.client.telegram import TelegramAPIServer, PRODUCTION
+import aiogram.filters
+from aiogram.client.telegram import PRODUCTION, TelegramAPIServer
 
-from ..base import Writable, Subscribable, Reading, T
+from ..base import Reading, Subscribable, T, Writable
 from ..supervisor import AbstractInterface
 
 RoleT = TypeVar("RoleT")

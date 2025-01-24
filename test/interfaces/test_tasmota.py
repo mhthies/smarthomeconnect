@@ -1,24 +1,24 @@
 import asyncio
+import datetime
 import json
 import math
 import shutil
 import subprocess
 import time
-import datetime
 import typing
 import unittest
 import unittest.mock
 from contextlib import suppress
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 import aiomqtt
 
 import shc.interfaces.mqtt
 import shc.interfaces.tasmota
-from shc.datatypes import RGBWUInt8, RGBUInt8, RangeUInt8, RangeInt0To100
+from shc.datatypes import RangeInt0To100, RangeUInt8, RGBUInt8, RGBWUInt8
 from shc.supervisor import InterfaceStatus, ServiceStatus
-from test._helper import InterfaceThreadRunner, ExampleWritable, async_test
+from test._helper import ExampleWritable, InterfaceThreadRunner, async_test
 
 
 @unittest.skipIf(shutil.which("mosquitto") is None, "mosquitto MQTT broker is not available in PATH")

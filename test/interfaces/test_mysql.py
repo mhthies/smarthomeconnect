@@ -1,10 +1,10 @@
-import datetime
 import asyncio
+import datetime
 import math
+import os
 import unittest
 import urllib.parse
-from typing import Tuple, Type, Iterable, Dict, NamedTuple, Sequence, Any
-import os
+from typing import Any, Dict, Iterable, NamedTuple, Sequence, Tuple, Type
 
 import aiomysql
 import pymysql
@@ -12,6 +12,7 @@ import pymysql
 import shc.data_logging
 import shc.interfaces.mysql
 from shc.base import T
+
 from .._helper import async_test
 from ..test_data_logging import AbstractLoggingTest
 

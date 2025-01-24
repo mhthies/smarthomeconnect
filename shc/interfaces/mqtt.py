@@ -15,14 +15,14 @@ import itertools
 import json
 import logging
 import typing
-from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Union, Dict, Deque, Iterable
+from typing import Any, Awaitable, Callable, Deque, Dict, Generic, Iterable, List, Optional, Type, Union
 
-from aiomqtt import Client, ProtocolVersion, Message
+from aiomqtt import Client, Message, ProtocolVersion
 from paho.mqtt.matcher import MQTTMatcher
 
-from ._helper import SupervisedClientInterface
-from ..base import Writable, Subscribable, T, S, LogicHandler
+from ..base import LogicHandler, S, Subscribable, T, Writable
 from ..conversion import SHCJsonEncoder, from_json
+from ._helper import SupervisedClientInterface
 
 logger = logging.getLogger(__name__)
 

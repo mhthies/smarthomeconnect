@@ -3,11 +3,11 @@ import unittest
 import unittest.mock
 
 import mido
+
 import shc.interfaces.midi
 from shc.datatypes import RangeUInt8
 
 from .._helper import InterfaceThreadRunner
-
 
 try:
     mido.backend.load()

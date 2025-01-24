@@ -16,10 +16,10 @@ import functools
 import math
 import operator
 import typing
-from typing import Type, Generic, Any, Iterable, Callable, Union, Dict, Tuple, List, Optional
+from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Tuple, Type, Union
 
 from . import conversion
-from .base import Readable, Subscribable, T, Connectable, Writable, S, LogicHandler, UninitializedError
+from .base import Connectable, LogicHandler, Readable, S, Subscribable, T, UninitializedError, Writable
 from .datatypes import RangeFloat1
 
 

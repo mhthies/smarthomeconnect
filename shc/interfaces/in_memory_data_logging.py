@@ -1,8 +1,8 @@
 import asyncio
 import datetime
-from typing import Optional, Type, Generic, List, Tuple, Any
+from typing import Any, Generic, List, Optional, Tuple, Type
 
-from shc.base import T, Readable, Writable, UninitializedError
+from shc.base import Readable, T, UninitializedError, Writable
 from shc.data_logging import DataLogVariable, LiveDataLogView
 
 

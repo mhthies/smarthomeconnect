@@ -19,15 +19,15 @@ import pathlib
 import weakref
 from dataclasses import dataclass, field
 from json import JSONDecodeError
-from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple, Generic, Type, Callable
+from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import aiohttp.web
 import jinja2
 from aiohttp import WSCloseCode
 
-from ..base import Reading, T, Writable, Subscribable, Readable
+from ..base import Readable, Reading, Subscribable, T, Writable
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import get_interfaces, AbstractInterface, ServiceStatus, ServiceCriticality, InterfaceStatus
+from ..supervisor import AbstractInterface, InterfaceStatus, ServiceCriticality, ServiceStatus, get_interfaces
 
 logger = logging.getLogger(__name__)
 

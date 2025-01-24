@@ -104,9 +104,6 @@ ignore = [
     "D402",  # First line should not be the function's signature
     "D404",  # First word of the docstring should not be "This"
     "D415",  # First line should end with a period, question mark, or exclamation point
-    "E226",  # Missing whitespace around arithmetic operator  # FIXME: enable again
-    "E241",  # Multiple spaces after comma  # FIXME: enable again
-    "I001",  # Import block is un-sorted or un-formatted  # FIXME: enable again
 ]
 
 [tool.ruff.lint.per-file-ignores]

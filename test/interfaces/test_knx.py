@@ -9,10 +9,11 @@ import unittest
 import unittest.mock
 
 import knxdclient
+
 from shc import conversion
 from shc.datatypes import FadeStep
 from shc.interfaces import knx
-from test._helper import async_test, InterfaceThreadRunner, ExampleWritable, ExampleReadable
+from test._helper import ExampleReadable, ExampleWritable, InterfaceThreadRunner, async_test
 
 
 class KNXDataTypesTest(unittest.TestCase):

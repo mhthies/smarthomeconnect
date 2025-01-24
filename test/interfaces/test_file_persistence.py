@@ -7,6 +7,7 @@ import aiofile.aio
 
 import shc.base
 from shc.interfaces import file_persistence
+
 from .._helper import InterfaceThreadRunner
 from ..test_variables import ExampleTupleType
 

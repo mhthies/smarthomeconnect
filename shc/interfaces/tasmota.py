@@ -18,14 +18,14 @@ import logging
 import re
 import typing
 import warnings
-from typing import List, Any, Dict, Deque, Generic, Union, Type, TypeVar, Tuple, cast, Optional, NamedTuple
+from typing import Any, Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, Type, TypeVar, Union, cast
 
 import aiomqtt
 
-from ..base import Writable, Subscribable, T, Readable
-from .mqtt import MQTTClientInterface
-from ..datatypes import RangeInt0To100, RGBUInt8, RangeUInt8, RGBWUInt8, RGBCCTUInt8, CCTUInt8
+from ..base import Readable, Subscribable, T, Writable
+from ..datatypes import CCTUInt8, RangeInt0To100, RangeUInt8, RGBCCTUInt8, RGBUInt8, RGBWUInt8
 from ..supervisor import AbstractInterface, InterfaceStatus, ServiceStatus
+from .mqtt import MQTTClientInterface
 
 logger = logging.getLogger(__name__)
 

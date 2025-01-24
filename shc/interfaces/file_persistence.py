@@ -1,15 +1,14 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Tuple, Optional, Generic, List, Type
 from pathlib import Path
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type
 
 import aiofile
 
-from shc.base import Readable, T, Writable, UninitializedError
+from shc.base import Readable, T, UninitializedError, Writable
 from shc.conversion import from_json
 from shc.supervisor import AbstractInterface
-
 
 FOOTER = b'"_": null\n}\n'
 NUM_BUFFER_SPACES = 10

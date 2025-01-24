@@ -2,11 +2,12 @@ import asyncio
 import datetime
 import unittest
 from contextlib import suppress
-from typing import List, Tuple, Generic, Type, Iterable, Any, Sequence, Union, Dict, Optional
+from typing import Any, Dict, Generic, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import shc.data_logging
-from shc.base import T, UninitializedError, Readable
-from ._helper import async_test, ClockMock
+from shc.base import Readable, T, UninitializedError
+
+from ._helper import ClockMock, async_test
 
 time_series_1 = [
     (datetime.datetime(2020, 1, 1, 0, 0, 0).astimezone(), 20.0),

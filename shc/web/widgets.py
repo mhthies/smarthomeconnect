@@ -31,35 +31,34 @@ import pathlib
 from os import PathLike
 from typing import (
     Any,
-    cast,
-    Type,
-    Union,
+    Callable,
+    Generic,
     Iterable,
     List,
-    Generic,
-    Tuple,
-    TypeVar,
     Optional,
-    Callable,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
 )
 
 import markupsafe
 from markupsafe import Markup
 
-from .interface import (
-    WebPageItem,
-    WebDisplayDatapoint,
-    WebActionDatapoint,
-    jinja_env,
-    WebConnectorContainer,
-    WebUIConnector,
-    WebPage,
-    WebServer,
-)
-from ..base import T, ConnectableWrapper, Connectable
+from ..base import Connectable, ConnectableWrapper, T
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1, RGBUInt8
-
+from .interface import (
+    WebActionDatapoint,
+    WebConnectorContainer,
+    WebDisplayDatapoint,
+    WebPage,
+    WebPageItem,
+    WebServer,
+    WebUIConnector,
+    jinja_env,
+)
 
 __all__ = [
     "icon",

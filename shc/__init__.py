@@ -9,15 +9,7 @@
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
-from . import base
-from . import supervisor
-
-from . import variables
-from . import datatypes
-from . import conversion
-
-from . import timer
-
-from .base import handler, blocking_handler
-from .variables import Variable
+from . import base, conversion, datatypes, supervisor, timer, variables
+from .base import blocking_handler, handler
 from .supervisor import main
+from .variables import Variable

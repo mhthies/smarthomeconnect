@@ -3,7 +3,7 @@ import unittest
 import unittest.mock
 
 import shc.misc
-from test._helper import ExampleSubscribable, ExampleWritable, async_test, ExampleReadable
+from test._helper import ExampleReadable, ExampleSubscribable, ExampleWritable, async_test
 from test.test_variables import ExampleTupleType
 
 

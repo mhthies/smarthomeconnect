@@ -11,10 +11,10 @@
 import abc
 import logging
 import math
-from typing import NamedTuple, Union, overload, Generic
+from typing import Generic, NamedTuple, Union, overload
 
 from shc.base import T
-from shc.conversion import register_converter, get_converter
+from shc.conversion import get_converter, register_converter
 
 logger = logging.getLogger(__name__)
 

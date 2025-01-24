@@ -23,8 +23,8 @@ import argparse
 import enum
 import json
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 from typing import NoReturn
 
 

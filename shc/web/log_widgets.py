@@ -18,15 +18,15 @@ The time series data, incl. live updates, is fetched from interfaces, which impl
 See :ref:`data_logging`.
 """
 
-from dataclasses import dataclass
 import datetime
 import enum
-from typing import Iterable, Optional, Generic, Union, Callable, Tuple, List
+from dataclasses import dataclass
+from typing import Callable, Generic, Iterable, List, Optional, Tuple, Union
 
 from markupsafe import Markup
 
-from ..data_logging import DataLogVariable, LoggingWebUIView, AggregationMethod
 from ..base import T
+from ..data_logging import AggregationMethod, DataLogVariable, LoggingWebUIView
 from .interface import WebPageItem, WebUIConnector, jinja_env
 
 

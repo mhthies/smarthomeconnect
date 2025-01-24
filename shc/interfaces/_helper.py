@@ -14,7 +14,7 @@ import logging
 from typing import Optional
 
 from ..base import Readable, Subscribable
-from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, ServiceStatus
+from ..supervisor import AbstractInterface, InterfaceStatus, ServiceStatus, interface_failure
 
 logger = logging.getLogger(__name__)
 

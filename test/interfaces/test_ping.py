@@ -3,7 +3,7 @@ import unittest
 import unittest.mock
 
 from shc.interfaces import ping
-from test._helper import async_test, ExampleSubscribable, ExampleWritable
+from test._helper import ExampleSubscribable, ExampleWritable, async_test
 
 
 class PingTest(unittest.TestCase):

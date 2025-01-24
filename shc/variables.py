@@ -13,10 +13,10 @@ import asyncio
 import datetime
 import logging
 import warnings
-from typing import Generic, Type, Optional, List, Any, Union, Dict
+from typing import Any, Dict, Generic, List, Optional, Type, Union
 
 from . import timer
-from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
+from .base import Readable, Reading, Subscribable, T, UninitializedError, Writable
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)

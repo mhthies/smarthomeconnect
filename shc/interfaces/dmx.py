@@ -33,12 +33,12 @@ Simple usage example::
 """
 
 import abc
+import asyncio
 import enum
 import logging
-from typing import List, Any, NamedTuple, Optional
+from typing import Any, List, NamedTuple, Optional
 
 import serial_asyncio
-import asyncio
 
 from ..base import Writable
 from ..datatypes import RangeUInt8

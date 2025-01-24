@@ -3,19 +3,19 @@ import logging
 import threading
 import unittest
 import unittest.mock
-from typing import List, Any
+from typing import Any, List
 
-from ._helper import (
-    async_test,
-    AsyncMock,
-    ExampleReadable,
-    ExampleSubscribable,
-    ExampleWritable,
-    ExampleReading,
-    SimpleIntRepublisher,
-)
 from shc import base
 
+from ._helper import (
+    AsyncMock,
+    ExampleReadable,
+    ExampleReading,
+    ExampleSubscribable,
+    ExampleWritable,
+    SimpleIntRepublisher,
+    async_test,
+)
 
 TOTALLY_RANDOM_NUMBER = 42
 

@@ -11,12 +11,12 @@
 
 import abc
 import asyncio
+import datetime
 import enum
 import json
-import datetime
 import logging
 import math
-from typing import Type, Generic, List, Any, Optional, Tuple, Union, cast, TypeVar, Callable, Sequence
+from typing import Any, Callable, Generic, List, Optional, Sequence, Tuple, Type, TypeVar, Union, cast
 
 import aiohttp.web
 

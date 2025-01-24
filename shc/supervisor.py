@@ -14,7 +14,7 @@ import enum
 import functools
 import logging
 import signal
-from typing import Set, NamedTuple, Iterable
+from typing import Iterable, NamedTuple, Set
 
 from .base import Readable
 from .timer import timer_supervisor

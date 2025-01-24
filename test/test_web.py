@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import http.client
 import json
 import math
 import os
@@ -10,28 +11,28 @@ import sys
 import time
 import unittest
 import unittest.mock
-import urllib.request
 import urllib.error
-import http.client
+import urllib.request
 from pathlib import Path
-from typing import cast, Iterable
+from typing import Iterable, cast
 
 import aiohttp
-from selenium import webdriver
 import selenium.webdriver.firefox.options
+import selenium.webdriver.remote.webelement
+from selenium import webdriver
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import selenium.webdriver.remote.webelement
-from selenium.webdriver import ActionChains
 
 import shc.web
 import shc.web.widgets
-from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
+from shc.datatypes import RangeFloat1, RangeUInt8, RGBUInt8
 from shc.interfaces._helper import ReadableStatusInterface
 from shc.supervisor import InterfaceStatus, ServiceStatus
 from shc.web.widgets import AbstractButton
-from ._helper import InterfaceThreadRunner, ExampleReadable, async_test
+
+from ._helper import ExampleReadable, InterfaceThreadRunner, async_test
 
 
 class StatusTestInterface(ReadableStatusInterface):

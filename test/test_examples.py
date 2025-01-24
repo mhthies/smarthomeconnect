@@ -28,8 +28,8 @@ class BasicTest(unittest.TestCase):
         shc.supervisor.event_loop.create_task(shutdown())
 
         # The examples should actually be able to coexist in a single SHC instance
-        import example.server_client.server  # type: ignore  # noqa: F401
         import example.server_client.client  # type: ignore  # noqa: F401
+        import example.server_client.server  # type: ignore  # noqa: F401
 
         shc.main()
 
