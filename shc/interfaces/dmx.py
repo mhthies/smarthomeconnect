@@ -132,8 +132,7 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
 
     @staticmethod
     def _universe_to_enttec(universe: List[int]) -> "EnttecMessage":
-        """Helper method to serialize a DMX universe (as List[int]) into an EnttacMessage to be sent to the DMX
-        interface"""
+        """Serialize a DMX universe (as List[int]) into an EnttecMessage to be sent to the DMX interface"""
         DMX_LIGHTNING_DATA_START_CODE = 0
         data = bytes([DMX_LIGHTNING_DATA_START_CODE] + universe + [0] * (24 - len(universe)))
         return EnttecMessage(EntTecMessageLabel.OUTPUT_ONLY_SEND_DMX_PACKET, data)
@@ -177,7 +176,8 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         Internal helper coroutine to perform the actual transmission of the DMX universe to the DMX interface.
 
         This method converts the current state of the DMX universe to an EnttecMessage, writes it to the serial buffer
-        and awaits the flush of the serial buffer to the interface."""
+        and awaits the flush of the serial buffer to the interface.
+        """
         # TODO catch connection errors
         self._writer.write(self._universe_to_enttec(self.universe).encode())
         await self._writer.drain()

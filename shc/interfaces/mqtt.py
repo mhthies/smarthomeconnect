@@ -388,7 +388,8 @@ class JSONMQTTTopicVariable(AbstractMQTTTopicVariable[T], Generic[T]):
 
 def check_topic_matches_filter(topic: str, topic_filter: str) -> bool:
     """Returns true if the topic matches the topic_filter (which may contain wildcards).
-    It can also be used to check if one topic_filter represents a subset of topics of another filter"""
+    It can also be used to check if one topic_filter represents a subset of topics of another filter.
+    """
     for a, b in itertools.zip_longest(topic.split("/"), topic_filter.split("/"), fillvalue=None):
         if b == "#":
             return True

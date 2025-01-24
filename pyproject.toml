@@ -79,19 +79,16 @@ ignore = [
     "B027",  # empty method in an abstract base class, but has no abstract decorator
     "B028",  # No explicit `stacklevel` keyword argument found
     "B904",  # Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
-    "D100",  # Missing docstring in public module  # FIXME: enable again
-    "D101",  # Missing docstring in public class  # FIXME: enable again
-    "D102",  # Missing docstring in public method  # FIXME: enable again
-    "D103",  # Missing docstring in public function  # FIXME: enable again
-    "D104",  # Missing docstring in public package  # FIXME: enable again
+    "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "D104",  # Missing docstring in public package
     "D105",  # Missing docstring in magic method
     "D106",  # Missing docstring in public nested class
-    "D107",  # Ignore D107 Missing docstring  # FIXME: enable again???
+    "D107",  # Ignore D107 Missing docstring
     "D200",  # One-line docstring should fit on one line
     "D203",  # Ignore one-blank-line-before-class as Black handles this
-    "D204",  # 1 blank line required after class docstring
-    "D205",  # 1 blank line required between summary line and description
-    "D209",  # Multi-line docstring closing quotes should be on a separate line
     "D210",  # No whitespaces allowed surrounding docstring text
     "D211",  # No blank lines allowed before class docstring
     "D212",  # Multi-line docstring summary should start at the first line
@@ -102,6 +99,9 @@ ignore = [
     "D402",  # First line should not be the function's signature
     "D404",  # First word of the docstring should not be "This"
     "D415",  # First line should end with a period, question mark, or exclamation point
+    # keep below (TBD)
+    "D204",  # 1 blank line required after class docstring
+    "D205",  # 1 blank line required between summary line and description
 ]
 
 [tool.ruff.lint.per-file-ignores]
