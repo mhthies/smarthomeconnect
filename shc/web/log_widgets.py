@@ -32,7 +32,7 @@ from .interface import WebPageItem, WebUIConnector, jinja_env
 
 @dataclass
 class LogListDataSpec(Generic[T]):
-    """Specification of one data log source and the formatting of its datapoints within a :class:`LogListWidget`"""
+    """Specification of one data log source and the formatting of its datapoints within a :class:`LogListWidget`."""
 
     #: The `DataLogVariable` (i.e. logging database connector) to retrieve the recent datapoints and updates from
     variable: DataLogVariable[T]
@@ -157,7 +157,7 @@ class ChartLineInterpolation(enum.Enum):
 
 @dataclass
 class ChartDataSpec:
-    """Specification of one data log source and the formatting of its datapoints within a :class:`ChartWidget`"""
+    """Specification of one data log source and the formatting of its datapoints within a :class:`ChartWidget`."""
 
     #: The `DataLogVariable` (i.e. logging database connector) to retrieve the recent datapoints and updates from
     variable: DataLogVariable
@@ -182,7 +182,7 @@ class ChartDataSpec:
 
 class ChartWidget(WebPageItem):
     """
-    A `WebPageItem` showing a dynamically line plot from one or more `DataLogVariables`, using Chart.js
+    A `WebPageItem` showing a dynamically line plot from one or more `DataLogVariables`, using Chart.js.
 
     For each data log a single line is plotted, using a common x axis (time) and y axis (value). It is possible to
     combine different value types (float, int, bool – boolean values are converted to 0 and 1), as well as different

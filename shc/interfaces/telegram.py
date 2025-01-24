@@ -81,7 +81,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _handle_start(self, message: aiogram.types.Message):
         """
-        Handler function for /start command messages
+        Handler function for /start command messages.
         """
         logger.debug("Received /start command for object from Telegram chat %s", message.chat.id)
         await message.reply("Hi!\nI'm an SHC bot!", reply=False)
@@ -97,7 +97,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _handle_select(self, message: aiogram.types.Message) -> None:
         """
-        Handler function for /s command messages for selecting (and reading) a connector
+        Handler function for /s command messages for selecting (and reading) a connector.
         """
         chat_id = message.chat.id
         logger.debug("Received /s (select) command for object for Telegram chat %s", chat_id)
@@ -160,7 +160,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _handle_cancel(self, message: aiogram.types.Message) -> None:
         """
-        Handler function for /cancel command messages for cancelling the current chat context
+        Handler function for /cancel command messages for cancelling the current chat context.
         """
         logger.debug("Received /cancel format for Telegram chat %s", message.chat.id)
         await self._do_cancel(message.chat.id)
@@ -188,7 +188,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _do_set(self, message: aiogram.types.Message, user: UserT) -> None:
         """
-        Use the given Telegram message as a new value for the currently selected connector in the message's chat
+        Use the given Telegram message as a new value for the currently selected connector in the message's chat.
 
         This method must only be called, if the message's chat is known to have a selected connector/context
         (chat_state) and the chat is known to belong to an authenticated user. The user's authorization for the
@@ -225,7 +225,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     async def _do_connector_search(self, message: aiogram.types.Message, user: UserT) -> None:
         """
         Use the given Telegram message as a search term for searching connector objects and ask the user to select
-        a connector from the list matching connectors
+        a connector from the list matching connectors.
 
         This method should only be called, if the message's chat is known to have no a selected connector/context
         (chat_state) yet and the chat is known to belong to an authenticated user.
@@ -293,7 +293,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
     async def _do_cancel(self, chat_id: int, silent: bool = False) -> None:
         """
-        Cancel the connector setting in progress in the given chat
+        Cancel the connector setting in progress in the given chat.
 
         This means:
 
@@ -332,7 +332,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         options: Optional[List[str]] = None,
     ) -> "TelegramConnector[T, RoleT]":
         """
-        Create a new connector object with any type, using the given formatting and parsing callback functions
+        Create a new connector object with any type, using the given formatting and parsing callback functions.
 
         :param type_: The value type of this connector. Will be used as the `.type` attribute, used for SHC's static
             type checking
@@ -376,7 +376,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
     ) -> "TelegramConnector[str, RoleT]":
         """
-        Create a new connector object with string type values
+        Create a new connector object with string type values.
 
         :param name: The connector's name, which users will use for searching and selecting the connector to read and
             write its value.
@@ -411,7 +411,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
     ) -> "TelegramConnector[bool, RoleT]":
         """
-        Create a new connector object with bool values, represented to the user as 'on' and 'off'
+        Create a new connector object with bool values, represented to the user as 'on' and 'off'.
 
         :param name: The connector's name, which users will use for searching and selecting the connector to read and
             write its value.
@@ -455,7 +455,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
     ) -> "TelegramConnector[None, RoleT]":
         """
-        Create a new connector object None-type values
+        Create a new connector object None-type values.
 
         This connector type is primarily meant to trigger handler functions. When a user with `set` authorization
         selects such a connector, they will be asked "Trigger?" and presented with a custom keyboard with a "do" and a
@@ -505,7 +505,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
     async def send_message(self, text: str, users: Set[UserT], chat_ids: Set[int] = set()) -> None:
         """
         Send a message to one or more Telegram chats, identified by either the Telegram chat id or a user of the given
-        auth_provider
+        auth_provider.
 
         Currently, only unformatted text messages are supported.
 
@@ -565,11 +565,11 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
             self.keyboard = None
 
     def is_settable(self) -> bool:
-        """Returns True, if the connector has subscribers, i.e. it is meaningfully readable from Telegram"""
+        """Returns True, if the connector has subscribers, i.e. it is meaningfully readable from Telegram."""
         return bool(self._subscribers or self._triggers)
 
     def is_readable(self) -> bool:
-        """Returns True, if the connector has a default_provider, i.e. it is meaningfully writable from Telegram"""
+        """Returns True, if the connector has a default_provider, i.e. it is meaningfully writable from Telegram."""
         return self._default_provider is not None
 
     async def _write(self, value: T, _origin: List[Any]) -> None:
@@ -597,7 +597,7 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
 
 class TelegramAuthProvider(Generic[UserT, RoleT], metaclass=abc.ABCMeta):
     """
-    Abstract base class for authentication & authorization providers for the SHC TelegramBot interface
+    Abstract base class for authentication & authorization providers for the SHC TelegramBot interface.
 
     A `TelegramAuthProvider` allows to authenticate Telegram users by their chat id and check their authorization for
     specific functions of the TelegramBot interface based on a custom 'Role' type. The AuthProvider's Role type is used

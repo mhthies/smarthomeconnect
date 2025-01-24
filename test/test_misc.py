@@ -252,7 +252,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
 
 class ExampleAdderFunctionBlock:
     """
-    This is a simple but bad example for a "function block" class, using SimpleInputConnector and SimpleOutputConnector
+    This is a simple but bad example for a "function block" class, using SimpleInputConnector and SimpleOutputConnector.
 
     Since this class does not have any internal state and only maps two inputs to a single scalar output, it can and
     should be created as an :ref:`SHC expression <expressions>`. Still, we can use it to test the simple connector

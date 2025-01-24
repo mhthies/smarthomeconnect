@@ -30,7 +30,7 @@ TIMEOUT = 5.0
 
 class SHCWebClient(SupervisedClientInterface):
     """
-    Client for connecting to remote SHC instances via the websocket API, provided by :class:`shc.web.WebServer`
+    Client for connecting to remote SHC instances via the websocket API, provided by :class:`shc.web.WebServer`.
 
     For each API object (:class:`shc.web.WebApiObject`) on the remote server, a local "proxy" object can be created by
     calling :meth:`object` with the server object's name and correct type. This object (:class:`WebApiClientObject`)
@@ -127,7 +127,7 @@ class SHCWebClient(SupervisedClientInterface):
 
     async def _run(self) -> None:
         """
-        Entrypoint for the async "run" Task for receiving Websocket messages
+        Entrypoint for the async "run" Task for receiving Websocket messages.
         """
         assert self._ws is not None
         self._running.set()
@@ -179,7 +179,7 @@ class SHCWebClient(SupervisedClientInterface):
 
     async def _send_value(self, name: str, value: Any) -> None:
         """
-        Coroutine called by WebApiClientObject's _write() method to send a new value to the remote SHC server
+        Coroutine called by WebApiClientObject's _write() method to send a new value to the remote SHC server.
 
         The method awaits the receipt of the server's answer or a timeout of TIMEOUT seconds. In case of a server side
         error or a response timeout, an exception is raised.
@@ -211,7 +211,7 @@ class SHCWebClient(SupervisedClientInterface):
 
     async def _set_last_will(self, name: str, value: Any) -> None:
         """
-        Coroutine for setting a last will at the SHC server
+        Coroutine for setting a last will at the SHC server.
 
         The method awaits the receipt of the server's answer or a timeout of TIMEOUT seconds. In case of a server side
         error or a response timeout, an exception is raised.
@@ -245,7 +245,7 @@ class SHCWebClient(SupervisedClientInterface):
     async def _read_value(self, name: str) -> Any:
         """
         Coroutine called by WebApiClientObject's read() to fetch the current value of an API object from the remote SHC
-        server
+        server.
 
         The method awaits the server's answer and returns the raw json-decoded value. If no response is received after
         TIMEOUT seconds the coroutine aborts with an exception.

@@ -42,7 +42,7 @@ class ServiceCriticality(enum.Enum):
 
 class AbstractInterface(metaclass=abc.ABCMeta):
     """
-    Abstract base class for all SHC interface implementations
+    Abstract base class for all SHC interface implementations.
 
     An interface is an object that is 'started' at SHC startup. This is typically used to run interfaces to the outside
     world, using network connections (or serial device connections) and background asyncio Tasks for handling incoming
@@ -151,7 +151,7 @@ def get_interfaces() -> Iterable[AbstractInterface]:
 
 async def interface_failure(interface_name: str = "n/a") -> None:
     """
-    Shut down the SHC application due to a critical error in an interface
+    Shut down the SHC application due to a critical error in an interface.
 
     This coroutine shall be called from an interface's background Task on a critical failure.
     It will shut down the SHC system gracefully and lets the Python process return with exit code 1.
@@ -207,7 +207,7 @@ def handle_signal(sig: int, loop: asyncio.AbstractEventLoop):
 
 def main() -> int:
     """
-    Main entry point for running an SHC application
+    Main entry point for running an SHC application.
 
     This function starts an asyncio event loop to run the timers and interfaces. It registers signal handlers for
     SIGINT, SIGTERM, and SIGHUP to shut down all interfaces gracefully when such a signal is received. The `main`

@@ -386,7 +386,7 @@ class AbstractLoggingTest(unittest.TestCase):
 
 
 class SimpleInMemoryLogVariable(shc.data_logging.DataLogVariable[T], Readable[T], Generic[T]):
-    """A more sophisticated ExampleLogVariable, including range filtering in retrieve_log"""
+    """A more sophisticated ExampleLogVariable, including range filtering in retrieve_log."""
 
     type: Type[T]
 

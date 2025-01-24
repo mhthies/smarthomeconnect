@@ -59,7 +59,7 @@ class PulseVolumeRaw(NamedTuple):
 
 class PulseVolumeComponents(NamedTuple):
     """
-    abstract "component-based" representation of the volume setting of a Pulseaudio sink or source
+    abstract "component-based" representation of the volume setting of a Pulseaudio sink or source.
 
     .. warning:
         Conversion methods :meth:`as_channels` and :meth:`from_channels`, which are used as default converters into/from

@@ -243,7 +243,7 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
 class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic[T]):
     """
     Wrapper for any *Readable* + *Subscribable* object to equip it with expression-building capabilities, inherited from
-    :class:`ExpressionBuilder`
+    :class:`ExpressionBuilder`.
     """
 
     def __init__(self, wrapped: Subscribable[T]):
@@ -264,7 +264,7 @@ class ExpressionWrapper(Readable[T], Subscribable[T], ExpressionBuilder, Generic
 class ExpressionHandler(Readable[T], Subscribable[T], ExpressionBuilder, Generic[T], metaclass=abc.ABCMeta):
     """
     Base class for expression objects, i.e. the result object of an expression built with :class:`ExpressionBuilder`'s
-    overloaded operators
+    overloaded operators.
 
     The ExpressionHandler object stores the operator (as a callable) and a reference to each operand. Thereby, it can
     *read* there current values and evaluate the operation/expression at any time with these values. *ExpressionHandler*
@@ -360,7 +360,7 @@ class UnaryCastExpressionHandler(UnaryExpressionHandler[T]):
 
 class IfThenElse(ExpressionHandler, Generic[T]):
     """
-    A :class:`ExpressionHandler` version of the ``x if condition else y`` python syntax
+    A :class:`ExpressionHandler` version of the ``x if condition else y`` python syntax.
 
     This class takes three connectable objects or static values: `condition`, `then` and `otherwise`. `condition` must
     be ``bool`` (or a *Connectable* with value type ``bool``), `then` and `otherwise` must be of the same type (reps.
@@ -392,7 +392,7 @@ class IfThenElse(ExpressionHandler, Generic[T]):
 class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]):
     """
     A :class:`ExpressionHandler` that behaves as a multiplexer block with an integer control value and any number of
-    inputs from that the output value is chosen
+    inputs from that the output value is chosen.
 
     The control object, the first argument of this class, needs to be a Readable (and optionally Subscribable)
     object of int type. All other parameters are considered to be inputs. They must either be static values or
@@ -518,7 +518,7 @@ class ExpressionFunctionHandler(ExpressionHandler[T], Generic[T]):
 
 def expression(func: Callable[..., T]) -> Type[ExpressionFunctionHandler[T]]:
     """
-    A decorator to turn any simple function into an :class:`ExpressionHandler` class to be used in SHC expressions
+    A decorator to turn any simple function into an :class:`ExpressionHandler` class to be used in SHC expressions.
 
     This way, custom functions can be used in SHC expression in an intuitive way::
 

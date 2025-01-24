@@ -29,7 +29,7 @@ from shc.supervisor import AbstractInterface
 
 def async_test(f: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
     """
-    Decorator to transform async unittest coroutines into normal test methods
+    Decorator to transform async unittest coroutines into normal test methods.
     """
 
     @functools.wraps(f)

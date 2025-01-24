@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class FilePersistenceStore(AbstractInterface):
     """
-    A value persistence backend for storing values in a single JSON file
+    A value persistence backend for storing values in a single JSON file.
 
     The goal is to write values to disk as fast as possible to persist them across graceful restarts and not-so-graceful
     restarts (= crashes) of SHC or the host operating system. Any number of named and Readable+Writable Connector

@@ -925,7 +925,7 @@ class TestAPI(unittest.TestCase):
         self.assertAlmostEqual(0, toc - tic, delta=0.02)
 
     def test_rest_get_wait_abort(self) -> None:
-        """Test, that an aborted long poll to the API does not destroy any internal state"""
+        """Test, that an aborted long poll to the API does not destroy any internal state."""
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
 

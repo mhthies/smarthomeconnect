@@ -113,7 +113,7 @@ class TasmotaInterface(AbstractInterface):
 
     def _handle_lwt(self, msg: aiomqtt.Message) -> None:
         """
-        Callback function to handle incoming MQTT messages on the Last Will Topic
+        Callback function to handle incoming MQTT messages on the Last Will Topic.
         """
         value = msg.payload == b"Online"
         self._online_connector._update_from_mqtt(value)
@@ -121,7 +121,7 @@ class TasmotaInterface(AbstractInterface):
 
     def _handle_result_or_status(self, msg: aiomqtt.Message, result: bool = False) -> None:
         """
-        Callback function to handle incoming MQTT messages on the Tasmota device's RESULT, STATUS and STATE topics
+        Callback function to handle incoming MQTT messages on the Tasmota device's RESULT, STATUS and STATE topics.
 
         :param msg: The aiomqtt.Message to be parsed and handled.
         :param result: Shall be True if the handled message has been published on the Tasmota RESULT topic (i.e. it is

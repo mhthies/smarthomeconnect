@@ -364,7 +364,7 @@ class _UpdateExchangeField(Subscribable[T], Generic[T]):
 
 class SimpleInputConnector(Reading[T], Writable[T], Generic[T]):
     """
-    A generic *Reading* object to be used as a simple input connector for "function block" classes
+    A generic *Reading* object to be used as a simple input connector for "function block" classes.
 
     The connector is also *Writable* to invoke a value update, but it does not use the written value. Instead, the value
     is read from the configured :meth:`default provider <shc.base.Reading.set_provider>` even then.
@@ -400,7 +400,7 @@ class SimpleInputConnector(Reading[T], Writable[T], Generic[T]):
 class SimpleOutputConnector(Subscribable[T], Readable[T], Generic[T]):
     """
     A generic *readable* + *subscribable* object with value caching to be used as a simple output connector for
-    "function block" classes
+    "function block" classes.
 
     Note: Under "pure functional" conditions, when exactly one output value is calculated from one or more other values,
     without internal state or side effects, creating an :ref:`SHC expression <expressions>` is typically a better
@@ -422,7 +422,7 @@ class SimpleOutputConnector(Subscribable[T], Readable[T], Generic[T]):
 
     async def set_value(self, value: T, origin: List[Any]) -> None:
         """
-        Set and publish the value of this output connector as a result of any received value update
+        Set and publish the value of this output connector as a result of any received value update.
 
         The value is only published when it changes (similar to :class:`shc.Variable`).
 
@@ -436,7 +436,7 @@ class SimpleOutputConnector(Subscribable[T], Readable[T], Generic[T]):
 
     def set_generated_value(self, value: T) -> None:
         """
-        Set and publish the value of this output connector from an internally generated value update
+        Set and publish the value of this output connector from an internally generated value update.
 
         The value is only published when it changes (similar to :class:`shc.Variable`).
 

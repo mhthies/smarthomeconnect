@@ -64,7 +64,7 @@ class AbstractDMXConnector(AbstractInterface, metaclass=abc.ABCMeta):
 
     def address(self, dmx_address: int) -> "DMXAddress":
         """
-        Get a *Writable* object for a specific DMX channel
+        Get a *Writable* object for a specific DMX channel.
 
         The expected value type is :class:`shc.datatypes.RangeUInt8`.
 
@@ -132,7 +132,7 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
 
     @staticmethod
     def _universe_to_enttec(universe: List[int]) -> "EnttecMessage":
-        """Serialize a DMX universe (as List[int]) into an EnttecMessage to be sent to the DMX interface"""
+        """Serialize a DMX universe (as List[int]) into an EnttecMessage to be sent to the DMX interface."""
         DMX_LIGHTNING_DATA_START_CODE = 0
         data = bytes([DMX_LIGHTNING_DATA_START_CODE] + universe + [0] * (24 - len(universe)))
         return EnttecMessage(EntTecMessageLabel.OUTPUT_ONLY_SEND_DMX_PACKET, data)

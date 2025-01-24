@@ -183,7 +183,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
 class DelayedVariable(Variable[T], Generic[T]):
     """
-    A Variable object, which delays the updates to avoid publishing half-updated values
+    A Variable object, which delays the updates to avoid publishing half-updated values.
 
     This is achieved by delaying the publishing of a newly received value by a configurable amount of time
     (`publish_delay`). If more value updates are received while a previous update publishing is still pending, the

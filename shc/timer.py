@@ -258,7 +258,7 @@ class At(_AbstractScheduleTimer):
     """
     Periodic timer which triggers on specific datetime values according to spec based on the Gregorian calendar and wall
     clock times. For each field in (year, month, day, hour, minute, second, millisecond) or (year, week, weekday, hour,
-    minute, second, millisecond), a pattern may be specified, which may be
+    minute, second, millisecond), a pattern may be specified, which may be.
 
     * `None` (all values allowed for that field)
     * a single `int` value
@@ -417,7 +417,7 @@ class At(_AbstractScheduleTimer):
         :param val: The value of the tuple-timestamp entry
         :param spec: The spec for that entry
         :param origin: The minimum value of that entry. It is used to align EveryNth specs.
-        :return: True if the current value matches the spec
+        :return: True if the current value matches the spec.
         """
         if spec is None:
             return True
@@ -510,7 +510,7 @@ class _DelayedBool(Subscribable[bool], Readable[bool], metaclass=abc.ABCMeta):
 
 class TOn(_DelayedBool):
     """
-    Power-up delay for bool-type *Subscribable* objects
+    Power-up delay for bool-type *Subscribable* objects.
 
     This object wraps a *Subscribable* bool object and applies a power-up / turn-on delay to its value. I.e., a `False`
     value is re-published immediately, a `True` value is delayed for the configured time period. If a `False` is
@@ -539,7 +539,7 @@ class TOn(_DelayedBool):
 
 class TOff(_DelayedBool):
     """
-    Turn-off delay for bool-type *Subscribable* objects
+    Turn-off delay for bool-type *Subscribable* objects.
 
     This object wraps a *Subscribable* bool object and applies a turn-off delay to its value. I.e., a `True`
     value is re-published immediately, a `False` value is delayed for the configured time period. If a `True` is
@@ -568,7 +568,7 @@ class TOff(_DelayedBool):
 
 class TOnOff(_DelayedBool):
     """
-    Resettable boolean-delay for *Subscribable* objects
+    Resettable boolean-delay for *Subscribable* objects.
 
     This object wraps a *Subscribable* bool object and applies a delay to its value. It behaves like a series of a
     :class:`TOn` and a :class:`TOff` timer with the same delay time: All value updates of the wrapped object will be
@@ -594,7 +594,7 @@ class TOnOff(_DelayedBool):
 
 class TPulse(_DelayedBool):
     """
-    Non-retriggerable pulse generator for bool-typed *Subscribable* objects
+    Non-retriggerable pulse generator for bool-typed *Subscribable* objects.
 
     This object wraps a *Subscribable* bool object and creates a fixed length pulse (`True` period) on each rising edge
     (False→True) change of its value. The pulse is not retriggerable, i.e. it is not prolonged when a second raising
@@ -669,7 +669,7 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
 
 class TimerSwitch(Subscribable[bool], Readable[bool]):
     """
-    A helper to program something similar to those old-fashioned digital timer switch adaptors
+    A helper to program something similar to those old-fashioned digital timer switch adaptors.
 
     A `TimerSwitch` is basically a bool Variable with a fancy constructor to let some timers set the variable to True or
     False. Additionally, a `duration` mode is built in, which allows to specify a duration after which the `TimerSwitch`
@@ -797,7 +797,7 @@ class RateLimitedSubscription(Subscribable[T], Generic[T]):
 
 class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generic[T], metaclass=abc.ABCMeta):
     """
-    Abstract base class for all ramp generators
+    Abstract base class for all ramp generators.
 
     All ramp generators create smooth transitions from incoming value updates by splitting publishing multiple timed
     updates each doing a small step towards the target value. They are *Readable* and *Subscribable* to be used in
@@ -905,7 +905,7 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
 
     async def ramp_by(self, step: AbstractStep[T], origin: List[Any]) -> None:
         """
-        Start a new ramp of the given step size
+        Start a new ramp of the given step size.
         """
         begin = await self._from_provider()
         if begin is not None:
@@ -968,7 +968,7 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
     @abc.abstractmethod
     def _calculate_ramp(self, begin: T, target: T) -> Tuple[float, int]:
         """
-        Calculate height and maximum reasonable number of steps of a ramp to be performed
+        Calculate height and maximum reasonable number of steps of a ramp to be performed.
 
         The maximum reasonable number of steps is typically constraint be the resolution of the datatype. In most cases,
         it is not reasonable to compute more steps than the datatype can represent values between begin and target.
@@ -984,7 +984,7 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
     @abc.abstractmethod
     def _init_ramp(self, begin: T, target: T, num_steps: int) -> None:
         """
-        Initialize a new ramp
+        Initialize a new ramp.
 
         This method is called whenever a new ramp is started and can do any form of pre-calculation for the ramp steps.
         The calculated internal values, are supposed to be stored as attributes of `self` such that they can be used by
