@@ -230,7 +230,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
 
     @async_test
     async def test_concurrent_field_update_publishing(self) -> None:
-        for i in range(50):
+        for _ in range(50):
             var1 = shc.Variable(ExampleTupleType, "var1")
             exchange = shc.misc.UpdateExchange(ExampleTupleType).connect(var1)
             var3 = shc.Variable(int, "var3").connect(exchange.field("a"))

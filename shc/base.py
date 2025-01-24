@@ -348,7 +348,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                     self._pending_updates[id(target)][task] = prev_step
 
         else:
-            for target, sync in self._triggers:
+            for target, _sync in self._triggers:
                 asyncio.create_task(self.__publish_trigger(target, value, origin, False))
             for subscriber, converter in self._subscribers:
                 if not any(s is subscriber for s in origin):

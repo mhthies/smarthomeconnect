@@ -882,7 +882,7 @@ class ImageMap(WebPageItem):
             self.image_url = server.serve_static_file(pathlib.Path(self.image))
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
-        for x, y, item, sub_items in self.items:
+        for _x, _y, item, sub_items in self.items:
             if isinstance(item, WebUIConnector):
                 yield item
             yield from itertools.chain.from_iterable(i.get_connectors() for i in sub_items)
