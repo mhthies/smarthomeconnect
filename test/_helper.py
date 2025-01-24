@@ -339,9 +339,7 @@ class InterfaceThreadRunner(Generic[IT]):
         start_future.result(timeout=5)
 
     def stop(self) -> None:
-        """
-        Stop the interface via its stop() coroutine and block until it is fully shutdown.
-        """
+        """Stop the interface via its stop() coroutine and block until it is fully shutdown."""  # noqa: D402
         if not self.started:
             return
         self.started = False
