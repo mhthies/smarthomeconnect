@@ -15,8 +15,8 @@ Loading this module requires libpulse to be installed.
 
 import ctypes as c
 import ctypes.util
-from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP
 
+from pulsectl._pulsectl import PA_CHANNEL_MAP, PA_CVOLUME
 
 libpulse = c.CDLL(ctypes.util.find_library("libpulse") or "libpulse.so.0")
 

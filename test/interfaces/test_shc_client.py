@@ -10,22 +10,22 @@
 # specific language governing permissions and limitations under the License.
 import asyncio
 import logging
+import time
 import unittest
 import unittest.mock
-import time
 from typing import NamedTuple
 
 import aiohttp
 
-import shc.web
 import shc.interfaces.shc_client
+import shc.web
 from test._helper import (
-    ExampleReadable,
-    InterfaceThreadRunner,
-    ExampleWritable,
-    ExampleSubscribable,
-    async_test,
     AsyncMock,
+    ExampleReadable,
+    ExampleSubscribable,
+    ExampleWritable,
+    InterfaceThreadRunner,
+    async_test,
 )
 
 

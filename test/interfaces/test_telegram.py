@@ -5,13 +5,13 @@ import logging
 import random
 import unittest
 import unittest.mock
-from typing import Any, Union, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import aiohttp.web
 from aiogram.client.telegram import TelegramAPIServer
 
 import shc.interfaces.telegram
-from test._helper import async_test, InterfaceThreadRunner, ExampleSubscribable, ExampleReadable, ExampleWritable
+from test._helper import ExampleReadable, ExampleSubscribable, ExampleWritable, InterfaceThreadRunner, async_test
 
 JSON_TYPE_1 = Union[None, bool, int, float, str, Dict[str, Any], List[Any]]
 JSON_TYPE = Union[None, bool, int, float, str, Dict[str, JSON_TYPE_1], List[JSON_TYPE_1]]

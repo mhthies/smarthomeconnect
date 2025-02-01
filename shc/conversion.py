@@ -12,7 +12,7 @@
 import datetime
 import enum
 import json
-from typing import TypeVar, Dict, Tuple, Type, Callable, Any
+from typing import Any, Callable, Dict, Tuple, Type, TypeVar
 
 S = TypeVar("S")
 T = TypeVar("T")

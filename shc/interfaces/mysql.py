@@ -4,12 +4,12 @@ import enum
 import json
 import logging
 import math
-from typing import Optional, Type, Generic, List, Tuple, Any, Dict, Callable, cast
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Type, cast
 
 import aiomysql
 import pymysql
 
-from shc.base import T, Readable, UninitializedError, Writable
+from shc.base import Readable, T, UninitializedError, Writable
 from shc.conversion import SHCJsonEncoder, from_json
 from shc.data_logging import WritableDataLogVariable
 from shc.interfaces._helper import ReadableStatusInterface
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class MySQLConnector(ReadableStatusInterface):
     """
-    Interface for using a MySQL (or MariaDB or Percona) server for logging and/or persistence
+    Interface for using a MySQL (or MariaDB or Percona) server for logging and/or persistence.
 
     A database with the following schema needs to be created manually on the database server:
 
@@ -99,7 +99,7 @@ class MySQLConnector(ReadableStatusInterface):
     def variable(self, type_: Type[T], name: str) -> "MySQLLogVariable[T]":
         """
         Creates a `connectable` object with the given value type for logging a time series of the given name in the
-        MySQL database
+        MySQL database.
 
         The returned object is :class:`writable <shc.base.Writable>`, :class:`readable <shc.base.Readable>` and a
         (subscribable) :class:`DataLogVariable <shc.data_logging.DataLogVariable>`.
@@ -127,7 +127,7 @@ class MySQLConnector(ReadableStatusInterface):
     def persistence_variable(self, type_: Type[T], name: str) -> "MySQLPersistenceVariable[T]":
         """
         Creates a `connectable` object with the given value type for persisting (only) the current value of a connected
-        object under the given name in the MySQL database
+        object under the given name in the MySQL database.
 
         The returned object is :class:`writable <shc.base.Writable>`, :class:`readable <shc.base.Readable>`.
 

@@ -15,14 +15,14 @@ import itertools
 import json
 import logging
 import typing
-from typing import List, Any, Generic, Type, Callable, Awaitable, Optional, Union, Dict, Deque, Iterable
+from typing import Any, Awaitable, Callable, Deque, Dict, Generic, Iterable, List, Optional, Type, Union
 
-from aiomqtt import Client, ProtocolVersion, Message
+from aiomqtt import Client, Message, ProtocolVersion
 from paho.mqtt.matcher import MQTTMatcher
 
-from ._helper import SupervisedClientInterface
-from ..base import Writable, Subscribable, T, S, LogicHandler
+from ..base import LogicHandler, S, Subscribable, T, Writable
 from ..conversion import SHCJsonEncoder, from_json
+from ._helper import SupervisedClientInterface
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         force_mqtt_subscription: bool = False,
     ) -> "RawMQTTTopicVariable":
         """
-        Create a connector for publishing and receiving MQTT messages to/form a single topic as raw `bytes`
+        Create a connector for publishing and receiving MQTT messages to/form a single topic as raw `bytes`.
 
         :param topic: The MQTT topic to publish messages to
         :param subscribe_topics: The topic filter to subscribe to. If None (default) it will be equal to `topic`. This
@@ -148,7 +148,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         force_mqtt_subscription: bool = False,
     ) -> "StringMQTTTopicVariable":
         """
-        Create a connector for publishing and receiving MQTT messages to/form a single topic as UTF-8 encoded strings
+        Create a connector for publishing and receiving MQTT messages to/form a single topic as UTF-8 encoded strings.
 
         :param topic: The MQTT topic to publish messages to
         :param subscribe_topics: The topic filter to subscribe to. If None (default) it will be equal to `topic`. This
@@ -176,7 +176,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         force_mqtt_subscription: bool = False,
     ) -> "JSONMQTTTopicVariable[T]":
         """
-        Create a connector for publishing and receiving arbitrary values as JSON-encoded MQTT messages
+        Create a connector for publishing and receiving arbitrary values as JSON-encoded MQTT messages.
 
         The connector uses SHC's generic JSON encoding/decoding system from the :mod:`shc.conversion` module. It has
         built-in support for basic datatypes, :class:`typing.NamedTuple`-based types and :class:`enum.Enum`-based types.
@@ -205,7 +205,7 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     async def publish_message(self, topic: str, payload: bytes, qos: int = 0, retain: bool = False) -> None:
         """
-        Generic coroutine for publishing an MQTT message to be used by higher-level interfaces
+        Generic coroutine for publishing an MQTT message to be used by higher-level interfaces.
 
         :param topic: The MQTT topic to send the message to
         :param payload: The raw MQTT message payload
@@ -388,7 +388,8 @@ class JSONMQTTTopicVariable(AbstractMQTTTopicVariable[T], Generic[T]):
 
 def check_topic_matches_filter(topic: str, topic_filter: str) -> bool:
     """Returns true if the topic matches the topic_filter (which may contain wildcards).
-    It can also be used to check if one topic_filter represents a subset of topics of another filter"""
+    It can also be used to check if one topic_filter represents a subset of topics of another filter.
+    """
     for a, b in itertools.zip_longest(topic.split("/"), topic_filter.split("/"), fillvalue=None):
         if b == "#":
             return True

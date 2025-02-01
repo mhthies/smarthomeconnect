@@ -11,12 +11,12 @@
 
 import abc
 import asyncio
+import datetime
 import enum
 import json
-import datetime
 import logging
 import math
-from typing import Type, Generic, List, Any, Optional, Tuple, Union, cast, TypeVar, Callable, Sequence
+from typing import Any, Callable, Generic, List, Optional, Sequence, Tuple, Type, TypeVar, Union, cast
 
 import aiohttp.web
 
@@ -52,7 +52,7 @@ class DataLogNotSubscribable(RuntimeError):
 
 class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     """
-    Interface for objects that allow to retrieve a live data series for a single variable
+    Interface for objects that allow to retrieve a live data series for a single variable.
 
     This interface is typically implemented by connector objects for a single time series in a time series database to
     allow consumers, e.g. chart widgets on the web UI, to access historic data. Such consumers typically inherit from
@@ -90,7 +90,7 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = True
     ) -> List[Tuple[datetime.datetime, T]]:
         """
-        Retrieve all log entries for this log variable in the specified time range from the data log backend/database
+        Retrieve all log entries for this log variable in the specified time range from the data log backend/database.
 
         The method shall return a list of all log entries with a timestamp greater or equal to the `start_time` and
         less than the `end_time`. If `include_previous` is True (shall be the default value), the last entry *before*
@@ -110,7 +110,7 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         aggregation_interval: datetime.timedelta,
     ) -> List[Tuple[datetime.datetime, float]]:
         """
-        Retrieve an aggregated time series from the underlying time series
+        Retrieve an aggregated time series from the underlying time series.
 
         The returned time series will contain data points in a fixed interval, as specified by `aggregation_interval`.
         Each of these points results from aggregating the dynamic value from the raw time series within the following
@@ -140,7 +140,7 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = True
     ) -> List[Tuple[datetime.datetime, T]]:
         """
-        Retrieve the current log, synchronized with push updates
+        Retrieve the current log, synchronized with push updates.
 
         If this LogDataVariable does not support push updates, i.e. is not subscribable (:meth:`subscribe_data_log` does
         not raise `DataLogNotSubscribable`), this is typically equivalent to :meth:`retrieve_log`.
@@ -330,7 +330,9 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         self._mutex = asyncio.Lock()
 
     async def _new_log_values_written(self, values: List[Tuple[datetime.datetime, T]]) -> None:
-        """Callback method to be called by `WritableDataLogVariable` to provide values, newly written to the data log"""
+        """Callback method to be called by `WritableDataLogVariable` to provide values, newly written to the
+        data log.
+        """
         if self.push:
             await self._process_new_logvalues(values)
         else:
@@ -354,7 +356,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         self, include_previous: bool = False
     ) -> Sequence[Tuple[datetime.datetime, Union[T, float]]]:
         """
-        Retrieve the recent log values from the `DataLogVariable`, as specified by this object's constructor arguments
+        Retrieve the recent log values from the `DataLogVariable`, as specified by this object's constructor arguments.
 
         Retrieves and returns the data log entries from up to `interval` time ago, possible aggregated, as defined by
         aggregation`, in a way, that future invocations of :meth:`_process_new_logvalues` provide consistent updates
@@ -424,7 +426,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def _process_new_logvalues(self, values: Sequence[Tuple[datetime.datetime, Union[T, float]]]) -> None:
         """
-        Update the existing data log copies/clients with the given new or updated log values
+        Update the existing data log copies/clients with the given new or updated log values.
 
         This method is called either with by push-update from the `DataLogVariable` or by the periodic timer. It shall
         be implemented by derived classes.
@@ -487,7 +489,7 @@ def aggregate(
     aggregation_interval: datetime.timedelta,
 ) -> List[Tuple[datetime.datetime, float]]:
     """
-    Pure-Python implementation of the time series aggregation method
+    Pure-Python implementation of the time series aggregation method.
 
     Takes a time series and returns an aggregated time series with data points in a fixed interval, as described in
     :meth:`DataLogVariable.retrieve_aggregated_log`.

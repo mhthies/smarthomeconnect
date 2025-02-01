@@ -1,15 +1,14 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Tuple, Optional, Generic, List, Type
 from pathlib import Path
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type
 
 import aiofile
 
-from shc.base import Readable, T, Writable, UninitializedError
+from shc.base import Readable, T, UninitializedError, Writable
 from shc.conversion import from_json
 from shc.supervisor import AbstractInterface
-
 
 FOOTER = b'"_": null\n}\n'
 NUM_BUFFER_SPACES = 10
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class FilePersistenceStore(AbstractInterface):
     """
-    A value persistence backend for storing values in a single JSON file
+    A value persistence backend for storing values in a single JSON file.
 
     The goal is to write values to disk as fast as possible to persist them across graceful restarts and not-so-graceful
     restarts (= crashes) of SHC or the host operating system. Any number of named and Readable+Writable Connector

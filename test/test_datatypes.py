@@ -1,6 +1,6 @@
 import unittest
 
-from shc import datatypes, conversion
+from shc import conversion, datatypes
 
 
 class ConversionTests(unittest.TestCase):

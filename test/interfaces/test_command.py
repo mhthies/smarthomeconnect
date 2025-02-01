@@ -14,7 +14,6 @@ class CommandTest(unittest.TestCase):
     @async_test
     async def test_command(self) -> None:
         """Test the command readable object."""
-
         command1 = command.Command(["echo", "Hello, World!"])
         command2 = command.Command("f=World; echo Hello, $f\\!", shell=True)
         command3 = command.Command("definitely-not-a-command-on-your-computer", shell=True)

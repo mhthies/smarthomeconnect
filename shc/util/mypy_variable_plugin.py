@@ -9,7 +9,7 @@
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 """
-A MyPy type checker plugin for some of the dynamic typing features of the SmartHomeConnect framework (SHC)
+A MyPy type checker plugin for some of the dynamic typing features of the SmartHomeConnect framework (SHC).
 
 Currently, it allows to improve the typechecking for VariableField objects which are retrieved via the
 :meth:`field() <shc.variables.Variable.field>` method of `Variables` and `VariableFields`.
@@ -18,12 +18,12 @@ To enable this plugin, set `plugins = shc.util.mypy_variable_plugin` in the glob
 file (other Plugins can be added with comma-separation).
 """
 
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 from mypy import errorcodes
 from mypy.nodes import StrExpr
-from mypy.plugin import Plugin, MethodContext
-from mypy.types import Instance, Type, TupleType, TypeAliasType
+from mypy.plugin import MethodContext, Plugin
+from mypy.types import Instance, TupleType, Type, TypeAliasType
 
 
 class SHCVariable(Plugin):

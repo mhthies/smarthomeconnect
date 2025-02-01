@@ -10,31 +10,31 @@
 # specific language governing permissions and limitations under the License.
 import abc
 import asyncio
+import ctypes as c
 import logging
 from collections import defaultdict, deque
 from typing import (
-    NamedTuple,
-    List,
-    Optional,
-    Generic,
-    Type,
-    Any,
-    DefaultDict,
-    Tuple,
-    Callable,
-    Deque,
-    Set,
     TYPE_CHECKING,
+    Any,
+    Callable,
+    DefaultDict,
+    Deque,
+    Generic,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    Type,
 )
-import ctypes as c
 
 if TYPE_CHECKING:
-    from pulsectl import PulseEventInfo, PulseSinkInfo, PulseSourceInfo, PulseServerInfo
+    from pulsectl import PulseEventInfo, PulseServerInfo, PulseSinkInfo, PulseSourceInfo
     from pulsectl_asyncio import PulseAsync
 
 import shc.conversion
-from shc.base import Subscribable, Readable, T, UninitializedError, Writable
-from shc.datatypes import RangeFloat1, Balance
+from shc.base import Readable, Subscribable, T, UninitializedError, Writable
+from shc.datatypes import Balance, RangeFloat1
 from shc.interfaces._helper import SupervisedClientInterface
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class PulseVolumeRaw(NamedTuple):
 
 class PulseVolumeComponents(NamedTuple):
     """
-    abstract "component-based" representation of the volume setting of a Pulseaudio sink or source
+    abstract "component-based" representation of the volume setting of a Pulseaudio sink or source.
 
     .. warning:
         Conversion methods :meth:`as_channels` and :meth:`from_channels`, which are used as default converters into/from
@@ -99,13 +99,14 @@ class PulseVolumeComponents(NamedTuple):
 
         This method is the SHC default converter from :class:`PulseVolumeComponents` to :class:`PulseVolumeRaw`.
         """
-        from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
+        from pulsectl._pulsectl import PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_CVOLUME, PA_VOLUME_NORM
+
         from shc.interfaces._pulse_ffi import (
-            pa_volume_t,
-            pa_cvolume_set_lfe_balance,
-            pa_cvolume_set_fade,
-            pa_cvolume_set_balance,
             pa_cvolume_scale,
+            pa_cvolume_set_balance,
+            pa_cvolume_set_fade,
+            pa_cvolume_set_lfe_balance,
+            pa_volume_t,
         )
 
         num_channels = len(self.normalized_values)
@@ -127,17 +128,18 @@ class PulseVolumeComponents(NamedTuple):
 
         This method is the SHC default converter from :class:`PulseVolumeRaw` to :class:`PulseVolumeComponents`.
         """
-        from pulsectl._pulsectl import PA_CVOLUME, PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_VOLUME_NORM
+        from pulsectl._pulsectl import PA_CHANNEL_MAP, PA_CHANNELS_MAX, PA_CVOLUME, PA_VOLUME_NORM
+
         from shc.interfaces._pulse_ffi import (
-            pa_volume_t,
-            pa_cvolume_set_lfe_balance,
-            pa_cvolume_set_fade,
-            pa_cvolume_set_balance,
-            pa_cvolume_scale,
-            pa_cvolume_max,
             pa_cvolume_get_balance,
             pa_cvolume_get_fade,
             pa_cvolume_get_lfe_balance,
+            pa_cvolume_max,
+            pa_cvolume_scale,
+            pa_cvolume_set_balance,
+            pa_cvolume_set_fade,
+            pa_cvolume_set_lfe_balance,
+            pa_volume_t,
         )
 
         num_channels = len(raw_volume.values)
@@ -339,7 +341,7 @@ class PulseAudioInterface(SupervisedClientInterface):
                 logger.error("Error while dispatching PulseAudio event %s", event, exc_info=e)
 
     async def _dispatch_pulse_event(self, event: "PulseEventInfo") -> None:
-        from pulsectl import PulseEventTypeEnum, PulseEventFacilityEnum
+        from pulsectl import PulseEventFacilityEnum, PulseEventTypeEnum
 
         logger.debug("Dispatching Pulse audio event: %s", event)
 

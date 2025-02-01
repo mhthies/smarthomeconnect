@@ -1,4 +1,6 @@
 import asyncio
+import ctypes
+import ctypes.util
 import os
 import re
 import shutil
@@ -7,13 +9,12 @@ import tempfile
 import time
 import unittest
 import unittest.mock
-import ctypes
-import ctypes.util
 from pathlib import Path
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
-from shc.datatypes import RangeFloat1, Balance
-from .._helper import async_test, InterfaceThreadRunner, ExampleWritable
+from shc.datatypes import Balance, RangeFloat1
+
+from .._helper import ExampleWritable, InterfaceThreadRunner, async_test
 
 libpulse_available = False
 try:

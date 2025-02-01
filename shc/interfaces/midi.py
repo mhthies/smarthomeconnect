@@ -12,13 +12,13 @@ import abc
 import asyncio
 import logging
 import threading
-from typing import List, Any, Tuple, Dict, Optional, Union, Iterable
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import mido
 
 from ..base import Subscribable, Writable
 from ..datatypes import RangeUInt8
-from ..supervisor import stop, AbstractInterface
+from ..supervisor import AbstractInterface, stop
 
 logger = logging.getLogger(__name__)
 

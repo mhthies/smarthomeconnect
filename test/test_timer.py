@@ -2,12 +2,13 @@ import asyncio
 import datetime
 import unittest
 import unittest.mock
+from typing import List, Optional
 from unittest.mock import Mock
-from typing import Optional, List
 
 import shc.base
-from shc import timer, datatypes
-from ._helper import ClockMock, async_test, ExampleSubscribable, ExampleWritable, ExampleReadable
+from shc import datatypes, timer
+
+from ._helper import ClockMock, ExampleReadable, ExampleSubscribable, ExampleWritable, async_test
 
 
 class LogarithmicSleepTest(unittest.TestCase):

@@ -16,7 +16,7 @@ import functools
 import inspect
 import logging
 import random
-from typing import Generic, List, Any, Tuple, Callable, Optional, Type, TypeVar, Awaitable, Union, Dict
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 from . import conversion
 
@@ -43,7 +43,7 @@ RESET_ORIGIN_SENTINEL = ResetOriginSentinel()
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
     """
-    :cvar type: The type of the values, this object is supposed to handle
+    :cvar type: The type of the values, this object is supposed to handle.
     """
 
     type: Type[T]
@@ -149,7 +149,7 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 class Writable(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
     async def write(self, value: T_con, origin: Optional[List[Any]] = None) -> None:
         """
-        Asynchronous coroutine to update the object with a new value
+        Asynchronous coroutine to update the object with a new value.
 
         This method calls :meth:`_write` internally for the actual implementation-specific update logic. Inheriting
         classes should override *_write* instead of this method to keep profiting from the value type checking and
@@ -348,7 +348,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                     self._pending_updates[id(target)][task] = prev_step
 
         else:
-            for target, sync in self._triggers:
+            for target, _sync in self._triggers:
                 asyncio.create_task(self.__publish_trigger(target, value, origin, False))
             for subscriber, converter in self._subscribers:
                 if not any(s is subscriber for s in origin):

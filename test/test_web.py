@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import http.client
 import json
 import math
 import os
@@ -10,28 +11,28 @@ import sys
 import time
 import unittest
 import unittest.mock
-import urllib.request
 import urllib.error
-import http.client
+import urllib.request
 from pathlib import Path
-from typing import cast, Iterable
+from typing import Iterable, cast
 
 import aiohttp
-from selenium import webdriver
 import selenium.webdriver.firefox.options
+import selenium.webdriver.remote.webelement
+from selenium import webdriver
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import selenium.webdriver.remote.webelement
-from selenium.webdriver import ActionChains
 
 import shc.web
 import shc.web.widgets
-from shc.datatypes import RangeFloat1, RGBUInt8, RangeUInt8
+from shc.datatypes import RangeFloat1, RangeUInt8, RGBUInt8
 from shc.interfaces._helper import ReadableStatusInterface
 from shc.supervisor import InterfaceStatus, ServiceStatus
 from shc.web.widgets import AbstractButton
-from ._helper import InterfaceThreadRunner, ExampleReadable, async_test
+
+from ._helper import ExampleReadable, InterfaceThreadRunner, async_test
 
 
 class StatusTestInterface(ReadableStatusInterface):
@@ -924,7 +925,7 @@ class TestAPI(unittest.TestCase):
         self.assertAlmostEqual(0, toc - tic, delta=0.02)
 
     def test_rest_get_wait_abort(self) -> None:
-        """Test, that an aborted long poll to the API does not destroy any internal state"""
+        """Test, that an aborted long poll to the API does not destroy any internal state."""
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
 

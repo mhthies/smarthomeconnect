@@ -11,10 +11,10 @@
 import abc
 import logging
 import math
-from typing import NamedTuple, Union, overload, Generic
+from typing import Generic, NamedTuple, Union, overload
 
 from shc.base import T
-from shc.conversion import register_converter, get_converter
+from shc.conversion import get_converter, register_converter
 
 logger = logging.getLogger(__name__)
 
@@ -131,13 +131,13 @@ register_converter(Balance, RangeFloat1, lambda v: RangeFloat1(v / 2 + 0.5))
 
 class AbstractStep(Generic[T], metaclass=abc.ABCMeta):
     """
-    Abstract base class for all difference/step types, that represent a step within an associated range type
+    Abstract base class for all difference/step types, that represent a step within an associated range type.
     """
 
     @abc.abstractmethod
     def apply_to(self, value: T) -> T:
         """
-        Apply this step to a given value of the associated range type
+        Apply this step to a given value of the associated range type.
 
         :param value: The old value
         :return: The new value, when this step is applied to the old value
@@ -164,7 +164,7 @@ register_converter(float, FadeStep, lambda v: FadeStep(min(1.0, max(-1.0, v))))
 
 class RGBUInt8(NamedTuple):
     """
-    A 24bit color in RGB colorspace, composed of three :class:`RangeUInt8` values `red`, `green` and `blue`
+    A 24bit color in RGB colorspace, composed of three :class:`RangeUInt8` values `red`, `green` and `blue`.
     """
 
     red: RangeUInt8
@@ -193,7 +193,7 @@ class RGBUInt8(NamedTuple):
 
 class RGBFloat1(NamedTuple):
     """
-    A floating point RGB color, composed of three :class:`RangeFloat1` values `red`, `green` and `blue`
+    A floating point RGB color, composed of three :class:`RangeFloat1` values `red`, `green` and `blue`.
     """
 
     red: RangeFloat1
@@ -303,7 +303,7 @@ register_converter(RGBUInt8, RGBWUInt8, lambda x: RGBWUInt8(x, RangeUInt8(0)))
 
 class CCTUInt8(NamedTuple):
     """
-    A CCT LED brightness value, composed of two :class:`RangeUInt8` values `cold` and `warm`
+    A CCT LED brightness value, composed of two :class:`RangeUInt8` values `cold` and `warm`.
     """
 
     cold: RangeUInt8

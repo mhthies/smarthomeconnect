@@ -10,17 +10,16 @@
 # specific language governing permissions and limitations under the License.
 import asyncio
 import concurrent.futures
+import datetime
 import functools
 import heapq
 import inspect
 import threading
 import time
 import unittest.mock
-import datetime
-from typing import Callable, Any, Awaitable, TypeVar, Generic, Type, List, Union, Tuple, Set, Optional, Coroutine
+from typing import Any, Awaitable, Callable, Coroutine, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from shc import base
-
 
 # #############################################
 # General helper classes for testing async code
@@ -30,7 +29,7 @@ from shc.supervisor import AbstractInterface
 
 def async_test(f: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
     """
-    Decorator to transform async unittest coroutines into normal test methods
+    Decorator to transform async unittest coroutines into normal test methods.
     """
 
     @functools.wraps(f)
@@ -340,9 +339,7 @@ class InterfaceThreadRunner(Generic[IT]):
         start_future.result(timeout=5)
 
     def stop(self) -> None:
-        """
-        Stop the interface via its stop() coroutine and block until it is fully shutdown.
-        """
+        """Stop the interface via its stop() coroutine and block until it is fully shutdown."""  # noqa: D402
         if not self.started:
             return
         self.started = False

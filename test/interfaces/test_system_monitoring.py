@@ -4,7 +4,8 @@ import unittest.mock
 
 import shc.interfaces.system_monitoring
 from shc.supervisor import InterfaceStatus, ServiceStatus
-from .._helper import InterfaceThreadRunner, ExampleWritable, async_test
+
+from .._helper import ExampleWritable, InterfaceThreadRunner, async_test
 
 
 class EventLoopMonitorTest(unittest.TestCase):

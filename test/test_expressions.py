@@ -3,10 +3,10 @@ import datetime
 import unittest
 import unittest.mock
 
-from shc import variables, expressions
+from shc import expressions, variables
 from shc.base import UninitializedError
-from shc.expressions import not_, or_, and_, ExpressionHandler
-from test._helper import async_test, ExampleWritable
+from shc.expressions import ExpressionHandler, and_, not_, or_
+from test._helper import ExampleWritable, async_test
 
 
 class TestExpressions(unittest.TestCase):
@@ -76,41 +76,41 @@ class TestExpressions(unittest.TestCase):
         var1 = variables.Variable(bool, initial_value=True)
         var2 = variables.Variable(list, initial_value=[42])
         with self.assertRaises(TypeError):
-            var1.EX + var2.EX
+            _ = var1.EX + var2.EX
         with self.assertRaises(TypeError):
-            5.5 + var2.EX
+            _ = 5.5 + var2.EX
         with self.assertRaises(TypeError):
-            var1.EX - var2.EX
+            _ = var1.EX - var2.EX
         with self.assertRaises(TypeError):
-            5.5 - var2.EX
+            _ = 5.5 - var2.EX
         with self.assertRaises(TypeError):
-            var2.EX * 5.5
+            _ = var2.EX * 5.5
         with self.assertRaises(TypeError):
-            5.5 * var2.EX
+            _ = 5.5 * var2.EX
         with self.assertRaises(TypeError):
-            (-var2.EX)
+            _ = -var2.EX
         with self.assertRaises(TypeError):
-            abs(var2.EX)
+            _ = abs(var2.EX)
         with self.assertRaises(TypeError):
-            var2.EX % 5
+            _ = var2.EX % 5
         with self.assertRaises(TypeError):
-            5 % var2.EX
+            _ = 5 % var2.EX
         with self.assertRaises(TypeError):
-            var2.EX > var1.EX
+            _ = var2.EX > var1.EX
         with self.assertRaises(TypeError):
-            var2.EX < var1.EX
+            _ = var2.EX < var1.EX
         with self.assertRaises(TypeError):
-            var2.EX >= 5
+            _ = var2.EX >= 5
         with self.assertRaises(TypeError):
-            var2.EX <= 5
+            _ = var2.EX <= 5
         with self.assertRaises(TypeError):
-            var2.EX / var1.EX
+            _ = var2.EX / var1.EX
         with self.assertRaises(TypeError):
-            var2.EX // var1.EX
+            _ = var2.EX // var1.EX
         with self.assertRaises(TypeError):
-            5 / var2.EX
+            _ = 5 / var2.EX
         with self.assertRaises(TypeError):
-            5 // var2.EX
+            _ = 5 // var2.EX
 
     @async_test
     async def test_expressions_concurrent_update(self) -> None:

@@ -19,15 +19,15 @@ import pathlib
 import weakref
 from dataclasses import dataclass, field
 from json import JSONDecodeError
-from typing import Dict, Iterable, Union, List, Set, Any, Optional, Tuple, Generic, Type, Callable
+from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import aiohttp.web
 import jinja2
 from aiohttp import WSCloseCode
 
-from ..base import Reading, T, Writable, Subscribable, Readable
+from ..base import Readable, Reading, Subscribable, T, Writable
 from ..conversion import SHCJsonEncoder, from_json
-from ..supervisor import get_interfaces, AbstractInterface, ServiceStatus, ServiceCriticality, InterfaceStatus
+from ..supervisor import AbstractInterface, InterfaceStatus, ServiceCriticality, ServiceStatus, get_interfaces
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ LastWillT = Tuple["WebApiObject[T]", T]
 
 @dataclass
 class MenuEntrySpec:
-    """Specification of one menu entry within the :class:`WebServer`"""
+    """Specification of one menu entry within the :class:`WebServer`."""
 
     # The name of the page (link target)
     page_name: Optional[str] = None
@@ -57,7 +57,7 @@ class MenuEntrySpec:
 
 @dataclass
 class SubMenuEntrySpec(MenuEntrySpec):
-    """Specification of a sub menu entry within the :class:`WebServer`"""
+    """Specification of a sub menu entry within the :class:`WebServer`."""
 
     # List of submenus if any
     submenus: List[MenuEntrySpec] = field(default_factory=list)
@@ -305,7 +305,7 @@ class WebServer(AbstractInterface):
         other_interfaces: Optional[ServiceCriticality] = ServiceCriticality.WARNING,
     ) -> None:
         """
-        Enables the `/monitoring` endpoint and sets up the list of interfaces to be monitored
+        Enables the `/monitoring` endpoint and sets up the list of interfaces to be monitored.
 
         This method allows to set up a list of interfaces explicitly, which are to be included in the monitoring
         information, returned via HTTP, and in the overall status calculation. The method can be called multiple times
@@ -918,7 +918,7 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
 
     async def _websocket_publish(self, value: Any) -> None:
         """
-        Send a value to all websocket clients subscribed to this `WebUIConnector` object
+        Send a value to all websocket clients subscribed to this `WebUIConnector` object.
 
         This will trigger a call to the `update()` method of the subscribed JavaScript Widget objects.
 
@@ -971,7 +971,7 @@ class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc
     def convert_to_ws_value(self, value: T) -> Any:
         """
         Callback method to convert new (*received* or *read*) values, before being JSON-encoded and published to the
-        websocket clients
+        websocket clients.
 
         This method may be overridden by inheriting classes to do any transformation of the new value, including type
         conversions. For example, a complex value of the object's *value type* may be used to evaluate a logic
@@ -1089,7 +1089,7 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
 
     async def _post_last_will(self, value: T, ws: aiohttp.web.WebSocketResponse) -> None:
         """
-        Post the stored last will of a client
+        Post the stored last will of a client.
         """
         self._publish(from_json(self.type, value), [ws])
         await self._publish_http(value, ws)

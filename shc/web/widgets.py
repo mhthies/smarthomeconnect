@@ -31,35 +31,34 @@ import pathlib
 from os import PathLike
 from typing import (
     Any,
-    cast,
-    Type,
-    Union,
+    Callable,
+    Generic,
     Iterable,
     List,
-    Generic,
-    Tuple,
-    TypeVar,
     Optional,
-    Callable,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
 )
 
 import markupsafe
 from markupsafe import Markup
 
-from .interface import (
-    WebPageItem,
-    WebDisplayDatapoint,
-    WebActionDatapoint,
-    jinja_env,
-    WebConnectorContainer,
-    WebUIConnector,
-    WebPage,
-    WebServer,
-)
-from ..base import T, ConnectableWrapper, Connectable
+from ..base import Connectable, ConnectableWrapper, T
 from ..conversion import SHCJsonEncoder
 from ..datatypes import RangeFloat1, RGBUInt8
-
+from .interface import (
+    WebActionDatapoint,
+    WebConnectorContainer,
+    WebDisplayDatapoint,
+    WebPage,
+    WebPageItem,
+    WebServer,
+    WebUIConnector,
+    jinja_env,
+)
 
 __all__ = [
     "icon",
@@ -342,7 +341,7 @@ class Slider(WebDisplayDatapoint[RangeFloat1], WebActionDatapoint[RangeFloat1], 
 
 class MinMaxButtonSlider(WebPageItem, ConnectableWrapper[RangeFloat1]):
     """
-    A pre-configured version of :class:`Slider` with left_button and right_button for quick access to 0% and 100%
+    A pre-configured version of :class:`Slider` with left_button and right_button for quick access to 0% and 100%.
 
     This object is a ConnectableWrapper that includes the Slider object as well as the two button descriptor objects.
     When `connecting` to it, using the :meth:`connect` method, it will connect all three objects with the given `other`
@@ -693,7 +692,7 @@ class ValueListButtonGroup(ButtonGroup, ConnectableWrapper[T], Generic[T]):
 
 class EnumButtonGroup(ValueListButtonGroup):
     """
-    A derived of :class:`ValueListButtonGroup`, which is a :class:`ButtonGroup` of :class:`ValueButtons`
+    A derived of :class:`ValueListButtonGroup`, which is a :class:`ButtonGroup` of :class:`ValueButtons`.
 
     This specialized variant takes an enum type (derived from :class:`enum.Enum`) and creates a :class:`ValueButton` for
     each entry/member of that enum, with the members' names as button labels. Like `ValueListButtonGroup`, this object
@@ -715,7 +714,7 @@ class EnumButtonGroup(ValueListButtonGroup):
 
 class HideRowBox(WebPageItem):
     """
-    A container for a list of :class:`HideRows <HideRow>`
+    A container for a list of :class:`HideRows <HideRow>`.
 
     The HideRowBox is a *WebPageItem*, so it can be added to web pages, and takes a list of :class:`HideRow` which are
     dynamically shown or hidden.
@@ -883,7 +882,7 @@ class ImageMap(WebPageItem):
             self.image_url = server.serve_static_file(pathlib.Path(self.image))
 
     def get_connectors(self) -> Iterable[WebUIConnector]:
-        for x, y, item, sub_items in self.items:
+        for _x, _y, item, sub_items in self.items:
             if isinstance(item, WebUIConnector):
                 yield item
             yield from itertools.chain.from_iterable(i.get_connectors() for i in sub_items)

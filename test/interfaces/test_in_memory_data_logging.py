@@ -1,10 +1,11 @@
 import asyncio
 import datetime
-from typing import Tuple, Type, Iterable
+from typing import Iterable, Tuple, Type
 
 import shc.data_logging
 import shc.interfaces.in_memory_data_logging
 from shc.base import T
+
 from .._helper import ClockMock, async_test
 from ..test_data_logging import AbstractLoggingTest
 

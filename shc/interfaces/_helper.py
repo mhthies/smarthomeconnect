@@ -14,7 +14,7 @@ import logging
 from typing import Optional
 
 from ..base import Readable, Subscribable
-from ..supervisor import AbstractInterface, interface_failure, InterfaceStatus, ServiceStatus
+from ..supervisor import AbstractInterface, InterfaceStatus, ServiceStatus, interface_failure
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class SubscribableStatusConnector(Readable[InterfaceStatus], Subscribable[Interf
 
 class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMeta):
     """
-    Abstract base class for client interfaces, providing run task supervision and automatic reconnects
+    Abstract base class for client interfaces, providing run task supervision and automatic reconnects.
 
     This class can be used as a base class for client interface implementations to simplify error handling and automatic
     reconnection attempts. The core of its functionality is the `_supervise` Task. It is started at interface `start()`
@@ -284,7 +284,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
     async def __do_connect(self) -> None:
         """
         1st sub-step of _supervise(): Execute :meth:`_connect` and await its completion, unless self._stopping is set in
-        the meantime
+        the meantime.
 
         :raises: Any exception that is raised in _connect() (including `CancelledError`, when _stopping was set)
         """
@@ -303,7 +303,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
 
     async def __start_run_task(self) -> asyncio.Task:
         """
-        2nd sub-step of _supervise(): Start :meth:`_run` in a new Task and wait for self._running to be set
+        2nd sub-step of _supervise(): Start :meth:`_run` in a new Task and wait for self._running to be set.
 
         :return: The new Task in which `_run()` is executed
         :raises RuntimeError: when `_run()` exits unexpectedly (before `_running` is set)
@@ -327,7 +327,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
 
     async def __do_subscribe(self, run_task: asyncio.Task) -> None:
         """
-        3rd sub-step of _supervise(): Execute :meth:`_subscribe` and await its completion
+        3rd sub-step of _supervise(): Execute :meth:`_subscribe` and await its completion.
 
         In case of failure :meth:`_disconnect` is called and an exception is raised. In case of premature exit of the
         `_run()` task, an exception is raised, as well.
@@ -368,7 +368,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
 
     async def __handle_exception(self, exception: Optional[Exception]) -> bool:
         """
-        Error-handling stage of _supervise(): Handle any exception that was raised during startup or operation
+        Error-handling stage of _supervise(): Handle any exception that was raised during startup or operation.
 
         - If `_started` is not yet been set (i.e. :meth:`start` is still awaiting startup):
             - If not `failsafe_start`:

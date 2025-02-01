@@ -3,7 +3,7 @@ import unittest
 import unittest.mock
 
 import shc.misc
-from test._helper import ExampleSubscribable, ExampleWritable, async_test, ExampleReadable
+from test._helper import ExampleReadable, ExampleSubscribable, ExampleWritable, async_test
 from test.test_variables import ExampleTupleType
 
 
@@ -230,7 +230,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
 
     @async_test
     async def test_concurrent_field_update_publishing(self) -> None:
-        for i in range(50):
+        for _ in range(50):
             var1 = shc.Variable(ExampleTupleType, "var1")
             exchange = shc.misc.UpdateExchange(ExampleTupleType).connect(var1)
             var3 = shc.Variable(int, "var3").connect(exchange.field("a"))
@@ -252,7 +252,7 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
 
 class ExampleAdderFunctionBlock:
     """
-    This is a simple but bad example for a "function block" class, using SimpleInputConnector and SimpleOutputConnector
+    This is a simple but bad example for a "function block" class, using SimpleInputConnector and SimpleOutputConnector.
 
     Since this class does not have any internal state and only maps two inputs to a single scalar output, it can and
     should be created as an :ref:`SHC expression <expressions>`. Still, we can use it to test the simple connector

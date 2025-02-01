@@ -13,10 +13,10 @@ import asyncio
 import datetime
 import logging
 import warnings
-from typing import Generic, Type, Optional, List, Any, Union, Dict
+from typing import Any, Dict, Generic, List, Optional, Type, Union
 
 from . import timer
-from .base import Writable, T, Readable, Subscribable, UninitializedError, Reading
+from .base import Readable, Reading, Subscribable, T, UninitializedError, Writable
 from .expressions import ExpressionWrapper
 
 logger = logging.getLogger(__name__)
@@ -183,7 +183,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
 
 class DelayedVariable(Variable[T], Generic[T]):
     """
-    A Variable object, which delays the updates to avoid publishing half-updated values
+    A Variable object, which delays the updates to avoid publishing half-updated values.
 
     This is achieved by delaying the publishing of a newly received value by a configurable amount of time
     (`publish_delay`). If more value updates are received while a previous update publishing is still pending, the
