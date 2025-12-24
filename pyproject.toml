@@ -9,9 +9,13 @@ description = "The Smart Home Connect home automation framework based on AsyncIO
 license = {file = "LICENSE"}
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [{name = "Michael Thies", email = "mail@mhthies.de"}]
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Development Status :: 4 - Beta",
     "License :: OSI Approved :: Apache Software License",
     "Topic :: Home Automation",
     "Framework :: AsyncIO"
