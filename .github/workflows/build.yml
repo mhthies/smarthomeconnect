@@ -26,7 +26,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence,test]
+        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence] --group test
         pip install "mido>=1.2.9,<2"
     - name: Install and pack web ui assets
       run: |
@@ -67,7 +67,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence,dev]
+        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence] --group dev
         pip install "mido>=1.2.9,<2"
     - name: Lint code with ruff
       run: |
@@ -85,7 +85,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence,test]
+        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence] --group test
         pip install "mido>=1.2.9,<2"
     - name: Check typing with MyPy
       run: |
@@ -103,7 +103,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence,doc]
+        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence] --group doc
         pip install "mido>=1.2.9,<2"
     - name: Build HTML docs with Sphinx
       run: |
