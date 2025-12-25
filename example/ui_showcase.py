@@ -25,6 +25,7 @@ import markupsafe
 
 import shc
 from shc.datatypes import RangeUInt8, RangeFloat1, RGBUInt8
+import shc.web
 from shc.web.widgets import *
 
 

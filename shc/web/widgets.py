@@ -643,7 +643,7 @@ class DisplayButton(WebDisplayDatapoint[T], AbstractButton, Generic[T]):
     def __init__(
         self,
         value: T = True,  # type: ignore
-        label: Union[str, Markup] = "",  # type: ignore
+        label: Union[str, Markup] = "",
         color: str = "blue",
         outline: bool = False,
     ):
