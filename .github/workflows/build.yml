@@ -26,8 +26,8 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence,test]
-        pip uninstall -y python-rtmidi  # not working on GitHub actions
+        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence,test]
+        pip install "mido>=1.2.9,<2"
     - name: Install and pack web ui assets
       run: |
         npm install
@@ -67,7 +67,8 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence,dev]
+        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence,dev]
+        pip install "mido>=1.2.9,<2"
     - name: Lint code with ruff
       run: |
         ruff check .
@@ -84,7 +85,8 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence,test]
+        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence,test]
+        pip install "mido>=1.2.9,<2"
     - name: Check typing with MyPy
       run: |
         mypy
@@ -101,7 +103,8 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence,doc]
+        pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence,doc]
+        pip install "mido>=1.2.9,<2"
     - name: Build HTML docs with Sphinx
       run: |
         cd docs
