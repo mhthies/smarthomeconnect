@@ -13,7 +13,7 @@ import knxdclient
 from shc import conversion
 from shc.datatypes import FadeStep
 from shc.interfaces import knx
-from test._helper import ExampleReadable, ExampleWritable, InterfaceThreadRunner, async_test
+from test._helper import ExampleReadable, ExampleWritable, InterfaceThreadRunner
 
 
 class KNXDataTypesTest(unittest.TestCase):
@@ -40,7 +40,7 @@ class KNXDataTypesTest(unittest.TestCase):
 
 @unittest.skipIf(shutil.which("knxd") is None, "knxd is not available in PATH")
 @unittest.skipIf(shutil.which("knxtool") is None, "knxtool is not available in PATH")
-class KNXDConnectorTest(unittest.TestCase):
+class KNXDConnectorTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.knxd_socket = tempfile.mktemp(suffix=".sock", prefix="knxdclient-test-knxd-")
         self.knxd_process = subprocess.Popen(
@@ -55,7 +55,6 @@ class KNXDConnectorTest(unittest.TestCase):
         self.knxd_process.terminate()
         self.knxd_process.wait()
 
-    @async_test
     async def test_receive(self) -> None:
         group_connector1 = self.interface.group(knx.KNXGAD(1, 2, 3), "1")
         target1 = ExampleWritable(bool).connect(group_connector1)
@@ -89,7 +88,6 @@ class KNXDConnectorTest(unittest.TestCase):
         target1._write.assert_called_once_with(True, unittest.mock.ANY)
         target2._write.assert_called_once_with(knxdclient.KNXTime(datetime.time(6, 0, 11), 5), unittest.mock.ANY)
 
-    @async_test
     async def test_send(self) -> None:
         group_connector1 = self.interface.group(knx.KNXGAD(1, 2, 3), "1")
         target1 = ExampleWritable(bool).connect(group_connector1)
@@ -139,7 +137,6 @@ class KNXDConnectorTest(unittest.TestCase):
         target1._write.assert_called_once_with(False, [self, group_connector1])
         target2._write.assert_called_once_with(knxdclient.KNXTime(datetime.time(6, 0, 11), 5), [self, group_connector2])
 
-    @async_test
     async def test_respond(self) -> None:
         _group_connector1 = self.interface.group(knx.KNXGAD(1, 2, 3), "1").connect(
             ExampleReadable(bool, True), read=True

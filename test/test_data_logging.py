@@ -7,7 +7,7 @@ from typing import Any, Dict, Generic, Iterable, List, Optional, Sequence, Tuple
 import shc.data_logging
 from shc.base import Readable, T, UninitializedError
 
-from ._helper import ClockMock, async_test
+from ._helper import ClockMock
 
 time_series_1 = [
     (datetime.datetime(2020, 1, 1, 0, 0, 0).astimezone(), 20.0),
@@ -46,7 +46,7 @@ class LiveDataLogViewMock:
         self.result.extend(values)
 
 
-class AbstractLoggingTest(unittest.TestCase):
+class AbstractLoggingTest(unittest.IsolatedAsyncioTestCase):
     do_write_tests: bool = False
     do_subscribe_tests: bool = False
 
@@ -56,7 +56,6 @@ class AbstractLoggingTest(unittest.TestCase):
     ) -> shc.data_logging.DataLogVariable[T]:
         return ExampleLogVariable(list(data))
 
-    @async_test
     async def test_maxmin_aggregation(self) -> None:
         variable = await self._create_log_variable_with_data(float, time_series_1)
         result = await variable.retrieve_aggregated_log(
@@ -97,7 +96,6 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertEqual(1, len(result))
         self.assertAlmostEqual(20.0, result[0][1])
 
-    @async_test
     async def test_average_aggregation(self) -> None:
         variable = await self._create_log_variable_with_data(float, time_series_1)
         result = await variable.retrieve_aggregated_log(
@@ -155,7 +153,6 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertAlmostEqual(20.0, result[2][1])
         self.assertAlmostEqual(20.0, result[3][1])
 
-    @async_test
     async def test_ontime_aggregation(self) -> None:
         variable = await self._create_log_variable_with_data(bool, time_series_2)
         result = await variable.retrieve_aggregated_log(
@@ -213,7 +210,6 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertAlmostEqual(0.0, result[2][1])
         self.assertAlmostEqual(0.0, result[3][1])
 
-    @async_test
     async def test_empty_aggregation(self) -> None:
         variable = await self._create_log_variable_with_data(float, time_series_1)
         result = await variable.retrieve_aggregated_log(
@@ -267,7 +263,6 @@ class AbstractLoggingTest(unittest.TestCase):
         )
         self.assertEqual(0, len(result))
 
-    @async_test
     async def test_aggregation_type_error(self) -> None:
         variable = await self._create_log_variable_with_data(str, [(datetime.datetime(2020, 1, 1, 0, 0, 0), "foo")])
         with self.assertRaises(TypeError):
@@ -278,7 +273,6 @@ class AbstractLoggingTest(unittest.TestCase):
                 aggregation_interval=datetime.timedelta(seconds=2.5),
             )
 
-    @async_test
     async def test_simple_write_and_retrieval(self) -> None:
         if not self.do_write_tests:
             self.skipTest("Write tests are disabled for this data logging interface")
@@ -316,7 +310,6 @@ class AbstractLoggingTest(unittest.TestCase):
         # Check reading
         self.assertEqual(5, await var1.read())  # type: ignore
 
-    @async_test
     async def test_subscribe_log(self) -> None:
         if not self.do_subscribe_tests:
             self.skipTest("Subscribe tests are disabled for this data logging interface")
@@ -348,7 +341,6 @@ class AbstractLoggingTest(unittest.TestCase):
         self.assertListEqual([v for _t, v in view2.result], [1, 2, 3, 4, 5])
         # TODO check timestamps
 
-    @async_test
     async def test_subscribe_log_sync(self) -> None:
         if not self.do_subscribe_tests:
             self.skipTest("Subscribe tests are disabled for this data logging interface")
@@ -475,8 +467,7 @@ class ExampleLiveDataLogView(shc.data_logging.LiveDataLogView[T], Generic[T]):
             client_data.extend(values)
 
 
-class LiveDataLogViewTest(unittest.TestCase):
-    @async_test
+class LiveDataLogViewTest(unittest.IsolatedAsyncioTestCase):
     async def test_not_subscribable(self) -> None:
         log_var = SimpleInMemoryLogVariable(float)
         log_var.data = time_series_1
@@ -498,7 +489,6 @@ class LiveDataLogViewTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await timer_task
 
-    @async_test
     async def test_not_subscribable_two_clients(self) -> None:
         log_var = SimpleInMemoryLogVariable(float)
         log_var.data = time_series_1
@@ -523,7 +513,6 @@ class LiveDataLogViewTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await timer_task
 
-    @async_test
     async def test_push(self) -> None:
         log_var = SimpleInMemoryWritableLogVariable(float)
         log_var.data = time_series_1
@@ -550,7 +539,6 @@ class LiveDataLogViewTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await pusher_task
 
-    @async_test
     async def test_push_two_clients(self) -> None:
         log_var = SimpleInMemoryWritableLogVariable(float)
         log_var.data = time_series_1

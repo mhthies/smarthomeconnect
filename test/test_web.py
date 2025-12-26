@@ -32,7 +32,7 @@ from shc.interfaces._helper import ReadableStatusInterface
 from shc.supervisor import InterfaceStatus, ServiceStatus
 from shc.web.widgets import AbstractButton
 
-from ._helper import ExampleReadable, InterfaceThreadRunner, async_test
+from ._helper import ExampleReadable, InterfaceThreadRunner
 
 
 class StatusTestInterface(ReadableStatusInterface):
@@ -223,7 +223,7 @@ class SimpleWebTest(AbstractWebTest):
         self.assertTrue(submenu_href.endswith("/page/submenu1/"))
 
 
-class MonitoringTest(unittest.TestCase):
+class MonitoringTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         shc.supervisor._REGISTERED_INTERFACES.clear()
         self.interface1 = StatusTestInterface("Interface 1")
@@ -236,7 +236,6 @@ class MonitoringTest(unittest.TestCase):
         self.server_runner.stop()
         shc.supervisor._REGISTERED_INTERFACES.clear()
 
-    @async_test
     async def test_monitoring_json(self) -> None:
         self.server.configure_monitoring(
             [
@@ -416,9 +415,11 @@ class WebWidgetsTest(AbstractWebTest):
         page = self.server.page("index")
         page.add_item(shc.web.widgets.ButtonGroup("My button group", cast(Iterable[AbstractButton], [b1, b2, b3, b4])))
 
-        with unittest.mock.patch.object(b1, "_publish") as b1_publish, unittest.mock.patch.object(
-            b3, "_publish"
-        ) as b3_publish, unittest.mock.patch.object(b4, "_publish") as b4_publish:
+        with (
+            unittest.mock.patch.object(b1, "_publish") as b1_publish,
+            unittest.mock.patch.object(b3, "_publish") as b3_publish,
+            unittest.mock.patch.object(b4, "_publish") as b4_publish,
+        ):
             self.server_runner.start()
             self.driver.get("http://localhost:42080")
             time.sleep(0.4)
@@ -993,7 +994,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(422, cm.exception.code)
 
 
-class WebSocketAPITest(unittest.TestCase):
+class WebSocketAPITest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080, "index")
         self.server = self.server_runner.interface
@@ -1032,7 +1033,6 @@ class WebSocketAPITest(unittest.TestCase):
 
         self.server_runner.stop()
 
-    @async_test
     async def test_errors(self) -> None:
         _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))  # noqa: F841
         self.server_runner.start()
@@ -1082,7 +1082,6 @@ class WebSocketAPITest(unittest.TestCase):
         self.assertEqual(404, data["status"])
         self.assertIn("name", data["error"])
 
-    @async_test
     async def test_get(self) -> None:
         _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))  # noqa: F841
         self.server_runner.start()
@@ -1097,7 +1096,6 @@ class WebSocketAPITest(unittest.TestCase):
         self.assertEqual(200, data["status"])
         self.assertEqual(42, data["value"])
 
-    @async_test
     async def test_post(self) -> None:
         api_object = self.server.api(int, "the_api_object")
         self.server_runner.start()
@@ -1114,7 +1112,6 @@ class WebSocketAPITest(unittest.TestCase):
         self.assertEqual("the_api_object", data["name"])
         self.assertEqual(204, data["status"])
 
-    @async_test
     async def test_subscribe(self) -> None:
         api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         api_object2 = self.server.api(int, "the_other_api_object")
@@ -1153,7 +1150,6 @@ class WebSocketAPITest(unittest.TestCase):
         self.assertEqual(56, data["value"])
         self.assertEqual(200, data["status"])
 
-    @async_test
     async def test_last_will(self) -> None:
         api_object = self.server.api(int, "the_api_object")
         self.server_runner.start()

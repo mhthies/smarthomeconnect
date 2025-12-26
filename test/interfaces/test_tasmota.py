@@ -18,11 +18,11 @@ import shc.interfaces.mqtt
 import shc.interfaces.tasmota
 from shc.datatypes import RangeInt0To100, RangeUInt8, RGBUInt8, RGBWUInt8
 from shc.supervisor import InterfaceStatus, ServiceStatus
-from test._helper import ExampleWritable, InterfaceThreadRunner, async_test
+from test._helper import ExampleWritable, InterfaceThreadRunner
 
 
 @unittest.skipIf(shutil.which("mosquitto") is None, "mosquitto MQTT broker is not available in PATH")
-class TasmotaInterfaceTest(unittest.TestCase):
+class TasmotaInterfaceTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         async def _construct(*args):
             return shc.interfaces.tasmota.TasmotaInterface(*args)
@@ -42,7 +42,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
         self.broker_process.terminate()
         self.broker_process.wait()
 
-    @async_test
     async def test_offline_state(self) -> None:
         offline_connector = self.interface.online()
         target_offline = ExampleWritable(bool).connect(offline_connector)
@@ -84,7 +83,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
                 await task
             raise
 
-    @async_test
     async def test_telemetry(self) -> None:
         target_telemetry = ExampleWritable(shc.interfaces.tasmota.TasmotaTelemetry).connect(self.interface.telemetry())
 
@@ -109,7 +107,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    @async_test
     async def test_telemetry_warning_state(self) -> None:
         # Recreate Tasmota interface with really short telemetry timeout
         async def _construct(*args):
@@ -144,7 +141,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    @async_test
     async def test_color_external(self) -> None:
         def construct_color(r, g, b, w):
             return RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
@@ -176,7 +172,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    @async_test
     async def test_color_internal(self) -> None:
         def construct_color(r, g, b, w):
             return RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
@@ -218,7 +213,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    @async_test
     async def test_sensor_ir(self) -> None:
         conn_ir = self.interface.ir_receiver()
         target_ir = ExampleWritable(bytes).connect(conn_ir)
@@ -240,7 +234,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
         await asyncio.sleep(0.25)
         target_ir._write.assert_called_once_with(b"\x00\xf7\x60\x9f", [conn_ir])
 
-    @async_test
     async def test_sensor_power(self) -> None:
         conn_energy = self.interface.energy()
         target_energy = ExampleWritable(shc.interfaces.tasmota.TasmotaEnergyMeasurement).connect(conn_energy)

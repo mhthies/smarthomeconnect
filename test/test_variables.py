@@ -10,12 +10,11 @@ import mypy.api
 
 from shc import base, expressions, variables
 
-from ._helper import ExampleReadable, ExampleWritable, async_test
+from ._helper import ExampleReadable, ExampleWritable
 
 
-class SimpleVariableTest(unittest.TestCase):
+class SimpleVariableTest(unittest.IsolatedAsyncioTestCase):
     @unittest.mock.patch("shc.variables.Variable._publish")
-    @async_test
     async def test_basic_behaviour(self, publish_patch):
         var = variables.Variable(int)
         await var.write(42, [self])
@@ -31,7 +30,6 @@ class SimpleVariableTest(unittest.TestCase):
         await var.write(21, [self])
         publish_patch.assert_not_called()
 
-    @async_test
     async def test_static_initialization(self):
         var = variables.Variable(int)
         with self.assertRaises(base.UninitializedError):
@@ -42,7 +40,6 @@ class SimpleVariableTest(unittest.TestCase):
         await var.write(21, [self])
         self.assertEqual(21, await var.read())
 
-    @async_test
     async def test_read_initialization(self):
         var1 = variables.Variable(int)
         var2 = variables.Variable(int, initial_value=21)
@@ -62,7 +59,6 @@ class SimpleVariableTest(unittest.TestCase):
         with self.assertRaises(base.UninitializedError):
             await var3.read()
 
-    @async_test
     async def test_expression_wrapper(self):
         var = variables.Variable(int, initial_value=42)
         wrapper = var.EX
@@ -86,8 +82,7 @@ class ExampleRecursiveTupleType(NamedTuple):
     b: int
 
 
-class VariableFieldsTest(unittest.TestCase):
-    @async_test
+class VariableFieldsTest(unittest.IsolatedAsyncioTestCase):
     async def test_field_subscribing(self):
         var = variables.Variable(ExampleTupleType)
         field_subscriber = ExampleWritable(int)
@@ -112,7 +107,6 @@ class VariableFieldsTest(unittest.TestCase):
         await var.write(ExampleTupleType(42, 2.719), [self])
         field_subscriber._write.assert_not_called()
 
-    @async_test
     async def test_field_writing(self):
         var = variables.Variable(ExampleTupleType, name="A test variable")
         field_subscriber = ExampleWritable(int)
@@ -139,7 +133,6 @@ class VariableFieldsTest(unittest.TestCase):
         field_subscriber._write.assert_called_once_with(21, [self, var.field("a"), var.field("a")])
         other_field_subscriber._write.assert_not_called()
 
-    @async_test
     async def test_recursive_field_subscribing(self):
         var = variables.Variable(ExampleRecursiveTupleType)
         field_subscriber = ExampleWritable(int)
@@ -161,7 +154,6 @@ class VariableFieldsTest(unittest.TestCase):
         await var.write(ExampleRecursiveTupleType(ExampleTupleType(42, 2.719), 6), [self])
         field_subscriber._write.assert_not_called()
 
-    @async_test
     async def test_recursive_field_writing_legacy(self):
         var = variables.Variable(ExampleRecursiveTupleType)
         subscriber = ExampleWritable(ExampleRecursiveTupleType)
@@ -211,7 +203,6 @@ class VariableFieldsTest(unittest.TestCase):
             other_field_subscriber._write.assert_not_called()
             another_field_subscriber._write.assert_not_called()
 
-    @async_test
     async def test_recursive_field_writing(self):
         var = variables.Variable(ExampleRecursiveTupleType)
         subscriber = ExampleWritable(ExampleRecursiveTupleType)
@@ -254,7 +245,6 @@ class VariableFieldsTest(unittest.TestCase):
         other_field_subscriber._write.assert_not_called()
         another_field_subscriber._write.assert_not_called()
 
-    @async_test
     async def test_expression_wrapper(self):
         var = variables.Variable(ExampleTupleType, initial_value=ExampleTupleType(42, 3.1416))
         wrapper = var.field("a").EX
@@ -268,8 +258,7 @@ class VariableFieldsTest(unittest.TestCase):
         subscriber._write.assert_called_with(21, [self, var.field("a"), var.field("a")])
 
 
-class ConnectedVariablesTest(unittest.TestCase):
-    @async_test
+class ConnectedVariablesTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple_concurrent_update(self) -> None:
         var1 = variables.Variable(int)
         var2 = variables.Variable(int).connect(var1)
@@ -278,7 +267,6 @@ class ConnectedVariablesTest(unittest.TestCase):
         await asyncio.sleep(0.1)
         self.assertEqual(await var1.read(), await var2.read())
 
-    @async_test
     async def test_concurrent_field_update_publishing(self) -> None:
         var1 = variables.Variable(ExampleTupleType)
         var2 = variables.Variable(ExampleTupleType).connect(var1)
@@ -297,8 +285,7 @@ class ConnectedVariablesTest(unittest.TestCase):
         self.assertEqual(writable1._write.call_args[0][0], writable3._write.call_args[0][0])
 
 
-class DelayedVariableTest(unittest.TestCase):
-    @async_test
+class DelayedVariableTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple(self):
         var = variables.DelayedVariable(int, name="A test variable", publish_delay=datetime.timedelta(seconds=0.02))
         subscriber = ExampleWritable(int)
@@ -312,7 +299,6 @@ class DelayedVariableTest(unittest.TestCase):
         await asyncio.sleep(0.025)
         subscriber._write.assert_called_once_with(42, [self, var])
 
-    @async_test
     async def test_field_update(self):
         var = variables.DelayedVariable(
             ExampleTupleType,

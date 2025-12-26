@@ -8,16 +8,17 @@ import unittest.mock
 from contextlib import suppress
 from pathlib import Path
 from typing import List
+from unittest.mock import AsyncMock
 
 import aiomqtt
 
 import shc.interfaces.mqtt
 
-from .._helper import AsyncMock, ExampleWritable, InterfaceThreadRunner, async_test
+from .._helper import ExampleWritable, InterfaceThreadRunner
 
 
 @unittest.skipIf(shutil.which("mosquitto") is None, "mosquitto MQTT broker is not available in PATH")
-class MQTTClientTest(unittest.TestCase):
+class MQTTClientTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.client_runner = InterfaceThreadRunner(shc.interfaces.mqtt.MQTTClientInterface, "localhost", 42883)
         self.client = self.client_runner.interface
@@ -35,7 +36,6 @@ class MQTTClientTest(unittest.TestCase):
         async with aiomqtt.Client("localhost", 42883, identifier="TestClient") as c:
             await c.publish("test/topic", b"42", 0, True)
 
-    @async_test
     async def test_subscribe(self) -> None:
         await self._send_retained_test_message()
 
@@ -78,7 +78,6 @@ class MQTTClientTest(unittest.TestCase):
         target_str._write.assert_called_once_with("21", unittest.mock.ANY)
         target_raw._write.assert_not_called()
 
-    @async_test
     async def test_publish(self) -> None:
         MESSAGES: List[aiomqtt.Message] = []
 

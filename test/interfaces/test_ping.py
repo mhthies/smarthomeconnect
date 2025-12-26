@@ -3,11 +3,10 @@ import unittest
 import unittest.mock
 
 from shc.interfaces import ping
-from test._helper import ExampleSubscribable, ExampleWritable, async_test
+from test._helper import ExampleSubscribable, ExampleWritable
 
 
-class PingTest(unittest.TestCase):
-    @async_test
+class PingTest(unittest.IsolatedAsyncioTestCase):
     async def test_ping(self) -> None:
         timer_mock = ExampleSubscribable(type(None))
         with unittest.mock.patch("shc.interfaces.ping.Every", return_value=timer_mock):

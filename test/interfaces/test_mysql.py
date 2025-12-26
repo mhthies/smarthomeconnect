@@ -13,7 +13,6 @@ import shc.data_logging
 import shc.interfaces.mysql
 from shc.base import T
 
-from .._helper import async_test
 from ..test_data_logging import AbstractLoggingTest
 
 
@@ -125,7 +124,6 @@ class MySQLTest(AbstractLoggingTest):
         var = self.interface.variable(type_, "test_variable")
         return var
 
-    @async_test
     async def test_persistence_variables(self) -> None:
         data: Sequence[Tuple[str, Sequence[Any]]] = [
             ("test_int", [5, 7]),
