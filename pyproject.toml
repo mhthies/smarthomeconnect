@@ -52,10 +52,10 @@ mqtt = ["aiomqtt>=2.0.0,<3"]
 pulse = ["pulsectl_asyncio>=1.0.0,<2"]
 telegram = ["aiogram>=3.0,<4"]
 file_persistence = ["aiofile>=3.7.4,<4"]
-dev = ["ruff~=0.8"]
+dev = ["ruff>=0.8,<0.9"]
 test = [
-    "coverage~=7.6",
-    "mypy~=1.13",
+    "coverage>=7.6,<8",
+    "mypy>=1.13,<2",
     "selenium>=3.141,<5",
     "types-PyMySQL",
     "types-MarkupSafe>=1.1,<3",
