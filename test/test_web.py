@@ -215,9 +215,9 @@ class SimpleWebTest(AbstractWebTest):
         # test after selecting a submenu both are selected the submenu item and the menu item
         container = self.driver.find_element(By.CSS_SELECTOR, ".pusher")
         self.assertEqual(len(selected_menus), 1)
-        selected_menus = container.find_elements(By.CLASS_NAME, "activated")
+        selected_menus = container.find_elements(By.CSS_SELECTOR, ".dropdown.item.activated")
         self.assertIn("Some Submenu", selected_menus[0].text)
-        selected_menus = container.find_elements(By.CLASS_NAME, "selected")
+        selected_menus = container.find_elements(By.CSS_SELECTOR, ".dropdown>.menu>.activated")
         self.assertEqual(len(selected_menus), 1)
         submenu_href: str = str(selected_menus[0].get_attribute("href"))
         self.assertTrue(submenu_href.endswith("/page/submenu1/"))

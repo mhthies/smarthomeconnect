@@ -74,7 +74,7 @@
                                 <i class="dropdown icon"></i>
                                 <div class="menu">
                                     {% for sub_item in item.submenus %}
-                                        <a class="{% if sub_item in active_items %}selected{% endif %} item"
+                                        <a class="{% if sub_item in active_items %}activated{% endif %} item"
                                            href="{{ root_url }}/page/{{ sub_item.page_name }}/">
                                             {% if sub_item.icon %}<i class="{{ sub_item.icon }} icon"></i>{% endif %}
                                             {{ sub_item.label }}

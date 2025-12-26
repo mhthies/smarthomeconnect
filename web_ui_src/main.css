@@ -100,26 +100,13 @@ body.pushable>.pusher, body:not(.pushable) {
   }
 }
 
-/* **************************
- * Menu things
- *
- * Fomantic-UI active class for menus conflicts w/ the submenu active class usage.
+/* Menu bar active state */
+/* Fomantic-UI `active` class for menus conflicts w/ the submenu active class usage.
  * Thus we define our own `activated` class.  Below is a adjusted copy from the Fomantic-UI project.
  * See https://github.com/mhthies/smarthomeconnect/pull/91 for details
- * ***************************/
-
-.ui.menu .ui.dropdown .menu > .activated.item {
-  background: rgba(0, 0, 0, 0.03) !important;
-  font-weight: bold !important;
-  color: rgba(0, 0, 0, 0.95) !important;
-}
-
-.ui.vertical.menu .dropdown.activated.item {
-  box-shadow: none;
-}
-/* --------------
-     Active
---------------- */
+ * In addition, Fomantic-UI seems to use the `selected` class on dropdown menu items for state tracking. Thus, we define
+ * an `activated` class as an alternative for this as well.
+ */
 .ui.menu .activated.item {
   background: rgba(50, 50, 50, 0.8);
   font-weight: normal;
@@ -128,8 +115,7 @@ body.pushable>.pusher, body:not(.pushable) {
 .ui.menu .activated.item > i.icon {
   opacity: 1;
 }
-
-.ui.menu .ui.dropdown .menu > .selected.item {
+.ui.menu .ui.dropdown .menu > .activated.item {
   background: rgba(0, 0, 0, 0.15) !important;
 }
 
