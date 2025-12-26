@@ -33,8 +33,10 @@ class TelegramBotTest(unittest.IsolatedAsyncioTestCase):
         )
         self.client: shc.interfaces.telegram.TelegramBot = self.client_runner.interface
 
+    async def asyncTearDown(self):
+        await self.api_mock.stop()
+
     def tearDown(self) -> None:
-        asyncio.get_event_loop().run_until_complete(self.api_mock.stop())
         self.client_runner.stop()
 
     async def test_subscribe(self) -> None:

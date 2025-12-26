@@ -126,7 +126,7 @@ class SHCWebsocketClientTest(unittest.IsolatedAsyncioTestCase):
         target._write.assert_called_once_with(ExampleType(42, True), unittest.mock.ANY)
         self.assertIsInstance(target._write.call_args[0][0], ExampleType)
 
-    def test_client_online_object(self) -> None:
+    async def test_client_online_object(self) -> None:
         server_bar = self.server.api(bool, "bar")
         target = ExampleWritable(bool).connect(server_bar)
 
@@ -147,9 +147,9 @@ class SHCWebsocketClientTest(unittest.IsolatedAsyncioTestCase):
         another_client = shc.interfaces.shc_client.SHCWebClient("http://localhost:42080", client_online_object="foobar")
         try:
             with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
-                asyncio.get_event_loop().run_until_complete(another_client.start())
+                await another_client.start()
         finally:
-            asyncio.get_event_loop().run_until_complete(another_client.stop())
+            await another_client.stop()
 
     def test_reconnect(self) -> None:
         self.server.api(ExampleType, "bar").connect(ExampleReadable(ExampleType, ExampleType(42, True)))
@@ -261,10 +261,9 @@ class SHCWebsocketClientConcurrentUpdateTest(unittest.IsolatedAsyncioTestCase):
         self.server = shc.web.WebServer("localhost", 42080)
         self.client = shc.interfaces.shc_client.SHCWebClient("http://localhost:42080")
 
-    def tearDown(self) -> None:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.client.stop())
-        loop.run_until_complete(self.server.stop())
+    async def asyncTearDown(self) -> None:
+        await self.client.stop()
+        await self.server.stop()
 
     async def test_concurrent_update(self) -> None:
         foo_api = self.server.api(int, "foo")

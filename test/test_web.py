@@ -1019,18 +1019,15 @@ class WebSocketAPITest(unittest.IsolatedAsyncioTestCase):
         self.ws = await self.client_session.ws_connect("http://localhost:42080/api/v1/ws")
         self.ws_receiver_task = asyncio.create_task(handle_websocket(self.ws))
 
-    def tearDown(self) -> None:
-        # Close client
-        # websocket
-        self.closing = True
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.ws.close())
-        loop.create_task(self.client_session.close())
-        pending = asyncio.all_tasks(loop)
-        loop.run_until_complete(asyncio.gather(*pending))
+    async def asyncTearDown(self) -> None:
+        await asyncio.gather(
+            asyncio.create_task(self.ws.close()),
+            asyncio.create_task(self.client_session.close()),
+        )
         # Await ws receiver task to catch websocket errors
-        loop.run_until_complete(self.ws_receiver_task)
+        await self.ws_receiver_task
 
+    def tearDown(self) -> None:
         self.server_runner.stop()
 
     async def test_errors(self) -> None:

@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import math
 import os
@@ -83,12 +82,14 @@ class MySQLTest(AbstractLoggingTest):
             ]
         )
         self.interface = shc.interfaces.mysql.MySQLConnector(**MYSQL_ARGS)
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.interface.start())
+
+    async def asyncSetUp(self) -> None:
+        await self.interface.start()
+
+    async def asyncTearDown(self) -> None:
+        await self.interface.stop()
 
     def tearDown(self) -> None:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.interface.stop())
         self._run_mysql_sync(["DROP TABLE `log`;", "DROP TABLE `persistence`;"])
 
     def _run_mysql_sync(self, queries: Sequence[str]) -> None:
