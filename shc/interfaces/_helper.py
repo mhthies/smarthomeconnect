@@ -149,12 +149,12 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         self.backoff_base = 1.0  #: First wait interval for exponential backoff in seconds
         self.backoff_exponent = 1.25  #: Multiplier for wait intervals for exponential backoff
         self._supervise_task: Optional[asyncio.Task] = None
-        loop = asyncio.get_event_loop()
-        self._started = loop.create_future()
+        self._started: Optional[asyncio.Future[None]] = None
         self._stopping = asyncio.Event()
         self._running = asyncio.Event()
 
     async def start(self) -> None:
+        self._started = asyncio.get_running_loop().create_future()
         logger.debug("Starting supervisor task for interface %s and waiting for it to come up ...", self)
         self._supervise_task = asyncio.create_task(self._supervise())
         await self._started
@@ -239,6 +239,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
     async def _supervise(self) -> None:
         sleep_interval = self.backoff_base
         self._status_connector.update_status(status=ServiceStatus.WARNING, message="Interface has not been started yet")
+        assert self._started is not None, "_started Future should have been initialized in start() coroutine"
 
         # Reconnect loop
         while True:
@@ -389,6 +390,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         """
         # If we have not been started successfully yet, report startup as finished (if failsafe) or report startup
         # error and quit
+        assert self._started is not None, "_started Future should have been initialized in start() coroutine"
         if not self._started.done():
             if self.failsafe_start:
                 self._started.set_result(None)
