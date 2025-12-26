@@ -62,10 +62,10 @@ test = [
     "types-Jinja2>=2.11,<3",
 ]
 doc = [
-    "sphinx~=5.0",
-    "sphinx-rtd-theme~=2.0",
-    "sphinx-toolbox~=3.5",
-    "sphinxcontrib-httpdomain~=1.8",
+    "sphinx>=7.0,<9",
+    "sphinx-rtd-theme>=3.0,<4",
+    "sphinx-toolbox>=4.1,<5",
+    "sphinxcontrib-httpdomain>=1.8,<2",
 ]
 
 [tool.ruff]
