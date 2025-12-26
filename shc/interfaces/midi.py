@@ -18,7 +18,7 @@ import mido
 
 from ..base import Subscribable, Writable
 from ..datatypes import RangeUInt8
-from ..supervisor import AbstractInterface, stop
+from ..supervisor import AbstractInterface, interface_failure
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +164,7 @@ class MidiInterface(AbstractInterface):
             logger.debug("_send_thread() done.")
         except Exception as e:
             logger.critical("Exception in MIDI send thread. Shutting down SHC ...", exc_info=e)
-            asyncio.run_coroutine_threadsafe(stop(), loop)
+            asyncio.run_coroutine_threadsafe(interface_failure(repr(self)), loop)
         finally:
             loop.call_soon_threadsafe(self._send_thread_stopped.set)
 

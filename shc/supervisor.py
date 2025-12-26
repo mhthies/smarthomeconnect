@@ -11,10 +11,9 @@
 import abc
 import asyncio
 import enum
-import functools
 import logging
 import signal
-from typing import Iterable, NamedTuple, Set
+from typing import Iterable, NamedTuple, Optional, Set
 
 from .base import Readable
 from .timer import timer_supervisor
@@ -24,10 +23,7 @@ logger = logging.getLogger(__name__)
 
 _REGISTERED_INTERFACES: Set["AbstractInterface"] = set()
 
-event_loop = asyncio.get_event_loop()
-_EXIT_CODE = 0
-_SHC_STOPPED = asyncio.Event()
-_SHC_STOPPED.set()
+_SUPERVISOR: Optional["_Supervisor"] = None
 
 
 class ServiceCriticality(enum.Enum):
@@ -156,63 +152,128 @@ async def interface_failure(interface_name: str = "n/a") -> None:
     This coroutine shall be called from an interface's background Task on a critical failure.
     It will shut down the SHC system gracefully and lets the Python process return with exit code 1.
 
+    For a normal shutdown, use `stop()` instead.
+
     :param interface_name: String identifying the interface which caused the shutdown.
     """
-    logger.warning("Shutting down SHC due to error in interface %s", interface_name)
-    global _EXIT_CODE
-    _EXIT_CODE = 1
-    asyncio.create_task(stop())
-
-
-async def _start_interface(interface: AbstractInterface) -> None:
-    try:
-        await interface.start()
-    except Exception as e:
-        logger.critical("Exception while starting interface %s:", repr(interface), exc_info=e)
-        raise RuntimeError()
-
-
-async def run():
-    _SHC_STOPPED.clear()
-    logger.info("Starting up interfaces ...")
-    try:
-        await asyncio.gather(*(_start_interface(interface) for interface in _REGISTERED_INTERFACES))
-    except RuntimeError:
-        logger.warning("Shutting down SHC due to error while starting up interfaces.")
-        await stop()
-        global _EXIT_CODE
-        _EXIT_CODE = 1
+    global _SUPERVISOR
+    if _SUPERVISOR is None:
+        logger.error(
+            f"Tried to shutdown SHC supervisor due to failure in interface {interface_name}, but SHC supervisor is not "
+            "running."
+        )
         return
-    logger.info("All interfaces started successfully. Initializing variables ...")
-    await read_initialize_variables()
-    logger.info("Variables initialized successfully. Starting timers ...")
-    await timer_supervisor.start()
-    logger.info("Timers initialized successfully. SHC startup finished.")
-    # Now, keep this task awaiting until SHC is stopped via stop()
-    await _SHC_STOPPED.wait()
+    _SUPERVISOR.interface_failure(interface_name)
 
 
 async def stop():
-    logger.info("Shutting down interfaces ...")
-    await asyncio.gather(
-        *(interface.stop() for interface in _REGISTERED_INTERFACES), timer_supervisor.stop(), return_exceptions=True
-    )
-    _SHC_STOPPED.set()
+    """
+    Gracefully stop the SHC supervisor and await its shutdown.
+
+    When shutting down due to a critical error in an interface, use interface_failure() instead, which will set the
+    program's exit code to 1.
+    """
+    global _SUPERVISOR
+    if _SUPERVISOR is not None:
+        await _SUPERVISOR.stop()
 
 
-def handle_signal(sig: int, loop: asyncio.AbstractEventLoop):
-    logger.info("Got signal {}. Initiating shutdown ...".format(sig))
-    loop.create_task(stop())
+class _Supervisor:
+    """
+    Main entry class for running an SHC application including ordered startup and graceful shutdown.
+
+    This class should not be used directly. Use the free methods :func:`run` or :func:`main` of this module to
+    instantiate and invoke this class.
+
+    This class is meant to be instantiated as a singleton. Its :meth:`run()` coroutine method should be called as the
+    asynchronous main entry point to start up the SHC application and await its shutdown.
+
+    The class is primarily used to wrap the _shc_stopped Event, which can only be instantiated from within the running
+    asyncio event loop. It also includes setting up the SIGTERM / keyboard interrupt handling and handling of the exit
+    code.
+    """
+
+    def __init__(self):
+        self._loop = asyncio.get_running_loop()
+        self._shc_stopped = asyncio.Event()
+        self._exit_code = 0
+
+    @staticmethod
+    async def _start_interface(interface: AbstractInterface) -> None:
+        try:
+            await interface.start()
+        except Exception as e:
+            logger.critical("Exception while starting interface %s:", repr(interface), exc_info=e)
+            raise RuntimeError()
+
+    async def run(self) -> int:
+        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            self._loop.add_signal_handler(sig, self._handle_signal, sig)
+        self._shc_stopped.clear()
+        logger.info("Starting up interfaces ...")
+        try:
+            await asyncio.gather(*(self._start_interface(interface) for interface in _REGISTERED_INTERFACES))
+        except RuntimeError:
+            logger.warning("Shutting down SHC due to error while starting up interfaces.")
+            await self.stop()
+            return 1
+        logger.info("All interfaces started successfully. Initializing variables ...")
+        await read_initialize_variables()
+        logger.info("Variables initialized successfully. Starting timers ...")
+        await timer_supervisor.start()
+        logger.info("Timers initialized successfully. SHC startup finished.")
+        # Now, keep this task awaiting SHC begin stopped via stop()
+        await self._shc_stopped.wait()
+        return self._exit_code
+
+    def interface_failure(self, interface_name: str) -> None:
+        logger.warning("Shutting down SHC due to error in interface %s", interface_name)
+        self._exit_code = 1
+        asyncio.create_task(self.stop())
+
+    async def stop(self):
+        logger.info("Shutting down interfaces ...")
+        await asyncio.gather(
+            *(interface.stop() for interface in _REGISTERED_INTERFACES), timer_supervisor.stop(), return_exceptions=True
+        )
+        self._shc_stopped.set()
+
+    def _handle_signal(self, sig: int):
+        logger.info("Got signal {}. Initiating shutdown ...".format(sig))
+        self._loop.create_task(self.stop())
+
+
+async def run() -> int:
+    """
+    Async main entry point for running an SHC application.
+
+    It uses the :class:`_Supervisor` singleton class to
+
+    * register signal handlers for SIGINT, SIGTERM, and SIGHUP to shut down all interfaces gracefully when such a
+      signal is received.
+    * start up all constructed SHC interfaces
+    * await the shutdown of all SHC interfaces, either due to a critical error in an interface (indicated via
+      :func:`interface_failure`) or triggered via one of the signals.
+
+    :return: application exit code to be passed to sys.exit()
+    """
+    global _SUPERVISOR
+    if _SUPERVISOR is None:
+        _SUPERVISOR = _Supervisor()
+    exit_code = await _SUPERVISOR.run()
+    _SUPERVISOR = None
+    return exit_code
 
 
 def main() -> int:
     """
     Main entry point for running an SHC application.
 
-    This function starts an asyncio event loop to run the timers and interfaces. It registers signal handlers for
-    SIGINT, SIGTERM, and SIGHUP to shut down all interfaces gracefully when such a signal is received. The `main`
-    function blocks until shutdown is completed and returns the exit code. Thus, it should be used with
-    :func:`sys.exit`::
+    This function starts the :func:`run()` coroutine in a new asyncio event loop. It starts up everything and blocks
+    until shutdown is completed (either due to critical errors or when stopped via signal) and returns the program exit
+    code.
+
+     Typical usage::
 
         import sys
         import shc
@@ -221,12 +282,6 @@ def main() -> int:
 
         sys.exit(shc.main())
 
-    A shutdown can also be triggered by a critical error in an interface (indicated via :func:`interface_failure`), in
-    which case the the exit code will be != 0.
-
     :return: application exit code to be passed to sys.exit()
     """
-    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-        event_loop.add_signal_handler(sig, functools.partial(handle_signal, sig, event_loop))
-    event_loop.run_until_complete(run())
-    return _EXIT_CODE
+    return asyncio.run(run())

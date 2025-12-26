@@ -4,34 +4,35 @@ import unittest
 import shc
 
 
-# Helper coroutine to trigger shutdown after one second automatically
-async def shutdown() -> None:
-    await asyncio.sleep(1)
-    await shc.supervisor.stop()
+def run_shc_for_one_second() -> None:
+    async def shutdown_after_one_second() -> None:
+        await asyncio.sleep(1)
+        await shc.supervisor.stop()
+
+    async def main_task():
+        asyncio.create_task(shutdown_after_one_second())
+        await shc.supervisor.run()
+
+    asyncio.run(main_task())
 
 
 class BasicTest(unittest.TestCase):
     def test_ui_showcase(self) -> None:
-        shc.supervisor.event_loop.create_task(shutdown())
         import example.ui_showcase  # type: ignore  # noqa: F401
 
-        shc.main()
+        run_shc_for_one_second()
 
     def test_ui_logging_showcase(self) -> None:
-        shc.supervisor.event_loop.create_task(shutdown())
-
         import example.ui_logging_showcase  # type: ignore  # noqa: F401
 
-        shc.main()
+        run_shc_for_one_second()
 
     def test_server_client_example(self) -> None:
-        shc.supervisor.event_loop.create_task(shutdown())
-
         # The examples should actually be able to coexist in a single SHC instance
         import example.server_client.client  # type: ignore  # noqa: F401
         import example.server_client.server  # type: ignore  # noqa: F401
 
-        shc.main()
+        run_shc_for_one_second()
 
     def test_tasmota_led_example(self) -> None:
         import example.tasmota_led_ir_with_ui  # type: ignore  # noqa: F401
