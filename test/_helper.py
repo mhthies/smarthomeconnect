@@ -280,13 +280,13 @@ class InterfaceThreadRunner(Generic[IT]):
 
     def _run(self, interface_class: Type[IT], args, kwargs) -> None:
         self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
         try:
             self.interface = interface_class(*args, **kwargs)
             self._server_constructed_future.set_result(None)
         except Exception as e:
             self._server_constructed_future.set_exception(e)
             return
+        asyncio.set_event_loop(self.loop)
         self._stopped_event = asyncio.Event()
         self.started = True
         self.loop.run_until_complete(self._stopped_event.wait())
