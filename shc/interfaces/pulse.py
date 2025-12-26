@@ -292,7 +292,8 @@ class PulseAudioInterface(SupervisedClientInterface):
         await self.pulse.connect()
 
     async def _disconnect(self) -> None:
-        assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
+        if self.pulse is None:
+            return
         self.pulse.disconnect()
 
     async def _subscribe(self) -> None:
