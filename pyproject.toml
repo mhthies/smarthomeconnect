@@ -59,7 +59,7 @@ test = [
     "selenium>=3.141,<5",
     "types-PyMySQL",
     "types-MarkupSafe>=1.1,<3",
-    "types-Jinja2>=2.11,<3",
+    "types-Jinja2>=2.11,<4",
 ]
 doc = [
     "sphinx>=7.0,<9",
