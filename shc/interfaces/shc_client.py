@@ -130,6 +130,7 @@ class SHCWebClient(SupervisedClientInterface):
         Entrypoint for the async "run" Task for receiving Websocket messages.
         """
         assert self._ws is not None
+        assert self._running is not None, "_stopping should have been constructed in start()"
         self._running.set()
 
         # Receive websocket messages until websocket is closed

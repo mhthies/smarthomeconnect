@@ -191,6 +191,7 @@ class KNXConnector(SupervisedClientInterface):
 
     async def _run(self):
         assert self.knx is not None, "KNXDConnection should have been initialized in start()"
+        assert self._running is not None, "_stopping should have been constructed in start()"
         self._running.set()
         await self.knx.run()
 

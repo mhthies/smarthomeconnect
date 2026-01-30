@@ -258,6 +258,7 @@ class MQTTClientInterface(SupervisedClientInterface):
 
     async def _run(self) -> None:
         assert self.client is not None, "Client should have been created in start() method"
+        assert self._running is not None, "_stopping should have been constructed in start()"
         self._running.set()
         async for message in self.client.messages:
             logger.debug("Incoming MQTT message: %s", message)

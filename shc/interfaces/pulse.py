@@ -346,6 +346,7 @@ class PulseAudioInterface(SupervisedClientInterface):
 
     async def _run(self) -> None:
         assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
+        assert self._running is not None, "_stopping should have been constructed in start()"
         self._running.set()
         async for event in self.pulse.subscribe_events(*self._subscribe_facilities):
             try:
