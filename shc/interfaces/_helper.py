@@ -11,6 +11,7 @@
 import abc
 import asyncio
 import logging
+import time
 from typing import Optional
 
 from ..base import Readable, Subscribable
@@ -175,14 +176,18 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         """
         Wait for the interface to be running.
 
-        Attention: This must be called *after* :meth:`start` has initially been called (not neccessarily after it has
-        returned).
-
         :param timeout: If given, this method will raise an :class:`asyncio.TimeoutError` after the given timeout in
             seconds, if the interface has not come up by this time.
         """
-        assert self._running is not None, "start() has not been called yet"
-        await asyncio.wait_for(self._running.wait(), timeout)
+        tic = time.time()
+        # Poll-wait until start() coroutine has started executing
+        while self._running is None:
+            await asyncio.sleep(0.01)
+            if timeout is not None and time.time() > tic + timeout:
+                raise asyncio.TimeoutError("start() has not been called within timeout")
+        # Wait for the asynchronous startup to be completed
+        remaining_timeout = None if timeout is None else max(0.0, timeout - (time.time() - tic))
+        await asyncio.wait_for(self._running.wait(), remaining_timeout)
 
     @abc.abstractmethod
     async def _run(self) -> None:
