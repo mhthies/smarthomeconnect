@@ -29,20 +29,30 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
         self.data: List[Tuple[datetime.datetime, T]] = []
         self.keep = keep
         self._data_log_subscribers: List[LiveDataLogView] = []
+        # Mutex to prevent race condition between _write() and retrieve_log_sync(). See comment in _write() for more
+        # details. The mutex is not created in the __init__() method to allow construction of the object before starting
+        # the asyncio EventLoop.
+        self._mutex: Optional[asyncio.Lock] = None
 
     async def _write(self, value: T, origin: List[Any]) -> None:
+        if self._mutex is None:
+            self._mutex = asyncio.Lock()
         self.clean_up()
         entry = (datetime.datetime.now(datetime.timezone.utc), value)
-        self.data.append(entry)
         # We do not need the complicated locking, queuing and flushing from WritableDataLogVariable here, since querying
         # and appending the in-memory log is "atomic" (in the sense of asyncio tasks), i.e. does not include an 'await'
         # statement.
-        tasks = [subscriber._new_log_values_written([entry])
-                 for subscriber in self._data_log_subscribers]
-        if len(tasks) == 1:
-            await tasks[0]
-        else:
-            await asyncio.gather(*tasks)
+        # However, notifying the subscribers is not atomic in this sense. So, we need to make sure that a consumer
+        # cannot be initialized between updating the data array and notifying the subscribers. Thus, we need to lock
+        # access to retrieve_log_sync() for the duration of the update.
+        async with self._mutex:
+            self.data.append(entry)
+            tasks = [subscriber._new_log_values_written([entry])
+                     for subscriber in self._data_log_subscribers]
+            if len(tasks) == 1:
+                await tasks[0]
+            else:
+                await asyncio.gather(*tasks)
 
     def clean_up(self) -> None:
         begin = datetime.datetime.now(datetime.timezone.utc) - self.keep
@@ -60,6 +70,14 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
 
     def subscribe_data_log(self, subscriber: LiveDataLogView) -> None:
         self._data_log_subscribers.append(subscriber)
+
+    async def retrieve_log_sync(
+        self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = True
+    ) -> List[Tuple[datetime.datetime, T]]:
+        if self._mutex is None:
+            self._mutex = asyncio.Lock()
+        async with self._mutex:
+            return await self.retrieve_log(start_time, end_time, include_previous)
 
     async def retrieve_log(self, start_time: datetime.datetime, end_time: datetime.datetime,
                            include_previous: bool = False) -> List[Tuple[datetime.datetime, T]]:
