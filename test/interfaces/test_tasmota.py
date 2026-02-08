@@ -343,15 +343,20 @@ async def tasmota_device_mock(deviceid: str) -> None:
                         status["StatusSTS"]["Color"] = "{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(*channel)
                         status["StatusSTS"]["White"] = int(channel[3] / 255 * 100)
                         # TODO insert current HSBColor
-                        await c.publish(f"stat/{deviceid}/STATUS11", json.dumps(status).encode("ascii"))
+                        # Running the publish() call in a separated Task is required to workaround a reoccuring hangup
+                        # of the unit tests on Python 3.9, probably caused by a CPython bug, which results in this
+                        # Task ignoring to be cancelled: https://github.com/python/cpython/issues/86296
+                        asyncio.create_task(c.publish(f"stat/{deviceid}/STATUS11", json.dumps(status).encode("ascii")))
                     else:
                         pass
                         # not implemented
 
                 elif topic == f"cmnd/{deviceid}/power":
                     power = payload.lower() not in (b"0", "off", "false")
-                    await c.publish(f"stat/{deviceid}/RESULT", b'{"POWER":"' + (b"ON" if power else b"OFF") + b'"}')
-                    await c.publish(f"stat/{deviceid}/POWER", b"ON" if power else b"OFF")
+                    asyncio.create_task(
+                        c.publish(f"stat/{deviceid}/RESULT", b'{"POWER":"' + (b"ON" if power else b"OFF") + b'"}')
+                    )
+                    asyncio.create_task(c.publish(f"stat/{deviceid}/POWER", b"ON" if power else b"OFF"))
 
                 elif topic == f"cmnd/{deviceid}/color":
                     if payload[0] == ord("#"):
@@ -362,24 +367,21 @@ async def tasmota_device_mock(deviceid: str) -> None:
                         # not implemented
                         continue
                     power = max(channel) != 0
-                    await c.publish(
-                        f"stat/{deviceid}/RESULT",
-                        json.dumps(
-                            {
-                                "POWER": "ON" if power else "OFF",
-                                "Dimmer": int(max(channel) / 255 * 100),
-                                "Color": "{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(*channel),
-                                "HSBColor": "48,100,100",  # TODO
-                                "White": int(channel[3] / 255 * 100),
-                                "Channel": [int(v / 255 * 100) for v in channel],
-                            }
-                        ).encode("ascii"),
+                    asyncio.create_task(
+                        c.publish(
+                            f"stat/{deviceid}/RESULT",
+                            json.dumps(
+                                {
+                                    "POWER": "ON" if power else "OFF",
+                                    "Dimmer": int(max(channel) / 255 * 100),
+                                    "Color": "{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(*channel),
+                                    "HSBColor": "48,100,100",  # TODO
+                                    "White": int(channel[3] / 255 * 100),
+                                    "Channel": [int(v / 255 * 100) for v in channel],
+                                }
+                            ).encode("ascii"),
+                        )
                     )
-                # Workaround for https://bugs.python.org/issue42130
-                current_task = asyncio.current_task()
-                assert current_task is not None
-                if current_task.cancelled():
-                    raise asyncio.CancelledError()
 
         except asyncio.CancelledError:
             try:
