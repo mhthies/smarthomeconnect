@@ -383,5 +383,8 @@ async def tasmota_device_mock(deviceid: str) -> None:
                     raise asyncio.CancelledError()
 
         except asyncio.CancelledError:
-            await c.publish(f"tele/{deviceid}/LWT", b"Offline", retain=True)
+            try:
+                await asyncio.wait_for(c.publish(f"tele/{deviceid}/LWT", b"Offline", retain=True), timeout=1)
+            except asyncio.TimeoutError:
+                pass
             raise
