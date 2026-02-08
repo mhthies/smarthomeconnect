@@ -376,6 +376,11 @@ async def tasmota_device_mock(deviceid: str) -> None:
                             }
                         ).encode("ascii"),
                     )
+                # Workaround for https://bugs.python.org/issue42130
+                current_task = asyncio.current_task()
+                assert current_task is not None
+                if current_task.cancelled():
+                    raise asyncio.CancelledError()
 
         except asyncio.CancelledError:
             await c.publish(f"tele/{deviceid}/LWT", b"Offline", retain=True)
