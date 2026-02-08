@@ -5,7 +5,6 @@ import math
 import shutil
 import subprocess
 import time
-import typing
 import unittest
 import unittest.mock
 from contextlib import suppress
@@ -334,7 +333,7 @@ async def tasmota_device_mock(deviceid: str) -> None:
         try:
             async for msg in c.messages:
                 topic = str(msg.topic)
-                payload = typing.cast(bytes, msg.payload)  # payload of received MQTT messages is always bytes
+                payload = msg.payload
                 if topic == f"cmnd/{deviceid}/status":
                     if payload.strip() == b"11":
                         status = BASE_STATUS11.copy()

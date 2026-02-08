@@ -14,7 +14,6 @@ import collections
 import itertools
 import json
 import logging
-import typing
 from typing import Any, Awaitable, Callable, Deque, Dict, Generic, Iterable, List, Optional, Type, Union
 
 from aiomqtt import Client, Message, ProtocolVersion
@@ -344,8 +343,7 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
                     del self._pending_mqtt_pubs[encoded_value]
 
     def _new_value_from_mqtt(self, message: Message) -> None:
-        # payload of received MQTT messages is always bytes
-        payload = typing.cast(bytes, message.payload)
+        payload = message.payload
         if str(message.topic) != self.publish_topic:
             self._publish(self._decode(payload), [])
             return
