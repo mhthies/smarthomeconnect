@@ -8,8 +8,11 @@ In addition, “initializable” *Reading* objects, like SHC :ref:`variables` ne
 
 For this purpose, the :mod:`shc.supervisor` module implements functions for controlling startup and shutdown of SHC applications.
 
-The main entry point of SHC applications, after all objects have been constructed and *connected*, should be the :func:`shc.supervisor.main` function, we already encountered in the examples.
+The main entry point of SHC applications, should be the :func:`shc.supervisor.main` function, we already encountered in the examples.
+The *Interfaces*, *Variables* and *Connectors* of SHC are all built in a way that they can be constructed before entering the asyncio EventLoop.
+Thus, the :meth:`main() <shc.supervisor.main>` should be called *after* all objects have been constructed and *connected*.
 Alternatively, if you already have an asyncio EventLoop running, use the :func:`shc.supervisor.run` coroutine.
+
 It performs the following startup procedure:
 
 * Register a signal handler to initiate shutdown when receiving a SIGTERM (or similar)
