@@ -3,6 +3,7 @@ __pycache__/
 /.cache/
 /.parcel-cache/
 /venv/
+/.venv/
 /node_modules/
 /shc/web/static/pack/
 /dist/

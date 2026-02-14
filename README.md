@@ -210,11 +210,11 @@ Clone the git repository and install the development dependencies.
 ```bash
 git clone https://github.com/mhthies/smarthomeconnect
 cd smarthomeconnect
-pip3 install -e .[dev]
+pip3 install -e . --group dev
 ```
 To install additional dependencies, listed in [Dependencies](#dependencies), e.g. use:  
 ```bash
-pip3 install -e .[mysql,knxdclient,midi]
+pip3 install -e ".[mysql,knxdclient,midi]"
 ```
 You may want to use a virtual environment to avoid messing up your Python packages.
 
@@ -237,7 +237,7 @@ npx parcel web_ui_src/main.js --dist-dir shc/web/static/pack --public-url ./
 
 Please make sure that all the unittests are passing, when submitting a Pull Request:
 ```bash
-pip3 install -e .[test]
+pip3 install -e . --group test
 python3 -m unittest
 ```
 The web tests require Firefox and `geckodriver` to be installed on your system and the frontend assets. 
@@ -262,7 +262,7 @@ All these checks are also performed by the GitHub Actions CI for Pull Requests a
 
 To fix errors using `ruff` use these commands:  
 ```bash
-ruff check . -- fix  # for fixing linting errors
+ruff check . --fix   # for fixing linting errors
 ruff format .        # for fixing formating errors
 ``` 
 Note that not all errors can be fixed automatically but may need your attentions.
