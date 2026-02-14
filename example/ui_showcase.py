@@ -24,6 +24,7 @@ import enum
 import markupsafe
 
 import shc
+import shc.web
 from shc.datatypes import RangeUInt8, RangeFloat1, RGBUInt8
 from shc.web.widgets import *
 

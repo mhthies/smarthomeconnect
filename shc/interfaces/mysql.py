@@ -333,7 +333,7 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
         elif type_ in (int, str):
             return lambda x: x
         elif type_ is float:
-            return lambda x: x if x is not None else float("nan")
+            return lambda x: x if x is not None else float("nan")  # type: ignore  # type_ is float here (see above)
         elif issubclass(type_, (bool, int, str, enum.Enum)):
             return lambda value: type_(value)  # type: ignore  # type_ is equivalent to T -> type_() is an instance of T
         elif issubclass(type_, float):

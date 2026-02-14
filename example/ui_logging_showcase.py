@@ -12,8 +12,9 @@ import datetime
 import random
 
 from shc.interfaces.in_memory_data_logging import InMemoryDataLogVariable
-import shc.web.log_widgets
 from shc.data_logging import AggregationMethod
+import shc.web
+import shc.web.log_widgets
 from shc.web.log_widgets import ChartDataSpec, LogListDataSpec, ChartPlotStyle, ChartLineInterpolation
 from shc.web.widgets import icon
 

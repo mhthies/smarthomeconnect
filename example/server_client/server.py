@@ -12,6 +12,7 @@
 import enum
 
 import shc
+import shc.web
 from shc.datatypes import RangeFloat1
 from shc.web.widgets import *
 

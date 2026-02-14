@@ -20,6 +20,7 @@ import random
 import enum
 
 import shc
+import shc.web
 from shc.interfaces.telegram import SimpleTelegramAuth, TelegramBot
 from shc.web.widgets import *
 
