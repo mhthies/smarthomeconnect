@@ -13,7 +13,8 @@ build:
     install:
        # Since the install step is overridden, pip is no longer updated automatically.
        - pip install --upgrade pip
-       - pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence] --group doc
+       - pip install .[mysql,knx,dmx,mqtt,pulse,telegram,file_persistence] --group doc
+       - pip install "mido>=1.2.9,<2"
 
 sphinx:
   configuration: docs/conf.py
