@@ -254,7 +254,7 @@ class FadeStepAdapter(Subscribable[RangeFloat1], Reading[RangeFloat1]):
         super().__init__()
         if not issubclass(wrapped.type, FadeStep):
             raise TypeError(
-                "First Parameter to `FadeStepAdapter` must be a Subscribable object with value type " "`FadeStep`"
+                "First Parameter to `FadeStepAdapter` must be a Subscribable object with value type `FadeStep`"
             )
         wrapped.trigger(self._update, synchronous=True)
 

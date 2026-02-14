@@ -250,9 +250,9 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         sleep_interval = self.backoff_base
         self._status_connector.update_status(status=ServiceStatus.WARNING, message="Interface has not been started yet")
         assert self._started is not None, "_started Future should have been initialized in start() coroutine"
-        assert (
-            self._running is not None and self._stopping is not None
-        ), "_running and _stopping should have been constructed in start()"
+        assert self._running is not None and self._stopping is not None, (
+            "_running and _stopping should have been constructed in start()"
+        )
 
         # Reconnect loop
         while True:

@@ -661,20 +661,19 @@ class TelegramAPIMock:
 
     def assert_method_called_with(self, method: str, **kwargs) -> None:
         assert len(self.method_calls) > 0, "No Telegram API method has been called"
-        assert (
-            method == self.method_calls[-1][0]
-        ), f"Wrong Telegram API method {self.method_calls[-1][0]} called, expected {method}"
+        assert method == self.method_calls[-1][0], (
+            f"Wrong Telegram API method {self.method_calls[-1][0]} called, expected {method}"
+        )
         for arg, val in kwargs.items():
             assert arg in self.method_calls[-1][1], f"Expected {arg} in Telegram API method call parameters"
-            assert (
-                val == self.method_calls[-1][1][arg]
-            ), f"Wrong value '{self.method_calls[-1][1][arg]}' for Parameter {arg}, expected '{val}'"
+            assert val == self.method_calls[-1][1][arg], (
+                f"Wrong value '{self.method_calls[-1][1][arg]}' for Parameter {arg}, expected '{val}'"
+            )
 
     def assert_method_call_count(self, count: int) -> None:
         actual_count = len(self.method_calls)
         assert count == actual_count, (
-            f"{actual_count} Telegram API methods called "
-            f"({[call[0] for call in self.method_calls]}), expected {count}"
+            f"{actual_count} Telegram API methods called ({[call[0] for call in self.method_calls]}), expected {count}"
         )
 
     def assert_one_method_called_with(self, method: str, **kwargs):

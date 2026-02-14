@@ -287,8 +287,7 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
         self.subscribe_topics = subscribe_topics
         if not check_topic_matches_filter(publish_topic, subscribe_topics):
             raise ValueError(
-                "The publishing topic must match the subscribe topics filter! (Use an additional connector"
-                "otherwise.)"
+                "The publishing topic must match the subscribe topics filter! (Use an additional connectorotherwise.)"
             )
         self.qos = qos
         self.retain = retain

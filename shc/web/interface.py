@@ -414,7 +414,7 @@ class WebServer(AbstractInterface):
             connector = self.connectors[message["id"]]
         except KeyError:
             logger.error(
-                "Could not route message from websocket to connector, since no connector with id %s is " "known.",
+                "Could not route message from websocket to connector, since no connector with id %s is known.",
                 message["id"],
             )
             return
@@ -541,7 +541,7 @@ class WebServer(AbstractInterface):
                 await api_object.http_post(value, ws)
             except (ValueError, TypeError) as e:
                 logger.warning(
-                    "Error while updating API object %s with value via websocket from %s (error was " "%s): %s",
+                    "Error while updating API object %s with value via websocket from %s (error was %s): %s",
                     api_object.name,
                     client_ip,
                     e,
@@ -561,7 +561,7 @@ class WebServer(AbstractInterface):
                 self._api_ws_last_will[ws] = (api_object, api_object._check_last_will(value))
             except (ValueError, TypeError) as e:
                 logger.warning(
-                    "Error while setting last will of websocket client %s for API object %s (error" "was %s): %s",
+                    "Error while setting last will of websocket client %s for API object %s (errorwas %s): %s",
                     api_object.name,
                     client_ip,
                     e,

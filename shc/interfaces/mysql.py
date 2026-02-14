@@ -208,7 +208,7 @@ class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
         )
 
     def _get_read_query(self) -> str:
-        return f"SELECT `value` " f"FROM `{self.table}` " f"WHERE `name` = %(name)s " f"ORDER BY `ts` DESC LIMIT 1"
+        return f"SELECT `value` FROM `{self.table}` WHERE `name` = %(name)s ORDER BY `ts` DESC LIMIT 1"
 
     @staticmethod
     def _get_to_mysql_converter(type_: Type[T]) -> Callable[[T], Any]:

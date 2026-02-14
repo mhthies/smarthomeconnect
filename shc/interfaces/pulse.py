@@ -620,9 +620,9 @@ class SinkAttributeConnector(Subscribable[T], Readable[T], SinkConnector, Generi
     async def read(self) -> T:
         if self.current_id is None:
             raise UninitializedError()
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         data = await self.interface.pulse.sink_info(self.current_id)
         return self._convert_from_pulse(data)
 
@@ -643,9 +643,9 @@ class SourceAttributeConnector(Subscribable[T], Readable[T], SourceConnector, Ge
     async def read(self) -> T:
         if self.current_id is None:
             raise UninitializedError()
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         data = await self.interface.pulse.source_info(self.current_id)
         return self._convert_from_pulse(data)
 
@@ -691,9 +691,9 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         self.register_origin_callback("sink", self.current_id, origin)
         await self.interface.pulse.sink_mute(self.current_id, value)
 
@@ -709,9 +709,9 @@ class SourceMuteConnector(SourceAttributeConnector[bool], Writable[bool]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
             raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         self.register_origin_callback("source", self.current_id, origin)
         await self.interface.pulse.source_mute(self.current_id, value)
 
@@ -729,9 +729,9 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
 
         if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         self.register_origin_callback("sink", self.current_id, origin)
         await self.interface.pulse.sink_volume_set(self.current_id, PulseVolumeInfo(value.values))
 
@@ -749,9 +749,9 @@ class SourceVolumeConnector(SourceAttributeConnector[PulseVolumeRaw], Writable[P
 
         if self.current_id is None:
             raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         self.register_origin_callback("source", self.current_id, origin)
         await self.interface.pulse.source_volume_set(self.current_id, PulseVolumeInfo(value.values))
 
@@ -776,9 +776,9 @@ class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
     async def _run(self) -> None:
         from pulsectl import PulseDisconnected
 
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         data = await self.interface.pulse.sink_info(self.current_id)
         try:
             async for value in self.interface.pulse.subscribe_peak_sample(data.monitor_source_name, self.frequency):
@@ -809,9 +809,9 @@ class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
     async def _run(self) -> None:
         from pulsectl import PulseDisconnected
 
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         data = await self.interface.pulse.source_info(self.current_id)
         try:
             async for value in self.interface.pulse.subscribe_peak_sample(data.name, self.frequency):
@@ -837,16 +837,16 @@ class DefaultNameConnector(Subscribable[str], Readable[str], Writable[str]):
         self._publish(getattr(server_info, self.attr), origin)
 
     async def read(self) -> str:
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         server_info = await self.interface.pulse.server_info()
         return getattr(server_info, self.attr)
 
     async def _write(self, value: str, origin: List[Any]) -> None:
-        assert (
-            self.interface.pulse is not None
-        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        assert self.interface.pulse is not None, (
+            "PulseAsync object should have been initialized in interface's start() coroutine"
+        )
         self.register_origin_callback("server", 0, origin)
         if self.attr == "default_source_name":
             await self.interface.pulse.source_default_set(value)

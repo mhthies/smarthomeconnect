@@ -70,7 +70,7 @@ class InMemoryDataLogVariable(Writable[T], DataLogVariable[T], Readable[T], Gene
 
     def subscribe_data_log(self, subscriber: LiveDataLogView) -> None:
         self._data_log_subscribers.append(subscriber)
-        
+
     async def retrieve_log_sync(
         self, start_time: datetime.datetime, end_time: datetime.datetime, include_previous: bool = True
     ) -> List[Tuple[datetime.datetime, T]]:

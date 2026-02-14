@@ -193,7 +193,7 @@ class TasmotaInterface(AbstractInterface):
                     connector._publish(connector._decode(value), origin)
                 except Exception as e:
                     logger.error(
-                        "Error while processing Tasmota result/status field %s=%s from %s in Tasmota " "connector %s",
+                        "Error while processing Tasmota result/status field %s=%s from %s in Tasmota connector %s",
                         key,
                         value,
                         self.device_topic,
@@ -782,7 +782,7 @@ class TasmotaMonitoringConnector(Readable[InterfaceStatus], Subscribable[Interfa
             min_age = self.critical_timeout if critical else self.warning_timeout
             self.value = self.value._replace(status=status)
             self.value = self.value._replace(
-                message=f"No telemetry data from Tasmota device received for more than " f"{min_age}s"
+                message=f"No telemetry data from Tasmota device received for more than {min_age}s"
             )
             self._publish(self.value, [])
 

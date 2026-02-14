@@ -54,7 +54,7 @@ telegram = ["aiogram>=3.0,<4"]
 file_persistence = ["aiofile>=3.7.4,<4"]
 
 [dependency-groups]
-dev = ["ruff>=0.8,<0.9"]
+dev = ["ruff>=0.15,<0.16"]
 test = [
     "coverage>=7.6,<8",
     "mypy>=1.13,<2",
