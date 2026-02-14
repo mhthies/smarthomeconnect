@@ -8,7 +8,11 @@ In addition, “initializable” *Reading* objects, like SHC :ref:`variables` ne
 
 For this purpose, the :mod:`shc.supervisor` module implements functions for controlling startup and shutdown of SHC applications.
 
-The main entry point of SHC applications, after all objects have been constructed and *connected*, should be the :func:`shc.supervisor.main` function, we already encountered in the examples.
+The main entry point of SHC applications, should be the :func:`shc.supervisor.main` function, we already encountered in the examples.
+The *Interfaces*, *Variables* and *Connectors* of SHC are all built in a way that they can be constructed before entering the asyncio EventLoop.
+Thus, the :meth:`main() <shc.supervisor.main>` should be called *after* all objects have been constructed and *connected*.
+Alternatively, if you already have an asyncio EventLoop running, use the :func:`shc.supervisor.run` coroutine.
+
 It performs the following startup procedure:
 
 * Register a signal handler to initiate shutdown when receiving a SIGTERM (or similar)
@@ -26,6 +30,10 @@ In this case, SHC will wait for the remaining interfaces to stop and exit with a
 
 Some interfaces, especially client interfaces inheriting from :class:`shc.interfaces._helper.SupervisedClientInterface`, can be configured to automatically retry the external connection on errors, even if an an error is encountered during the initial startup.
 As the SHC application will continue to run in these cases, it's useful to monitor the status of individual interfaces.
+
+.. autofunction:: shc.supervisor.main
+
+.. autofunction:: shc.supervisor.run
 
 
 .. _monitoring:

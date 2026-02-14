@@ -34,17 +34,17 @@
         <div class="ui sidebar inverted vertical menu main-menu">
             {% for item in menu %}
                 {% if item.submenus is not defined %}
-                    <a class="{% if item in active_items  %}activated {% endif %}item" href="{{ root_url }}/page/{{ item.page_name }}/">
+                    <a class="{% if item in active_items  %}active {% endif %}item" href="{{ root_url }}/page/{{ item.page_name }}/">
                         {% if item.icon %}<i class="{{ item.icon }} icon"></i>{% endif %}
                         {{ item.label }}
                     </a>
                 {% else %}
-                    <div class="{% if item in active_items  %}activated {% endif %}item">
+                    <div class="item">
                         {% if item.icon %}<i class="{{ item.icon }} icon"></i>{% endif %}
                         <div class="header">{{ item.label }}</div>
                         <div class="menu">
                             {% for sub_item in item.submenus %}
-                                <a class="{% if sub_item in active_items %}selected {% endif %}item"
+                                <a class="{% if sub_item in active_items %}active {% endif %}item"
                                    href="{{ root_url }}/page/{{ sub_item.page_name }}/">
                                     {% if sub_item.icon %}<i class="{{ sub_item.icon }} icon"></i>{% endif %}
                                     {{ sub_item.label }}
@@ -74,7 +74,7 @@
                                 <i class="dropdown icon"></i>
                                 <div class="menu">
                                     {% for sub_item in item.submenus %}
-                                        <a class="{% if sub_item in active_items %}selected{% endif %} item"
+                                        <a class="{% if sub_item in active_items %}activated{% endif %} item"
                                            href="{{ root_url }}/page/{{ sub_item.page_name }}/">
                                             {% if sub_item.icon %}<i class="{{ sub_item.icon }} icon"></i>{% endif %}
                                             {{ sub_item.label }}

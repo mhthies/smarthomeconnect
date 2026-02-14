@@ -8,23 +8,20 @@ from unittest.mock import Mock
 import shc.base
 from shc import datatypes, timer
 
-from ._helper import ClockMock, ExampleReadable, ExampleSubscribable, ExampleWritable, async_test
+from ._helper import ClockMock, ExampleReadable, ExampleSubscribable, ExampleWritable
 
 
-class LogarithmicSleepTest(unittest.TestCase):
-    @async_test
+class LogarithmicSleepTest(unittest.IsolatedAsyncioTestCase):
     async def test_long_sleep(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 0, 0)) as clock:
             await timer._logarithmic_sleep(datetime.datetime(2020, 1, 17, 18, 5, 13).astimezone())
             self.assertEqual(datetime.datetime(2020, 1, 17, 18, 5, 13), clock.now())
 
-    @async_test
     async def test_short_sleep(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 0, 0)) as clock:
             await timer._logarithmic_sleep(datetime.datetime(2020, 1, 1, 15, 0, 1, 17600).astimezone())
             self.assertEqual(datetime.datetime(2020, 1, 1, 15, 0, 1, 17600), clock.now())
 
-    @async_test
     async def test_sleep_overshoot(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 0, 0), datetime.timedelta(microseconds=27600)) as clock:
             await timer._logarithmic_sleep(datetime.datetime(2020, 1, 1, 18, 37, 10).astimezone())
@@ -32,14 +29,13 @@ class LogarithmicSleepTest(unittest.TestCase):
             self.assertGreaterEqual(miss_by, datetime.timedelta(0))
             self.assertLess(miss_by, 2 * datetime.timedelta(microseconds=27600))
 
-    @async_test
     async def test_negative_delay(self) -> None:
         with ClockMock(datetime.datetime(2020, 1, 1, 15, 0, 0)) as clock:
             await timer._logarithmic_sleep(datetime.datetime(2020, 1, 1, 14, 59, 25).astimezone())
             self.assertEqual(datetime.datetime(2020, 1, 1, 15, 0, 0), clock.now())
 
 
-class AbstractTimerTest(unittest.TestCase):
+class AbstractTimerTest(unittest.IsolatedAsyncioTestCase):
     class TestTimer(timer._AbstractScheduleTimer):
         def __init__(self, times: List[datetime.datetime]):
             super().__init__()
@@ -52,7 +48,6 @@ class AbstractTimerTest(unittest.TestCase):
                 return None
             return self.times[self.index]
 
-    @async_test
     async def test_run(self) -> None:
         clock_mock = ClockMock(datetime.datetime(2020, 8, 20, 21, 8, 0), actual_sleep=0.01)
         expected_events = [
@@ -290,8 +285,7 @@ class AtTimerTest(unittest.TestCase):
             timer.At(day=[1, 5, 15], weeknum=timer.EveryNth(2))
 
 
-class BoolTimerTest(unittest.TestCase):
-    @async_test
+class BoolTimerTest(unittest.IsolatedAsyncioTestCase):
     async def test_ton(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
         call_times = []
@@ -345,7 +339,6 @@ class BoolTimerTest(unittest.TestCase):
                     tic + datetime.timedelta(seconds=42), call_times[-1], delta=datetime.timedelta(seconds=0.01)
                 )
 
-    @async_test
     async def test_toff(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
         call_times = []
@@ -401,7 +394,6 @@ class BoolTimerTest(unittest.TestCase):
                     tic + datetime.timedelta(seconds=42), call_times[-1], delta=datetime.timedelta(seconds=0.01)
                 )
 
-    @async_test
     async def test_pulse(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
         call_times = []
@@ -480,8 +472,7 @@ class BoolTimerTest(unittest.TestCase):
                 )
 
 
-class TimerSwitchTest(unittest.TestCase):
-    @async_test
+class TimerSwitchTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple(self) -> None:
         pub_on1 = ExampleSubscribable(type(None))
         pub_on2 = ExampleSubscribable(type(None))
@@ -511,7 +502,6 @@ class TimerSwitchTest(unittest.TestCase):
             publish_mock.assert_not_called()
             self.assertFalse(await timerswitch.read())
 
-    @async_test
     async def test_duration(self) -> None:
         begin = datetime.datetime(2020, 1, 1, 0, 0, 0)
         pub_on1 = ExampleSubscribable(type(None))
@@ -557,8 +547,7 @@ class TimerSwitchTest(unittest.TestCase):
             timer.TimerSwitch([pub_on1], [pub_off1], datetime.timedelta(seconds=42))
 
 
-class RateLimitedSubscriptionTest(unittest.TestCase):
-    @async_test
+class RateLimitedSubscriptionTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
         call_times = []
@@ -603,8 +592,7 @@ class RateLimitedSubscriptionTest(unittest.TestCase):
                 publish_mock.assert_called_once_with(42, unittest.mock.ANY)
 
 
-class RampTest(unittest.TestCase):
-    @async_test
+class RampTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
         BLACK = datatypes.RGBWUInt8(
@@ -706,7 +694,6 @@ class RampTest(unittest.TestCase):
             writable2._write.assert_called_with(datatypes.RangeFloat1(1.0), [ramp2])
             writable3._write.assert_called_with(MED_WHITE, [ramp3])
 
-    @async_test
     async def test_enable_ramp(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
         BLACK = datatypes.RGBUInt8(datatypes.RangeUInt8(0), datatypes.RangeUInt8(0), datatypes.RangeUInt8(0))
@@ -750,7 +737,6 @@ class RampTest(unittest.TestCase):
             await asyncio.sleep(0.5)
             writable1._write.assert_not_called()
 
-    @async_test
     async def test_stateful_target(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
 
@@ -786,7 +772,6 @@ class RampTest(unittest.TestCase):
             await asyncio.sleep(0.5)
             writable1._write.assert_called_with(datatypes.RangeUInt8(0), [ramp1, variable1])
 
-    @async_test
     async def test_fade_step_ramp(self) -> None:
         begin = datetime.datetime(2020, 12, 31, 23, 59, 46)
 

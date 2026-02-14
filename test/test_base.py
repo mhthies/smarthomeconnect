@@ -4,24 +4,22 @@ import threading
 import unittest
 import unittest.mock
 from typing import Any, List
+from unittest.mock import AsyncMock
 
 from shc import base
 
 from ._helper import (
-    AsyncMock,
     ExampleReadable,
     ExampleReading,
     ExampleSubscribable,
     ExampleWritable,
     SimpleIntRepublisher,
-    async_test,
 )
 
 TOTALLY_RANDOM_NUMBER = 42
 
 
-class TestSubscribe(unittest.TestCase):
-    @async_test
+class TestSubscribe(unittest.IsolatedAsyncioTestCase):
     async def test_simple_subscribe(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
@@ -29,7 +27,6 @@ class TestSubscribe(unittest.TestCase):
         await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
 
-    @async_test
     async def test_loopback_protection(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
@@ -39,7 +36,6 @@ class TestSubscribe(unittest.TestCase):
         await a.publish(TOTALLY_RANDOM_NUMBER, [b, self])
         self.assertEqual(b._write.call_count, 0)
 
-    @async_test
     async def test_error_handling(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
@@ -49,7 +45,6 @@ class TestSubscribe(unittest.TestCase):
             await a.publish(TOTALLY_RANDOM_NUMBER, [self])
         self.assertIn("unexpected error in _write", "\n".join(ctx.output))
 
-    @async_test
     async def test_type_conversion(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(float)
@@ -66,7 +61,6 @@ class TestSubscribe(unittest.TestCase):
         with self.assertRaises(TypeError):
             a.subscribe(c)
 
-    @async_test
     async def test_explicit_conversion(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(float)
@@ -79,8 +73,7 @@ class TestSubscribe(unittest.TestCase):
         b._write.assert_called_once_with(56.5, unittest.mock.ANY)
 
 
-class TestHandler(unittest.TestCase):
-    @async_test
+class TestHandler(unittest.IsolatedAsyncioTestCase):
     async def test_basic_trigger(self) -> None:
         a = ExampleSubscribable(int)
         handler = AsyncMock()
@@ -91,7 +84,6 @@ class TestHandler(unittest.TestCase):
         await asyncio.sleep(0.01)
         handler.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a])
 
-    @async_test
     async def test_magic_origin_passing(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
@@ -105,7 +97,6 @@ class TestHandler(unittest.TestCase):
         await asyncio.sleep(0.01)
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
 
-    @async_test
     async def test_reset_origin(self) -> None:
         a = ExampleSubscribable(int)
         b = ExampleWritable(int)
@@ -119,7 +110,6 @@ class TestHandler(unittest.TestCase):
         await asyncio.sleep(0.01)
         b._write.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [test_handler])
 
-    @async_test
     async def test_no_recursion(self) -> None:
         a = SimpleIntRepublisher()
         self.call_counter = 0
@@ -135,7 +125,6 @@ class TestHandler(unittest.TestCase):
         await a_test_handler(TOTALLY_RANDOM_NUMBER, [])
         self.assertEqual(1, self.call_counter)
 
-    @async_test
     async def test_allow_recursion(self) -> None:
         a = SimpleIntRepublisher()
         self.call_counter = 0
@@ -152,7 +141,6 @@ class TestHandler(unittest.TestCase):
         await asyncio.sleep(0.01)
         self.assertEqual(2, self.call_counter)
 
-    @async_test
     async def test_error_handling(self) -> None:
         a = ExampleSubscribable(int)
         mock = AsyncMock(side_effect=RuntimeError("Really unexpected error in _write"))
@@ -167,7 +155,6 @@ class TestHandler(unittest.TestCase):
             await asyncio.sleep(0.01)
         self.assertIn("unexpected error in _write", "\n".join(ctx.output))
 
-    @async_test
     async def test_missing_parameters(self) -> None:
         mock = AsyncMock()
 
@@ -190,8 +177,7 @@ class TestHandler(unittest.TestCase):
         mock.assert_has_calls([unittest.mock.call(1, [self]), unittest.mock.call(2), unittest.mock.call()])
 
 
-class TestBlockingHandler(unittest.TestCase):
-    @async_test
+class TestBlockingHandler(unittest.IsolatedAsyncioTestCase):
     async def test_basic_trigger(self) -> None:
         a = ExampleSubscribable(int)
         thread_id_container = []
@@ -209,7 +195,6 @@ class TestBlockingHandler(unittest.TestCase):
         self.assertIsInstance(thread_id_container[0], int)
         self.assertNotEqual(thread_id_container[0], threading.get_ident())
 
-    @async_test
     async def test_magic_origin_receiving(self) -> None:
         a = ExampleSubscribable(int)
         mock = unittest.mock.Mock()
@@ -227,7 +212,6 @@ class TestBlockingHandler(unittest.TestCase):
         await asyncio.sleep(0.01)
         mock.assert_called_once_with(TOTALLY_RANDOM_NUMBER, [self, a, test_handler])
 
-    @async_test
     async def test_missing_parameters(self) -> None:
         mock = unittest.mock.MagicMock()
 
@@ -250,8 +234,7 @@ class TestBlockingHandler(unittest.TestCase):
         mock.assert_has_calls([unittest.mock.call(1, [self]), unittest.mock.call(2), unittest.mock.call()])
 
 
-class TestReading(unittest.TestCase):
-    @async_test
+class TestReading(unittest.IsolatedAsyncioTestCase):
     async def test_simple_reading(self) -> None:
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(int, False)
@@ -259,7 +242,6 @@ class TestReading(unittest.TestCase):
         result = await b.do_read()
         self.assertEqual(result, TOTALLY_RANDOM_NUMBER)
 
-    @async_test
     async def test_type_conversion(self) -> None:
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(float, False)
@@ -275,7 +257,6 @@ class TestReading(unittest.TestCase):
         with self.assertRaises(TypeError):
             c.set_provider(a, convert=True)
 
-    @async_test
     async def test_explicit_conversion(self) -> None:
         a = ExampleReadable(int, TOTALLY_RANDOM_NUMBER)
         b = ExampleReading(float, False)
@@ -400,9 +381,10 @@ class TestConnecting(unittest.TestCase):
         with self.assertRaises(TypeError):
             b.connect(a)
 
-        with unittest.mock.patch.object(a, "subscribe") as mock_subscribe, unittest.mock.patch.object(
-            b, "set_provider"
-        ) as mock_set_provider:
+        with (
+            unittest.mock.patch.object(a, "subscribe") as mock_subscribe,
+            unittest.mock.patch.object(b, "set_provider") as mock_set_provider,
+        ):
             a.connect(b, convert=True)
             mock_subscribe.assert_called_once_with(b, convert=True)
             mock_set_provider.assert_called_once_with(a, convert=True)
@@ -423,9 +405,10 @@ class TestConnecting(unittest.TestCase):
         def b2a(x: float) -> int:
             return round(x * 255)
 
-        with unittest.mock.patch.object(a, "subscribe") as mock_subscribe, unittest.mock.patch.object(
-            b, "set_provider"
-        ) as mock_set_provider:
+        with (
+            unittest.mock.patch.object(a, "subscribe") as mock_subscribe,
+            unittest.mock.patch.object(b, "set_provider") as mock_set_provider,
+        ):
             a.connect(b, convert=(a2b, b2a))
             mock_subscribe.assert_called_once_with(b, convert=a2b)
             mock_set_provider.assert_called_once_with(a, convert=a2b)

@@ -21,6 +21,7 @@ import enum
 
 import shc
 from shc.interfaces.telegram import SimpleTelegramAuth, TelegramBot
+import shc.web
 from shc.web.widgets import *
 
 

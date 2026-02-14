@@ -6,11 +6,10 @@ import unittest.mock
 from shc import expressions, variables
 from shc.base import UninitializedError
 from shc.expressions import ExpressionHandler, and_, not_, or_
-from test._helper import ExampleWritable, async_test
+from test._helper import ExampleWritable
 
 
-class TestExpressions(unittest.TestCase):
-    @async_test
+class TestExpressions(unittest.IsolatedAsyncioTestCase):
     async def test_expression_1(self):
         var1 = variables.Variable(int, initial_value=5)
         var2 = variables.Variable(int, initial_value=7)
@@ -29,7 +28,6 @@ class TestExpressions(unittest.TestCase):
         subscriber._write.assert_called_once_with(8, unittest.mock.ANY)
         subscriber2._write.assert_called_once_with(True, unittest.mock.ANY)
 
-    @async_test
     async def test_expression_2(self):
         var1 = variables.Variable(float, initial_value=17.0)
         var2 = variables.Variable(int, initial_value=7)
@@ -44,7 +42,6 @@ class TestExpressions(unittest.TestCase):
         self.assertEqual(True, await expression3.read())
         self.assertEqual(True, await expression4.read())
 
-    @async_test
     async def test_expression_3(self):
         var1 = variables.Variable(bool, initial_value=True)
         var2 = variables.Variable(int, initial_value=42)
@@ -60,7 +57,6 @@ class TestExpressions(unittest.TestCase):
         assert isinstance(expression4, ExpressionHandler)
         self.assertEqual(True, await expression4.read())
 
-    @async_test
     async def test_expression_4(self):
         var1 = variables.Variable(datetime.datetime, initial_value=datetime.datetime(1970, 1, 1))
         var2 = variables.Variable(int, initial_value=-21)
@@ -112,7 +108,6 @@ class TestExpressions(unittest.TestCase):
         with self.assertRaises(TypeError):
             _ = 5 // var2.EX
 
-    @async_test
     async def test_expressions_concurrent_update(self) -> None:
         var1 = variables.Variable(int)
         var2 = variables.Variable(int).connect(var1.EX + 5)
@@ -121,7 +116,6 @@ class TestExpressions(unittest.TestCase):
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
         self.assertEqual(await var1.read(), await var2.read() - 5)
 
-    @async_test
     async def test_ifthenelse_and_multiplexer(self) -> None:
         var1 = variables.Variable(int)
         var2 = variables.Variable(bool)
@@ -166,7 +160,6 @@ class TestExpressions(unittest.TestCase):
         self.assertEqual(5, await ifthenelse.read())
         self.assertEqual(5, await multiplexer.read())
 
-    @async_test
     async def test_expression_decorator(self) -> None:
         var1 = variables.Variable(int)
         var2 = variables.Variable(bool)

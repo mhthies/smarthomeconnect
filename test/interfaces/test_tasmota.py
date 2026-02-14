@@ -5,7 +5,6 @@ import math
 import shutil
 import subprocess
 import time
-import typing
 import unittest
 import unittest.mock
 from contextlib import suppress
@@ -18,11 +17,11 @@ import shc.interfaces.mqtt
 import shc.interfaces.tasmota
 from shc.datatypes import RangeInt0To100, RangeUInt8, RGBUInt8, RGBWUInt8
 from shc.supervisor import InterfaceStatus, ServiceStatus
-from test._helper import ExampleWritable, InterfaceThreadRunner, async_test
+from test._helper import ExampleWritable, InterfaceThreadRunner
 
 
 @unittest.skipIf(shutil.which("mosquitto") is None, "mosquitto MQTT broker is not available in PATH")
-class TasmotaInterfaceTest(unittest.TestCase):
+class TasmotaInterfaceTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         async def _construct(*args):
             return shc.interfaces.tasmota.TasmotaInterface(*args)
@@ -42,7 +41,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
         self.broker_process.terminate()
         self.broker_process.wait()
 
-    @async_test
     async def test_offline_state(self) -> None:
         offline_connector = self.interface.online()
         target_offline = ExampleWritable(bool).connect(offline_connector)
@@ -84,7 +82,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
                 await task
             raise
 
-    @async_test
     async def test_telemetry(self) -> None:
         target_telemetry = ExampleWritable(shc.interfaces.tasmota.TasmotaTelemetry).connect(self.interface.telemetry())
 
@@ -109,7 +106,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    @async_test
     async def test_telemetry_warning_state(self) -> None:
         # Recreate Tasmota interface with really short telemetry timeout
         async def _construct(*args):
@@ -144,7 +140,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    @async_test
     async def test_color_external(self) -> None:
         def construct_color(r, g, b, w):
             return RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
@@ -176,7 +171,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    @async_test
     async def test_color_internal(self) -> None:
         def construct_color(r, g, b, w):
             return RGBWUInt8(RGBUInt8(RangeUInt8(r), RangeUInt8(g), RangeUInt8(b)), RangeUInt8(w))
@@ -218,7 +212,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
             with suppress(asyncio.CancelledError):
                 await task
 
-    @async_test
     async def test_sensor_ir(self) -> None:
         conn_ir = self.interface.ir_receiver()
         target_ir = ExampleWritable(bytes).connect(conn_ir)
@@ -240,7 +233,6 @@ class TasmotaInterfaceTest(unittest.TestCase):
         await asyncio.sleep(0.25)
         target_ir._write.assert_called_once_with(b"\x00\xf7\x60\x9f", [conn_ir])
 
-    @async_test
     async def test_sensor_power(self) -> None:
         conn_energy = self.interface.energy()
         target_energy = ExampleWritable(shc.interfaces.tasmota.TasmotaEnergyMeasurement).connect(conn_energy)
@@ -341,7 +333,7 @@ async def tasmota_device_mock(deviceid: str) -> None:
         try:
             async for msg in c.messages:
                 topic = str(msg.topic)
-                payload = typing.cast(bytes, msg.payload)  # payload of received MQTT messages is always bytes
+                payload = msg.payload
                 if topic == f"cmnd/{deviceid}/status":
                     if payload.strip() == b"11":
                         status = BASE_STATUS11.copy()
@@ -351,15 +343,20 @@ async def tasmota_device_mock(deviceid: str) -> None:
                         status["StatusSTS"]["Color"] = "{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(*channel)
                         status["StatusSTS"]["White"] = int(channel[3] / 255 * 100)
                         # TODO insert current HSBColor
-                        await c.publish(f"stat/{deviceid}/STATUS11", json.dumps(status).encode("ascii"))
+                        # Running the publish() call in a separated Task is required to workaround a reoccuring hangup
+                        # of the unit tests on Python 3.9, probably caused by a CPython bug, which results in this
+                        # Task ignoring to be cancelled: https://github.com/python/cpython/issues/86296
+                        asyncio.create_task(c.publish(f"stat/{deviceid}/STATUS11", json.dumps(status).encode("ascii")))
                     else:
                         pass
                         # not implemented
 
                 elif topic == f"cmnd/{deviceid}/power":
                     power = payload.lower() not in (b"0", "off", "false")
-                    await c.publish(f"stat/{deviceid}/RESULT", b'{"POWER":"' + (b"ON" if power else b"OFF") + b'"}')
-                    await c.publish(f"stat/{deviceid}/POWER", b"ON" if power else b"OFF")
+                    asyncio.create_task(
+                        c.publish(f"stat/{deviceid}/RESULT", b'{"POWER":"' + (b"ON" if power else b"OFF") + b'"}')
+                    )
+                    asyncio.create_task(c.publish(f"stat/{deviceid}/POWER", b"ON" if power else b"OFF"))
 
                 elif topic == f"cmnd/{deviceid}/color":
                     if payload[0] == ord("#"):
@@ -370,20 +367,25 @@ async def tasmota_device_mock(deviceid: str) -> None:
                         # not implemented
                         continue
                     power = max(channel) != 0
-                    await c.publish(
-                        f"stat/{deviceid}/RESULT",
-                        json.dumps(
-                            {
-                                "POWER": "ON" if power else "OFF",
-                                "Dimmer": int(max(channel) / 255 * 100),
-                                "Color": "{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(*channel),
-                                "HSBColor": "48,100,100",  # TODO
-                                "White": int(channel[3] / 255 * 100),
-                                "Channel": [int(v / 255 * 100) for v in channel],
-                            }
-                        ).encode("ascii"),
+                    asyncio.create_task(
+                        c.publish(
+                            f"stat/{deviceid}/RESULT",
+                            json.dumps(
+                                {
+                                    "POWER": "ON" if power else "OFF",
+                                    "Dimmer": int(max(channel) / 255 * 100),
+                                    "Color": "{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(*channel),
+                                    "HSBColor": "48,100,100",  # TODO
+                                    "White": int(channel[3] / 255 * 100),
+                                    "Channel": [int(v / 255 * 100) for v in channel],
+                                }
+                            ).encode("ascii"),
+                        )
                     )
 
         except asyncio.CancelledError:
-            await c.publish(f"tele/{deviceid}/LWT", b"Offline", retain=True)
+            try:
+                await asyncio.wait_for(c.publish(f"tele/{deviceid}/LWT", b"Offline", retain=True), timeout=1)
+            except asyncio.TimeoutError:
+                pass
             raise

@@ -11,13 +11,11 @@
 import asyncio
 import concurrent.futures
 import datetime
-import functools
 import heapq
-import inspect
 import threading
 import time
 import unittest.mock
-from typing import Any, Awaitable, Callable, Coroutine, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Any, Coroutine, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from shc import base
 
@@ -25,46 +23,6 @@ from shc import base
 # General helper classes for testing async code
 # #############################################
 from shc.supervisor import AbstractInterface
-
-
-def async_test(f: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
-    """
-    Decorator to transform async unittest coroutines into normal test methods.
-    """
-
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(f(*args, **kwargs))
-
-    return wrapper
-
-
-class AsyncMock(unittest.mock.MagicMock):
-    """
-    Mock class which mimics an async coroutine (which can be called and then awaited) and an async context manager
-    (which can be used in an `async with` block).
-
-    This class is a simple replacement for unittest.mock.AsyncMock, which is only available since Python 3.8. This
-    class does not have the assert_awaited features of the official AsyncMock.
-
-    The async calls are passed to the normal call/enter/exit methods of the super class to use its usual builtin
-    evaluation/assertion functionality (e.g. :meth:`unittest.mock.NonCallableMock.assert_called_with`).
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not hasattr(self, "__signature__"):
-            self.__signature__ = inspect.signature(self.__call__)
-
-    async def __call__(self, *args, **kwargs):
-        return super().__call__(*args, **kwargs)
-
-    async def __aenter__(self, *args, **kwargs):
-        return self.__enter__(*args, **kwargs)
-
-    async def __aexit__(self, *args, **kwargs):
-        return self.__exit__(*args, **kwargs)
 
 
 class ClockMock:
@@ -232,12 +190,12 @@ T = TypeVar("T")
 
 
 class ExampleReadable(base.Readable[T], Generic[T]):
-    read: AsyncMock  # required to let MyPy know that we can use Mock's methods
+    read: unittest.mock.AsyncMock  # required to let MyPy know that we can use Mock's methods
 
     def __init__(self, type_: Type[T], value: T, side_effect=None):
         self.type = type_
         super().__init__()
-        self.read = AsyncMock(return_value=value, side_effect=side_effect)
+        self.read = unittest.mock.AsyncMock(return_value=value, side_effect=side_effect)
 
     async def read(self) -> T: ...  # type: ignore
 
@@ -252,12 +210,12 @@ class ExampleSubscribable(base.Subscribable[T], Generic[T]):
 
 
 class ExampleWritable(base.Writable[T], Generic[T]):
-    _write: AsyncMock  # required to let MyPy know that we can use Mock's methods
+    _write: unittest.mock.AsyncMock  # required to let MyPy know that we can use Mock's methods
 
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
-        self._write = AsyncMock()
+        self._write = unittest.mock.AsyncMock()
 
     async def _write(self, value: T, origin: List[Any]) -> None: ...  # type: ignore
 
@@ -322,13 +280,13 @@ class InterfaceThreadRunner(Generic[IT]):
 
     def _run(self, interface_class: Type[IT], args, kwargs) -> None:
         self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
         try:
             self.interface = interface_class(*args, **kwargs)
             self._server_constructed_future.set_result(None)
         except Exception as e:
             self._server_constructed_future.set_exception(e)
             return
+        asyncio.set_event_loop(self.loop)
         self._stopped_event = asyncio.Event()
         self.started = True
         self.loop.run_until_complete(self._stopped_event.wait())

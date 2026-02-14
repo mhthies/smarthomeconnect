@@ -169,25 +169,34 @@ class KNXConnector(SupervisedClientInterface):
         self.sock = sock
         self.read_init_after_reconnect = read_init_after_reconnect
         self.groups: Dict[KNXGAD, KNXGroupVar] = {}
-        self.knx = knxdclient.KNXDConnection()
-        self.knx.set_group_apdu_handler(self._dispatch_telegram)
+        self.knx: Optional[knxdclient.KNXDConnection] = None
         self.init_request_groups: Set[KNXGAD] = set()
         self._first_connect = True
 
+    async def start(self) -> None:
+        self.knx = knxdclient.KNXDConnection()
+        self.knx.set_group_apdu_handler(self._dispatch_telegram)
+        await super().start()
+
     async def _connect(self) -> None:
+        assert self.knx is not None, "KNXDConnection should have been initialized in start()"
         await self.knx.connect(self.host, self.port, self.sock)
 
     async def _subscribe(self) -> None:
+        assert self.knx is not None, "KNXDConnection should have been initialized in start()"
         await self.knx.open_group_socket()
         if self._first_connect or self.read_init_after_reconnect:
             await self._send_init_requests()
         self._first_connect = False
 
     async def _run(self):
+        assert self.knx is not None, "KNXDConnection should have been initialized in start()"
+        assert self._running is not None, "_stopping should have been constructed in start()"
         self._running.set()
         await self.knx.run()
 
     async def _disconnect(self) -> None:
+        assert self.knx is not None, "KNXDConnection should have been initialized in start()"
         await self.knx.stop()
 
     def group(self, addr: KNXGAD, dpt: str, init: bool = False) -> "KNXGroupVar":
@@ -287,6 +296,7 @@ class KNXConnector(SupervisedClientInterface):
         return group_var
 
     async def _send_init_requests(self):
+        assert self.knx is not None, "KNXDConnection should have been initialized in start()"
         await asyncio.gather(
             *(self.knx.group_write(addr, knxdclient.KNXDAPDUType.READ, 0) for addr in self.init_request_groups)
         )
@@ -304,6 +314,7 @@ class KNXConnector(SupervisedClientInterface):
             group_var.update_from_bus(packet.payload.value, [packet.src])
 
     async def _respond_read_request(self, group_var: "KNXGroupVar") -> None:
+        assert self.knx is not None, "KNXDConnection should have been initialized in start()"
         try:
             encoded_data = await group_var.read_from_bus()
             if encoded_data is not None:
@@ -312,6 +323,7 @@ class KNXConnector(SupervisedClientInterface):
             logger.warning("Error while responding to KNX group read request for %s:", group_var.addr, exc_info=e)
 
     async def send(self, addr: knxdclient.GroupAddress, encoded_data: knxdclient.EncodedData):
+        assert self.knx is not None, "KNXDConnection should have been initialized in start()"
         await self.knx.group_write(addr, knxdclient.KNXDAPDUType.WRITE, encoded_data)
         await asyncio.sleep(0.15)  # wait a bit longer to be sure, that the telegram has been sent to the bus
 

@@ -14,7 +14,6 @@ import collections
 import itertools
 import json
 import logging
-import typing
 from typing import Any, Awaitable, Callable, Deque, Dict, Generic, Iterable, List, Optional, Type, Union
 
 from aiomqtt import Client, Message, ProtocolVersion
@@ -77,21 +76,27 @@ class MQTTClientInterface(SupervisedClientInterface):
         failsafe_start: bool = False,
     ) -> None:
         super().__init__(auto_reconnect, failsafe_start)
-        self.client = Client(
-            hostname,
-            port,
+        self._client_parameters = dict(
+            hostname=hostname,
+            port=port,
             username=username,
             password=password,
             identifier=client_id,
             protocol=ProtocolVersion(protocol),
         )
+        self.client: Optional[Client] = None
         self.matcher = MQTTMatcher()
         self.subscribe_topics: Dict[str, int] = {}  #: dict {topic: qos} for subscribing
         self.run_task: Optional[asyncio.Task] = None
         self.client_context_entered = False
 
+    async def start(self) -> None:
+        self.client = Client(**self._client_parameters)  # type: ignore
+        await super().start()
+
     async def _connect(self) -> None:
         logger.info("Connecting MQTT client interface ...")
+        assert self.client is not None, "Client should have been created in start() method"
         if self.client_context_entered:
             self.client_context_entered = False
             await self.client.__aexit__(None, None, None)
@@ -102,6 +107,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         if self.subscribe_topics:
             logger.info("Subscribing to MQTT topics ...")
             logger.debug("Topics: %s", self.subscribe_topics)
+            assert self.client is not None, "Client should have been created in start() method"
             await self.client.subscribe(list(self.subscribe_topics.items()))
         else:
             logger.info("No MQTT topics need to be subscribed")
@@ -110,6 +116,7 @@ class MQTTClientInterface(SupervisedClientInterface):
         logger.info("Disconnecting MQTT client interface ...")
         if self.client_context_entered:
             self.client_context_entered = False
+            assert self.client is not None
             await self.client.__aexit__(None, None, None)
 
     def topic_raw(
@@ -212,6 +219,8 @@ class MQTTClientInterface(SupervisedClientInterface):
         :param qos: The MQTT QoS value of the published message
         :param retain: The MQTT retain bit for publishing
         """
+        if self.client is None:
+            raise RuntimeError(f"Could not publish to MQTT topic {topic}, because MQTT interface is not yet started.")
         logger.debug("Sending MQTT message t: %s p: %s q: %s r: %s", topic, payload, qos, retain)
         await self.client.publish(topic, payload, qos, retain)
 
@@ -247,6 +256,8 @@ class MQTTClientInterface(SupervisedClientInterface):
             self.matcher[topic_filter] = [receiver]
 
     async def _run(self) -> None:
+        assert self.client is not None, "Client should have been created in start() method"
+        assert self._running is not None, "_stopping should have been constructed in start()"
         self._running.set()
         async for message in self.client.messages:
             logger.debug("Incoming MQTT message: %s", message)
@@ -257,7 +268,7 @@ class MQTTClientInterface(SupervisedClientInterface):
                 receiver(message)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.client._hostname})"
+        return f"{self.__class__.__name__}({self._client_parameters['hostname']})"
 
 
 class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metaclass=abc.ABCMeta):
@@ -332,8 +343,7 @@ class AbstractMQTTTopicVariable(Writable[T], Subscribable[T], Generic[T], metacl
                     del self._pending_mqtt_pubs[encoded_value]
 
     def _new_value_from_mqtt(self, message: Message) -> None:
-        # payload of received MQTT messages is always bytes
-        payload = typing.cast(bytes, message.payload)
+        payload = message.payload
         if str(message.topic) != self.publish_topic:
             self._publish(self._decode(payload), [])
             return

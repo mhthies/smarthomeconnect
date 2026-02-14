@@ -18,6 +18,7 @@ import shc.interfaces.in_memory_data_logging
 from shc.datatypes import RangeFloat1, RGBUInt8
 from shc.interfaces.mqtt import MQTTClientInterface
 from shc.interfaces.tasmota import TasmotaInterface
+import shc.web
 from shc.web.log_widgets import LogListDataSpec
 from shc.web.widgets import Switch, Slider, DisplayButton, ButtonGroup, icon
 

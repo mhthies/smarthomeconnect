@@ -11,6 +11,7 @@
 import abc
 import asyncio
 import logging
+import time
 from typing import Optional
 
 from ..base import Readable, Subscribable
@@ -149,17 +150,21 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         self.backoff_base = 1.0  #: First wait interval for exponential backoff in seconds
         self.backoff_exponent = 1.25  #: Multiplier for wait intervals for exponential backoff
         self._supervise_task: Optional[asyncio.Task] = None
-        loop = asyncio.get_event_loop()
-        self._started = loop.create_future()
-        self._stopping = asyncio.Event()
-        self._running = asyncio.Event()
+        self._started: Optional[asyncio.Future[None]] = None
+        self._stopping: Optional[asyncio.Event] = None
+        self._running: Optional[asyncio.Event] = None
 
     async def start(self) -> None:
+        self._started = asyncio.get_running_loop().create_future()
+        self._stopping = asyncio.Event()
+        self._running = asyncio.Event()
         logger.debug("Starting supervisor task for interface %s and waiting for it to come up ...", self)
         self._supervise_task = asyncio.create_task(self._supervise())
         await self._started
 
     async def stop(self) -> None:
+        if self._stopping is None:
+            return
         if self._stopping.is_set():
             return
         self._stopping.set()
@@ -171,13 +176,18 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         """
         Wait for the interface to be running.
 
-        Attention: This must be called *after* :meth:`start` has initially been called (not neccessarily after it has
-        returned).
-
         :param timeout: If given, this method will raise an :class:`asyncio.TimeoutError` after the given timeout in
             seconds, if the interface has not come up by this time.
         """
-        await asyncio.wait_for(self._running.wait(), timeout)
+        tic = time.time()
+        # Poll-wait until start() coroutine has started executing
+        while self._running is None:
+            await asyncio.sleep(0.01)
+            if timeout is not None and time.time() > tic + timeout:
+                raise asyncio.TimeoutError("start() has not been called within timeout")
+        # Wait for the asynchronous startup to be completed
+        remaining_timeout = None if timeout is None else max(0.0, timeout - (time.time() - tic))
+        await asyncio.wait_for(self._running.wait(), remaining_timeout)
 
     @abc.abstractmethod
     async def _run(self) -> None:
@@ -239,6 +249,10 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
     async def _supervise(self) -> None:
         sleep_interval = self.backoff_base
         self._status_connector.update_status(status=ServiceStatus.WARNING, message="Interface has not been started yet")
+        assert self._started is not None, "_started Future should have been initialized in start() coroutine"
+        assert (
+            self._running is not None and self._stopping is not None
+        ), "_running and _stopping should have been constructed in start()"
 
         # Reconnect loop
         while True:
@@ -288,6 +302,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
 
         :raises: Any exception that is raised in _connect() (including `CancelledError`, when _stopping was set)
         """
+        assert self._stopping is not None, "_stopping should have been constructed in start()"
         wait_stopping = asyncio.create_task(self._stopping.wait())
         try:
             logger.debug("Running _connect for interface %s ...", self)
@@ -309,6 +324,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         :raises RuntimeError: when `_run()` exits unexpectedly (before `_running` is set)
         :raises: Any exception that was raised by `_run()` while waiting for _running to be set
         """
+        assert self._running is not None, "_stopping should have been constructed in start()"
         logger.debug("Starting _run task for interface %s ...", self)
         run_task = asyncio.create_task(self._run())
         wait_running = asyncio.create_task(self._running.wait())
@@ -389,6 +405,8 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         """
         # If we have not been started successfully yet, report startup as finished (if failsafe) or report startup
         # error and quit
+        assert self._started is not None, "_started Future should have been initialized in start() coroutine"
+        assert self._stopping is not None, "_stopping should have been constructed in start()"
         if not self._started.done():
             if self.failsafe_start:
                 self._started.set_result(None)

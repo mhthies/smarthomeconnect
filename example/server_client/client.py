@@ -13,6 +13,7 @@ import enum
 import logging
 
 import shc
+import shc.web
 import shc.interfaces.shc_client
 from shc.datatypes import RangeFloat1
 from shc.web.widgets import *

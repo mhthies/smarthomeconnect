@@ -51,12 +51,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
         session = aiogram.client.session.aiohttp.AiohttpSession(api=telegram_server)
         self.bot = aiogram.Bot(token=api_token, session=session)
-        self.dp = aiogram.Dispatcher()
-        self.dp.message.register(self._handle_start, aiogram.filters.command.Command("start"))
-        self.dp.message.register(self._handle_cancel, aiogram.filters.command.Command("cancel"))
-        self.dp.message.register(self._handle_select, aiogram.filters.command.Command("s"))
-        self.dp.callback_query.register(self._handle_callback_query)
-        self.dp.message.register(self._handle_other)
+        self.dp: Optional[aiogram.Dispatcher] = None
 
         self.connectors: Dict[str, "TelegramConnector"] = {}
         self.poll_task: Optional[asyncio.Task] = None
@@ -67,16 +62,25 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.message_with_inline_keyboard: Dict[int, int] = {}
 
     async def start(self) -> None:
+        self.dp = aiogram.Dispatcher()
+        self.dp.message.register(self._handle_start, aiogram.filters.command.Command("start"))
+        self.dp.message.register(self._handle_cancel, aiogram.filters.command.Command("cancel"))
+        self.dp.message.register(self._handle_select, aiogram.filters.command.Command("s"))
+        self.dp.callback_query.register(self._handle_callback_query)
+        self.dp.message.register(self._handle_other)
         self.poll_task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
+        assert self.dp is not None, "Dispatcher should have been constructed in start()"
         await self.dp.start_polling(self.bot, handle_signals=False)
 
     async def stop(self) -> None:
         if self.poll_task:
+            assert self.dp is not None
             await self.dp.stop_polling()
             await self.poll_task
-        await self.dp.storage.close()
+        if self.dp is not None:
+            await self.dp.storage.close()
         await self.bot.session.close()
 
     async def _handle_start(self, message: aiogram.types.Message):

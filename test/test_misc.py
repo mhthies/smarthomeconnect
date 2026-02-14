@@ -3,12 +3,11 @@ import unittest
 import unittest.mock
 
 import shc.misc
-from test._helper import ExampleReadable, ExampleSubscribable, ExampleWritable, async_test
+from test._helper import ExampleReadable, ExampleSubscribable, ExampleWritable
 from test.test_variables import ExampleTupleType
 
 
-class MiscTests(unittest.TestCase):
-    @async_test
+class MiscTests(unittest.IsolatedAsyncioTestCase):
     async def test_two_way_pipe(self) -> None:
         pipe = shc.misc.TwoWayPipe(float)
 
@@ -31,7 +30,6 @@ class MiscTests(unittest.TestCase):
         sub_left._write.assert_called_once_with(36.0, [self, pub_right, pipe.left])
         sub_right._write.assert_not_called()
 
-    @async_test
     async def test_two_way_pipe_concurrent_update(self) -> None:
         var1 = shc.Variable(int)
         pipe = shc.misc.TwoWayPipe(int).connect_left(var1)
@@ -41,7 +39,6 @@ class MiscTests(unittest.TestCase):
         await asyncio.sleep(0.1)
         self.assertEqual(await var1.read(), await var2.read())
 
-    @async_test
     async def test_breakable_subscription_simple(self) -> None:
         pub = ExampleSubscribable(float)
         control = ExampleReadable(bool, True)
@@ -62,7 +59,6 @@ class MiscTests(unittest.TestCase):
         await pub.publish(56.0, [self])
         sub._write.assert_called_once_with(56, unittest.mock.ANY)
 
-    @async_test
     async def test_breakable_subscription_readsubscribable(self) -> None:
         pub = shc.Variable(float)
         control = shc.Variable(bool, initial_value=False)
@@ -89,7 +85,6 @@ class MiscTests(unittest.TestCase):
         await asyncio.sleep(0.01)
         sub._write.assert_called_once_with(56.0, [self, control, unittest.mock.ANY])
 
-    @async_test
     async def test_hysteresis(self) -> None:
         pub = ExampleSubscribable(float)
         hystersis = shc.misc.Hysteresis(pub, 42.0, 56.0)
@@ -137,7 +132,6 @@ class MiscTests(unittest.TestCase):
         sub._write.assert_called_once_with(False, [self, pub, hystersis])
         self.assertEqual(False, await hystersis.read())
 
-    @async_test
     async def test_fade_step_adapter(self) -> None:
         subscribable1 = ExampleSubscribable(shc.datatypes.FadeStep)
         variable1 = shc.Variable(shc.datatypes.RangeFloat1).connect(shc.misc.FadeStepAdapter(subscribable1))
@@ -158,7 +152,6 @@ class MiscTests(unittest.TestCase):
         await asyncio.sleep(0.05)
         self.assertEqual(shc.datatypes.RangeFloat1(1.0), await variable1.read())
 
-    @async_test
     async def test_convert_subscription(self) -> None:
         pub = ExampleSubscribable(shc.datatypes.RangeUInt8)
         sub = ExampleWritable(shc.datatypes.RangeFloat1)
@@ -170,8 +163,7 @@ class MiscTests(unittest.TestCase):
         self.assertIsInstance(sub._write.call_args[0][0], shc.datatypes.RangeFloat1)
 
 
-class UpdateExchangeTest(unittest.TestCase):
-    @async_test
+class UpdateExchangeTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple(self) -> None:
         target1 = ExampleWritable(int)
         target2 = ExampleWritable(int)
@@ -189,7 +181,6 @@ class UpdateExchangeTest(unittest.TestCase):
         target1._write.assert_called_with(42, [self, exchange])
         target2._write.assert_called_with(42, [self, exchange])
 
-    @async_test
     async def test_field(self) -> None:
         target1 = ExampleWritable(ExampleTupleType)
         target2 = ExampleWritable(int)
@@ -202,8 +193,7 @@ class UpdateExchangeTest(unittest.TestCase):
         target2._write.assert_called_once_with(42, [self, exchange, exchange.field("a")])
 
 
-class ConnectedExchangeVariableTest(unittest.TestCase):
-    @async_test
+class ConnectedExchangeVariableTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple_concurrent_update(self) -> None:
         var1 = shc.Variable(int)
         var2 = shc.Variable(int)
@@ -213,7 +203,6 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
         await asyncio.sleep(0.1)
         self.assertEqual(await var1.read(), await var2.read())
 
-    @async_test
     async def test_two_exchange_concurrent_update(self) -> None:
         var1 = shc.Variable(int)
         var2 = shc.Variable(int)
@@ -228,7 +217,6 @@ class ConnectedExchangeVariableTest(unittest.TestCase):
         await asyncio.sleep(0.3)
         self.assertEqual(await var1.read(), await var2.read())
 
-    @async_test
     async def test_concurrent_field_update_publishing(self) -> None:
         for _ in range(50):
             var1 = shc.Variable(ExampleTupleType, "var1")
@@ -268,8 +256,7 @@ class ExampleAdderFunctionBlock:
         await self.result.set_value((await self.a.get_value()) + (await self.b.get_value()), origin)
 
 
-class SimpleConnectorTest(unittest.TestCase):
-    @async_test
+class SimpleConnectorTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple_operation(self) -> None:
         adder = ExampleAdderFunctionBlock()
         adder.a.connect(ExampleReadable(int, 3))
@@ -290,7 +277,6 @@ class SimpleConnectorTest(unittest.TestCase):
         target._write.assert_not_called()
         self.assertEqual(3, await adder.result.read())
 
-    @async_test
     async def test_concurrent_update(self) -> None:
         var1 = shc.Variable(int)
         var2 = shc.Variable(int)

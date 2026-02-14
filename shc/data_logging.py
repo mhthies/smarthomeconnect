@@ -327,7 +327,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         self._last_retrieved_timestamp: Optional[datetime.datetime] = None
         #: Mutex to ensure serialization of updates (incl. modification of _last_retrieved_timestamp) to avoid
         #: double-processing of log entries in case of interval-based update operation
-        self._mutex = asyncio.Lock()
+        self._mutex: Optional[asyncio.Lock] = None
 
     async def _new_log_values_written(self, values: List[Tuple[datetime.datetime, T]]) -> None:
         """Callback method to be called by `WritableDataLogVariable` to provide values, newly written to the
@@ -339,6 +339,8 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
             asyncio.create_task(self._update())
 
     async def _update(self, *_args) -> None:
+        if self._mutex is None:
+            self._mutex = asyncio.Lock()
         async with self._mutex:
             begin_time, end_time = self._data_retrieval_interval(True)
             data: Sequence[Tuple[datetime.datetime, Union[T, float]]]
@@ -368,6 +370,8 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
             begin_time, end_time = self._data_retrieval_interval(False)
             return await self.data_log.retrieve_log_sync(begin_time, end_time, include_previous=include_previous)
         else:
+            if self._mutex is None:
+                self._mutex = asyncio.Lock()
             async with self._mutex:
                 begin_time, end_time = self._data_retrieval_interval(False)
                 if self._last_retrieved_timestamp is None:

@@ -14,18 +14,17 @@ import time
 import unittest
 import unittest.mock
 from typing import NamedTuple
+from unittest.mock import AsyncMock
 
 import aiohttp
 
 import shc.interfaces.shc_client
 import shc.web
 from test._helper import (
-    AsyncMock,
     ExampleReadable,
     ExampleSubscribable,
     ExampleWritable,
     InterfaceThreadRunner,
-    async_test,
 )
 
 
@@ -34,7 +33,7 @@ class ExampleType(NamedTuple):
     is_it_real: bool
 
 
-class SHCWebsocketClientTest(unittest.TestCase):
+class SHCWebsocketClientTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.server_runner = InterfaceThreadRunner(shc.web.WebServer, "localhost", 42080)
         self.client_runner = InterfaceThreadRunner(shc.interfaces.shc_client.SHCWebClient, "http://localhost:42080")
@@ -68,7 +67,6 @@ class SHCWebsocketClientTest(unittest.TestCase):
         time.sleep(0.05)
         bar_target._write.assert_called_once_with(ExampleType(56, False), [client_bar])
 
-    @async_test
     async def test_subscribe_error(self) -> None:
         self.server.api(int, "foo")
         self.server.api(ExampleType, "bar")
@@ -128,7 +126,7 @@ class SHCWebsocketClientTest(unittest.TestCase):
         target._write.assert_called_once_with(ExampleType(42, True), unittest.mock.ANY)
         self.assertIsInstance(target._write.call_args[0][0], ExampleType)
 
-    def test_client_online_object(self) -> None:
+    async def test_client_online_object(self) -> None:
         server_bar = self.server.api(bool, "bar")
         target = ExampleWritable(bool).connect(server_bar)
 
@@ -149,9 +147,9 @@ class SHCWebsocketClientTest(unittest.TestCase):
         another_client = shc.interfaces.shc_client.SHCWebClient("http://localhost:42080", client_online_object="foobar")
         try:
             with self.assertRaises(shc.interfaces.shc_client.WebSocketAPIError):
-                asyncio.get_event_loop().run_until_complete(another_client.start())
+                await another_client.start()
         finally:
-            asyncio.get_event_loop().run_until_complete(another_client.stop())
+            await another_client.stop()
 
     def test_reconnect(self) -> None:
         self.server.api(ExampleType, "bar").connect(ExampleReadable(ExampleType, ExampleType(42, True)))
@@ -258,17 +256,15 @@ class SHCWebsocketClientTest(unittest.TestCase):
         bar_target._write.assert_called_once_with(ExampleType(42, True), [client_bar])
 
 
-class SHCWebsocketClientConcurrentUpdateTest(unittest.TestCase):
+class SHCWebsocketClientConcurrentUpdateTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.server = shc.web.WebServer("localhost", 42080)
         self.client = shc.interfaces.shc_client.SHCWebClient("http://localhost:42080")
 
-    def tearDown(self) -> None:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.client.stop())
-        loop.run_until_complete(self.server.stop())
+    async def asyncTearDown(self) -> None:
+        await self.client.stop()
+        await self.server.stop()
 
-    @async_test
     async def test_concurrent_update(self) -> None:
         foo_api = self.server.api(int, "foo")
         server_var = shc.Variable(int, initial_value=0).connect(foo_api)

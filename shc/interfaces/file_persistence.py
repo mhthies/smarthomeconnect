@@ -61,8 +61,8 @@ class FilePersistenceStore(AbstractInterface):
     def __init__(self, file: Path):
         super().__init__()
         self.file = file
-        self._file_ready = asyncio.Event()
-        self._file_mutex = asyncio.Lock()
+        self._file_ready: Optional[asyncio.Event] = None
+        self._file_mutex: Optional[asyncio.Lock] = None
         #: element name -> (offset, key_length, value_capacity)
         self._element_map: Dict[str, Tuple[int, int, int]] = {}
         self._footer_offset = 0
@@ -70,6 +70,8 @@ class FilePersistenceStore(AbstractInterface):
         self._fd: aiofile.BinaryFileWrapper
 
     async def start(self) -> None:
+        self._file_ready = asyncio.Event()
+        self._file_mutex = asyncio.Lock()
         file_exists = await asyncio.get_event_loop().run_in_executor(None, self.file.exists)
         if file_exists:
             logger.info("Using existing file persistence store at %s ...", self.file)
@@ -92,6 +94,7 @@ class FilePersistenceStore(AbstractInterface):
         await self._fd.close()
 
     async def rewrite(self):
+        assert self._file_mutex is not None, "_file_mutex should have been initialized in start()"
         # Create temp file
         logger.info("Staring rewrite file persistence store %s ...", self.file)
         tmp_file = self.file.with_name(self.file.name + ".tmp")
@@ -135,6 +138,7 @@ class FilePersistenceStore(AbstractInterface):
         logger.info("Rewrite of file persistence store %s finished.", self.file)
 
     async def get_element(self, name: str) -> Optional[Any]:
+        assert self._file_ready is not None and self._file_mutex is not None, "FilePersistenceStore is not started"
         await self._file_ready.wait()
         async with self._file_mutex:
             if name not in self._element_map:
@@ -144,6 +148,7 @@ class FilePersistenceStore(AbstractInterface):
             return json.loads((await self._fd.read(capacity)).decode("utf-8"))
 
     async def set_element(self, name: str, value: Any) -> None:
+        assert self._file_ready is not None and self._file_mutex is not None, "FilePersistenceStore is not started"
         await self._file_ready.wait()
         data = json.dumps(value, separators=(",", ":")).encode("utf-8")
         logger.debug("Writing to file persistence store %s: %s = %s ...", name, data)

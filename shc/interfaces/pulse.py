@@ -30,7 +30,6 @@ from typing import (
 
 if TYPE_CHECKING:
     from pulsectl import PulseEventInfo, PulseServerInfo, PulseSinkInfo, PulseSourceInfo
-    from pulsectl_asyncio import PulseAsync
 
 import shc.conversion
 from shc.base import Readable, Subscribable, T, UninitializedError, Writable
@@ -257,20 +256,23 @@ class PulseAudioInterface(SupervisedClientInterface):
         auto_reconnect: bool = True,
         failsafe_start: bool = False,
     ):
-        super().__init__(auto_reconnect, failsafe_start)
         from pulsectl_asyncio import PulseAsync
 
-        self.pulse = PulseAsync(pulse_client_name, server=pulse_server_socket)
+        super().__init__(auto_reconnect, failsafe_start)
+
+        self._pulse_client_name = pulse_client_name
+        self._pulse_server_socket = pulse_server_socket
+        self.pulse: Optional[PulseAsync] = None
         self.sink_connectors_by_id: DefaultDict[int, List["SinkConnector"]] = defaultdict(list)
         self.sink_connectors_by_name: DefaultDict[Optional[str], List["SinkConnector"]] = defaultdict(list)
         self.source_connectors_by_id: DefaultDict[int, List["SourceConnector"]] = defaultdict(list)
         self.source_connectors_by_name: DefaultDict[Optional[str], List["SourceConnector"]] = defaultdict(list)
 
         self._default_sink_name_connector = DefaultNameConnector(
-            self.pulse, "default_sink_name", self._register_origin_callback
+            self, "default_sink_name", self._register_origin_callback
         )
         self._default_source_name_connector = DefaultNameConnector(
-            self.pulse, "default_source_name", self._register_origin_callback
+            self, "default_source_name", self._register_origin_callback
         )
         #: A subset of {'source', 'sink', 'server'}
         self._subscribe_facilities: Set[str] = set()
@@ -279,13 +281,23 @@ class PulseAudioInterface(SupervisedClientInterface):
         #: Pulseaudio server, so that we can correctly apply the original origin list to the resulting Pulseaudio event
         self._change_event_origin: DefaultDict[Tuple[str, int], Deque[List[Any]]] = defaultdict(deque)
 
+    async def start(self) -> None:
+        from pulsectl_asyncio import PulseAsync
+
+        self.pulse = PulseAsync(self._pulse_client_name, server=self._pulse_server_socket)
+        await super().start()
+
     async def _connect(self) -> None:
+        assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
         await self.pulse.connect()
 
     async def _disconnect(self) -> None:
+        if self.pulse is None:
+            return
         self.pulse.disconnect()
 
     async def _subscribe(self) -> None:
+        assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
         server_info = await self.pulse.server_info()
         self._default_sink_name_connector._update(server_info, [])
         self._default_source_name_connector._update(server_info, [])
@@ -333,6 +345,8 @@ class PulseAudioInterface(SupervisedClientInterface):
                     )
 
     async def _run(self) -> None:
+        assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
+        assert self._running is not None, "_stopping should have been constructed in start()"
         self._running.set()
         async for event in self.pulse.subscribe_events(*self._subscribe_facilities):
             try:
@@ -342,6 +356,8 @@ class PulseAudioInterface(SupervisedClientInterface):
 
     async def _dispatch_pulse_event(self, event: "PulseEventInfo") -> None:
         from pulsectl import PulseEventFacilityEnum, PulseEventTypeEnum
+
+        assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
 
         logger.debug("Dispatching Pulse audio event: %s", event)
 
@@ -379,6 +395,7 @@ class PulseAudioInterface(SupervisedClientInterface):
                 await self.__on_event_server_change(origin)
 
     async def __on_event_new_sink(self, sink_index: int) -> None:
+        assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
         data = await self.pulse.sink_info(sink_index)
         name = data.name
         for connector in self.sink_connectors_by_name.get(name, []):
@@ -387,6 +404,7 @@ class PulseAudioInterface(SupervisedClientInterface):
             connector.on_change(data, [])
 
     async def __on_event_new_source(self, source_index: int) -> None:
+        assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
         data = await self.pulse.source_info(source_index)
         name = data.name
         for source_connector in self.source_connectors_by_name.get(name, []):
@@ -410,6 +428,7 @@ class PulseAudioInterface(SupervisedClientInterface):
         # For server change events, we need to update our default_*_name connectors and possibly change the
         # current_id of all the default_sink/source_* connectors (and update them with the current state of the
         # new default sink/source)
+        assert self.pulse is not None, "PulseAsync object should have been initialized in start() coroutine"
         server_info = await self.pulse.server_info()
         self._default_sink_name_connector._update(server_info, origin)
         self._default_source_name_connector._update(server_info, origin)
@@ -444,52 +463,52 @@ class PulseAudioInterface(SupervisedClientInterface):
 
     def sink_volume(self, sink_name: str) -> "SinkVolumeConnector":
         self._subscribe_facilities.add("sink")
-        connector = SinkVolumeConnector(self.pulse, self._register_origin_callback)
+        connector = SinkVolumeConnector(self, self._register_origin_callback)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_muted(self, sink_name: str) -> "SinkMuteConnector":
         self._subscribe_facilities.add("sink")
-        connector = SinkMuteConnector(self.pulse, self._register_origin_callback)
+        connector = SinkMuteConnector(self, self._register_origin_callback)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_running(self, sink_name: str) -> "SinkStateConnector":
         self._subscribe_facilities.add("sink")
-        connector = SinkStateConnector(self.pulse)
+        connector = SinkStateConnector(self)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def sink_peak_monitor(self, sink_name: str, frequency: int = 1) -> "SinkPeakConnector":
         self._subscribe_facilities.add("sink")
-        connector = SinkPeakConnector(self.pulse, frequency)
+        connector = SinkPeakConnector(self, frequency)
         self.sink_connectors_by_name[sink_name].append(connector)
         return connector
 
     def default_sink_volume(self) -> "SinkVolumeConnector":
         self._subscribe_facilities.add("server")
         self._subscribe_facilities.add("sink")
-        connector = SinkVolumeConnector(self.pulse, self._register_origin_callback)
+        connector = SinkVolumeConnector(self, self._register_origin_callback)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_muted(self) -> "SinkMuteConnector":
         self._subscribe_facilities.add("server")
         self._subscribe_facilities.add("sink")
-        connector = SinkMuteConnector(self.pulse, self._register_origin_callback)
+        connector = SinkMuteConnector(self, self._register_origin_callback)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_running(self) -> "SinkStateConnector":
         self._subscribe_facilities.add("server")
         self._subscribe_facilities.add("sink")
-        connector = SinkStateConnector(self.pulse)
+        connector = SinkStateConnector(self)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
     def default_sink_peak_monitor(self, frequency: int = 1) -> "SinkPeakConnector":
         self._subscribe_facilities.add("server")
-        connector = SinkPeakConnector(self.pulse, frequency)
+        connector = SinkPeakConnector(self, frequency)
         self.sink_connectors_by_name[None].append(connector)
         return connector
 
@@ -499,52 +518,52 @@ class PulseAudioInterface(SupervisedClientInterface):
 
     def source_volume(self, source_name: str) -> "SourceVolumeConnector":
         self._subscribe_facilities.add("source")
-        connector = SourceVolumeConnector(self.pulse, self._register_origin_callback)
+        connector = SourceVolumeConnector(self, self._register_origin_callback)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
     def source_muted(self, source_name: str) -> "SourceMuteConnector":
         self._subscribe_facilities.add("source")
-        connector = SourceMuteConnector(self.pulse, self._register_origin_callback)
+        connector = SourceMuteConnector(self, self._register_origin_callback)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
     def source_running(self, source_name: str) -> "SourceStateConnector":
         self._subscribe_facilities.add("source")
-        connector = SourceStateConnector(self.pulse)
+        connector = SourceStateConnector(self)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
     def source_peak_monitor(self, source_name: str, frequency: int = 1) -> "SourcePeakConnector":
         self._subscribe_facilities.add("source")
-        connector = SourcePeakConnector(self.pulse, frequency)
+        connector = SourcePeakConnector(self, frequency)
         self.source_connectors_by_name[source_name].append(connector)
         return connector
 
     def default_source_volume(self) -> "SourceVolumeConnector":
         self._subscribe_facilities.add("source")
         self._subscribe_facilities.add("server")
-        connector = SourceVolumeConnector(self.pulse, self._register_origin_callback)
+        connector = SourceVolumeConnector(self, self._register_origin_callback)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
     def default_source_muted(self) -> "SourceMuteConnector":
         self._subscribe_facilities.add("source")
         self._subscribe_facilities.add("server")
-        connector = SourceMuteConnector(self.pulse, self._register_origin_callback)
+        connector = SourceMuteConnector(self, self._register_origin_callback)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
     def default_source_running(self) -> "SourceStateConnector":
         self._subscribe_facilities.add("source")
         self._subscribe_facilities.add("server")
-        connector = SourceStateConnector(self.pulse)
+        connector = SourceStateConnector(self)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
     def default_source_peak_monitor(self, frequency: int = 1) -> "SourcePeakConnector":
         self._subscribe_facilities.add("server")
-        connector = SourcePeakConnector(self.pulse, frequency)
+        connector = SourcePeakConnector(self, frequency)
         self.source_connectors_by_name[None].append(connector)
         return connector
 
@@ -554,10 +573,10 @@ class PulseAudioInterface(SupervisedClientInterface):
 
     def __repr__(self) -> str:
         args = []
-        if self.pulse.name != "smarthomeconnect":
-            args.append(f"name={self.pulse.name!r}")
-        if self.pulse.server is not None:
-            args.append(f"pulse_server_socket={self.pulse.server!r}")
+        if self._pulse_client_name != "smarthomeconnect":
+            args.append(f"name={self._pulse_client_name!r}")
+        if self._pulse_server_socket is not None:
+            args.append(f"pulse_server_socket={self._pulse_server_socket!r}")
         return f"{self.__class__.__name__}({', '.join(args)})"
 
 
@@ -586,10 +605,10 @@ class SourceConnector(metaclass=abc.ABCMeta):
 
 
 class SinkAttributeConnector(Subscribable[T], Readable[T], SinkConnector, Generic[T], metaclass=abc.ABCMeta):
-    def __init__(self, pulse: "PulseAsync", type_: Type[T]):
+    def __init__(self, interface: PulseAudioInterface, type_: Type[T]):
         self.type = type_
         super().__init__()
-        self.pulse = pulse
+        self.interface = interface
 
     def on_change(self, data: "PulseSinkInfo", origin: List[Any]) -> None:
         self._publish(self._convert_from_pulse(data), origin)
@@ -601,15 +620,18 @@ class SinkAttributeConnector(Subscribable[T], Readable[T], SinkConnector, Generi
     async def read(self) -> T:
         if self.current_id is None:
             raise UninitializedError()
-        data = await self.pulse.sink_info(self.current_id)
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        data = await self.interface.pulse.sink_info(self.current_id)
         return self._convert_from_pulse(data)
 
 
 class SourceAttributeConnector(Subscribable[T], Readable[T], SourceConnector, Generic[T], metaclass=abc.ABCMeta):
-    def __init__(self, pulse: "PulseAsync", type_: Type[T]):
+    def __init__(self, interface: PulseAudioInterface, type_: Type[T]):
         self.type = type_
         super().__init__()
-        self.pulse = pulse
+        self.interface = interface
 
     def on_change(self, data: "PulseSourceInfo", origin: List[Any]) -> None:
         self._publish(self._convert_from_pulse(data), origin)
@@ -621,13 +643,16 @@ class SourceAttributeConnector(Subscribable[T], Readable[T], SourceConnector, Ge
     async def read(self) -> T:
         if self.current_id is None:
             raise UninitializedError()
-        data = await self.pulse.source_info(self.current_id)
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        data = await self.interface.pulse.source_info(self.current_id)
         return self._convert_from_pulse(data)
 
 
 class SinkStateConnector(SinkAttributeConnector[bool]):
-    def __init__(self, pulse: "PulseAsync"):
-        super().__init__(pulse, bool)
+    def __init__(self, interface: PulseAudioInterface):
+        super().__init__(interface, bool)
 
     def _convert_from_pulse(self, data: "PulseSinkInfo") -> bool:
         from pulsectl import PulseStateEnum
@@ -641,8 +666,8 @@ class SinkStateConnector(SinkAttributeConnector[bool]):
 
 
 class SourceStateConnector(SourceAttributeConnector[bool]):
-    def __init__(self, pulse: "PulseAsync"):
-        super().__init__(pulse, bool)
+    def __init__(self, interface: PulseAudioInterface):
+        super().__init__(interface, bool)
 
     def _convert_from_pulse(self, data: "PulseSinkInfo") -> bool:
         from pulsectl import PulseStateEnum
@@ -656,8 +681,8 @@ class SourceStateConnector(SourceAttributeConnector[bool]):
 
 
 class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
-    def __init__(self, pulse: "PulseAsync", register_origin_callback: Callable[[str, int, List[Any]], None]):
-        super().__init__(pulse, bool)
+    def __init__(self, interface: PulseAudioInterface, register_origin_callback: Callable[[str, int, List[Any]], None]):
+        super().__init__(interface, bool)
         self.register_origin_callback = register_origin_callback
 
     def _convert_from_pulse(self, data: "PulseSinkInfo") -> bool:
@@ -666,13 +691,16 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
         self.register_origin_callback("sink", self.current_id, origin)
-        await self.pulse.sink_mute(self.current_id, value)
+        await self.interface.pulse.sink_mute(self.current_id, value)
 
 
 class SourceMuteConnector(SourceAttributeConnector[bool], Writable[bool]):
-    def __init__(self, pulse: "PulseAsync", register_origin_callback: Callable[[str, int, List[Any]], None]):
-        super().__init__(pulse, bool)
+    def __init__(self, interface: PulseAudioInterface, register_origin_callback: Callable[[str, int, List[Any]], None]):
+        super().__init__(interface, bool)
         self.register_origin_callback = register_origin_callback
 
     def _convert_from_pulse(self, data: "PulseSinkInfo") -> bool:
@@ -681,13 +709,16 @@ class SourceMuteConnector(SourceAttributeConnector[bool], Writable[bool]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
             raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
         self.register_origin_callback("source", self.current_id, origin)
-        await self.pulse.source_mute(self.current_id, value)
+        await self.interface.pulse.source_mute(self.current_id, value)
 
 
 class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[PulseVolumeRaw]):
-    def __init__(self, pulse: "PulseAsync", register_origin_callback: Callable[[str, int, List[Any]], None]):
-        super().__init__(pulse, PulseVolumeRaw)
+    def __init__(self, interface: PulseAudioInterface, register_origin_callback: Callable[[str, int, List[Any]], None]):
+        super().__init__(interface, PulseVolumeRaw)
         self.register_origin_callback = register_origin_callback
 
     def _convert_from_pulse(self, data: "PulseSinkInfo") -> PulseVolumeRaw:
@@ -698,13 +729,16 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
 
         if self.current_id is None:
             raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
         self.register_origin_callback("sink", self.current_id, origin)
-        await self.pulse.sink_volume_set(self.current_id, PulseVolumeInfo(value.values))
+        await self.interface.pulse.sink_volume_set(self.current_id, PulseVolumeInfo(value.values))
 
 
 class SourceVolumeConnector(SourceAttributeConnector[PulseVolumeRaw], Writable[PulseVolumeRaw]):
-    def __init__(self, pulse: "PulseAsync", register_origin_callback: Callable[[str, int, List[Any]], None]):
-        super().__init__(pulse, PulseVolumeRaw)
+    def __init__(self, interface: PulseAudioInterface, register_origin_callback: Callable[[str, int, List[Any]], None]):
+        super().__init__(interface, PulseVolumeRaw)
         self.register_origin_callback = register_origin_callback
 
     def _convert_from_pulse(self, data: "PulseSinkInfo") -> PulseVolumeRaw:
@@ -715,16 +749,19 @@ class SourceVolumeConnector(SourceAttributeConnector[PulseVolumeRaw], Writable[P
 
         if self.current_id is None:
             raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
         self.register_origin_callback("source", self.current_id, origin)
-        await self.pulse.source_volume_set(self.current_id, PulseVolumeInfo(value.values))
+        await self.interface.pulse.source_volume_set(self.current_id, PulseVolumeInfo(value.values))
 
 
 class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
     type = RangeFloat1
 
-    def __init__(self, pulse: "PulseAsync", frequency: int):
+    def __init__(self, interface: PulseAudioInterface, frequency: int):
         super().__init__()
-        self.pulse = pulse
+        self.interface = interface
         self.frequency = frequency
         self.task: Optional[asyncio.Task] = None
 
@@ -739,9 +776,12 @@ class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
     async def _run(self) -> None:
         from pulsectl import PulseDisconnected
 
-        data = await self.pulse.sink_info(self.current_id)
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        data = await self.interface.pulse.sink_info(self.current_id)
         try:
-            async for value in self.pulse.subscribe_peak_sample(data.monitor_source_name, self.frequency):
+            async for value in self.interface.pulse.subscribe_peak_sample(data.monitor_source_name, self.frequency):
                 self._publish(RangeFloat1(value), [])
         except (asyncio.CancelledError, PulseDisconnected):
             pass
@@ -752,9 +792,9 @@ class SinkPeakConnector(SinkConnector, Subscribable[RangeFloat1]):
 class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
     type = RangeFloat1
 
-    def __init__(self, pulse: "PulseAsync", frequency: int):
+    def __init__(self, interface: PulseAudioInterface, frequency: int):
         super().__init__()
-        self.pulse = pulse
+        self.interface = interface
         self.frequency = frequency
         self.task: Optional[asyncio.Task] = None
 
@@ -769,9 +809,12 @@ class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
     async def _run(self) -> None:
         from pulsectl import PulseDisconnected
 
-        data = await self.pulse.source_info(self.current_id)
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        data = await self.interface.pulse.source_info(self.current_id)
         try:
-            async for value in self.pulse.subscribe_peak_sample(data.name, self.frequency):
+            async for value in self.interface.pulse.subscribe_peak_sample(data.name, self.frequency):
                 self._publish(RangeFloat1(value), [])
         except (asyncio.CancelledError, PulseDisconnected):
             pass
@@ -782,9 +825,11 @@ class SourcePeakConnector(SourceConnector, Subscribable[RangeFloat1]):
 class DefaultNameConnector(Subscribable[str], Readable[str], Writable[str]):
     type = str
 
-    def __init__(self, pulse: "PulseAsync", attr: str, register_origin_callback: Callable[[str, int, List[Any]], None]):
+    def __init__(
+        self, interface: PulseAudioInterface, attr: str, register_origin_callback: Callable[[str, int, List[Any]], None]
+    ):
         super().__init__()
-        self.pulse = pulse
+        self.interface = interface
         self.attr = attr
         self.register_origin_callback = register_origin_callback
 
@@ -792,12 +837,18 @@ class DefaultNameConnector(Subscribable[str], Readable[str], Writable[str]):
         self._publish(getattr(server_info, self.attr), origin)
 
     async def read(self) -> str:
-        server_info = await self.pulse.server_info()
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
+        server_info = await self.interface.pulse.server_info()
         return getattr(server_info, self.attr)
 
     async def _write(self, value: str, origin: List[Any]) -> None:
+        assert (
+            self.interface.pulse is not None
+        ), "PulseAsync object should have been initialized in interface's start() coroutine"
         self.register_origin_callback("server", 0, origin)
         if self.attr == "default_source_name":
-            await self.pulse.source_default_set(value)
+            await self.interface.pulse.source_default_set(value)
         else:
-            await self.pulse.sink_default_set(value)
+            await self.interface.pulse.sink_default_set(value)

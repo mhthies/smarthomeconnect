@@ -14,7 +14,7 @@ from typing import Dict, Tuple
 
 from shc.datatypes import Balance, RangeFloat1
 
-from .._helper import ExampleWritable, InterfaceThreadRunner, async_test
+from .._helper import ExampleWritable, InterfaceThreadRunner
 
 libpulse_available = False
 try:
@@ -69,7 +69,7 @@ class PulseVolumeTests(unittest.TestCase):
 @unittest.skipUnless(libpulse_available, "libpulse is not availabe on this system")
 @unittest.skipIf(shutil.which("pulseaudio") is None, "pulseaudio executable is not available in PATH")
 @unittest.skipIf(shutil.which("pactl") is None, "pactl executable is not available in PATH")
-class SinkConnectorTests(unittest.TestCase):
+class SinkConnectorTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         pulse_dir, self.pulse_process = create_dummy_instance()
         time.sleep(0.5)  # let Pulseaudio start
@@ -84,7 +84,6 @@ class SinkConnectorTests(unittest.TestCase):
         self.pulse_process.terminate()
         self.pulse_process.wait()
 
-    @async_test
     async def test_sink_volume(self) -> None:
         volume_connector1 = self.interface.sink_volume("testsink1")
         target1 = ExampleWritable(shc.interfaces.pulse.PulseVolumeRaw).connect(volume_connector1)
@@ -144,7 +143,6 @@ class SinkConnectorTests(unittest.TestCase):
         self.assertIn("front-left: 52429", response)
         self.assertIn("front-right: 45875", response)
 
-    @async_test
     async def test_default_sink_mute(self) -> None:
         mute_connector = self.interface.default_sink_muted()
         target = ExampleWritable(bool).connect(mute_connector)
@@ -183,7 +181,6 @@ class SinkConnectorTests(unittest.TestCase):
         self.assertIn("yes", (await self._pactl_get_data("sink", "testsink2"))["Mute"])
         self.assertIn("no", (await self._pactl_get_data("sink", "testsink1"))["Mute"])
 
-    @async_test
     async def test_sink_peak_and_state(self) -> None:
         state_connector = self.interface.sink_running("testsink1")
         state_target = ExampleWritable(bool).connect(state_connector)
@@ -224,7 +221,6 @@ class SinkConnectorTests(unittest.TestCase):
         await asyncio.sleep(0.05)
         state_target._write.assert_called_with(False, unittest.mock.ANY)
 
-    @async_test
     async def test_source_volume(self) -> None:
         volume_connector1 = self.interface.source_volume("testsource1")
         target1 = ExampleWritable(shc.interfaces.pulse.PulseVolumeRaw).connect(volume_connector1)
@@ -284,7 +280,6 @@ class SinkConnectorTests(unittest.TestCase):
         self.assertIn("front-left: 52429", response)
         self.assertIn("front-right: 45875", response)
 
-    @async_test
     async def test_default_source_mute(self) -> None:
         mute_connector = self.interface.default_source_muted()
         target = ExampleWritable(bool).connect(mute_connector)
@@ -323,7 +318,6 @@ class SinkConnectorTests(unittest.TestCase):
         self.assertIn("yes", (await self._pactl_get_data("source", "testsource2"))["Mute"])
         self.assertIn("no", (await self._pactl_get_data("source", "testsource1"))["Mute"])
 
-    @async_test
     async def test_source_peak(self) -> None:
         peak_connector = self.interface.source_peak_monitor("testsink1.monitor", 20)
         peak_target = ExampleWritable(RangeFloat1).connect(peak_connector)
@@ -352,7 +346,6 @@ class SinkConnectorTests(unittest.TestCase):
         proc.terminate()
         await proc.wait()
 
-    @async_test
     async def test_source_state(self) -> None:
         state_connector = self.interface.source_running("testsource1")
         state_target = ExampleWritable(bool).connect(state_connector)
@@ -384,7 +377,6 @@ class SinkConnectorTests(unittest.TestCase):
         await asyncio.sleep(0.05)
         state_target._write.assert_called_with(False, unittest.mock.ANY)
 
-    @async_test
     async def test_default_name(self) -> None:
         default_sink_connector = self.interface.default_sink_name()
         sink_target = ExampleWritable(str).connect(default_sink_connector)

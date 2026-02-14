@@ -16,7 +16,6 @@ import functools
 import json
 import logging
 import re
-import typing
 import warnings
 from typing import Any, Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, Type, TypeVar, Union, cast
 
@@ -128,7 +127,7 @@ class TasmotaInterface(AbstractInterface):
             probably a result to a Tasmota command we issued recently)
         """
         try:
-            data = json.loads(typing.cast(bytes, msg.payload).decode("utf-8"))
+            data = json.loads(msg.payload.decode("utf-8"))
             assert isinstance(data, dict)
         except (json.JSONDecodeError, UnicodeDecodeError, AssertionError) as e:
             logger.error("Could not decode Tasmota result as JSON object: %s", msg.payload, exc_info=e)
@@ -141,7 +140,7 @@ class TasmotaInterface(AbstractInterface):
         command.
         """
         try:
-            data = json.loads(typing.cast(bytes, msg.payload).decode("utf-8"))
+            data = json.loads(msg.payload.decode("utf-8"))
             assert isinstance(data, dict)
             assert "StatusSTS" in data
             assert isinstance(data["StatusSTS"], dict)

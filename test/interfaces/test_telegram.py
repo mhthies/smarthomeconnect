@@ -11,7 +11,7 @@ import aiohttp.web
 from aiogram.client.telegram import TelegramAPIServer
 
 import shc.interfaces.telegram
-from test._helper import ExampleReadable, ExampleSubscribable, ExampleWritable, InterfaceThreadRunner, async_test
+from test._helper import ExampleReadable, ExampleSubscribable, ExampleWritable, InterfaceThreadRunner
 
 JSON_TYPE_1 = Union[None, bool, int, float, str, Dict[str, Any], List[Any]]
 JSON_TYPE = Union[None, bool, int, float, str, Dict[str, JSON_TYPE_1], List[JSON_TYPE_1]]
@@ -19,7 +19,7 @@ JSON_TYPE = Union[None, bool, int, float, str, Dict[str, JSON_TYPE_1], List[JSON
 logger = logging.getLogger(__name__)
 
 
-class TelegramBotTest(unittest.TestCase):
+class TelegramBotTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.api_mock = TelegramAPIMock(
             port=42180, user_object={"id": 12345689, "is_bot": True, "first_name": "The Bot"}
@@ -33,11 +33,12 @@ class TelegramBotTest(unittest.TestCase):
         )
         self.client: shc.interfaces.telegram.TelegramBot = self.client_runner.interface
 
+    async def asyncTearDown(self):
+        await self.api_mock.stop()
+
     def tearDown(self) -> None:
-        asyncio.get_event_loop().run_until_complete(self.api_mock.stop())
         self.client_runner.stop()
 
-    @async_test
     async def test_subscribe(self) -> None:
         foo_source = ExampleSubscribable(bool).connect(self.client.on_off_connector("Foo", set(), send_users={"max"}))
 
@@ -50,7 +51,6 @@ class TelegramBotTest(unittest.TestCase):
         await asyncio.sleep(0.05)
         self.api_mock.assert_one_method_called_with("sendMessage", text="Foo is now on")
 
-    @async_test
     async def test_start(self) -> None:
         await self.api_mock.start()
         self.client_runner.start()
@@ -87,7 +87,6 @@ class TelegramBotTest(unittest.TestCase):
         self.api_mock.assert_method_called_with("sendMessage", chat_id="987654125")
         self.assertIn("Unauthorized", self.api_mock.method_calls[-1][1]["text"])
 
-    @async_test
     async def test_write(self) -> None:
         foo = self.client.on_off_connector("Foo", {"max", "tim"})
         _foo_target = ExampleWritable(bool).connect(foo)  # noqa: F841
@@ -232,7 +231,6 @@ class TelegramBotTest(unittest.TestCase):
         self.assertIn("authorized", self.api_mock.method_calls[-1][1]["text"])
         self.api_mock.reset_mock()
 
-    @async_test
     async def test_inline_cancel(self) -> None:
         _foo = self.client.on_off_connector("Foo", {"max", "tim"}).connect(ExampleReadable(bool, False))  # noqa: F841
         _foobar = (
@@ -310,7 +308,6 @@ class TelegramBotTest(unittest.TestCase):
             json.loads(self.api_mock.method_calls[-1][1]["reply_markup"])["keyboard"],
         )
 
-    @async_test
     async def test_auth_errors(self) -> None:
         _foo = self.client.on_off_connector("Foo", {"max", "tim"})  # noqa: F841
 
@@ -373,7 +370,6 @@ class TelegramBotTest(unittest.TestCase):
         self.assertNotIn("Foo", self.api_mock.method_calls[-1][1]["text"])
         self.api_mock.reset_mock()
 
-    @async_test
     async def test_write_on_off(self) -> None:
         foo = self.client.on_off_connector("Foo", {"max", "tim"})
         foo_target = ExampleWritable(bool).connect(foo)
@@ -437,7 +433,6 @@ class TelegramBotTest(unittest.TestCase):
         await asyncio.sleep(0.3)
         foo_target._write.assert_called_once_with(True, unittest.mock.ANY)
 
-    @async_test
     async def test_read(self) -> None:
         _foo = (
             self.client.str_connector("Foo", {"max"}, {"max", "tim"})

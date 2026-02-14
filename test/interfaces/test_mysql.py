@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import math
 import os
@@ -13,7 +12,6 @@ import shc.data_logging
 import shc.interfaces.mysql
 from shc.base import T
 
-from .._helper import async_test
 from ..test_data_logging import AbstractLoggingTest
 
 
@@ -84,12 +82,14 @@ class MySQLTest(AbstractLoggingTest):
             ]
         )
         self.interface = shc.interfaces.mysql.MySQLConnector(**MYSQL_ARGS)
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.interface.start())
+
+    async def asyncSetUp(self) -> None:
+        await self.interface.start()
+
+    async def asyncTearDown(self) -> None:
+        await self.interface.stop()
 
     def tearDown(self) -> None:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.interface.stop())
         self._run_mysql_sync(["DROP TABLE `log`;", "DROP TABLE `persistence`;"])
 
     def _run_mysql_sync(self, queries: Sequence[str]) -> None:
@@ -125,7 +125,6 @@ class MySQLTest(AbstractLoggingTest):
         var = self.interface.variable(type_, "test_variable")
         return var
 
-    @async_test
     async def test_persistence_variables(self) -> None:
         data: Sequence[Tuple[str, Sequence[Any]]] = [
             ("test_int", [5, 7]),

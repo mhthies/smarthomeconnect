@@ -5,13 +5,11 @@ import unittest.mock
 
 from shc.base import UninitializedError
 from shc.interfaces import command
-from test._helper import async_test
 
 
-class CommandTest(unittest.TestCase):
+class CommandTest(unittest.IsolatedAsyncioTestCase):
     """Test cases for the command readable object."""
 
-    @async_test
     async def test_command(self) -> None:
         """Test the command readable object."""
         command1 = command.Command(["echo", "Hello, World!"])
@@ -25,7 +23,6 @@ class CommandTest(unittest.TestCase):
         with self.assertRaises(UninitializedError):
             await command4.read()
 
-    @async_test
     async def test_command_exit_code(self) -> None:
         command1 = command.CommandExitCode(["true"])
         command2 = command.CommandExitCode(["false"])

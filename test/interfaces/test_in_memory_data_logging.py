@@ -6,7 +6,7 @@ import shc.data_logging
 import shc.interfaces.in_memory_data_logging
 from shc.base import T
 
-from .._helper import ClockMock, async_test
+from .._helper import ClockMock
 from ..test_data_logging import AbstractLoggingTest
 
 
@@ -21,7 +21,6 @@ class InMemoryTest(AbstractLoggingTest):
         var.data = list(data)
         return var
 
-    @async_test
     async def test_clean_up(self) -> None:
         var1 = shc.interfaces.in_memory_data_logging.InMemoryDataLogVariable(int, datetime.timedelta(seconds=10))
         with ClockMock(datetime.datetime(2020, 1, 1, 0, 0, 0)):

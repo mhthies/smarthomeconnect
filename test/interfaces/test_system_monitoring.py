@@ -5,10 +5,10 @@ import unittest.mock
 import shc.interfaces.system_monitoring
 from shc.supervisor import InterfaceStatus, ServiceStatus
 
-from .._helper import ExampleWritable, InterfaceThreadRunner, async_test
+from .._helper import ExampleWritable, InterfaceThreadRunner
 
 
-class EventLoopMonitorTest(unittest.TestCase):
+class EventLoopMonitorTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.interface_runner = InterfaceThreadRunner(shc.interfaces.system_monitoring.EventLoopMonitor, interval=0.03)
         self.interface: shc.interfaces.system_monitoring.EventLoopMonitor = self.interface_runner.interface
@@ -16,7 +16,6 @@ class EventLoopMonitorTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.interface_runner.stop()
 
-    @async_test
     async def test_ok(self) -> None:
         status_target = ExampleWritable(InterfaceStatus)
         connector = self.interface.monitoring_connector()
