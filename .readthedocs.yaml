@@ -9,21 +9,10 @@ build:
   tools:
     python: "3.11"
     nodejs: "22"
+  install:
+     # Since the install step is overridden, pip is no longer updated automatically.
+     - pip install --upgrade pip
+     - pip install .[mysql,knx,dmx,midi,mqtt,pulse,telegram,file_persistence] --group doc
 
 sphinx:
   configuration: docs/conf.py
-
-python:
-  install:
-    - method: pip
-      path: .
-      extra_requirements:
-        - mysql
-        - knx
-        - dmx
-        - midi
-        - mqtt
-        - pulse
-        - telegram
-        - file_persistence
-        - doc
