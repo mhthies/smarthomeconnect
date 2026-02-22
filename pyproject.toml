@@ -37,7 +37,7 @@ Tracker = "https://github.com/mhthies/smarthomeconnect/issues"
 license-files = ["LICENSE", "NOTICE"]
 
 [tool.setuptools.packages.find]
-include = ["shc.*"]
+include = ["shc", "shc.*"]
 exclude = ["shc.web.tests"]
 
 [tool.setuptools.package-data]
