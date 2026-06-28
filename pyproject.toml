@@ -57,7 +57,7 @@ file_persistence = ["aiofile>=3.7.4,<4"]
 dev = ["ruff>=0.15,<0.16"]
 test = [
     "coverage>=7.6,<8",
-    "mypy>=1.13,<2",
+    "mypy>=1.13,<3",
     "selenium>=3.141,<5",
     "types-PyMySQL",
     "types-MarkupSafe>=1.1,<4",
