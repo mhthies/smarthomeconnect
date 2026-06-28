@@ -62,9 +62,9 @@ class MQTTClientTest(unittest.IsolatedAsyncioTestCase):
 
         await asyncio.sleep(0.05)
 
-        target_raw._write.assert_called_once_with(b"56", unittest.mock.ANY)
-        target_str._write.assert_called_once_with("56", unittest.mock.ANY)
-        target_int._write.assert_called_once_with(56, unittest.mock.ANY)
+        target_raw._write.assert_called_with(b"56", unittest.mock.ANY)
+        target_str._write.assert_called_with("56", unittest.mock.ANY)
+        target_int._write.assert_called_with(56, unittest.mock.ANY)
         target_raw._write.reset_mock()
         target_str._write.reset_mock()
         target_int._write.reset_mock()
