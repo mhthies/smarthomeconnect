@@ -98,6 +98,7 @@ If sending the value update to the external system fails (for any reason), the `
 Interface Connector objects that are *subscribable* **and** *writable* should write back local value updates (calls to ``write()``) to all subscribers (similar to how :class:`UpdateExchange <shc.misc.UpdateExchange>` behaves).
 In this case, the value update shall be written to *subscribed* objects only **once** and the ``origin`` value of the value update (see :ref:`base.event-origin`) must be preserved!
 This is required for SHC to prevent endless recursive update loops between two interfaces.
+In addition, the ``_stateful_publishing`` attribute of these Connector objects must be set to ``True`` to enable the before-mentioned conflicting value update detection.
 
 .. note::
 
