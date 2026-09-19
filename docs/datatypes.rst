@@ -1,4 +1,6 @@
 
+.. _datatypes:
+
 Datatypes and Type Conversions
 ==============================
 

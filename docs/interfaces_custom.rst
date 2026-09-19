@@ -49,6 +49,11 @@ Thus, In case of an error, all of the `SupervisedClientInterface` methods shall 
 Interface Implementation Guidelines
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+First, I'd recommend to read the full introduction of SHC *connectable* objects: :ref:`base.connectable_objects`.
+In addition, see :ref:`datatypes` for information for recommendations about which data types to use with SHC and how to integrate custom types with SHC.
+
+The following sections describe further topics that need to be considered when implementing SHC interfaces.
+
 asyncio Compatibility
 """""""""""""""""""""
 
