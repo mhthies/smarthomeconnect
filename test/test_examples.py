@@ -53,6 +53,11 @@ class BasicTest(unittest.TestCase):
     def test_sun_position_weather_forecast_example(self) -> None:
         import example.sun_position_weather_forecast  # type: ignore  # noqa: F401
 
+    def test_custom_mqtt_interface_example(self) -> None:
+        import example.custom_mqtt_interface  # type: ignore  # noqa: F401
+
+        run_shc_for_one_second()
+
     @classmethod
     def setUpClass(cls) -> None:
         shc.supervisor._REGISTERED_INTERFACES.clear()
