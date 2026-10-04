@@ -122,9 +122,7 @@ Thus, it is recommended that the created Connector objects of an interface are c
 Interface Examples
 ^^^^^^^^^^^^^^^^^^
 
-TODO example with Connector object and dispatching from websocket
-
-TODO example with MQTT
+See example scripts `example/custom_mqtt_interface.py` and `example/custom_websocket_interface.py`.
 
 
 
