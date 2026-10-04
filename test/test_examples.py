@@ -56,6 +56,9 @@ class BasicTest(unittest.TestCase):
     def test_custom_mqtt_interface_example(self) -> None:
         import example.custom_mqtt_interface  # type: ignore  # noqa: F401
 
+    def test_custom_websocket_interface_example(self) -> None:
+        import example.custom_websocket_interface  # type: ignore  # noqa: F401
+
         run_shc_for_one_second()
 
     @classmethod
