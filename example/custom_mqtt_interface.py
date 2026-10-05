@@ -174,7 +174,7 @@ class _AbstractStatefulFooPlayerConnector(Subscribable[T], Writable[T], Generic[
         finally:
             self._publish(value, origin)
             # Remove queue entry
-            self._pending_command_queue.remove((value, event))
+            self._pending_command_queue.remove((expected_reply, event))
 
 
 class FooPlayerState(enum.Enum):
