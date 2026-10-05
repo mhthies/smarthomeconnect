@@ -164,7 +164,6 @@ class _AbstractStatefulFooPlayerConnector(Subscribable[T], Writable[T], Generic[
         event = asyncio.Event()
         self._pending_command_queue.append((expected_reply, event))
 
-        command = value.value
         try:
             await self._interface._send_command(command)
             await asyncio.wait_for(event.wait(), 5)
