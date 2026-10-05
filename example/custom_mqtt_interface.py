@@ -167,12 +167,13 @@ class _AbstractStatefulFooPlayerConnector(Subscribable[T], Writable[T], Generic[
         try:
             await self._interface._send_command(command)
             await asyncio.wait_for(event.wait(), 5)
+            # Only publish new value to local subscribers when it has been successfully transmitted to the device
+            self._publish(value, origin)
         except asyncio.TimeoutError:
             logger.warning(
                 "No Result from FooPlayer device %s to %s command within 5s.", self._interface.device_id, command
             )
         finally:
-            self._publish(value, origin)
             # Remove queue entry
             self._pending_command_queue.remove((expected_reply, event))
 
