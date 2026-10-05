@@ -222,6 +222,9 @@ class FooPlayerVoiceAnnouncementConnector(Writable[None]):
 mqtt_interface = shc.interfaces.mqtt.MQTTClientInterface("localhost", 1883, failsafe_start=True)
 foo_player_interface = FooPlayerInterface(mqtt_interface, "my_player_id")
 
+player_state = shc.Variable(FooPlayerState, "my_player_state").connect(foo_player_interface.state_connector())
+player_volume = shc.Variable(RangeFloat1, "my_player_volume").connect(foo_player_interface.volume_connector())
+
 web_server = shc.web.WebServer("localhost", 8080, index_name="index")
 web_server.configure_monitoring([(foo_player_interface, "FooPlayer my_player_id", ServiceCriticality.WARNING)])
 
@@ -229,13 +232,13 @@ index_page = web_server.page("index", "Home", menu_entry=True, menu_icon="home")
 
 index_page.add_item(
     ValueListButtonGroup([(FooPlayerState.PAUSED, "️⏸️"), (FooPlayerState.PLAYING, "▶️")], "Foo Player State").connect(
-        foo_player_interface.state_connector()
+        player_state
     )
 )
 index_page.add_item(
     ButtonGroup("Foo Player Commands", [StatelessButton(None, "🗣️").connect(foo_player_interface.voice_announcement())])
 )
-index_page.add_item(Slider("Volume", color="blue").connect(foo_player_interface.volume_connector()))
+index_page.add_item(Slider("Volume", color="blue").connect(player_volume))
 
 
 if __name__ == "__main__":

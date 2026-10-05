@@ -297,9 +297,10 @@ web_server = shc.web.WebServer("localhost", 8080, index_name="index")
 index_page = web_server.page("index", "Home", menu_entry=True, menu_icon="home")
 
 for i in range(10):
-    index_page.add_item(
-        Slider("Dimmer {}".format(i + 1), color="yellow").connect(dimmer_gateway_interface.dimmer_connector(i))
+    var = shc.Variable(RangeFloat1, "dimmer_{}".format(i), RangeFloat1(0.0)).connect(
+        dimmer_gateway_interface.dimmer_connector(i)
     )
+    index_page.add_item(Slider("Dimmer {}".format(i + 1), color="yellow").connect(var))
 
 
 if __name__ == "__main__":
