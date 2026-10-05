@@ -94,6 +94,8 @@ class FooPlayerInterface(SubscribableStatusInterface):
             self._volume_connector._on_mqtt_message(message.payload.decode())
         elif message.topic.value.endswith("/state"):
             self._state_connector._on_mqtt_message(message.payload.decode())
+        elif message.topic.value.endswith("/command"):
+            pass
         else:
             logger.warning("MQTT message on unknown topic %s received", message.topic)
 
