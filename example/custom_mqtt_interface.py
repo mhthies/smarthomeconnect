@@ -187,7 +187,7 @@ class FooPlayerStateConnector(_AbstractStatefulFooPlayerConnector[FooPlayerState
     type = FooPlayerState
 
     def _decode_message(self, message_payload: str) -> FooPlayerState:
-        return FooPlayerState[message_payload]
+        return FooPlayerState(message_payload)
 
     def _encode_command_and_expected_reply(self, value: FooPlayerState) -> Tuple[str, str]:
         return value.value, value.value
