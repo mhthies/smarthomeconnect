@@ -15,13 +15,13 @@ custom external device.
 
 We imagine a simple music player called `FooPlayer` that provides the following MQTT interface:
 
-* the device publishes an "online"/"offline" message to the MQTT topic /<device>/online (using MQTT's last will
+* the device publishes an "online"/"offline" message to the MQTT topic <device>/online (using MQTT's last will
   feature).
-* current playback state is published to MQTT topic /<device>/state. Either "play" or "pause".
-* current volume (integer in range 0..100) is published to MQTT topic /<device>/volume.
-* we can control volume by sending "volume=<value>" to MQTT topic /<device>/command.
-* we can control playback state by sending "pause" or "play" to MQTT topic /<device>/command.
-* we can trigger a voice announcement of the current state by sending "announce" to MQTT topic /<device>/command.
+* current playback state is published to MQTT topic <device>/state. Either "play" or "pause".
+* current volume (integer in range 0..100) is published to MQTT topic <device>/volume.
+* we can control volume by sending "volume=<value>" to MQTT topic <device>/command.
+* we can control playback state by sending "pause" or "play" to MQTT topic <device>/command.
+* we can trigger a voice announcement of the current state by sending "announce" to MQTT topic <device>/command.
 
 Please refer to SHC's documentation for more information on implementing custom interfaces:
 https://smarthomeconnect.readthedocs.io/en/latest/interfaces_custom.html
