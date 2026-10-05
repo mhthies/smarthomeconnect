@@ -84,15 +84,15 @@ class FooPlayerInterface(SubscribableStatusInterface):
     def _on_mqtt_message(self, message: aiomqtt.Message) -> None:
         # In this simple case, we can distinguish the different topics with an if-else-ladder. For larger interfaces,
         # the connectors should be stored in a dict by sub-topic.
-        if message.topic.endswith("/online"):
+        if message.topic.value.endswith("/online"):
             self._online_connector._on_mqtt_message(message.payload.decode())
             status = {"online": ServiceStatus.OK, "offline": ServiceStatus.CRITICAL}.get(
                 message.payload.decode(), ServiceStatus.UNKNOWN
             )
             self._status_connector.update_status(status)
-        elif message.topic.endswith("/volume"):
+        elif message.topic.value.endswith("/volume"):
             self._volume_connector._on_mqtt_message(message.payload.decode())
-        elif message.topic.endswith("/state"):
+        elif message.topic.value.endswith("/state"):
             self._state_connector._on_mqtt_message(message.payload.decode())
         else:
             logger.warning("MQTT message on unknown topic %s received", message.topic)
