@@ -200,7 +200,7 @@ class FooPlayerVolumeConnector(_AbstractStatefulFooPlayerConnector[RangeFloat1])
         return RangeFloat1(int(message_payload) / 100)
 
     def _encode_command_and_expected_reply(self, value: RangeFloat1) -> Tuple[str, str]:
-        encoded_value = str(round(value))
+        encoded_value = str(round(value * 100))
         return f"volume={encoded_value}", encoded_value
 
 
