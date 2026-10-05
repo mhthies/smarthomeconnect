@@ -43,7 +43,7 @@ import shc.web
 from shc.base import Subscribable, T, T_con, Writable
 from shc.datatypes import RangeFloat1
 from shc.interfaces._helper import SubscribableStatusInterface
-from shc.supervisor import AbstractInterface, ServiceStatus
+from shc.supervisor import ServiceCriticality, ServiceStatus
 from shc.web.widgets import ButtonGroup, Slider, StatelessButton, ValueListButtonGroup
 
 logger = logging.getLogger(__name__)
@@ -221,6 +221,7 @@ mqtt_interface = shc.interfaces.mqtt.MQTTClientInterface("localhost", 1883, fail
 foo_player_interface = FooPlayerInterface(mqtt_interface, "my_player_id")
 
 web_server = shc.web.WebServer("localhost", 8080, index_name="index")
+web_server.configure_monitoring([(foo_player_interface, "FooPlayer my_player_id", ServiceCriticality.WARNING)])
 
 index_page = web_server.page("index", "Home", menu_entry=True, menu_icon="home")
 
