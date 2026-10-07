@@ -123,17 +123,3 @@ exclude = "^test/assets/mypy_plugin_test"
 [[tool.mypy.overrides]]
 module = "mido,astropy,astropy.*,serial,serial_asyncio,paho.mqtt.*,selenium.*,pulsectl.*,pulsectl_asyncio,aiomysql,aiogram.*"
 ignore_missing_imports = true
-
-[tool.ruff.format]
-# Like Black, use double quotes for strings.
-quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs.
-indent-style = "space"
-
-# Like Black, respect magic trailing commas.
-skip-magic-trailing-comma = false
-
-[tool.isort]
-profile = "black"  # Use the "black" profile for import sorting consistency with Black
-line_length = 120
