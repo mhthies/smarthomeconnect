@@ -261,10 +261,8 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             for name, var in self.connectors.items()
             if regex.search(name)
             and (
-                self.auth_provider.has_user_role(user, var.read_roles)
-                and var.is_readable()
-                or self.auth_provider.has_user_role(user, var.set_roles)
-                and var.is_settable()
+                (self.auth_provider.has_user_role(user, var.read_roles) and var.is_readable())
+                or (self.auth_provider.has_user_role(user, var.set_roles) and var.is_settable())
             )
         ]
 
