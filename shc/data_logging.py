@@ -652,7 +652,7 @@ class AverageAggregator(AbstractAggregator[Union[float, int], float]):
     respective time intervals.
     """
 
-    __slots__ = ("value_sum", "time_sum")
+    __slots__ = ("time_sum", "value_sum")
     value_sum: float
     time_sum: float
 
@@ -733,7 +733,7 @@ class OnTimeRatioAggregator(AbstractAggregator[Any, float]):
     evaluates to True to the total duration of the aggregation interval.
     """
 
-    __slots__ = ("value", "total_time")
+    __slots__ = ("total_time", "value")
     value: datetime.timedelta
     total_time: datetime.timedelta
 

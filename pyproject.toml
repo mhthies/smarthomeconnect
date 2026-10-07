@@ -101,8 +101,6 @@ ignore = [
     "RUF002",  # ambiguous unicode character (like en-dash) in docstring
     "RUF006",
     "RUF012",
-    "RUF022",
-    "RUF023",
     "RUF036",
     "RUF100",
 ]
