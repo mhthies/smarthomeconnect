@@ -65,7 +65,7 @@ class MidiInterface(AbstractInterface):
         input_port_name: Optional[str] = None,
         output_port_name: Optional[str] = None,
         send_channel: int = 0,
-        receive_channel: Union[None, int, Iterable[int]] = None,
+        receive_channel: Union[int, Iterable[int], None] = None,
     ) -> None:
         if not input_port_name and not output_port_name:
             raise ValueError("Either MIDI input port name or output port name must be specified.")
