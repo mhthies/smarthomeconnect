@@ -96,7 +96,6 @@ ignore = [
     "D200",  # One-line docstring should fit on one line
     "D203",  # Ignore one-blank-line-before-class as Black handles this
     "D212",  # Multi-line docstring summary should start at the first line
-    "D213",  # Multi-line docstring summary should start at the second line
     "D301",  # Use `r"""` if any backslashes in a docstring
     "D401",  # First line of docstring should be in imperative mood
     "D404",  # First word of the docstring should not be "This"

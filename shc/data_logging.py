@@ -330,8 +330,8 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         self._mutex: Optional[asyncio.Lock] = None
 
     async def _new_log_values_written(self, values: List[Tuple[datetime.datetime, T]]) -> None:
-        """Callback method to be called by `WritableDataLogVariable` to provide values, newly written to the
-        data log.
+        """
+        Callback method to be called by `WritableDataLogVariable` to provide values, newly written to the data log.
         """
         if self.push:
             await self._process_new_logvalues(values)

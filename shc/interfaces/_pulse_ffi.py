@@ -8,7 +8,8 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
-"""Outsourced C function bindings for volume conversion in the pulse interface datatypes.
+"""
+Outsourced C function bindings for volume conversion in the pulse interface datatypes.
 
 Loading this module requires libpulse to be installed.
 """

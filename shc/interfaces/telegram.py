@@ -580,7 +580,8 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         await self.interface.send_message(text=self.format_value_send_fn(value), users=self.send_users)
 
     async def read_message(self) -> Optional[str]:
-        """Create a response to a read-request from Telegram.
+        """
+        Create a response to a read-request from Telegram.
 
         :return: A message with the current value from the default_provider, using the :attr:`format_value_read_fn` or
         """

@@ -89,7 +89,8 @@ class AbstractWebTest(unittest.TestCase):
 
     @staticmethod
     def reuse_selenium_web_driver() -> bool:
-        """Determine whether the selenium driver shall be shared between all consecutive tests in this class.
+        """
+        Determine whether the selenium driver shall be shared between all consecutive tests in this class.
 
         Checks whether the environment variable SHC_TEST_REUSE_WEB_DRIVER is set.
         On WSL default ist not sharing the driver since this causes concurrency conflicts.
