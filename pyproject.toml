@@ -93,13 +93,11 @@ ignore = [
     "D105",  # Missing docstring in magic method
     "D106",  # Missing docstring in public nested class
     "D107",  # Ignore D107 Missing docstring
-    "D203",  # Ignore one-blank-line-before-class as Black handles this
+    "D203",  # Ignore one-blank-line-before-class as the formatter handles this
     "D212",  # Multi-line docstring summary should start at the first line
     "D301",  # Use `r"""` if any backslashes in a docstring
     "D401",  # First line of docstring should be in imperative mood
     "D404",  # First word of the docstring should not be "This"
-    # keep entries below (TBD)
-    "D204",  # 1 blank line required after class docstring
     "D205",  # 1 blank line required between summary line and description
 ]
 
