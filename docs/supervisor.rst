@@ -1,6 +1,10 @@
 
+.. _application_start_stop:
+
 Start, Stop and Status Monitoring
 =================================
+
+.. py:module:: shc.supervisor
 
 A typical SHC application consists of multiple parallel activities that need to be initialized and gracefully stopped at shutdown:
 Most *Interfaces* have an internal loop task for interacting with external systems and each of SHC's :ref:`timers <timer>` has an internal loop to wait for the next trigger time.
