@@ -126,9 +126,7 @@ class SHCWebClient(SupervisedClientInterface):
         await self._session.close()
 
     async def _run(self) -> None:
-        """
-        Entrypoint for the async "run" Task for receiving Websocket messages.
-        """
+        """Entrypoint for the async "run" Task for receiving Websocket messages."""
         assert self._ws is not None
         assert self._running is not None, "_stopping should have been constructed in start()"
         self._running.set()

@@ -20,9 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class RangeFloat1(float):
-    """
-    A range / percentage value, represented as a floating point number from 0.0 (0%) to 1.0 (100%).
-    """
+    """A range / percentage value, represented as a floating point number from 0.0 (0%) to 1.0 (100%)."""
 
     def __new__(cls, *args, **kwargs):
         # noinspection PyArgumentList
@@ -52,9 +50,7 @@ class RangeFloat1(float):
 
 
 class RangeUInt8(int):
-    """
-    A range / percentage value, represented as an 8bit integer number from 0 (0%) to 255 (100%).
-    """
+    """A range / percentage value, represented as an 8bit integer number from 0 (0%) to 255 (100%)."""
 
     @classmethod
     def from_float(cls, value: float) -> "RangeUInt8":
@@ -67,9 +63,7 @@ class RangeUInt8(int):
 
 
 class RangeInt0To100(int):
-    """
-    A range / percentage value, represented as an 8bit integer percent number from 0 (0%) to 100 (100%).
-    """
+    """A range / percentage value, represented as an 8bit integer percent number from 0 (0%) to 100 (100%)."""
 
     @classmethod
     def from_float(cls, value: float) -> "RangeInt0To100":
@@ -104,9 +98,7 @@ register_converter(bool, RangeInt0To100, lambda v: RangeInt0To100(100 if v else 
 
 
 class AngleUInt8(int):
-    """
-    An angle, encoded as a 8-bit integer, from 0 (0°) to 255 (360°).
-    """
+    """An angle, encoded as a 8-bit integer, from 0 (0°) to 255 (360°)."""
 
     pass
 
@@ -130,9 +122,7 @@ register_converter(Balance, RangeFloat1, lambda v: RangeFloat1(v / 2 + 0.5))
 
 
 class AbstractStep(Generic[T], metaclass=abc.ABCMeta):
-    """
-    Abstract base class for all difference/step types, that represent a step within an associated range type.
-    """
+    """Abstract base class for all difference/step types, that represent a step within an associated range type."""
 
     @abc.abstractmethod
     def apply_to(self, value: T) -> T:
@@ -163,9 +153,7 @@ register_converter(float, FadeStep, lambda v: FadeStep(min(1.0, max(-1.0, v))))
 
 
 class RGBUInt8(NamedTuple):
-    """
-    A 24bit color in RGB colorspace, composed of three :class:`RangeUInt8` values `red`, `green` and `blue`.
-    """
+    """A 24bit color in RGB colorspace, composed of three :class:`RangeUInt8` values `red`, `green` and `blue`."""
 
     red: RangeUInt8
     green: RangeUInt8
@@ -192,9 +180,7 @@ class RGBUInt8(NamedTuple):
 
 
 class RGBFloat1(NamedTuple):
-    """
-    A floating point RGB color, composed of three :class:`RangeFloat1` values `red`, `green` and `blue`.
-    """
+    """A floating point RGB color, composed of three :class:`RangeFloat1` values `red`, `green` and `blue`."""
 
     red: RangeFloat1
     green: RangeFloat1
@@ -283,9 +269,7 @@ register_converter(RGBUInt8, HSVFloat1, lambda v: HSVFloat1.from_rgb(v.as_float(
 
 
 class RGBWUInt8(NamedTuple):
-    """
-    4-channel RGBW LED color value, composed of a :class:`RGBUInt8` for `rgb` and a :class:`RangeUInt8` for `white`.
-    """
+    """4-channel RGBW LED color value, composed of a :class:`RGBUInt8` and a :class:`RangeUInt8` for `white`."""
 
     rgb: RGBUInt8
     white: RangeUInt8
@@ -302,9 +286,7 @@ register_converter(RGBUInt8, RGBWUInt8, lambda x: RGBWUInt8(x, RangeUInt8(0)))
 
 
 class CCTUInt8(NamedTuple):
-    """
-    A CCT LED brightness value, composed of two :class:`RangeUInt8` values `cold` and `warm`.
-    """
+    """A CCT LED brightness value, composed of two :class:`RangeUInt8` values `cold` and `warm`."""
 
     cold: RangeUInt8
     warm: RangeUInt8
@@ -319,9 +301,7 @@ class CCTUInt8(NamedTuple):
 
 
 class RGBCCTUInt8(NamedTuple):
-    """
-    5 channel LED color value, composed of a :class:`RGBUInt8` for `rgb` and a :class:`CCTUInt8` for `white`.
-    """
+    """5 channel LED color value, composed of a :class:`RGBUInt8` for `rgb` and a :class:`CCTUInt8` for `white`."""
 
     rgb: RGBUInt8
     white: CCTUInt8

@@ -41,9 +41,7 @@ class ReadableStatusInterface(AbstractInterface, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def _get_status(self) -> "InterfaceStatus":
-        """
-        Determine the current status of the interface for monitoring purposes.
-        """
+        """Determine the current status of the interface for monitoring purposes."""
         return InterfaceStatus()
 
 

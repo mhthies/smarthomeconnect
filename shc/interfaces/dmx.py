@@ -107,9 +107,7 @@ class DMXAddress(Writable[RangeUInt8]):
 
 
 class EnttecDMXUSBProConnector(AbstractDMXConnector):
-    """
-    A DMX Interface for the Enttec DMX USB PRO and compatible devices (with the same serial protocol).
-    """
+    """A DMX Interface for the Enttec DMX USB PRO and compatible devices (with the same serial protocol)."""
 
     # Build according to this spec:
     # https://web.archive.org/web/20200822142042/https://dol2kh495zr52.cloudfront.net/pdf/misc/dmx_usb_pro_api_spec.pdf

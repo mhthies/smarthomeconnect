@@ -144,9 +144,7 @@ class MidiInterface(AbstractInterface):
             logger.error("Error while dispatching incoming MIDI message %s", message, exc_info=e)
 
     def _send_thread(self, loop: asyncio.AbstractEventLoop) -> None:
-        """
-        Entry point for the daemon thread for sending outgoing MIDI messages to the MIDI port.
-        """
+        """Entry point for the daemon thread for sending outgoing MIDI messages to the MIDI port."""
         try:
             logger.debug("Starting _send_thread(). Opening output_port for %s", self.output_port_name)
             output_port = mido.open_output(self.output_port_name)

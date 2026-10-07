@@ -904,9 +904,7 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
             timer_supervisor.add_temporary_task(task)
 
     async def ramp_by(self, step: AbstractStep[T], origin: List[Any]) -> None:
-        """
-        Start a new ramp of the given step size.
-        """
+        """Start a new ramp of the given step size."""
         begin = await self._from_provider()
         if begin is not None:
             self._current_value = begin

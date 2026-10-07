@@ -845,9 +845,7 @@ class _WebPageSegment(WebConnectorContainer):
 
 
 class WebPageItem(WebConnectorContainer, metaclass=abc.ABCMeta):
-    """
-    Abstract base class for all web UI widgets which can be added to a web UI page.
-    """
+    """Abstract base class for all web UI widgets which can be added to a web UI page."""
 
     def register_with_server(self, page: WebPage, server: WebServer) -> None:
         """
@@ -1058,9 +1056,7 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         self.future: asyncio.Future[T]
 
     def start(self) -> None:
-        """
-        Do some things at startup of the webserver.
-        """
+        """Do some things at startup of the webserver."""
         # We do this upon server startup to ensure that the future is bound to the correct AsyncIO event loop.
         # This might not be the case if we create the future in the __init__ method, since the object creation might be
         # done in a different Thread than the SHC main event loop thread (as in our unittests).
@@ -1088,9 +1084,7 @@ class WebApiObject(Reading[T], Writable[T], Subscribable[T], Generic[T]):
         return from_json(self.type, value)
 
     async def _post_last_will(self, value: T, ws: aiohttp.web.WebSocketResponse) -> None:
-        """
-        Post the stored last will of a client.
-        """
+        """Post the stored last will of a client."""
         self._publish(from_json(self.type, value), [ws])
         await self._publish_http(value, ws)
 

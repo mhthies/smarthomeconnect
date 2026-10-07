@@ -27,9 +27,7 @@ _SUPERVISOR: Optional["_Supervisor"] = None
 
 
 class ServiceCriticality(enum.Enum):
-    """
-    Enum of possible criticality values of interfaces.
-    """
+    """Enum of possible criticality values of interfaces."""
 
     INFO = 0
     WARNING = 1
@@ -115,9 +113,7 @@ class AbstractInterface(metaclass=abc.ABCMeta):
 
 
 class ServiceStatus(enum.Enum):
-    """
-    Enum of possible service status, derived from Nagios/Icinga status.
-    """
+    """Enum of possible service status, derived from Nagios/Icinga status."""
 
     OK = 0
     WARNING = 1

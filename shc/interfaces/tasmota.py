@@ -111,9 +111,7 @@ class TasmotaInterface(AbstractInterface):
         return self._status_connector
 
     def _handle_lwt(self, msg: aiomqtt.Message) -> None:
-        """
-        Callback function to handle incoming MQTT messages on the Last Will Topic.
-        """
+        """Callback function to handle incoming MQTT messages on the Last Will Topic."""
         value = msg.payload == b"Online"
         self._online_connector._update_from_mqtt(value)
         self._status_connector.on_lwt(value)

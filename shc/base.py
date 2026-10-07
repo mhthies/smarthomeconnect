@@ -42,9 +42,7 @@ RESET_ORIGIN_SENTINEL = ResetOriginSentinel()
 
 
 class Connectable(Generic[T], metaclass=abc.ABCMeta):
-    """
-    :cvar type: The type of the values, this object is supposed to handle.
-    """
+    """:cvar type: The type of the values, this object is supposed to handle."""
 
     type: Type[T]
 

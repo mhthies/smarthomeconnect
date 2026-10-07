@@ -93,7 +93,6 @@ ignore = [
     "D105",  # Missing docstring in magic method
     "D106",  # Missing docstring in public nested class
     "D107",  # Ignore D107 Missing docstring
-    "D200",  # One-line docstring should fit on one line
     "D203",  # Ignore one-blank-line-before-class as Black handles this
     "D212",  # Multi-line docstring summary should start at the first line
     "D301",  # Use `r"""` if any backslashes in a docstring

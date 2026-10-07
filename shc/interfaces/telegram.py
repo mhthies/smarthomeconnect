@@ -84,9 +84,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         await self.bot.session.close()
 
     async def _handle_start(self, message: aiogram.types.Message):
-        """
-        Handler function for /start command messages.
-        """
+        """Handler function for /start command messages."""
         logger.debug("Received /start command for object from Telegram chat %s", message.chat.id)
         await message.reply("Hi!\nI'm an SHC bot!", reply=False)
         chat_id = message.chat.id
@@ -100,9 +98,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             )
 
     async def _handle_select(self, message: aiogram.types.Message) -> None:
-        """
-        Handler function for /s command messages for selecting (and reading) a connector.
-        """
+        """Handler function for /s command messages for selecting (and reading) a connector."""
         chat_id = message.chat.id
         logger.debug("Received /s (select) command for object for Telegram chat %s", chat_id)
         user = self.auth_provider.get_telegram_user(chat_id)
@@ -163,9 +159,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             await message.reply("Not authorized!")
 
     async def _handle_cancel(self, message: aiogram.types.Message) -> None:
-        """
-        Handler function for /cancel command messages for cancelling the current chat context.
-        """
+        """Handler function for /cancel command messages for cancelling the current chat context."""
         logger.debug("Received /cancel format for Telegram chat %s", message.chat.id)
         await self._do_cancel(message.chat.id)
 
