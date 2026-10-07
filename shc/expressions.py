@@ -441,9 +441,9 @@ class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]
         try:
             current_index = await self.control.read()
             current_input = self.inputs[current_index]
-        except IndexError:
+        except IndexError as e:
             # We "ignore" index errors here. They may have been logged by _index_change() before
-            raise UninitializedError()
+            raise UninitializedError() from e
         return await current_input.read()
 
     async def _new_value(self, value: T, origin: List[Any]) -> None:
@@ -462,8 +462,8 @@ class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]
     async def _index_change(self, current_index: int, origin: List[Any]) -> None:
         try:
             current_input = self.inputs[current_index]
-        except IndexError:
-            raise ValueError("Index {} is out of range of available inputs of {}".format(current_index, self))
+        except IndexError as e:
+            raise ValueError("Index {} is out of range of available inputs of {}".format(current_index, self)) from e
         try:
             await self._publish_and_wait(await current_input.read(), origin)
         except UninitializedError:

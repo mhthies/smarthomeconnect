@@ -344,8 +344,8 @@ class WebServer(AbstractInterface):
     async def _page_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
             page = self._pages[request.match_info["name"]]
-        except KeyError:
-            raise aiohttp.web.HTTPNotFound()
+        except KeyError as e:
+            raise aiohttp.web.HTTPNotFound() from e
 
         html_title = self.title_formatter(page.title)
         template = jinja_env.get_template("page.htm")
@@ -579,10 +579,10 @@ class WebServer(AbstractInterface):
     async def _api_get_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
         try:
             api_object = self._api_objects[request.match_info["name"]]
-        except KeyError:
+        except KeyError as e:
             name_failsafe = request.match_info.get("name", "<undefined>")
             logger.warning("Could not find API object %s, requested by %s", name_failsafe, request.remote)
-            raise aiohttp.web.HTTPNotFound(reason="Could not find API Object with name {}".format(name_failsafe))
+            raise aiohttp.web.HTTPNotFound(reason="Could not find API Object with name {}".format(name_failsafe)) from e
         # Parse `wait` and `timeout` from request query string
         wait = "wait" in request.query
         timeout = 30.0
@@ -592,7 +592,7 @@ class WebServer(AbstractInterface):
             except ValueError as e:
                 raise aiohttp.web.HTTPBadRequest(
                     reason="Could not parse 'wait' query parameter's value as float: {}".format(e)
-                )
+                ) from e
 
         # if `wait`: Make this Request gracefully stoppable on shutdown by registering it for
         if wait:
@@ -625,15 +625,15 @@ class WebServer(AbstractInterface):
             logger.warning(
                 "Invalid JSON body POSTed from %s to %s (error was: %s): %s", request.remote, request.url, e, text
             )
-            raise aiohttp.web.HTTPBadRequest(reason="Could not parse request body as json: {}".format(str(e)))
+            raise aiohttp.web.HTTPBadRequest(reason="Could not parse request body as json: {}".format(str(e))) from e
 
         try:
             name = request.match_info["name"]
             api_object = self._api_objects[name]
-        except KeyError:
+        except KeyError as e:
             name_failsafe = request.match_info.get("name", "<undefined>")
             logger.warning("Could not find API object %s, requested by %s", name_failsafe, request.remote)
-            raise aiohttp.web.HTTPNotFound(reason="Could not find API Object with name {}".format(name_failsafe))
+            raise aiohttp.web.HTTPNotFound(reason="Could not find API Object with name {}".format(name_failsafe)) from e
         try:
             await api_object.http_post(data, request)
         except (ValueError, TypeError) as e:
@@ -646,7 +646,7 @@ class WebServer(AbstractInterface):
             )
             raise aiohttp.web.HTTPUnprocessableEntity(
                 reason="Could not use provided value to update API object: {}".format(e)
-            )
+            ) from e
         raise aiohttp.web.HTTPNoContent()
 
     async def _monitoring_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:

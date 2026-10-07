@@ -204,7 +204,7 @@ class _Supervisor:
             await interface.start()
         except Exception as e:
             logger.critical("Exception while starting interface %s:", repr(interface), exc_info=e)
-            raise RuntimeError()
+            raise RuntimeError() from e
 
     async def run(self) -> int:
         for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
