@@ -326,7 +326,9 @@ class TasmotaInterface(AbstractInterface):
             :class:`shc.misc.UpdateExchange` instead.
         """
         warnings.warn(
-            "The TasmotaInterface.energy_power() method is deprecated. Use energy() instead.", DeprecationWarning
+            "The TasmotaInterface.energy_power() method is deprecated. Use energy() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
         return self._get_or_create_connector(TasmotaEnergyPowerConnector)
 
@@ -340,7 +342,9 @@ class TasmotaInterface(AbstractInterface):
             :class:`shc.misc.UpdateExchange` instead.
         """
         warnings.warn(
-            "The TasmotaInterface.energy_voltage() method is deprecated. Use energy() instead.", DeprecationWarning
+            "The TasmotaInterface.energy_voltage() method is deprecated. Use energy() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
         return self._get_or_create_connector(TasmotaEnergyVoltageConnector)
 
@@ -354,7 +358,9 @@ class TasmotaInterface(AbstractInterface):
             :class:`shc.misc.UpdateExchange` instead.
         """
         warnings.warn(
-            "The TasmotaInterface.energy_current() method is deprecated. Use energy() instead.", DeprecationWarning
+            "The TasmotaInterface.energy_current() method is deprecated. Use energy() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
         return self._get_or_create_connector(TasmotaEnergyCurrentConnector)
 
@@ -368,7 +374,9 @@ class TasmotaInterface(AbstractInterface):
             :class:`shc.misc.UpdateExchange` instead.
         """
         warnings.warn(
-            "The TasmotaInterface.energy_total() method is deprecated. Use energy() instead.", DeprecationWarning
+            "The TasmotaInterface.energy_total() method is deprecated. Use energy() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
         return self._get_or_create_connector(TasmotaEnergyTotalConnector)
 
@@ -382,7 +390,9 @@ class TasmotaInterface(AbstractInterface):
             :class:`shc.misc.UpdateExchange` instead.
         """
         warnings.warn(
-            "The TasmotaInterface.energy_power_factor() method is deprecated. Use energy() instead.", DeprecationWarning
+            "The TasmotaInterface.energy_power_factor() method is deprecated. Use energy() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
         return self._get_or_create_connector(TasmotaEnergyFactorConnector)
 
@@ -398,6 +408,7 @@ class TasmotaInterface(AbstractInterface):
         warnings.warn(
             "The TasmotaInterface.energy_apparent_power() method is deprecated. Use energy() instead.",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self._get_or_create_connector(TasmotaEnergyApparentPowerConnector)
 
@@ -413,6 +424,7 @@ class TasmotaInterface(AbstractInterface):
         warnings.warn(
             "The TasmotaInterface.energy_reactive_power() method is deprecated. Use energy() instead.",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self._get_or_create_connector(TasmotaEnergyReactivePowerConnector)
 
