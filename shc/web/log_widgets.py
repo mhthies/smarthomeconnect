@@ -236,13 +236,13 @@ class ChartWidget(WebPageItem):
         documentation for available fields.
     """
 
-    COLORS = [
+    COLORS = (
         (0, 181, 173),
         (219, 40, 40),
         (33, 186, 69),
         (163, 51, 200),
         (251, 189, 8),
-    ]
+    )
 
     def __init__(self, interval: datetime.timedelta, data_spec: List[ChartDataSpec]):
         self.interval = interval

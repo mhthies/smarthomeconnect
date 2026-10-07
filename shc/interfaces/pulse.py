@@ -52,8 +52,8 @@ class PulseVolumeRaw(NamedTuple):
             representation.
     """
 
-    values: list = []
-    map: list = []
+    values: tuple = ()
+    map: tuple = ()
 
 
 class PulseVolumeComponents(NamedTuple):
@@ -85,8 +85,8 @@ class PulseVolumeComponents(NamedTuple):
     balance: Balance = Balance(0.0)
     fade: Balance = Balance(0.0)
     lfe_balance: Balance = Balance(0.0)
-    normalized_values: list = []
-    map: list = []
+    normalized_values: tuple = ()
+    map: tuple = ()
 
     def as_channels(self) -> PulseVolumeRaw:
         """
@@ -115,7 +115,7 @@ class PulseVolumeComponents(NamedTuple):
         pa_cvolume_set_fade(cvolume, cmap, self.fade)
         pa_cvolume_set_balance(cvolume, cmap, self.balance)
         pa_cvolume_scale(cvolume, round(self.volume * PA_VOLUME_NORM))
-        return PulseVolumeRaw([v / PA_VOLUME_NORM for v in cvolume.values[: cvolume.channels]], self.map)
+        return PulseVolumeRaw(tuple(v / PA_VOLUME_NORM for v in cvolume.values[: cvolume.channels]), self.map)
 
     @classmethod
     def from_channels(cls, raw_volume: PulseVolumeRaw) -> "PulseVolumeComponents":
@@ -159,7 +159,7 @@ class PulseVolumeComponents(NamedTuple):
             Balance(balance),
             Balance(fade),
             Balance(lfe_balance),
-            list(cvolume.values)[:num_channels],
+            tuple(cvolume.values)[:num_channels],
             raw_volume.map,
         )
 
