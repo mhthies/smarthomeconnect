@@ -2,7 +2,7 @@ import abc
 import asyncio
 import logging
 import re
-from typing import Any, Callable, Dict, Generic, List, Optional, Set, Type, TypeVar, Union
+from typing import AbstractSet, Any, Callable, Dict, Generic, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import aiogram
 import aiogram.client
@@ -324,9 +324,9 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         name: str,
         to_message: Callable[[T], str],
         parse_value: Callable[[str], T],
-        read_roles: Set[RoleT],
-        set_roles: Optional[Set[RoleT]] = None,
-        send_users: Set[UserT] = set(),
+        read_roles: AbstractSet[RoleT],
+        set_roles: Optional[AbstractSet[RoleT]] = None,
+        send_users: AbstractSet[UserT] = frozenset(),
         options: Optional[List[str]] = None,
     ) -> "TelegramConnector[T, RoleT]":
         """
@@ -359,7 +359,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             type_,
             name,
             read_roles,
-            send_users,
+            set(send_users),
             set_roles if set_roles is not None else read_roles,
             "Change to?",
             parse_value,
@@ -371,7 +371,11 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         return var
 
     def str_connector(
-        self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
+        self,
+        name: str,
+        read_roles: AbstractSet[RoleT],
+        set_roles: Optional[AbstractSet[RoleT]] = None,
+        send_users: AbstractSet[UserT] = frozenset(),
     ) -> "TelegramConnector[str, RoleT]":
         """
         Create a new connector object with string type values.
@@ -394,7 +398,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
             str,
             name,
             read_roles,
-            send_users,
+            set(send_users),
             set_roles if set_roles is not None else read_roles,
             "Change to?",
             lambda x: x,
@@ -406,7 +410,11 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         return var
 
     def on_off_connector(
-        self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
+        self,
+        name: str,
+        read_roles: AbstractSet[RoleT],
+        set_roles: Optional[AbstractSet[RoleT]] = None,
+        send_users: AbstractSet[UserT] = frozenset(),
     ) -> "TelegramConnector[bool, RoleT]":
         """
         Create a new connector object with bool values, represented to the user as 'on' and 'off'.
@@ -450,7 +458,11 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         return var
 
     def trigger_connector(
-        self, name: str, read_roles: Set[RoleT], set_roles: Optional[Set[RoleT]] = None, send_users: Set[UserT] = set()
+        self,
+        name: str,
+        read_roles: AbstractSet[RoleT],
+        set_roles: Optional[AbstractSet[RoleT]] = None,
+        send_users: AbstractSet[UserT] = frozenset(),
     ) -> "TelegramConnector[None, RoleT]":
         """
         Create a new connector object None-type values.
@@ -500,7 +512,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.connectors[name] = var
         return var
 
-    async def send_message(self, text: str, users: Set[UserT], chat_ids: Set[int] = set()) -> None:
+    async def send_message(self, text: str, users: Iterable[UserT], chat_ids: AbstractSet[int] = frozenset()) -> None:
         """
         Send a message to one or more Telegram chats, identified by either the Telegram chat id or a user of the given
         auth_provider.
@@ -522,7 +534,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         await asyncio.gather(*(self.bot.send_message(chat_id, text) for chat_id in chat_ids | user_chats))
 
 
-class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T], metaclass=abc.ABCMeta):
+class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T]):
     is_reading_optional = False
 
     def __init__(
@@ -530,9 +542,9 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         interface: TelegramBot,
         type_: Type[T],
         name: str,
-        read_roles: Set[RoleT],
-        send_users: Set[UserT],
-        set_roles: Set[RoleT],
+        read_roles: AbstractSet[RoleT],
+        send_users: AbstractSet[UserT],
+        set_roles: AbstractSet[RoleT],
         set_message: str,
         parse_value: Callable[[str], T],
         format_value_read: Callable[[T], str],
@@ -543,9 +555,9 @@ class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable
         super().__init__()
         self.interface = interface
         self.name = name
-        self.read_roles = read_roles
-        self.send_users = send_users
-        self.set_roles = set_roles
+        self.read_roles = set(read_roles)
+        self.send_users = set(send_users)
+        self.set_roles = set(set_roles)
 
         self.set_message = set_message
         self.parse_value_fn = parse_value
