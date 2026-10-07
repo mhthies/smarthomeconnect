@@ -396,7 +396,7 @@ class WebServer(AbstractInterface):
             self._websockets.discard(ws)
             for connector in self.connectors.values():
                 connector.websocket_close(ws)
-            return ws
+        return ws
 
     async def _ui_websocket_dispatch(self, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage) -> None:
         message = msg.json()
@@ -449,7 +449,7 @@ class WebServer(AbstractInterface):
             if ws in self._api_ws_last_will:
                 obj, value = self._api_ws_last_will.pop(ws)
                 await obj.http_post(value, ws)
-            return ws
+        return ws
 
     async def _api_websocket_dispatch_message(
         self, request: aiohttp.web.Request, ws: aiohttp.web.WebSocketResponse, msg: aiohttp.WSMessage
