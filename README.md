@@ -39,14 +39,6 @@ Read more about SHC's base concepts [in the documentation](https://smarthomeconn
 * Logging/Persistence (no really stable in API yet)
     * to MySQL
 
-### Roadmap
-
-* Stabilize logging API
-* Logging to Influx-DB
-* More web widgets
-    * Gauges
-    * timeline/"stripe" charts
-
 
 ## Getting started
 
