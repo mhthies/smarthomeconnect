@@ -20,6 +20,7 @@ See :ref:`data_logging`.
 
 import datetime
 import enum
+import functools
 from dataclasses import dataclass
 from typing import Callable, Generic, Iterable, List, Optional, Tuple, Union
 
@@ -103,7 +104,7 @@ class LogListWidget(WebPageItem):
 
         for spec in data_spec:
             formatter: Callable[[T], Union[str, Markup]] = (
-                (lambda x, spec=spec: spec.format.format(x))  # type: ignore
+                functools.partial(lambda x, spec: spec.format.format(x), spec=spec)
                 if isinstance(spec.format, (str, Markup))
                 else spec.format
             )
@@ -260,7 +261,9 @@ class ChartWidget(WebPageItem):
                 spec.aggregation,
                 aggregation_interval,
                 align_to=self.align_ticks_to,
-                converter=None if spec.scale_factor == 1.0 else lambda x, spec=spec: x * spec.scale_factor,
+                converter=None
+                if spec.scale_factor == 1.0
+                else functools.partial(lambda x, spec: x * spec.scale_factor, spec=spec),
                 include_previous=True,
             )
             line_interpolation = spec.line_interpolation
