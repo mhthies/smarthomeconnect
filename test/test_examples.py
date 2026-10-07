@@ -29,7 +29,7 @@ class BasicTest(unittest.TestCase):
 
     def test_server_client_example(self) -> None:
         # The examples should actually be able to coexist in a single SHC instance
-        import example.server_client.client  # type: ignore  # noqa: F401
+        import example.server_client.client  # type: ignore
         import example.server_client.server  # type: ignore  # noqa: F401
 
         run_shc_for_one_second()

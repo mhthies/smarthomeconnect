@@ -101,7 +101,6 @@ ignore = [
     "RUF002",  # ambiguous unicode character (like en-dash) in docstring
     "RUF006",
     "RUF012",
-    "RUF100",
 ]
 
 [tool.ruff.lint.per-file-ignores]

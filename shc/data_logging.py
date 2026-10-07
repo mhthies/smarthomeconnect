@@ -105,7 +105,7 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     async def retrieve_aggregated_log(
         self,
         start_time: datetime.datetime,
-        end_time: datetime.datetime,  # noqa: C901
+        end_time: datetime.datetime,
         aggregation_method: AggregationMethod,
         aggregation_interval: datetime.timedelta,
     ) -> List[Tuple[datetime.datetime, float]]:
@@ -488,7 +488,7 @@ class LoggingWebUIView(LiveDataLogView[T], WebUIConnector, Generic[T]):
 def aggregate(
     data: List[Tuple[datetime.datetime, T]],
     type_: Type[T],
-    start_time: datetime.datetime,  # noqa: C901
+    start_time: datetime.datetime,
     end_time: datetime.datetime,
     aggregation_method: AggregationMethod,
     aggregation_interval: datetime.timedelta,

@@ -832,7 +832,7 @@ class TestAPI(unittest.TestCase):
         self.server_runner.stop()
 
     def test_rest_get(self) -> None:
-        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))  # noqa: F841
+        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
 
         with self.assertRaises(urllib.error.HTTPError) as cm:
@@ -1032,7 +1032,7 @@ class WebSocketAPITest(unittest.IsolatedAsyncioTestCase):
         self.server_runner.stop()
 
     async def test_errors(self) -> None:
-        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))  # noqa: F841
+        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
         await self.start_websocket()
 
@@ -1081,7 +1081,7 @@ class WebSocketAPITest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("name", data["error"])
 
     async def test_get(self) -> None:
-        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))  # noqa: F841
+        _api_object = self.server.api(int, "the_api_object").connect(ExampleReadable(int, 42))
         self.server_runner.start()
         await self.start_websocket()
 

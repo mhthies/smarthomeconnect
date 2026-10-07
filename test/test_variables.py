@@ -173,9 +173,9 @@ class VariableFieldsTest(unittest.IsolatedAsyncioTestCase):
 
         with warnings.catch_warnings(record=True):  # There seems to be a bug, that record=False breaks the catching
             with self.assertRaises(AttributeError):
-                _var_c = var.c  # noqa: F841
+                _var_c = var.c
             with self.assertRaises(AttributeError):
-                _var_c = var.a.c  # noqa: F841
+                _var_c = var.a.c
 
             with self.assertRaises(base.UninitializedError):
                 await var.a.a.write(21, [self])
