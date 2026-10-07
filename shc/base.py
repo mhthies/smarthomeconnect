@@ -243,7 +243,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                 await asyncio.sleep(random.random() * 0.02)
                 if wait_and_check != self._publish_count:
                     return
-            await subscriber.write(converter(value) if converter else value, origin + [self])  # type: ignore
+            await subscriber.write(converter(value) if converter else value, [*origin, self])  # type: ignore
         except Exception as e:
             logger.error("Error while writing new value %s from %s to %s:", value, self, subscriber, exc_info=e)
         finally:
@@ -263,7 +263,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                 await asyncio.sleep(random.random() * 0.02)
                 if wait_and_check != self._publish_count:
                     return
-            await target(value, origin + [self])
+            await target(value, [*origin, self])
         except Exception as e:
             logger.error("Error while triggering %s from %s:", target, self, exc_info=e)
         finally:
@@ -552,7 +552,7 @@ def handler(reset_origin=False, allow_recursion=False) -> Callable[[LogicHandler
                 return
             logger.info("Triggering logic handler %s() from %s", f.__name__, origin)
             try:
-                token = magicOriginVar.set([wrapper] if reset_origin else (origin + [wrapper]))
+                token = magicOriginVar.set([wrapper] if reset_origin else ([*origin, wrapper]))
                 if num_args == 0:
                     await f()  # type: ignore
                 elif num_args == 1:

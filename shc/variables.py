@@ -169,7 +169,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                     self.field_name, self.variable
                 )
             )
-        await self.parent._write(self.parent._value._replace(**{self.field_name: value}), origin + [self])
+        await self.parent._write(self.parent._value._replace(**{self.field_name: value}), [*origin, self])
 
     async def read(self) -> T:
         if self.parent._value is None:
