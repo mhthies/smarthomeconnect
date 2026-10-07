@@ -75,10 +75,11 @@ line-length = 120
 output-format = "concise"
 include = ["shc/**/*.py", "test/**/*.py"]
 exclude = ["test/assets"]
+target-version = "py39"
 
 [tool.ruff.lint]
 # Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings and Import sorting
-select = ["E", "F", "B", "D", "I"]
+select = ["E", "F", "B", "D", "I", "RUF"]
 ignore = [
     "B024",  # abstract base class, but it has no abstract methods or properties
     "B027",  # empty method in an abstract base class, but has no abstract decorator
@@ -96,6 +97,16 @@ ignore = [
     "D401",  # First line of docstring should be in imperative mood
     "D404",  # First word of the docstring should not be "This"
     "D205",  # 1 blank line required between summary line and description
+    "RUF001",  # ambiguous unicode character (like NNBSP) in string
+    "RUF002",  # ambiguous unicode character (like en-dash) in docstring
+    "RUF005",
+    "RUF006",
+    "RUF012",
+    "RUF021",
+    "RUF022",
+    "RUF023",
+    "RUF036",
+    "RUF100",
 ]
 
 [tool.ruff.lint.per-file-ignores]
