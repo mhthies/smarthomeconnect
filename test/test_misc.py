@@ -4,7 +4,7 @@ import unittest.mock
 
 import shc.misc
 from test._helper import ExampleReadable, ExampleSubscribable, ExampleWritable
-from test.test_variables import ExampleTupleType
+from test.test_variables import ExampleDataclass, ExampleTupleType
 
 
 class MiscTests(unittest.IsolatedAsyncioTestCase):
@@ -190,6 +190,17 @@ class UpdateExchangeTest(unittest.IsolatedAsyncioTestCase):
         await exchange.write(ExampleTupleType(42, 3.1416), [self])
         await asyncio.sleep(0.05)
         target1._write.assert_called_once_with(ExampleTupleType(42, 3.1416), [self, exchange])
+        target2._write.assert_called_once_with(42, [self, exchange, exchange.field("a")])
+
+    async def test_field_dataclass(self) -> None:
+        target1 = ExampleWritable(ExampleDataclass)
+        target2 = ExampleWritable(int)
+        exchange = shc.misc.UpdateExchange(ExampleDataclass).connect(target1)
+        exchange.field("a").connect(target2)
+
+        await exchange.write(ExampleDataclass(42, 3.1416), [self])
+        await asyncio.sleep(0.05)
+        target1._write.assert_called_once_with(ExampleDataclass(42, 3.1416), [self, exchange])
         target2._write.assert_called_once_with(42, [self, exchange, exchange.field("a")])
 
 

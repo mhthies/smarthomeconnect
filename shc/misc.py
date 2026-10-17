@@ -8,7 +8,7 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
-
+import dataclasses
 import datetime
 import logging
 from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Type
@@ -316,7 +316,7 @@ class UpdateExchange(Subscribable[T], Writable[T], Generic[T]):
         self._fields: Dict[str, "_UpdateExchangeField"] = {}
 
         # Create UpdateExchangeFields for each type-annotated field of the type if it is typing.NamedTuple-based.
-        if issubclass(type_, tuple) and type_.__annotations__:
+        if (issubclass(type_, tuple) or dataclasses.is_dataclass(type_)) and hasattr(type_, "__annotations__"):
             for name, field_type in type_.__annotations__.items():
                 field = _UpdateExchangeField(name, field_type)
                 self.trigger(field._recursive_publish, synchronous=True)
@@ -326,7 +326,9 @@ class UpdateExchange(Subscribable[T], Writable[T], Generic[T]):
         await self._publish_and_wait(value, origin)
 
     def field(self, name: str) -> "_UpdateExchangeField":
-        if not issubclass(self.type, tuple) or not self.type.__annotations__:
+        if not (issubclass(self.type, tuple) or dataclasses.is_dataclass(self.type)) or not hasattr(
+            self.type, "__annotations__"
+        ):
             raise TypeError(
                 f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
                 f"NamedTuple-typed VariableFields."

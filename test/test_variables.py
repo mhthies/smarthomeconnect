@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import datetime
 import unittest
 import unittest.mock
@@ -79,6 +80,18 @@ class ExampleTupleType(NamedTuple):
 
 class ExampleRecursiveTupleType(NamedTuple):
     a: ExampleTupleType
+    b: int
+
+
+@dataclasses.dataclass(frozen=True)
+class ExampleDataclass:
+    a: int
+    b: float
+
+
+@dataclasses.dataclass(frozen=True)
+class ExampleRecursiveDataclass:
+    a: ExampleDataclass
     b: int
 
 
@@ -257,6 +270,48 @@ class VariableFieldsTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.01)
         subscriber._write.assert_called_with(21, [self, var.field("a"), var.field("a")])
 
+    async def test_recursive_field_writing_dataclasses(self):
+        var = variables.Variable(ExampleRecursiveDataclass)
+        subscriber = ExampleWritable(ExampleRecursiveDataclass)
+        intermediate_subscriber = ExampleWritable(ExampleDataclass)
+        field_subscriber = ExampleWritable(int)
+        other_field_subscriber = ExampleWritable(float)
+        another_field_subscriber = ExampleWritable(int)
+        var.subscribe(subscriber)
+        var.field("a").subscribe(intermediate_subscriber)
+        var.field("a").field("a").subscribe(field_subscriber)
+        var.field("a").field("b").subscribe(other_field_subscriber)
+        var.field("b").subscribe(another_field_subscriber)
+
+        with self.assertRaises(base.UninitializedError):
+            await var.field("a").field("a").write(21, [self])
+
+        await var.write(ExampleRecursiveDataclass(ExampleDataclass(42, 3.1416), 7), [self])
+        await asyncio.sleep(0.01)
+
+        subscriber._write.reset_mock()
+        intermediate_subscriber._write.reset_mock()
+        field_subscriber._write.reset_mock()
+        other_field_subscriber._write.reset_mock()
+        another_field_subscriber._write.reset_mock()
+
+        await var.field("a").field("a").write(21, [self])
+        self.assertEqual(21, await var.field("a").field("a").read())
+        self.assertEqual(ExampleDataclass(21, 3.1416), await var.field("a").read())
+        await asyncio.sleep(0.01)
+        subscriber._write.assert_called_once_with(
+            ExampleRecursiveDataclass(ExampleDataclass(21, 3.1416), 7),
+            [self, var.field("a").field("a"), var.field("a"), var],
+        )
+        intermediate_subscriber._write.assert_called_once_with(
+            ExampleDataclass(21, 3.1416), [self, var.field("a").field("a"), var.field("a"), var.field("a")]
+        )
+        field_subscriber._write.assert_called_once_with(
+            21, [self, var.field("a").field("a"), var.field("a"), var.field("a").field("a")]
+        )
+        other_field_subscriber._write.assert_not_called()
+        another_field_subscriber._write.assert_not_called()
+
 
 class ConnectedVariablesTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple_concurrent_update(self) -> None:
@@ -326,13 +381,20 @@ class MyPyPluginTest(unittest.TestCase):
         result = mypy.api.run(
             ["--config-file", str(asset_dir / "mypy.ini"), str(asset_dir / "variable_typing_example.py")]
         )
-        self.assertIn("variable_typing_example.py:22: error", result[0])
-        self.assertNotIn("variable_typing_example.py:23: error", result[0])
-        self.assertIn("variable_typing_example.py:25: error", result[0])
-        self.assertNotIn("variable_typing_example.py:26: error", result[0])
-        self.assertIn("variable_typing_example.py:27: error", result[0])
-        self.assertIn("variable_typing_example.py:28: error", result[0])
-        self.assertIn("variable_typing_example.py:29: error", result[0])
+        self.assertIn("variable_typing_example.py:30: error", result[0])
+        self.assertNotIn("variable_typing_example.py:31: error", result[0])
+        self.assertIn("variable_typing_example.py:33: error", result[0])
+        self.assertNotIn("variable_typing_example.py:34: error", result[0])
+        self.assertIn("variable_typing_example.py:35: error", result[0])
+        self.assertIn("variable_typing_example.py:36: error", result[0])
+        self.assertIn("variable_typing_example.py:37: error", result[0])
+
+        self.assertIn("variable_typing_example.py:39: error", result[0])
+        self.assertNotIn("variable_typing_example.py:40: error", result[0])
+        self.assertIn("variable_typing_example.py:41: error", result[0])
+        self.assertNotIn("variable_typing_example.py:42: error", result[0])
+        self.assertIn("variable_typing_example.py:43: error", result[0])
+        self.assertIn("variable_typing_example.py:44: error", result[0])
         self.assertEqual(1, result[2])
 
     def test_mypy_plugin_exchange(self) -> None:
