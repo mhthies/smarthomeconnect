@@ -599,6 +599,7 @@ class WebServer(AbstractInterface):
             current_task = asyncio.current_task()
             assert current_task is not None
             self._associated_tasks.add(current_task)
+            current_task.add_done_callback(self._associated_tasks.remove)
 
         # Now, let's actually call http_get of the API object
         # If `wait`, this will await a new value or the `timeout`.
