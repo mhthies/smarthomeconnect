@@ -13,6 +13,7 @@ import asyncio
 import enum
 import logging
 import signal
+import warnings
 from typing import Iterable, NamedTuple, Optional, Set
 
 from .base import Readable
@@ -145,7 +146,25 @@ async def interface_failure(interface_name: str = "n/a") -> None:
     """
     Shut down the SHC application due to a critical error in an interface.
 
-    This coroutine shall be called from an interface's background Task on a critical failure.
+    **Deprecated**. Use interface_failure_occurred() instead.
+
+    For a normal shutdown, use `stop()` instead.
+
+    :param interface_name: String identifying the interface which caused the shutdown.
+    """
+    warnings.warn(
+        "This coroutine is deprecated. Use the interface_failure_occurred() function instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    interface_failure_occurred(interface_name)
+
+
+def interface_failure_occurred(interface_name: str = "n/a") -> None:
+    """
+    Shut down the SHC application due to a critical error in an interface.
+
+    This function shall be called from an interface's start coroutine or background Task on a critical failure.
     It will shut down the SHC system gracefully and lets the Python process return with exit code 1.
 
     For a normal shutdown, use `stop()` instead.

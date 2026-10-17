@@ -15,7 +15,12 @@ import time
 from typing import Optional
 
 from ..base import Readable, Subscribable
-from ..supervisor import AbstractInterface, InterfaceStatus, ServiceStatus, interface_failure
+from ..supervisor import (
+    AbstractInterface,
+    InterfaceStatus,
+    ServiceStatus,
+    interface_failure_occurred,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -426,7 +431,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
                 logger.critical("Error in interface %s:", exc_info=exception)
             else:
                 logger.critical("Unexpected shutdown of interface %s", self)
-            asyncio.create_task(interface_failure(repr(self)))
+            interface_failure_occurred(repr(self))
             return True
 
         if exception:
