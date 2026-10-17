@@ -16,7 +16,7 @@ import enum
 import json
 import logging
 import math
-from typing import Any, Callable, Generic, List, Optional, Sequence, Tuple, Type, TypeVar, Union, cast
+from typing import Any, Callable, Generic, List, Optional, Sequence, Set, Tuple, Type, TypeVar, Union, cast
 
 import aiohttp.web
 
@@ -328,6 +328,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         #: Mutex to ensure serialization of updates (incl. modification of _last_retrieved_timestamp) to avoid
         #: double-processing of log entries in case of interval-based update operation
         self._mutex: Optional[asyncio.Lock] = None
+        self._running_update_tasks: Set[asyncio.Task] = set()
 
     async def _new_log_values_written(self, values: List[Tuple[datetime.datetime, T]]) -> None:
         """
@@ -337,7 +338,9 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         if self.push:
             await self._process_new_logvalues(values)
         else:
-            asyncio.create_task(self._update())
+            task = asyncio.create_task(self._update())
+            self._running_update_tasks.add(task)
+            task.add_done_callback(self._running_update_tasks.discard)
 
     async def _update(self, *_args) -> None:
         if self._mutex is None:

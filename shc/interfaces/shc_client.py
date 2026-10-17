@@ -371,7 +371,9 @@ class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Reading[T], 
             # to prevent inconsistent state on server and client.
             value: T = from_json(self.type, raw_value)
             if self.pending_sends:
-                asyncio.create_task(self._write(value, [], _reflected_from_server=True))
+                task = asyncio.create_task(self._write(value, [], _reflected_from_server=True))
+                self.__running_publish_tasks.add(task)
+                task.add_done_callback(self.__running_publish_tasks.discard)
             self._publish(value, [])
             logger.debug("Received new value %s for SHC API object %s", raw_value, self.name)
         except Exception as e:

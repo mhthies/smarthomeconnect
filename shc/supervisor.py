@@ -14,6 +14,7 @@ import enum
 import logging
 import signal
 import warnings
+from contextlib import suppress
 from typing import Iterable, NamedTuple, Optional, Set
 
 from .base import Readable
@@ -211,6 +212,7 @@ class _Supervisor:
     def __init__(self):
         self._loop = asyncio.get_running_loop()
         self._shc_stopped = asyncio.Event()
+        self._stop_task: Optional[asyncio.Task] = None
         self._exit_code = 0
 
     @staticmethod
@@ -224,6 +226,10 @@ class _Supervisor:
     async def run(self) -> int:
         for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
             self._loop.add_signal_handler(sig, self._handle_signal, sig)
+        if self._stop_task:
+            self._stop_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._stop_task
         self._shc_stopped.clear()
         logger.info("Starting up interfaces ...")
         try:
@@ -237,14 +243,18 @@ class _Supervisor:
         logger.info("Variables initialized successfully. Starting timers ...")
         await timer_supervisor.start()
         logger.info("Timers initialized successfully. SHC startup finished.")
-        # Now, keep this task awaiting SHC begin stopped via stop()
+        # Now, keep this task awaiting SHC being stopped via stop()
         await self._shc_stopped.wait()
         return self._exit_code
 
     def interface_failure(self, interface_name: str) -> None:
+        if self._stop_task is not None:
+            logger.warning("Error in interface %s, but stop() Task is already running.")
+            return
+
         logger.warning("Shutting down SHC due to error in interface %s", interface_name)
         self._exit_code = 1
-        asyncio.create_task(self.stop())
+        self._stop_task = asyncio.create_task(self.stop())
 
     async def stop(self):
         logger.info("Shutting down interfaces ...")

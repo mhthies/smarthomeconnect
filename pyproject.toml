@@ -99,7 +99,6 @@ ignore = [
     "D205",  # 1 blank line required between summary line and description
     "RUF001",  # ambiguous unicode character (like NNBSP) in string
     "RUF002",  # ambiguous unicode character (like en-dash) in docstring
-    "RUF006",
 ]
 
 [tool.ruff.lint.per-file-ignores]

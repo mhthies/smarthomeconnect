@@ -10,8 +10,9 @@ def run_shc_for_one_second() -> None:
         await shc.supervisor.stop()
 
     async def main_task():
-        asyncio.create_task(shutdown_after_one_second())
+        shutdown_task = asyncio.create_task(shutdown_after_one_second())
         await shc.supervisor.run()
+        await shutdown_task
 
     asyncio.run(main_task())
 

@@ -16,7 +16,7 @@ import functools
 import inspect
 import logging
 import random
-from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from . import conversion
 
@@ -228,6 +228,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         self._subscribers: List[SubscriberListType] = []
         self._triggers: List[Tuple[LogicHandler, bool]] = []
         self._pending_updates: Dict[int, Dict[asyncio.Task, Optional[int]]] = {}
+        self.__running_publish_tasks: Set[asyncio.Task] = set()
 
     async def __publish_write(
         self,
@@ -347,10 +348,16 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
 
         else:
             for target, _sync in self._triggers:
-                asyncio.create_task(self.__publish_trigger(target, value, origin, False))
+                task = asyncio.create_task(self.__publish_trigger(target, value, origin, False))
+                self.__running_publish_tasks.add(task)
+                task.add_done_callback(self.__running_publish_tasks.discard)
             for subscriber, converter in self._subscribers:
                 if not any(s is subscriber for s in origin):
-                    asyncio.create_task(self.__publish_write(subscriber, converter, value, origin, use_pending=False))
+                    task = asyncio.create_task(
+                        self.__publish_write(subscriber, converter, value, origin, use_pending=False)
+                    )
+                    self.__running_publish_tasks.add(task)
+                    task.add_done_callback(self.__running_publish_tasks.discard)
 
     async def _publish_and_wait(self, value: T_co, origin: List[Any]):
         """
@@ -369,7 +376,9 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         self._publish_count += 1
         for target, sync in self._triggers:
             if not sync:
-                asyncio.create_task(self.__publish_trigger(target, value, origin, False))
+                task = asyncio.create_task(self.__publish_trigger(target, value, origin, False))
+                self.__running_publish_tasks.add(task)
+                task.add_done_callback(self.__running_publish_tasks.discard)
         sync_jobs = [
             self.__publish_write(subscriber, converter, value, origin, False)
             for subscriber, converter in self._subscribers

@@ -172,6 +172,7 @@ class KNXConnector(SupervisedClientInterface):
         self.knx: Optional[knxdclient.KNXDConnection] = None
         self.init_request_groups: Set[KNXGAD] = set()
         self._first_connect = True
+        self._running_read_tasks: Set[asyncio.Task] = set()
 
     async def start(self) -> None:
         self.knx = knxdclient.KNXDConnection()
@@ -304,7 +305,9 @@ class KNXConnector(SupervisedClientInterface):
     def _dispatch_telegram(self, packet: knxdclient.ReceivedGroupAPDU) -> None:
         if packet.payload.type is knxdclient.KNXDAPDUType.READ:
             if packet.dst in self.groups:
-                asyncio.create_task(self._respond_read_request(self.groups[packet.dst]))
+                task = asyncio.create_task(self._respond_read_request(self.groups[packet.dst]))
+                self._running_read_tasks.add(task)
+                task.add_done_callback(self._running_read_tasks.discard)
         else:
             try:
                 group_var = self.groups[packet.dst]
