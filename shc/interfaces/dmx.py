@@ -181,7 +181,7 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         await self._writer.drain()
 
     def __repr__(self) -> str:
-        return "{}(serial_url={})".format(self.__class__.__name__, self.serial_url)
+        return f"{self.__class__.__name__}(serial_url={self.serial_url})"
 
 
 class EntTecMessageLabel(enum.Enum):

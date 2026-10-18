@@ -113,9 +113,7 @@ class MySQLConnector(ReadableStatusInterface):
             variable = self.variables[name]
             if variable.type is not type_:
                 raise ValueError(
-                    "MySQL log variable with name {} has already been defined with type {}".format(
-                        name, variable.type.__name__
-                    )
+                    f"MySQL log variable with name {name} has already been defined with type {variable.type.__name__}"
                 )
             return variable
         else:
@@ -140,9 +138,8 @@ class MySQLConnector(ReadableStatusInterface):
             variable = self.persistence_variables[name]
             if variable.type is not type_:
                 raise ValueError(
-                    "MySQL persistence variable with name {} has already been defined with type {}".format(
-                        name, variable.type.__name__
-                    )
+                    f"MySQL persistence variable with name {name} has already been defined "
+                    f"with type {variable.type.__name__}"
                 )
             return variable
         else:
@@ -217,7 +214,7 @@ class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
         return lambda value: from_json(type_, json.loads(value))
 
     def __repr__(self):
-        return "<{} '{}'>".format(self.__class__.__name__, self.name)
+        return f"<{self.__class__.__name__} '{self.name}'>"
 
 
 class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
@@ -378,4 +375,4 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
             return lambda value: from_json(type_, json.loads(value))
 
     def __repr__(self):
-        return "<{} '{}'>".format(self.__class__.__name__, self.name)
+        return f"<{self.__class__.__name__} '{self.name}'>"

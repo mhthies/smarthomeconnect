@@ -544,7 +544,7 @@ class TasmotaColorCCTConnector(AbstractTasmotaRWConnector[CCTUInt8]):
         super().__init__(interface, "color", "Color")
 
     def _encode(self, value: CCTUInt8) -> str:
-        return "#{:0>2X}{:0>2X}".format(value.cold, value.warm)
+        return f"#{value.cold:0>2X}{value.warm:0>2X}"
 
     def _decode(self, value: JSONType) -> CCTUInt8:
         assert isinstance(value, str)
@@ -560,7 +560,7 @@ class TasmotaColorRGBConnector(AbstractTasmotaRWConnector[RGBUInt8]):
         super().__init__(interface, "color", "Color")
 
     def _encode(self, value: RGBUInt8) -> str:
-        return "#{:0>2X}{:0>2X}{:0>2X}".format(value.red, value.green, value.blue)
+        return f"#{value.red:0>2X}{value.green:0>2X}{value.blue:0>2X}"
 
     def _decode(self, value: JSONType) -> RGBUInt8:
         assert isinstance(value, str)
@@ -576,7 +576,7 @@ class TasmotaColorRGBWConnector(AbstractTasmotaRWConnector[RGBWUInt8]):
         super().__init__(interface, "color", "Color")
 
     def _encode(self, value: RGBWUInt8) -> str:
-        return "#{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(value.rgb.red, value.rgb.green, value.rgb.blue, value.white)
+        return f"#{value.rgb.red:0>2X}{value.rgb.green:0>2X}{value.rgb.blue:0>2X}{value.white:0>2X}"
 
     def _decode(self, value: JSONType) -> RGBWUInt8:
         assert isinstance(value, str)
@@ -592,8 +592,9 @@ class TasmotaColorRGBCCTConnector(AbstractTasmotaRWConnector[RGBCCTUInt8]):
         super().__init__(interface, "color", "Color")
 
     def _encode(self, value: RGBCCTUInt8) -> str:
-        return "#{:0>2X}{:0>2X}{:0>2X}{:0>2X}{:0>2X}".format(
-            value.rgb.red, value.rgb.green, value.rgb.blue, value.white.cold, value.white.warm
+        return (
+            f"#{value.rgb.red:0>2X}{value.rgb.green:0>2X}{value.rgb.blue:0>2X}"
+            f"{value.white.cold:0>2X}{value.white.warm:0>2X}"
         )
 
     def _decode(self, value: JSONType) -> RGBCCTUInt8:

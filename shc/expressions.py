@@ -150,31 +150,31 @@ class ExpressionBuilder(Connectable[T], metaclass=abc.ABCMeta):
         if self.type in TYPES_ABS_NEG:
             return UnaryExpressionHandler(TYPES_ABS_NEG[self.type], self, operator.abs)
         else:
-            raise TypeError("{} cannot be used with abs()".format(self))
+            raise TypeError(f"{self} cannot be used with abs()")
 
     def __neg__(self) -> "UnaryExpressionHandler":
         if self.type in TYPES_ABS_NEG:
             return UnaryExpressionHandler(TYPES_ABS_NEG[self.type], self, operator.neg)
         else:
-            raise TypeError("{} cannot be negated".format(self))
+            raise TypeError(f"{self} cannot be negated")
 
     def __ceil__(self) -> "UnaryExpressionHandler":
         if self.type in TYPES_CEIL_FLOOR_ROUND:
             return UnaryExpressionHandler(TYPES_CEIL_FLOOR_ROUND[self.type], self, math.ceil)
         else:
-            raise TypeError("{} cannot be rounded".format(self))
+            raise TypeError(f"{self} cannot be rounded")
 
     def __floor__(self) -> "UnaryExpressionHandler":
         if self.type in TYPES_CEIL_FLOOR_ROUND:
             return UnaryExpressionHandler(TYPES_CEIL_FLOOR_ROUND[self.type], self, math.floor)
         else:
-            raise TypeError("{} cannot be rounded".format(self))
+            raise TypeError(f"{self} cannot be rounded")
 
     def __round__(self) -> "UnaryExpressionHandler":
         if self.type in TYPES_CEIL_FLOOR_ROUND:
             return UnaryExpressionHandler(TYPES_CEIL_FLOOR_ROUND[self.type], self, round)
         else:
-            raise TypeError("{} cannot be rounded".format(self))
+            raise TypeError(f"{self} cannot be rounded")
 
     def __eq__(self, other) -> "BinaryExpressionHandler[bool]":  # type: ignore
         return BinaryExpressionHandler(bool, self, other, operator.eq)
@@ -327,7 +327,7 @@ class BinaryExpressionHandler(ExpressionHandler[T], Generic[T]):
         )
 
     def __repr__(self) -> str:
-        return "{}[{}({}, {})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a), repr(self.b))
+        return f"{self.__class__.__name__}[{self.operator.__name__}({self.a!r}, {self.b!r})]"
 
 
 class BinaryCastExpressionHandler(BinaryExpressionHandler[T]):
@@ -345,7 +345,7 @@ class UnaryExpressionHandler(ExpressionHandler[T], Generic[T]):
         return self.operator(received_value if received_from is self.a else await self.a.read())
 
     def __repr__(self) -> str:
-        return "{}[{}({})]".format(self.__class__.__name__, self.operator.__name__, repr(self.a))
+        return f"{self.__class__.__name__}[{self.operator.__name__}({self.a!r})]"
 
 
 class UnaryCastExpressionHandler(UnaryExpressionHandler[T]):
@@ -427,9 +427,7 @@ class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]
         self.type: Type[T] = self.inputs[0].type
         for i, input_ in enumerate(self.inputs):
             if input_.type != self.type:
-                raise ValueError(
-                    "Type of input {} ({}) does not match: {} instead of {}".format(i, input, input_.type, self.type)
-                )
+                raise ValueError(f"Type of input {i} ({input}) does not match: {input_.type} instead of {self.type}")
             if isinstance(input_, Subscribable):
                 input_.trigger(self._new_value, synchronous=True)
 
@@ -463,7 +461,7 @@ class Multiplexer(Readable[T], Subscribable[T], ExpressionBuilder[T], Generic[T]
         try:
             current_input = self.inputs[current_index]
         except IndexError as e:
-            raise ValueError("Index {} is out of range of available inputs of {}".format(current_index, self)) from e
+            raise ValueError(f"Index {current_index} is out of range of available inputs of {self}") from e
         try:
             await self._publish_and_wait(await current_input.read(), origin)
         except UninitializedError:
@@ -566,7 +564,7 @@ def expression(func: Callable[..., T]) -> Type[ExpressionFunctionHandler[T]]:
             )
 
         def __repr__(self) -> str:
-            return "@expression[{}({})]".format(func.__name__, repr(self.args))
+            return f"@expression[{func.__name__}({self.args!r})]"
 
     functools.update_wrapper(WrapHandler, func, updated=())
     return WrapHandler  # type: ignore

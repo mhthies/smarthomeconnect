@@ -101,7 +101,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     async def read(self) -> T:
         if self._value is None:
-            raise UninitializedError("Variable {} is not initialized yet.".format(repr(self)))
+            raise UninitializedError(f"Variable {self!r} is not initialized yet.")
         return self._value
 
     async def _init_from_provider(self) -> None:
@@ -116,7 +116,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     def __repr__(self) -> str:
         if self.name:
-            return '<{} "{}">'.format(self.__class__.__name__, self.name)
+            return f'<{self.__class__.__name__} "{self.name}">'
         else:
             return super().__repr__()
 
@@ -178,9 +178,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.parent._value is None:
             raise UninitializedError(
-                "Cannot set field {} within Variable {}, since it is uninitialized".format(
-                    self.field_name, self.variable
-                )
+                f"Cannot set field {self.field_name} within Variable {self.variable}, since it is uninitialized"
             )
         if dataclasses.is_dataclass(self.parent._value):
             new_parent_value = dataclasses.replace(self.parent._value, **{self.field_name: value})  # type: ignore

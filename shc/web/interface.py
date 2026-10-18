@@ -256,18 +256,15 @@ class WebServer(AbstractInterface):
         if not sub_label:
             if existing_entry:
                 raise ValueError(
-                    "UI main menu entry with label {} exists already. Contents: {}".format(
-                        label, existing_entry.page_name
-                    )
+                    f"UI main menu entry with label {label} exists already. Contents: {existing_entry.page_name}"
                 )
             self.ui_menu_entries.append(MenuEntrySpec(label=label, icon=icon, page_name=page_name))
 
         elif existing_entry:
             if not isinstance(existing_entry, SubMenuEntrySpec):
                 raise ValueError(
-                    "Existing UI main menu entry with label {} is not a submenu but a link to page {}".format(
-                        label, existing_entry.page_name
-                    )
+                    f"Existing UI main menu entry with label {label} is not a submenu "
+                    f"but a link to page {existing_entry.page_name}"
                 )
             existing_entry.submenus.append(MenuEntrySpec(label=sub_label, icon=sub_icon, page_name=page_name))
         else:
@@ -293,7 +290,7 @@ class WebServer(AbstractInterface):
             existing = self._api_objects[name]
             if existing.type is not type_:
                 raise TypeError(
-                    "Type {} does not match type {} of existing API object with same name".format(type_, existing.type)
+                    f"Type {type_} does not match type {existing.type} of existing API object with same name"
                 )
             return existing
         else:
@@ -466,7 +463,7 @@ class WebServer(AbstractInterface):
             message = msg.json()
         except JSONDecodeError:
             logger.warning("Websocket API message from %s is not a valid JSON string: %s", request.remote, msg.data)
-            await ws.send_json({"status": 400, "error": "Could not parse message as JSON: {}".format(msg.data)})
+            await ws.send_json({"status": 400, "error": f"Could not parse message as JSON: {msg.data}"})
             return
 
         try:
@@ -485,7 +482,7 @@ class WebServer(AbstractInterface):
         except KeyError:
             logger.warning("Could not find API object %s, requested by %s", name, request.remote)
             result["status"] = 404
-            result["error"] = "There is no API object with name '{}'".format(name)
+            result["error"] = f"There is no API object with name '{name}'"
             await ws.send_json(result)
             return
 
@@ -556,7 +553,7 @@ class WebServer(AbstractInterface):
                     value,
                 )
                 result["status"] = 422
-                result["error"] = "Could not use provided value to update API object: {}".format(e)
+                result["error"] = f"Could not use provided value to update API object: {e}"
 
         elif action == "lastwill":
             logger.debug(
@@ -576,12 +573,12 @@ class WebServer(AbstractInterface):
                     value,
                 )
                 result["status"] = 422
-                result["error"] = "Could not use provided value to set last will: {}".format(e)
+                result["error"] = f"Could not use provided value to set last will: {e}"
 
         else:
             logger.warning("Unknown websocket API action '%s', requested by %s", action, client_ip)
             result["status"] = 422
-            result["error"] = "Not a valid action: '{}'".format(action)
+            result["error"] = f"Not a valid action: '{action}'"
         return result
 
     async def _api_get_handler(self, request: aiohttp.web.Request) -> aiohttp.web.Response:
@@ -590,7 +587,7 @@ class WebServer(AbstractInterface):
         except KeyError as e:
             name_failsafe = request.match_info.get("name", "<undefined>")
             logger.warning("Could not find API object %s, requested by %s", name_failsafe, request.remote)
-            raise aiohttp.web.HTTPNotFound(reason="Could not find API Object with name {}".format(name_failsafe)) from e
+            raise aiohttp.web.HTTPNotFound(reason=f"Could not find API Object with name {name_failsafe}") from e
         # Parse `wait` and `timeout` from request query string
         wait = "wait" in request.query
         timeout = 30.0
@@ -599,7 +596,7 @@ class WebServer(AbstractInterface):
                 timeout = float(request.query["wait"])
             except ValueError as e:
                 raise aiohttp.web.HTTPBadRequest(
-                    reason="Could not parse 'wait' query parameter's value as float: {}".format(e)
+                    reason=f"Could not parse 'wait' query parameter's value as float: {e}"
                 ) from e
 
         # if `wait`: Make this Request gracefully stoppable on shutdown by registering it for
@@ -634,7 +631,7 @@ class WebServer(AbstractInterface):
             logger.warning(
                 "Invalid JSON body POSTed from %s to %s (error was: %s): %s", request.remote, request.url, e, text
             )
-            raise aiohttp.web.HTTPBadRequest(reason="Could not parse request body as json: {}".format(str(e))) from e
+            raise aiohttp.web.HTTPBadRequest(reason=f"Could not parse request body as json: {e!s}") from e
 
         try:
             name = request.match_info["name"]
@@ -642,7 +639,7 @@ class WebServer(AbstractInterface):
         except KeyError as e:
             name_failsafe = request.match_info.get("name", "<undefined>")
             logger.warning("Could not find API object %s, requested by %s", name_failsafe, request.remote)
-            raise aiohttp.web.HTTPNotFound(reason="Could not find API Object with name {}".format(name_failsafe)) from e
+            raise aiohttp.web.HTTPNotFound(reason=f"Could not find API Object with name {name_failsafe}") from e
         try:
             await api_object.http_post(data, request)
         except (ValueError, TypeError) as e:
@@ -654,7 +651,7 @@ class WebServer(AbstractInterface):
                 data,
             )
             raise aiohttp.web.HTTPUnprocessableEntity(
-                reason="Could not use provided value to update API object: {}".format(e)
+                reason=f"Could not use provided value to update API object: {e}"
             ) from e
         raise aiohttp.web.HTTPNoContent()
 
@@ -734,9 +731,9 @@ class WebServer(AbstractInterface):
         final_file_name = path.name
         i = 0
         while final_file_name in self.static_files.values():
-            final_file_name = "{}_{:04d}.{}".format(path.stem, i, path.suffix)
+            final_file_name = f"{path.stem}_{i:04d}.{path.suffix}"
         self.static_files[path] = final_file_name
-        final_url = "/addon/{}".format(final_file_name)
+        final_url = f"/addon/{final_file_name}"
 
         # Unfortunately, aiohttp.web.static can only serve directories. We want to serve a single file here.
         async def send_file(_request):
@@ -769,15 +766,15 @@ class WebServer(AbstractInterface):
         """
         path = path.absolute()
         if path in self.static_files:
-            final_url = "/addon/{}".format(self.static_files[path])
+            final_url = f"/addon/{self.static_files[path]}"
         else:
             final_file_name = path.name
             i = 0
             while final_file_name in self.static_files.values():
-                final_file_name = "{}_{:04d}.{}".format(path.stem, i, path.suffix)
+                final_file_name = f"{path.stem}_{i:04d}.{path.suffix}"
 
             self.static_files[path] = final_file_name
-            final_url = "/addon/{}".format(final_file_name)
+            final_url = f"/addon/{final_file_name}"
 
             self._app.add_routes([aiohttp.web.static(final_url, path)])
 
@@ -787,7 +784,7 @@ class WebServer(AbstractInterface):
         return f"{self.root_url}{final_url}/"
 
     def __repr__(self) -> str:
-        return "{}(host={}, port={})".format(self.__class__.__name__, self.host, self.port)
+        return f"{self.__class__.__name__}(host={self.host}, port={self.port})"
 
 
 class WebConnectorContainer(metaclass=abc.ABCMeta):
@@ -949,7 +946,7 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
         return (self,)
 
     def __repr__(self):
-        return "{}<id={}>".format(self.__class__.__name__, id(self))
+        return f"{self.__class__.__name__}<id={id(self)}>"
 
 
 class WebDisplayDatapoint(Reading[T], Writable[T], WebUIConnector, metaclass=abc.ABCMeta):

@@ -1017,7 +1017,7 @@ class WebSocketAPITest(unittest.IsolatedAsyncioTestCase):
                     else:
                         raise AssertionError("Websocket closed by server.")
                 elif msg.type == aiohttp.WSMsgType.ERROR:
-                    raise AssertionError("Websocket error: {}".format(msg.data))
+                    raise AssertionError(f"Websocket error: {msg.data}")
 
         self.client_session = aiohttp.ClientSession()
         self.ws = await self.client_session.ws_connect("http://localhost:42080/api/v1/ws")

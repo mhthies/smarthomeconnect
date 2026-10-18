@@ -198,9 +198,8 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
         self._value = initial_value  #: Current output value (uninverted)
         if not isinstance(lower, wrapped.type) or not isinstance(upper, wrapped.type):
             raise TypeError(
-                "'lower' and 'upper' must be instances of the wrapped Subscribable's type, which is {}".format(
-                    wrapped.type.__name__
-                )
+                f"'lower' and 'upper' must be instances of the wrapped Subscribable's type, "
+                f"which is {wrapped.type.__name__}"
             )
         self.lower = lower
         self.upper = upper

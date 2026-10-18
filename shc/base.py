@@ -105,9 +105,9 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
         if isinstance(source, Subscribable) and isinstance(target, Writable) and (send or send is None):
             source.subscribe(target, convert=convert)
         elif send and not isinstance(source, Subscribable):
-            raise TypeError("Cannot subscribe {} to {}, since the latter is not Subscribable".format(target, source))
+            raise TypeError(f"Cannot subscribe {target} to {source}, since the latter is not Subscribable")
         elif send and not isinstance(target, Writable):
-            raise TypeError("Cannot subscribe {} to {}, since the former is not Writable".format(target, source))
+            raise TypeError(f"Cannot subscribe {target} to {source}, since the former is not Writable")
         if (
             isinstance(source, Readable)
             and isinstance(target, Reading)
@@ -115,13 +115,9 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
         ):
             target.set_provider(source, convert=convert)
         elif provide and not isinstance(source, Readable):
-            raise TypeError(
-                "Cannot use {} as read provider for {}, since the former is not Readable".format(source, target)
-            )
+            raise TypeError(f"Cannot use {source} as read provider for {target}, since the former is not Readable")
         elif provide and not isinstance(target, Reading):
-            raise TypeError(
-                "Cannot use {} as read provider for {}, since the latter is not Reading".format(source, target)
-            )
+            raise TypeError(f"Cannot use {source} as read provider for {target}, since the latter is not Reading")
 
 
 class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
@@ -166,7 +162,7 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             except LookupError as e:
                 raise ValueError("No origin attribute provided or set via execution context") from e
         if not isinstance(value, self.type):
-            raise TypeError("Invalid type for {}: {} is not a {}".format(self, value, self.type.__name__))
+            raise TypeError(f"Invalid type for {self}: {value} is not a {self.type.__name__}")
         logger.debug("New value %s for %s via %s", value, self, origin)
         await self._write(value, origin)
 
@@ -413,9 +409,8 @@ class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             converter = conversion.get_converter(self.type, subscriber.type)
         else:
             raise TypeError(
-                "Type mismatch of subscriber {} ({}) for {} ({})".format(
-                    repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__
-                )
+                f"Type mismatch of subscriber {subscriber!r} ({subscriber.type.__name__}) "
+                f"for {self!r} ({self.type.__name__})"
             )
         self._subscribers.append((subscriber, converter))
         if self._stateful_publishing:
@@ -489,9 +484,8 @@ class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
             converter = conversion.get_converter(provider.type, self.type)
         else:
             raise TypeError(
-                "Type mismatch of Readable {} ({}) as provider for {} ({})".format(
-                    repr(provider), provider.type.__name__, repr(self), self.type.__name__
-                )
+                f"Type mismatch of Readable {provider!r} ({provider.type.__name__}) as provider "
+                f"for {self!r} ({self.type.__name__})"
             )
         self._default_provider = (provider, converter)
 

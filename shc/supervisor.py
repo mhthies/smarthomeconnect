@@ -262,7 +262,7 @@ class _Supervisor:
         self._shc_stopped.set()
 
     def _handle_signal(self, sig: int):
-        logger.info("Got signal {}. Initiating shutdown ...".format(sig))
+        logger.info(f"Got signal {sig}. Initiating shutdown ...")
         self._loop.create_task(self.stop())
 
 

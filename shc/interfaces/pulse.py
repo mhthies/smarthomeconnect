@@ -690,7 +690,7 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
-            raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
+            raise RuntimeError(f"PulseAudio sink id for {self!r} is currently not defined")
         assert self.interface.pulse is not None, (
             "PulseAsync object should have been initialized in interface's start() coroutine"
         )
@@ -708,7 +708,7 @@ class SourceMuteConnector(SourceAttributeConnector[bool], Writable[bool]):
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
-            raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
+            raise RuntimeError(f"PulseAudio source id for {self!r} is currently not defined")
         assert self.interface.pulse is not None, (
             "PulseAsync object should have been initialized in interface's start() coroutine"
         )
@@ -728,7 +728,7 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
         from pulsectl import PulseVolumeInfo
 
         if self.current_id is None:
-            raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
+            raise RuntimeError(f"PulseAudio sink id for {self!r} is currently not defined")
         assert self.interface.pulse is not None, (
             "PulseAsync object should have been initialized in interface's start() coroutine"
         )
@@ -748,7 +748,7 @@ class SourceVolumeConnector(SourceAttributeConnector[PulseVolumeRaw], Writable[P
         from pulsectl import PulseVolumeInfo
 
         if self.current_id is None:
-            raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
+            raise RuntimeError(f"PulseAudio source id for {self!r} is currently not defined")
         assert self.interface.pulse is not None, (
             "PulseAsync object should have been initialized in interface's start() coroutine"
         )

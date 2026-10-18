@@ -527,7 +527,7 @@ def aggregate(
             raise TypeError("min/max/avg. aggregation is only applicable to int and float type log variables.")
 
     elif aggregation_method not in (AggregationMethod.ON_TIME, AggregationMethod.ON_TIME_RATIO):
-        raise ValueError("Unsupported aggregation method {}".format(aggregation_method))
+        raise ValueError(f"Unsupported aggregation method {aggregation_method}")
 
     aggregator_t = {
         AggregationMethod.MINIMUM: MinAggregator,

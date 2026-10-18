@@ -94,7 +94,7 @@ def _random_time(maximum_offset: Optional[datetime.timedelta], random_function: 
     elif random_function == "gauss":
         random_value = random.gauss(0, 0.5)
     else:
-        raise ValueError("Unsupported random function '{}'".format(random_function))
+        raise ValueError(f"Unsupported random function '{random_function}'")
     return maximum_offset * random_value
 
 

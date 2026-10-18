@@ -192,7 +192,7 @@ class SHCWebClient(SupervisedClientInterface):
         :raises asyncio.TimeoutError: when no response is received from the server within TIMEOUT seconds
         """
         if self._ws is None:
-            raise RuntimeError("Websocket of SHC client for API at {} has not been connected yet".format(self.server))
+            raise RuntimeError(f"Websocket of SHC client for API at {self.server} has not been connected yet")
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         logger.debug("Writing value from SHC API object %s ...", name)
@@ -225,7 +225,7 @@ class SHCWebClient(SupervisedClientInterface):
         :raises asyncio.TimeoutError: when no response is received from the server within TIMEOUT seconds
         """
         if self._ws is None:
-            raise RuntimeError("Websocket of SHC client for API at {} has not been connected yet".format(self.server))
+            raise RuntimeError(f"Websocket of SHC client for API at {self.server} has not been connected yet")
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         logger.debug("Setting last will at SHC API for object name %s ...", name)
@@ -259,7 +259,7 @@ class SHCWebClient(SupervisedClientInterface):
         :raises asyncio.TimeoutError: when no response is received from the server within TIMEOUT seconds
         """
         if self._ws is None:
-            raise RuntimeError("Websocket of SHC client for API at {} has not been connected yet".format(self.server))
+            raise RuntimeError(f"Websocket of SHC client for API at {self.server} has not been connected yet")
         future = asyncio.get_event_loop().create_future()
         self._waiting_futures[id(future)] = future
         logger.debug("Reading value from SHC API object %s ...", name)
@@ -292,9 +292,7 @@ class SHCWebClient(SupervisedClientInterface):
             existing = self._api_objects[name]
             if existing.type is not type_:
                 raise TypeError(
-                    "Type {} does not match type {} of existing API client object with same name".format(
-                        type_, existing.type
-                    )
+                    f"Type {type_} does not match type {existing.type} of existing API client object with same name"
                 )
             return existing
         else:
@@ -303,7 +301,7 @@ class SHCWebClient(SupervisedClientInterface):
             return api_object
 
     def __repr__(self) -> str:
-        return "{}(server={})".format(self.__class__.__name__, self.server)
+        return f"{self.__class__.__name__}(server={self.server})"
 
 
 class WebApiClientObject(Readable[T], Writable[T], Subscribable[T], Reading[T], Generic[T]):

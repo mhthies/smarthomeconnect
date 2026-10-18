@@ -26,7 +26,7 @@ class RangeFloat1(float):
         # noinspection PyArgumentList
         res = float.__new__(cls, *args, **kwargs)
         if not 0.0 <= res <= 1.0:
-            raise ValueError("{} is out of the allowed range for type {}".format(res, cls.__name__))
+            raise ValueError(f"{res} is out of the allowed range for type {cls.__name__}")
         return res
 
     @overload

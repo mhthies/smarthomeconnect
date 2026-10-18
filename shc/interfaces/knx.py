@@ -285,9 +285,8 @@ class KNXConnector(SupervisedClientInterface):
             group_var = self.groups[addr]
             if group_var.dpt != dpt:
                 raise ValueError(
-                    "KNX Datapoint Type conflict: Group Variable {} has been created with type {} before".format(
-                        group_var.addr, group_var.dpt
-                    )
+                    f"KNX Datapoint Type conflict: Group Variable {group_var.addr} has been created "
+                    f"with type {group_var.dpt} before"
                 )
         else:
             group_var = KNXGroupVar(self, addr, dpt)
@@ -331,7 +330,7 @@ class KNXConnector(SupervisedClientInterface):
         await asyncio.sleep(0.15)  # wait a bit longer to be sure, that the telegram has been sent to the bus
 
     def __repr__(self) -> str:
-        return "{}(host={}, port={}, sock={})".format(self.__class__.__name__, self.host, self.port, self.sock)
+        return f"{self.__class__.__name__}(host={self.host}, port={self.port}, sock={self.sock})"
 
 
 class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
@@ -339,7 +338,7 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
 
     def __init__(self, connector: KNXConnector, addr: KNXGAD, dpt: str):
         if dpt not in KNXDPTs:
-            raise ValueError("KNX Datapoint Type {} is not supported".format(dpt))
+            raise ValueError(f"KNX Datapoint Type {dpt} is not supported")
         self.type = KNXDPTs[dpt][0]
         super().__init__()
         self.dpt = dpt
@@ -366,4 +365,4 @@ class KNXGroupVar(Subscribable[T], Writable[T], Reading[T], Generic[T]):
         await self.connector.send(self.addr, encoded_data)
 
     def __repr__(self) -> str:
-        return "{}(GAD={})".format(self.__class__.__name__, self.addr)
+        return f"{self.__class__.__name__}(GAD={self.addr})"
