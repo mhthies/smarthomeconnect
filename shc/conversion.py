@@ -8,7 +8,7 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
-
+import dataclasses
 import datetime
 import enum
 import json
@@ -50,6 +50,8 @@ class SHCJsonEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
         if isinstance(o, enum.Enum):
             return o.value
+        if dataclasses.is_dataclass(o) and not isinstance(o, type):
+            return dataclasses.asdict(o)
         if type(o) in _JSON_CONVERSIONS:
             return _JSON_CONVERSIONS[type(o)][0](o)
         return super().default(o)
@@ -62,6 +64,8 @@ def from_json(type_: Type[T], value: Any) -> T:
         return type_(value)
     if issubclass(type_, tuple) and type_.__annotations__:
         return type_(*(from_json(t, v) for v, (_n, t) in zip(value, type_.__annotations__.items())))
+    if dataclasses.is_dataclass(type_) and type_.__annotations__:
+        return type_(**{k: from_json(type_.__annotations__[k], v) for k, v in value.items()})
     try:
         return _JSON_CONVERSIONS[type_][1](value)
     except KeyError as e:
