@@ -312,7 +312,7 @@ class KNXConnector(SupervisedClientInterface):
             try:
                 group_var = self.groups[packet.dst]
             except KeyError:
-                logging.debug("No KNX Group Variable for Addr %s registered", packet.dst)
+                logger.debug("No KNX Group Variable for Addr %s registered", packet.dst)
                 return
             group_var.update_from_bus(packet.payload.value, [packet.src])
 

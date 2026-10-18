@@ -306,7 +306,7 @@ class PulseAudioInterface(SupervisedClientInterface):
             if sink_info.name == server_info.default_sink_name:
                 sink_connectors += self.sink_connectors_by_name.get(None, [])
             if sink_connectors:
-                logging.debug(
+                logger.debug(
                     'Pulseaudio sink "%s" is already available. Mapping %s connectors to sink id %s',
                     sink_info.name,
                     len(sink_connectors),
@@ -318,7 +318,7 @@ class PulseAudioInterface(SupervisedClientInterface):
                     self.sink_connectors_by_id[sink_info.index].append(connector)
                     connector.on_change(sink_info, [])
                 except Exception as e:
-                    logging.error(
+                    logger.error(
                         "Error while initializing connector %s with current data of sink", connector, exc_info=e
                     )
         for source_info in await self.pulse.source_list():
@@ -326,7 +326,7 @@ class PulseAudioInterface(SupervisedClientInterface):
             if source_info.name == server_info.default_source_name:
                 source_connectors += self.source_connectors_by_name.get(None, [])
             if source_connectors:
-                logging.debug(
+                logger.debug(
                     'Pulseaudio source "%s" is already available. Mapping %s connectors to source id %s',
                     source_info.name,
                     len(source_connectors),
@@ -338,7 +338,7 @@ class PulseAudioInterface(SupervisedClientInterface):
                     self.source_connectors_by_id[source_info.index].append(source_connector)
                     source_connector.on_change(source_info, [])
                 except Exception as e:
-                    logging.error(
+                    logger.error(
                         "Error while initializing connector %s with current data of source",
                         source_connector,
                         exc_info=e,
