@@ -40,7 +40,7 @@ import aiomqtt
 import shc
 import shc.interfaces.mqtt
 import shc.web
-from shc.base import Subscribable, T, T_con, Writable
+from shc.base import Subscribable, T, Writable
 from shc.datatypes import RangeFloat1
 from shc.interfaces._helper import SubscribableStatusInterface
 from shc.supervisor import ServiceCriticality, ServiceStatus
@@ -212,7 +212,7 @@ class FooPlayerVoiceAnnouncementConnector(Writable[None]):
     def __init__(self, interface: FooPlayerInterface):
         self._interface = interface
 
-    async def _write(self, value: T_con, origin: List[Any]) -> None:
+    async def _write(self, value: None, origin: List[Any]) -> None:
         await self._interface._send_command("announce")
 
 
