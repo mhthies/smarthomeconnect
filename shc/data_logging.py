@@ -194,7 +194,7 @@ class WritableDataLogVariable(DataLogVariable[T], Writable[T], Generic[T], metac
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._data_log_subscribers: List["LiveDataLogView"] = []
+        self._data_log_subscribers: List[LiveDataLogView] = []
         self._pending_values: List[Tuple[datetime.datetime, T]] = []
         self._mutex = asyncio.Lock()
         #: event to track running queue flushes: If the event is present, a concurrent task is waiting to do a

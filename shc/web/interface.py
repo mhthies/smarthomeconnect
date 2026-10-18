@@ -805,7 +805,7 @@ class WebPage(WebConnectorContainer):
         self.server = server
         self.name = name
         self.title = title
-        self.segments: List["_WebPageSegment"] = []
+        self.segments: List[_WebPageSegment] = []
 
     def add_item(self, item: "WebPageItem") -> None:
         """

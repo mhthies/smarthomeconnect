@@ -53,7 +53,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.bot = aiogram.Bot(token=api_token, session=session)
         self.dp: Optional[aiogram.Dispatcher] = None
 
-        self.connectors: Dict[str, "TelegramConnector"] = {}
+        self.connectors: Dict[str, TelegramConnector] = {}
         self.poll_task: Optional[asyncio.Task] = None
         #: Current state/context of each chat. Either None (init state selected) or
         self.chat_state: Dict[int, TelegramConnector] = {}

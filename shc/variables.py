@@ -48,7 +48,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         super().__init__()
         self.name = name
         self._value: Optional[T] = initial_value
-        self._variable_fields: Dict[str, "VariableField"] = {}
+        self._variable_fields: Dict[str, VariableField] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
         if (
@@ -130,7 +130,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self.parent = parent
         self.variable: Variable = parent.variable if hasattr(parent, "variable") else parent  # type: ignore
         self.field_name: str = field_name
-        self._variable_fields: Dict[str, "VariableField"] = {}
+        self._variable_fields: Dict[str, VariableField] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
         if (

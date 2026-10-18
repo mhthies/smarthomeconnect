@@ -263,10 +263,10 @@ class PulseAudioInterface(SupervisedClientInterface):
         self._pulse_client_name = pulse_client_name
         self._pulse_server_socket = pulse_server_socket
         self.pulse: Optional[PulseAsync] = None
-        self.sink_connectors_by_id: DefaultDict[int, List["SinkConnector"]] = defaultdict(list)
-        self.sink_connectors_by_name: DefaultDict[Optional[str], List["SinkConnector"]] = defaultdict(list)
-        self.source_connectors_by_id: DefaultDict[int, List["SourceConnector"]] = defaultdict(list)
-        self.source_connectors_by_name: DefaultDict[Optional[str], List["SourceConnector"]] = defaultdict(list)
+        self.sink_connectors_by_id: DefaultDict[int, List[SinkConnector]] = defaultdict(list)
+        self.sink_connectors_by_name: DefaultDict[Optional[str], List[SinkConnector]] = defaultdict(list)
+        self.source_connectors_by_id: DefaultDict[int, List[SourceConnector]] = defaultdict(list)
+        self.source_connectors_by_name: DefaultDict[Optional[str], List[SourceConnector]] = defaultdict(list)
 
         self._default_sink_name_connector = DefaultNameConnector(
             self, "default_sink_name", self._register_origin_callback
