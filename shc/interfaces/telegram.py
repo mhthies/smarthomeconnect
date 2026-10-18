@@ -532,7 +532,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         await asyncio.gather(*(self.bot.send_message(chat_id, text) for chat_id in chat_ids | user_chats))
 
 
-class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T]):
+class TelegramConnector(Reading[T], Subscribable[T], Writable[T], Generic[T, RoleT]):
     is_reading_optional = False
 
     def __init__(
