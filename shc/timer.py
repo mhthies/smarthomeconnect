@@ -43,7 +43,7 @@ class _TimerSupervisor:
 
     async def start(self) -> None:
         logger.info("Starting TimerSupervisor with %s timers ...", len(self.supervised_timers))
-        self.timer_tasks = list(map(lambda timer: asyncio.create_task(timer.run()), self.supervised_timers))
+        self.timer_tasks = [asyncio.create_task(timer.run()) for timer in self.supervised_timers]
 
     async def wait(self) -> None:
         await asyncio.gather(*self.timer_tasks, return_exceptions=True)
