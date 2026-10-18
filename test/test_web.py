@@ -293,12 +293,14 @@ class MonitoringTest(unittest.IsolatedAsyncioTestCase):
         res = subprocess.run(
             [sys.executable, Path(shc.__file__).parent / "util" / "check_shc.py", "-u", "http://localhost:42080"],
             stdout=subprocess.PIPE,
+            check=False,
         )
         self.assertEqual(1, res.returncode)
 
         res = subprocess.run(
             [sys.executable, Path(shc.__file__).parent / "util" / "check_shc.py", "-u", "http://localhost:42081"],
             stdout=subprocess.PIPE,
+            check=False,
         )
         self.assertEqual(3, res.returncode)
         self.assertIn("Failed to connect to SHC", res.stdout.decode())
@@ -313,6 +315,7 @@ class MonitoringTest(unittest.IsolatedAsyncioTestCase):
                 "Iface 1",
             ],
             stdout=subprocess.PIPE,
+            check=False,
         )
         self.assertEqual(2, res.returncode)
         self.assertIn("Something is wrong", res.stdout.decode())
@@ -327,6 +330,7 @@ class MonitoringTest(unittest.IsolatedAsyncioTestCase):
                 "Iface NotExist",
             ],
             stdout=subprocess.PIPE,
+            check=False,
         )
         self.assertEqual(3, res.returncode)
         self.assertIn("is not present", res.stdout.decode())
