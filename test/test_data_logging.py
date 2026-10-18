@@ -327,12 +327,12 @@ class AbstractLoggingTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.2)
         await var1.write(3, [self])  # type: ignore
 
-        view1.result = await var1.retrieve_log(start_ts, start_ts + datetime.timedelta(seconds=0.35))
+        view1.result = await var1.retrieve_log(start_ts, datetime.datetime.now().astimezone())
 
         await asyncio.sleep(0.6)
         await var1.write(4, [self])  # type: ignore
 
-        view2.result = await var1.retrieve_log(start_ts, start_ts + datetime.timedelta(seconds=1.05))
+        view2.result = await var1.retrieve_log(start_ts, datetime.datetime.now().astimezone())
 
         await asyncio.sleep(0.15)
         await var1.write(5, [self])  # type: ignore
