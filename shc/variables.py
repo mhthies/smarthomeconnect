@@ -56,9 +56,9 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
             and hasattr(type_, "__annotations__")
             and type_.__annotations__
         ):
-            for name, field_type in type_.__annotations__.items():
-                variable_field = VariableField(self, name, field_type)
-                self._variable_fields[name] = variable_field
+            for field_name, field_type in type_.__annotations__.items():
+                variable_field = VariableField(self, field_name, field_type)
+                self._variable_fields[field_name] = variable_field
 
         _ALL_VARIABLES.append(self)
 
