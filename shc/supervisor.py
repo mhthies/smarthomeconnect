@@ -172,7 +172,6 @@ def interface_failure_occurred(interface_name: str = "n/a") -> None:
 
     :param interface_name: String identifying the interface which caused the shutdown.
     """
-    global _SUPERVISOR
     if _SUPERVISOR is None:
         logger.error(
             f"Tried to shutdown SHC supervisor due to failure in interface {interface_name}, but SHC supervisor is not "
@@ -189,7 +188,6 @@ async def stop():
     When shutting down due to a critical error in an interface, use interface_failure() instead, which will set the
     program's exit code to 1.
     """
-    global _SUPERVISOR
     if _SUPERVISOR is not None:
         await _SUPERVISOR.stop()
 
