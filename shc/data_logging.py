@@ -405,7 +405,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         now = datetime.datetime.now(datetime.timezone.utc)
         if self.push:
             assert not for_update
-            return now - self.interval, now
+            return now - self.interval, datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
 
         if not for_update and self._last_retrieved_timestamp is not None:
             # We need to make sure that all our clients are have the same latest data, so that the next
