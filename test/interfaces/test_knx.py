@@ -64,7 +64,7 @@ class KNXDConnectorTest(unittest.IsolatedAsyncioTestCase):
         self.interface_runner.start()
 
         proc = await asyncio.create_subprocess_exec(
-            "knxtool", "on", f"local://{self.knxd_socket}", "1/2/3", env=dict(PATH=os.environ["PATH"])
+            "knxtool", "on", f"local://{self.knxd_socket}", "1/2/3", env={"PATH": os.environ["PATH"]}
         )
         await proc.communicate()
         if proc.returncode:
@@ -77,7 +77,7 @@ class KNXDConnectorTest(unittest.IsolatedAsyncioTestCase):
             "c6",
             "00",
             "0b",
-            env=dict(PATH=os.environ["PATH"]),
+            env={"PATH": os.environ["PATH"]},
         )
         await proc.communicate()
         if proc.returncode:
@@ -102,7 +102,7 @@ class KNXDConnectorTest(unittest.IsolatedAsyncioTestCase):
             "vbusmonitor1",
             f"local://{self.knxd_socket}",
             stdout=asyncio.subprocess.PIPE,
-            env=dict(PATH=os.environ["PATH"]),
+            env={"PATH": os.environ["PATH"]},
         )
         await asyncio.sleep(0.1)
 
@@ -154,21 +154,21 @@ class KNXDConnectorTest(unittest.IsolatedAsyncioTestCase):
             "vbusmonitor1",
             f"local://{self.knxd_socket}",
             stdout=asyncio.subprocess.PIPE,
-            env=dict(PATH=os.environ["PATH"]),
+            env={"PATH": os.environ["PATH"]},
         )
         await asyncio.sleep(0.1)
 
         try:
             # Send GroupRead requests
             proc2 = await asyncio.create_subprocess_exec(
-                "knxtool", "groupread", f"local://{self.knxd_socket}", "1/2/3", env=dict(PATH=os.environ["PATH"])
+                "knxtool", "groupread", f"local://{self.knxd_socket}", "1/2/3", env={"PATH": os.environ["PATH"]}
             )
             await proc2.communicate()
             if proc2.returncode:
                 raise RuntimeError(f"knxtool groupread failed with exit code {proc.returncode}")
             await asyncio.sleep(0.1)
             proc2 = await asyncio.create_subprocess_exec(
-                "knxtool", "groupread", f"local://{self.knxd_socket}", "17/5/127", env=dict(PATH=os.environ["PATH"])
+                "knxtool", "groupread", f"local://{self.knxd_socket}", "17/5/127", env={"PATH": os.environ["PATH"]}
             )
             await proc2.communicate()
             if proc2.returncode:

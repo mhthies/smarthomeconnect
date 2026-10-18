@@ -76,14 +76,14 @@ class MQTTClientInterface(SupervisedClientInterface):
         failsafe_start: bool = False,
     ) -> None:
         super().__init__(auto_reconnect, failsafe_start)
-        self._client_parameters = dict(
-            hostname=hostname,
-            port=port,
-            username=username,
-            password=password,
-            identifier=client_id,
-            protocol=ProtocolVersion(protocol),
-        )
+        self._client_parameters = {
+            "hostname": hostname,
+            "port": port,
+            "username": username,
+            "password": password,
+            "identifier": client_id,
+            "protocol": ProtocolVersion(protocol),
+        }
         self.client: Optional[Client] = None
         self.matcher = MQTTMatcher()
         self.subscribe_topics: Dict[str, int] = {}  #: dict {topic: qos} for subscribing
