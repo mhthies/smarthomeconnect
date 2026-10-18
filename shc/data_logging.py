@@ -663,7 +663,7 @@ class AverageAggregator(AbstractAggregator[Union[float, int], float]):
     def get(self) -> float:
         return self.value_sum / self.time_sum
 
-    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[float, int]) -> None:
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: float) -> None:
         delta_seconds = (end - start).total_seconds()
         self.time_sum += delta_seconds
         self.value_sum += value * delta_seconds
@@ -684,7 +684,7 @@ class MinAggregator(AbstractAggregator[Union[float, int], float]):
     def get(self) -> float:
         return self.value
 
-    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[int, float]) -> None:
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: float) -> None:
         self.value = min(self.value, value)
 
 
@@ -703,7 +703,7 @@ class MaxAggregator(AbstractAggregator[Union[float, int], float]):
     def get(self) -> float:
         return self.value
 
-    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[int, float]) -> None:
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: float) -> None:
         self.value = max(self.value, value)
 
 
