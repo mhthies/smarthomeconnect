@@ -16,7 +16,7 @@ import functools
 import inspect
 import logging
 import random
-from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Self, Set, Tuple, Type, TypeVar, Union
 
 from . import conversion
 
@@ -30,8 +30,6 @@ logger = logging.getLogger(__name__)
 
 magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar("shc_origin")
 MAX_CONCURRENT_UPDATE_DELAY = 0.02
-
-C = TypeVar("C", bound="Connectable")
 
 
 class ResetOriginSentinel:
@@ -47,14 +45,14 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
     type: Type[T]
 
     def connect(
-        self: C,
+        self,
         other: "Connectable[S]",
         send: Optional[bool] = None,
         receive: Optional[bool] = None,
         read: Optional[bool] = None,
         provide: Optional[bool] = None,
         convert: Union[bool, Tuple[Callable[[T], S], Callable[[S], T]]] = False,
-    ) -> C:
+    ) -> Self:
         """
         Subscribe self to other and set as default_provider and vice versa (depending on the two object's capabilities,
         optionalities and given parameters).
@@ -133,14 +131,14 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def connect(
-        self: C,
+        self,
         other: "Connectable",
         send: Optional[bool] = None,
         receive: Optional[bool] = None,
         read: Optional[bool] = None,
         provide: Optional[bool] = None,
         convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False,
-    ) -> C:
+    ) -> Self:
         pass
 
 
