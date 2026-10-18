@@ -98,10 +98,7 @@ class AbstractWebTest(unittest.TestCase):
         if (value := os.getenv("SHC_TEST_REUSE_WEB_DRIVER")) is not None:
             return value.strip().lower() in ["1", "true", "yes", "on"]
 
-        if "WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ:
-            return False
-
-        return True
+        return "WSL_DISTRO_NAME" not in os.environ and "WSL_INTEROP" not in os.environ
 
 
 class SimpleWebTest(AbstractWebTest):
