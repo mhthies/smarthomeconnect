@@ -490,7 +490,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
         def parse_value(x: str) -> None:
             if x == "do":
-                return None
+                return
             else:
                 raise ValueError("Invalid value. Must be 'do'. Otherwise, use /cancel to cancel triggering.")
 
