@@ -149,7 +149,7 @@ class MQTTClientTest(unittest.IsolatedAsyncioTestCase):
         # self.assertIn("Connection refused", ctx.output[0])
 
         # Restart server
-        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", "-c", str(self.broker_config_file)])
+        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", "-c", str(self.broker_config_file)])  # noqa: ASYNC220  # it's okay to block the asyncio event loop in the test
 
         # Wait for second reconnect attempt
         with unittest.mock.patch.object(self.client.client, "__aenter__", new=AsyncMock()) as connect_mock:
@@ -178,7 +178,7 @@ class MQTTClientTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Connection refused", ctx.output[0])
 
         # Restart server
-        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", "-c", str(self.broker_config_file)])
+        self.broker_process = subprocess.Popen(["mosquitto", "-p", "42883", "-c", str(self.broker_config_file)])  # noqa: ASYNC220  # it's okay to block the asyncio event loop in the test
         await asyncio.sleep(0.25)
         await self._send_retained_test_message()
 
