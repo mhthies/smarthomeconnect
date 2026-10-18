@@ -13,7 +13,7 @@ try:
     mido.backend.load()
     mido_backend_available = True
     mido_backend_error = ""
-except Exception as e:
+except ModuleNotFoundError as e:
     mido_backend_available = False
     mido_backend_error = str(e)
 
