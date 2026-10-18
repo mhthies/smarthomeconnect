@@ -10,6 +10,7 @@
 # specific language governing permissions and limitations under the License.
 
 import asyncio
+import dataclasses
 import datetime
 import logging
 import warnings
@@ -50,7 +51,11 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         self._variable_fields: Dict[str, "VariableField"] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
-        if issubclass(type_, tuple) and hasattr(type_, "__annotations__") and type_.__annotations__:
+        if (
+            (issubclass(type_, tuple) or dataclasses.is_dataclass(type_))
+            and hasattr(type_, "__annotations__")
+            and type_.__annotations__
+        ):
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
                 self._variable_fields[name] = variable_field
@@ -58,10 +63,12 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         _ALL_VARIABLES.append(self)
 
     def field(self, name: str) -> "VariableField":
-        if not issubclass(self.type, tuple) or not self.type.__annotations__:
+        if not (issubclass(self.type, tuple) or dataclasses.is_dataclass(self.type)) or not hasattr(
+            self.type, "__annotations__"
+        ):
             raise TypeError(
-                f"{self.type.__name__} is not a NamedTuple, but Variable.field() only works with "
-                f"NamedTuple-typed Variables."
+                f"{self.type.__name__} is not a NamedTuple or dataclass, but Variable.field() only works with "
+                f"NamedTuple- or dataclass-typed Variables."
             )
         return self._variable_fields[name]
 
@@ -126,16 +133,22 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self._variable_fields: Dict[str, "VariableField"] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
-        if issubclass(type_, tuple) and hasattr(type_, "__annotations__") and type_.__annotations__:
+        if (
+            (issubclass(type_, tuple) or dataclasses.is_dataclass(type_))
+            and hasattr(type_, "__annotations__")
+            and type_.__annotations__
+        ):
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
                 self._variable_fields[name] = variable_field
 
     def field(self, name: str) -> "VariableField":
-        if not issubclass(self.type, tuple) or not self.type.__annotations__:
+        if not (issubclass(self.type, tuple) or dataclasses.is_dataclass(self.type)) or not hasattr(
+            self.type, "__annotations__"
+        ):
             raise TypeError(
-                f"{self.type.__name__} is not a NamedTuple, but VariableField.field() only works with "
-                f"NamedTuple-typed VariableFields."
+                f"{self.type.__name__} is not a NamedTuple or dataclass, but VariableField.field() only works with "
+                f"NamedTuple- or dataclass-typed VariableFields."
             )
         return self._variable_fields[name]
 
@@ -169,7 +182,11 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                     self.field_name, self.variable
                 )
             )
-        await self.parent._write(self.parent._value._replace(**{self.field_name: value}), [*origin, self])
+        if dataclasses.is_dataclass(self.parent._value):
+            new_parent_value = dataclasses.replace(self.parent._value, **{self.field_name: value})  # type: ignore
+        else:
+            new_parent_value = self.parent._value._replace(**{self.field_name: value})
+        await self.parent._write(new_parent_value, [*origin, self])
 
     async def read(self) -> T:
         if self.parent._value is None:

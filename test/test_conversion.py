@@ -1,6 +1,8 @@
+import dataclasses
 import datetime
 import json
 import unittest
+from typing import NamedTuple
 
 from shc import Variable, conversion
 
@@ -14,6 +16,28 @@ class ConverterRegistrationTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             fake_json_data = {"var": {"x": "foobar"}}
             conversion.from_json(Variable, fake_json_data["var"])
+
+
+class ExampleTupleType(NamedTuple):
+    a: int
+    b: float
+
+
+class ExampleRecursiveTupleType(NamedTuple):
+    a: ExampleTupleType
+    b: int
+
+
+@dataclasses.dataclass(frozen=True)
+class ExampleDataclass:
+    a: int
+    b: float
+
+
+@dataclasses.dataclass(frozen=True)
+class ExampleRecursiveDataclass:
+    a: ExampleDataclass
+    b: int
 
 
 class DefaultConverterTest(unittest.TestCase):
@@ -57,3 +81,23 @@ class DefaultConverterTest(unittest.TestCase):
         self.assertEqual(datetime1, conversion.from_json(datetime.datetime, deserialized["datetime1"]))
         self.assertEqual(datetime2, conversion.from_json(datetime.datetime, deserialized["datetime2"]))
         self.assertEqual(timedelta1, conversion.from_json(datetime.timedelta, deserialized["timedelta1"]))
+
+    def test_default_json_converters_named_tuple(self) -> None:
+        data = ExampleRecursiveTupleType(ExampleTupleType(42, 3.14), 56)
+        serialized = json.dumps(data, cls=conversion.SHCJsonEncoder)
+        deserialized = json.loads(serialized)
+        data2 = conversion.from_json(ExampleRecursiveTupleType, deserialized)
+
+        self.assertEqual(data2, data)
+        self.assertIsInstance(data, ExampleRecursiveTupleType)
+        self.assertIsInstance(data.a, ExampleTupleType)
+
+    def test_default_json_converters_dataclass(self) -> None:
+        data = ExampleRecursiveDataclass(ExampleDataclass(42, 3.14), 56)
+        serialized = json.dumps(data, cls=conversion.SHCJsonEncoder)
+        deserialized = json.loads(serialized)
+        data2 = conversion.from_json(ExampleRecursiveDataclass, deserialized)
+
+        self.assertEqual(data2, data)
+        self.assertIsInstance(data, ExampleRecursiveDataclass)
+        self.assertIsInstance(data.a, ExampleDataclass)

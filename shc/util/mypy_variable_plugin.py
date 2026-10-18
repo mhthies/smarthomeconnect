@@ -21,7 +21,8 @@ file (other Plugins can be added with comma-separation).
 from typing import Callable, Optional
 
 from mypy import errorcodes
-from mypy.nodes import StrExpr
+from mypy.expandtype import expand_type_by_instance
+from mypy.nodes import StrExpr, Var
 from mypy.plugin import MethodContext, Plugin
 from mypy.types import Instance, TupleType, Type, TypeAliasType
 
@@ -46,9 +47,9 @@ class SHCVariable(Plugin):
         wrapped_type = context.type.args[0]
         if isinstance(wrapped_type, TypeAliasType) and wrapped_type.alias is not None:
             wrapped_type = wrapped_type.alias.target
-        if not isinstance(wrapped_type, TupleType) or not wrapped_type.partial_fallback.type.is_named_tuple:
+        if not _is_named_tuple(wrapped_type) and not _is_dataclass(wrapped_type):
             context.api.fail(
-                f".field() can only be used with NamedTuple-typed SHC containers, not {wrapped_type}",
+                f".field() can only be used with NamedTuple- or dataclass-typed SHC containers, not {wrapped_type}",
                 context.context,
                 code=errorcodes.MISC,
             )
@@ -58,20 +59,59 @@ class SHCVariable(Plugin):
             # If the field name is not specified as a simple string expression, we cannot check the value
             return context.default_return_type
         field_name = field_name_expression.value
-        tuple_field_names = wrapped_type.partial_fallback.type.metadata["namedtuple"]["fields"]
-        assert isinstance(tuple_field_names, list)
-        try:
-            field_index = tuple_field_names.index(field_name)
-        except ValueError:
-            context.api.fail(
-                f'NamedTuple "{wrapped_type}" has no field "{field_name}" to create a variable/'
-                f"update-exchange field  for",
-                context.context,
-                code=errorcodes.ATTR_DEFINED,
-            )
-            return context.default_return_type
-        field_type = wrapped_type.items[field_index]
-        return Instance(context.default_return_type.type, [field_type])
+        if _is_named_tuple(wrapped_type):
+            assert isinstance(wrapped_type, TupleType)
+            return _handle_named_tuple(context, wrapped_type, field_name)
+        else:
+            assert isinstance(wrapped_type, Instance)
+            return _handle_dataclass(context, wrapped_type, field_name)
+
+
+def _is_named_tuple(wrapped_type: Type) -> bool:
+    return isinstance(wrapped_type, TupleType) and wrapped_type.partial_fallback.type.is_named_tuple
+
+
+def _is_dataclass(wrapped_type: Type) -> bool:
+    return isinstance(wrapped_type, Instance) and "dataclass" in wrapped_type.type.metadata
+
+
+def _handle_named_tuple(context: MethodContext, wrapped_type: TupleType, field_name: str) -> Type:
+    tuple_field_names = wrapped_type.partial_fallback.type.metadata["namedtuple"]["fields"]
+    assert isinstance(tuple_field_names, list)
+    try:
+        field_index = tuple_field_names.index(field_name)
+    except ValueError:
+        context.api.fail(
+            f'NamedTuple "{wrapped_type}" has no field "{field_name}" to create a variable/update-exchange field for',
+            context.context,
+            code=errorcodes.ATTR_DEFINED,
+        )
+        return context.default_return_type
+    field_type = wrapped_type.items[field_index]
+    assert isinstance(context.default_return_type, Instance)
+    return Instance(context.default_return_type.type, [field_type])
+
+
+def _handle_dataclass(context: MethodContext, wrapped_type: Instance, field_name: str) -> Type:
+    if not any(attribute["name"] == field_name for attribute in wrapped_type.type.metadata["dataclass"]["attributes"]):
+        context.api.fail(
+            f'Dataclass "{wrapped_type}" has no field "{field_name}" to create a variable/update-exchange field for',
+            context.context,
+            code=errorcodes.ATTR_DEFINED,
+        )
+        return context.default_return_type
+
+    field = wrapped_type.type.get(field_name)
+    if field is None:
+        # probably analysis is not finished yet
+        return context.default_return_type
+    assert isinstance(field.node, Var)
+    if field.node.type is None:
+        # probably analysis is not finished yet
+        return context.default_return_type
+
+    assert isinstance(context.default_return_type, Instance)
+    return Instance(context.default_return_type.type, [expand_type_by_instance(field.node.type, wrapped_type)])
 
 
 def plugin(version: str):

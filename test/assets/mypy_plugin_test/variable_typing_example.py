@@ -1,3 +1,4 @@
+import dataclasses
 from typing import NamedTuple
 
 import shc
@@ -13,8 +14,15 @@ class ExampleTuple(NamedTuple):
     c: ExampleTupleInner
 
 
+@dataclasses.dataclass
+class ExampleDataclass:
+    a: float
+    c: ExampleTupleInner
+
+
 var = shc.Variable(ExampleTuple)
 var2 = shc.Variable(float)
+var3 = shc.Variable(ExampleDataclass)
 
 
 async def some_function() -> None:
@@ -27,3 +35,10 @@ async def some_function() -> None:
     await var.field('x').read()  # attr error expected
     await var.field('c').field('x').read()  # attr error expected
     await var2.field('a').read()  # error expected
+
+    var3_field1: str = await var3.field('a').read()  # type error expected
+    var3_field2: float = await var3.field('a').read()  # ok
+    var3_field4: str = await var3.field('c').field('a').read()  # type error expected
+    var3_field5: float = await var3.field('c').field('a').read()  # ok
+    await var3.field('x').read()  # attr error expected
+    await var3.field('c').field('x').read()  # attr error expected
