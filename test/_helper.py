@@ -283,7 +283,7 @@ class InterfaceThreadRunner(Generic[IT]):
         try:
             self.interface = interface_class(*args, **kwargs)
             self._server_constructed_future.set_result(None)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._server_constructed_future.set_exception(e)
             return
         asyncio.set_event_loop(self.loop)

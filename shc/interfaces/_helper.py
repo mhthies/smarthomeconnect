@@ -277,7 +277,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
                 # Wait for run task to return (due to stopping or error)
                 await run_task
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 exception = e
                 pass
             self._running.clear()
@@ -376,7 +376,7 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
             await self._disconnect()
             try:
                 await run_task
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.debug(
                     "Ignoring Exception %s in run task of interface %s, during shutdown due to "
                     "exception in _subscribe task",
