@@ -984,7 +984,7 @@ class TestAPI(unittest.TestCase):
         # POST with invalid JSON data → HTTP 400 InvalidRequest
         with self.assertRaises(urllib.error.HTTPError) as cm:
             request = urllib.request.Request(
-                "http://localhost:42080/api/v1/object/the_api_object", data="56,".encode(), method="POST"
+                "http://localhost:42080/api/v1/object/the_api_object", data=b"56,", method="POST"
             )
             urllib.request.urlopen(request)
         self.assertEqual(400, cm.exception.code)

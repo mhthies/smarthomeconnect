@@ -110,7 +110,7 @@ class MQTTClientTest(unittest.IsolatedAsyncioTestCase):
             target_str._write.assert_called_once_with("a test with »«", [self, conn_str])
             await asyncio.sleep(0.01)
             self.assertEqual(2, len(MESSAGES))
-            self.assertEqual("a test with »«".encode("utf-8"), MESSAGES[-1].payload)
+            self.assertEqual("a test with »«".encode(), MESSAGES[-1].payload)
             self.assertEqual("test/another/topic", str(MESSAGES[-1].topic))
 
             await self.client_runner.run_coro_async(conn_json.write("text", [self]))
