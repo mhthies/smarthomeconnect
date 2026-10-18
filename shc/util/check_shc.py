@@ -52,7 +52,7 @@ def main() -> None:
     # Parse response
     try:
         data = json.loads(payload.decode(headers.get_content_charset()))
-    except Exception as e:
+    except json.JSONDecodeError as e:
         exit_with_report(ServiceStatus.UNKNOWN, f"HTTP Response from SHC web server was no correctly encoded JSON: {e}")
 
     if "interfaces" not in data or "status" not in data:
