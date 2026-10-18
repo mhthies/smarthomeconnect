@@ -9,7 +9,7 @@ import unittest
 import unittest.mock
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 import aiomqtt
 
@@ -325,6 +325,7 @@ async def tasmota_device_mock(deviceid: str) -> None:
     # state variables:
     channel = [0, 0, 0, 0]
     power = False
+    running_publish_tasks: Set[asyncio.Task] = set()
 
     async with aiomqtt.Client("localhost", 42883, identifier="FakeTasmotaDevice") as c:
         await c.subscribe(f"cmnd/{deviceid}/+")
@@ -346,17 +347,25 @@ async def tasmota_device_mock(deviceid: str) -> None:
                         # Running the publish() call in a separated Task is required to workaround a reoccuring hangup
                         # of the unit tests on Python 3.9, probably caused by a CPython bug, which results in this
                         # Task ignoring to be cancelled: https://github.com/python/cpython/issues/86296
-                        asyncio.create_task(c.publish(f"stat/{deviceid}/STATUS11", json.dumps(status).encode("ascii")))
+                        task = asyncio.create_task(
+                            c.publish(f"stat/{deviceid}/STATUS11", json.dumps(status).encode("ascii"))
+                        )
+                        running_publish_tasks.add(task)
+                        task.add_done_callback(running_publish_tasks.discard)
                     else:
                         pass
                         # not implemented
 
                 elif topic == f"cmnd/{deviceid}/power":
                     power = payload.lower() not in (b"0", "off", "false")
-                    asyncio.create_task(
+                    task = asyncio.create_task(
                         c.publish(f"stat/{deviceid}/RESULT", b'{"POWER":"' + (b"ON" if power else b"OFF") + b'"}')
                     )
-                    asyncio.create_task(c.publish(f"stat/{deviceid}/POWER", b"ON" if power else b"OFF"))
+                    running_publish_tasks.add(task)
+                    task.add_done_callback(running_publish_tasks.discard)
+                    task = asyncio.create_task(c.publish(f"stat/{deviceid}/POWER", b"ON" if power else b"OFF"))
+                    running_publish_tasks.add(task)
+                    task.add_done_callback(running_publish_tasks.discard)
 
                 elif topic == f"cmnd/{deviceid}/color":
                     if payload[0] == ord("#"):
@@ -367,7 +376,7 @@ async def tasmota_device_mock(deviceid: str) -> None:
                         # not implemented
                         continue
                     power = max(channel) != 0
-                    asyncio.create_task(
+                    task = asyncio.create_task(
                         c.publish(
                             f"stat/{deviceid}/RESULT",
                             json.dumps(
@@ -382,6 +391,8 @@ async def tasmota_device_mock(deviceid: str) -> None:
                             ).encode("ascii"),
                         )
                     )
+                    running_publish_tasks.add(task)
+                    task.add_done_callback(running_publish_tasks.discard)
 
         except asyncio.CancelledError:
             try:

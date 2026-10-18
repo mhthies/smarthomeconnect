@@ -50,7 +50,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         self._variable_fields: Dict[str, "VariableField"] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
-        if issubclass(type_, tuple) and type_.__annotations__:
+        if issubclass(type_, tuple) and hasattr(type_, "__annotations__") and type_.__annotations__:
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
                 self._variable_fields[name] = variable_field
@@ -126,7 +126,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self._variable_fields: Dict[str, "VariableField"] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
-        if issubclass(type_, tuple) and type_.__annotations__:
+        if issubclass(type_, tuple) and hasattr(type_, "__annotations__") and type_.__annotations__:
             for name, field_type in type_.__annotations__.items():
                 variable_field = VariableField(self, name, field_type)
                 self._variable_fields[name] = variable_field
@@ -169,7 +169,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
                     self.field_name, self.variable
                 )
             )
-        await self.parent._write(self.parent._value._replace(**{self.field_name: value}), origin + [self])
+        await self.parent._write(self.parent._value._replace(**{self.field_name: value}), [*origin, self])
 
     async def read(self) -> T:
         if self.parent._value is None:

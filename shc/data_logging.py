@@ -16,7 +16,7 @@ import enum
 import json
 import logging
 import math
-from typing import Any, Callable, Generic, List, Optional, Sequence, Tuple, Type, TypeVar, Union, cast
+from typing import Any, Callable, Generic, List, Optional, Sequence, Set, Tuple, Type, TypeVar, Union, cast
 
 import aiohttp.web
 
@@ -105,7 +105,7 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     async def retrieve_aggregated_log(
         self,
         start_time: datetime.datetime,
-        end_time: datetime.datetime,  # noqa: C901
+        end_time: datetime.datetime,
         aggregation_method: AggregationMethod,
         aggregation_interval: datetime.timedelta,
     ) -> List[Tuple[datetime.datetime, float]]:
@@ -328,6 +328,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         #: Mutex to ensure serialization of updates (incl. modification of _last_retrieved_timestamp) to avoid
         #: double-processing of log entries in case of interval-based update operation
         self._mutex: Optional[asyncio.Lock] = None
+        self._running_update_tasks: Set[asyncio.Task] = set()
 
     async def _new_log_values_written(self, values: List[Tuple[datetime.datetime, T]]) -> None:
         """
@@ -337,7 +338,9 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         if self.push:
             await self._process_new_logvalues(values)
         else:
-            asyncio.create_task(self._update())
+            task = asyncio.create_task(self._update())
+            self._running_update_tasks.add(task)
+            task.add_done_callback(self._running_update_tasks.discard)
 
     async def _update(self, *_args) -> None:
         if self._mutex is None:
@@ -402,7 +405,7 @@ class LiveDataLogView(Generic[T], metaclass=abc.ABCMeta):
         now = datetime.datetime.now(datetime.timezone.utc)
         if self.push:
             assert not for_update
-            return now - self.interval, now
+            return now - self.interval, datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
 
         if not for_update and self._last_retrieved_timestamp is not None:
             # We need to make sure that all our clients are have the same latest data, so that the next
@@ -488,7 +491,7 @@ class LoggingWebUIView(LiveDataLogView[T], WebUIConnector, Generic[T]):
 def aggregate(
     data: List[Tuple[datetime.datetime, T]],
     type_: Type[T],
-    start_time: datetime.datetime,  # noqa: C901
+    start_time: datetime.datetime,
     end_time: datetime.datetime,
     aggregation_method: AggregationMethod,
     aggregation_interval: datetime.timedelta,
@@ -652,7 +655,7 @@ class AverageAggregator(AbstractAggregator[Union[float, int], float]):
     respective time intervals.
     """
 
-    __slots__ = ("value_sum", "time_sum")
+    __slots__ = ("time_sum", "value_sum")
     value_sum: float
     time_sum: float
 
@@ -733,7 +736,7 @@ class OnTimeRatioAggregator(AbstractAggregator[Any, float]):
     evaluates to True to the total duration of the aggregation interval.
     """
 
-    __slots__ = ("value", "total_time")
+    __slots__ = ("total_time", "value")
     value: datetime.timedelta
     total_time: datetime.timedelta
 

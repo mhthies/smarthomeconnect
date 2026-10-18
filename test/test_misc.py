@@ -197,7 +197,7 @@ class ConnectedExchangeVariableTest(unittest.IsolatedAsyncioTestCase):
     async def test_simple_concurrent_update(self) -> None:
         var1 = shc.Variable(int)
         var2 = shc.Variable(int)
-        _exchange = shc.misc.UpdateExchange(int).connect(var1).connect(var2)  # noqa: F841
+        _exchange = shc.misc.UpdateExchange(int).connect(var1).connect(var2)
 
         await asyncio.gather(var1.write(42, []), var2.write(56, []))
         await asyncio.sleep(0.1)

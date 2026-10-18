@@ -157,7 +157,7 @@ class SHCWebsocketClientTest(unittest.IsolatedAsyncioTestCase):
 
         client_bar = self.client.object(ExampleType, "bar")
         bar_target = ExampleWritable(ExampleType).connect(client_bar)
-        _client_foo = self.client.object(int, "foo").connect(ExampleReadable(int, 56), read=True)  # noqa: F841
+        _client_foo = self.client.object(int, "foo").connect(ExampleReadable(int, 56), read=True)
         client_status_target = ExampleWritable(shc.supervisor.InterfaceStatus).connect(
             self.client.monitoring_connector()
         )

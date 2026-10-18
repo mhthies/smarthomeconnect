@@ -30,7 +30,7 @@ if libpulse_available:
 @unittest.skipUnless(libpulse_available, "libpulse is not availabe on this system")
 class PulseVolumeTests(unittest.TestCase):
     def test_stereo_volume_conversion(self) -> None:
-        vol = shc.interfaces.pulse.PulseVolumeRaw([1.0, 0.5], [1, 2])
+        vol = shc.interfaces.pulse.PulseVolumeRaw((1.0, 0.5), (1, 2))
         vol_split = shc.interfaces.pulse.PulseVolumeComponents.from_channels(vol)
         self.assertEqual(vol.map, vol_split.map)
         self.assertAlmostEqual(-0.5, vol_split.balance)
@@ -48,7 +48,7 @@ class PulseVolumeTests(unittest.TestCase):
         self.assertAlmostEqual(0.3333, vol3.values[1], places=4)
 
     def test_5_1_volume_conversion(self) -> None:
-        vol = shc.interfaces.pulse.PulseVolumeRaw([0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [1, 2, 5, 6, 3, 7])
+        vol = shc.interfaces.pulse.PulseVolumeRaw((0.1, 0.2, 0.3, 0.4, 0.5, 0.6), (1, 2, 5, 6, 3, 7))
         vol_split = shc.interfaces.pulse.PulseVolumeComponents.from_channels(vol)
         self.assertEqual(vol.map, vol_split.map)
         self.assertAlmostEqual(1 - 0.2 / 0.3, vol_split.balance, places=4)
@@ -132,7 +132,7 @@ class SinkConnectorTests(unittest.IsolatedAsyncioTestCase):
             await self.interface_runner.run_coro_async(volume_connector3.read())
 
         # Write to testsink1's volume
-        value1_new = value1._replace(values=[0.8, 0.7])
+        value1_new = value1._replace(values=(0.8, 0.7))
         await self.interface_runner.run_coro_async(volume_connector1.write(value1_new, [self]))
         await asyncio.sleep(0.05)
         target1._write.assert_called_once()
@@ -269,7 +269,7 @@ class SinkConnectorTests(unittest.IsolatedAsyncioTestCase):
             await self.interface_runner.run_coro_async(volume_connector3.read())
 
         # Write to testsource1's volume
-        value1_new = value1._replace(values=[0.8, 0.7])
+        value1_new = value1._replace(values=(0.8, 0.7))
         await self.interface_runner.run_coro_async(volume_connector1.write(value1_new, [self]))
         await asyncio.sleep(0.05)
         target1._write.assert_called_once()

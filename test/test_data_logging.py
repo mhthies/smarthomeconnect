@@ -327,12 +327,12 @@ class AbstractLoggingTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.2)
         await var1.write(3, [self])  # type: ignore
 
-        view1.result = await var1.retrieve_log(start_ts, start_ts + datetime.timedelta(seconds=0.35))
+        view1.result = await var1.retrieve_log(start_ts, datetime.datetime.now().astimezone())
 
         await asyncio.sleep(0.6)
         await var1.write(4, [self])  # type: ignore
 
-        view2.result = await var1.retrieve_log(start_ts, start_ts + datetime.timedelta(seconds=1.05))
+        view2.result = await var1.retrieve_log(start_ts, datetime.datetime.now().astimezone())
 
         await asyncio.sleep(0.15)
         await var1.write(5, [self])  # type: ignore
@@ -515,7 +515,6 @@ class LiveDataLogViewTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_push(self) -> None:
         log_var = SimpleInMemoryWritableLogVariable(float)
-        log_var.data = time_series_1
         view = ExampleLiveDataLogView(
             log_var, interval=datetime.timedelta(seconds=30), update_interval=datetime.timedelta(seconds=2)
         )
@@ -523,6 +522,7 @@ class LiveDataLogViewTest(unittest.IsolatedAsyncioTestCase):
         async def pusher():
             for t, v in time_series_1:
                 await asyncio.sleep(max(0.0, (t - datetime.datetime.now().astimezone()).total_seconds()))
+                log_var.data.append((t, v))
                 await view._process_new_logvalues([(t, v)])
 
         try:
@@ -541,7 +541,6 @@ class LiveDataLogViewTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_push_two_clients(self) -> None:
         log_var = SimpleInMemoryWritableLogVariable(float)
-        log_var.data = time_series_1
         view = ExampleLiveDataLogView(
             log_var, interval=datetime.timedelta(seconds=30), update_interval=datetime.timedelta(seconds=10)
         )
@@ -549,6 +548,7 @@ class LiveDataLogViewTest(unittest.IsolatedAsyncioTestCase):
         async def pusher():
             for t, v in time_series_1:
                 await asyncio.sleep(max(0.0, (t - datetime.datetime.now().astimezone()).total_seconds()))
+                log_var.data.append((t, v))
                 await view._process_new_logvalues([(t, v)])
 
         try:

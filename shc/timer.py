@@ -17,7 +17,7 @@ import math
 import random
 import time
 import weakref
-from typing import Any, Callable, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Generic, Iterable, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from .base import LogicHandler, Readable, Reading, Subscribable, T, UninitializedError, Writable
 from .datatypes import AbstractStep, FadeStep, HSVFloat1, RangeFloat1, RangeInt0To100, RangeUInt8, RGBUInt8, RGBWUInt8
@@ -639,10 +639,13 @@ class Delay(Subscribable[T], Readable[T], Generic[T]):
         super().__init__()
         self.delay = delay
         self._value: Optional[T] = initial_value
+        self.__update_tasks: Set[asyncio.Task] = set()
         wrapped.trigger(self._update, synchronous=True)
 
     async def _update(self, value: T, origin: List[Any]) -> None:
-        asyncio.create_task(self.__set_delayed(value, origin))
+        task = asyncio.create_task(self.__set_delayed(value, origin))
+        self.__update_tasks.add(task)
+        task.add_done_callback(self.__update_tasks.discard)
 
     async def __set_delayed(self, value: T, origin: List[Any]):
         # Make sure this task is cancelled on shutdown
