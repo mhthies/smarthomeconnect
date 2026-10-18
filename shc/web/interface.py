@@ -778,8 +778,8 @@ class WebServer(AbstractInterface):
 
             self._app.add_routes([aiohttp.web.static(final_url, path)])
 
-        self._css_files.extend((f"{final_url}/{file}" for file in css_files))
-        self._js_files.extend((f"{final_url}/{file}" for file in js_files))
+        self._css_files.extend(f"{final_url}/{file}" for file in css_files)
+        self._js_files.extend(f"{final_url}/{file}" for file in js_files)
 
         return f"{self.root_url}{final_url}/"
 
