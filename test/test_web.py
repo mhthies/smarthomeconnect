@@ -956,14 +956,16 @@ class TestAPI(unittest.TestCase):
         self.server_runner.start()
 
         # POST to non-existing object
-        with unittest.mock.patch.object(api_object, "_publish") as publish_mock:
-            with self.assertRaises(urllib.error.HTTPError) as cm:
-                request = urllib.request.Request(
-                    "http://localhost:42080/api/v1/object/non_existing_object",
-                    data=json.dumps(56).encode(),
-                    method="POST",
-                )
-                urllib.request.urlopen(request)
+        with (
+            unittest.mock.patch.object(api_object, "_publish") as publish_mock,
+            self.assertRaises(urllib.error.HTTPError) as cm,
+        ):
+            request = urllib.request.Request(
+                "http://localhost:42080/api/v1/object/non_existing_object",
+                data=json.dumps(56).encode(),
+                method="POST",
+            )
+            urllib.request.urlopen(request)
         self.assertEqual(404, cm.exception.code)
         publish_mock.assert_not_called()
 
