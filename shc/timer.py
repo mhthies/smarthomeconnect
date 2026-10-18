@@ -248,8 +248,6 @@ class EveryNth(int):
     E.g. ``month=EveryNth(2)`` equals ``month=[1,3,5,7,9,11]``, ``hour=EveryNth(6) equals hour=[0,6,12,18]``
     """
 
-    pass
-
 
 ValSpec = Union[int, Iterable[int], EveryNth, None]
 
@@ -976,7 +974,6 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         :param target: The planned target value of the ramp
         :return: Tuple of (height of the ramp as part of the full range, maximum reasonable number of steps)
         """
-        pass
 
     @abc.abstractmethod
     def _init_ramp(self, begin: T, target: T, num_steps: int) -> None:
@@ -996,7 +993,6 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         :param num_steps: The number of steps. This number is fixed in advanced; all steps will be performed (unless the
             ramp is interrupted)
         """
-        pass
 
     @abc.abstractmethod
     def _next_step(self, step: int) -> T:
@@ -1013,7 +1009,6 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         :param step: Step counter, starting at 1 (!) and running up to (including!) num_steps.
         :return: The calculated value of this step, to be published
         """
-        pass
 
 
 IntRampT = TypeVar("IntRampT", int, RangeUInt8, RangeInt0To100)

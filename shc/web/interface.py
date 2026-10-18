@@ -864,7 +864,6 @@ class WebPageItem(WebConnectorContainer, metaclass=abc.ABCMeta):
         :param page: The WebPage, this WebPageItem is added to.
         :param server: The WebServer, the WebPage (and thus, from now on, this WebPageItem) belongs to.
         """
-        pass
 
     @abc.abstractmethod
     async def render(self) -> str:
@@ -878,7 +877,6 @@ class WebPageItem(WebConnectorContainer, metaclass=abc.ABCMeta):
 
         :return: The HTML code of the specific `WebPageItem`
         """
-        pass
 
 
 class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
@@ -905,7 +903,6 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
         :param value: The JSON-decoded 'value' field from the message from the websocket
         :param ws: The websocket connection, the message has been received from.
         """
-        pass
 
     async def websocket_subscribe(self, ws: aiohttp.web.WebSocketResponse) -> None:
         await self._websocket_before_subscribe(ws)
@@ -918,7 +915,6 @@ class WebUIConnector(WebConnectorContainer, metaclass=abc.ABCMeta):
 
         It can be overridden to send an initial value or other initialization data to the client.
         """
-        pass
 
     async def _websocket_publish(self, value: Any) -> None:
         """

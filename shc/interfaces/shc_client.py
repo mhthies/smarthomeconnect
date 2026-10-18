@@ -383,5 +383,3 @@ class WebSocketAPIError(RuntimeError):
     Exception to be raised by :meth:`WebApiClientObject.read`, :meth:`WebApiClientObject.write` and on startup of the
     :class:`SHCWebClient`, when an SHC websocket API action fails with an non-200 status code.
     """
-
-    pass

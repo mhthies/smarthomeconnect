@@ -190,7 +190,6 @@ class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
         :param origin: The origin / trace of the value update event. Should be passed to :meth:`Subscribable._publish`
             if the implementing class is *Subscribable* and re-publishes new values.
         """
-        pass
 
 
 class Readable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
@@ -201,7 +200,6 @@ class Readable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
         :raises UninitializedError: If the value is not (yet) specified
         """
-        pass
 
 
 class UninitializedError(RuntimeError):

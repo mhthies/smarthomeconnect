@@ -63,7 +63,6 @@ class AbstractInterface(metaclass=abc.ABCMeta):
         functional. In case of an error, this method may raise and exception or call :func:`interface_failure` to
         terminate the SHC application.
         """
-        pass
 
     @abc.abstractmethod
     async def stop(self) -> None:
@@ -78,7 +77,6 @@ class AbstractInterface(metaclass=abc.ABCMeta):
         In any case, the `stop` method shall cause the termination of all pending background task of the interface
         within a few seconds and only return when all tasks have terminated.
         """
-        pass
 
     def monitoring_connector(self) -> Readable["InterfaceStatus"]:
         """

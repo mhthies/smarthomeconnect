@@ -83,7 +83,6 @@ class AbstractDMXConnector(AbstractInterface, metaclass=abc.ABCMeta):
         Concrete implementations of this method should make sure to await the successful transmission of the current
         universe state to the hardware interface. This might include waiting for the flushing of the serial buffer.
         """
-        pass
 
 
 class DMXAddress(Writable[RangeUInt8]):

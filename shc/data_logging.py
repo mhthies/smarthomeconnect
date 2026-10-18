@@ -47,8 +47,6 @@ class DataLogNotSubscribable(RuntimeError):
     subscription.
     """
 
-    pass
-
 
 class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     """
@@ -100,7 +98,6 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         :param end_time: End of the time range (exclusive)
         :param include_previous: If True (the default), the last value *before* `start_time`
         """
-        pass
 
     async def retrieve_aggregated_log(
         self,

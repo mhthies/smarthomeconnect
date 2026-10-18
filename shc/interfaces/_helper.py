@@ -207,7 +207,6 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         await a future. In addition, `_run` should return or raise an exception when a client error occurs, in order to
         trigger a reconnect attempt.
         """
-        pass
 
     @abc.abstractmethod
     async def _connect(self) -> None:
@@ -221,7 +220,6 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
 
         This method is called *before* starting the :meth:`_run` task.
         """
-        pass
 
     @abc.abstractmethod
     async def _disconnect(self) -> None:
@@ -237,7 +235,6 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         Calling this coroutine must somehow stop the run task. I.e. :meth:`_run` should return or raise an exception
         shortly afterwards.
         """
-        pass
 
     @abc.abstractmethod
     async def _subscribe(self) -> None:
@@ -247,7 +244,6 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
         It can be used to subscribe to topics, send initialization messages, etc. It will be called again after a
         reconnect, when an error occurs and `auto_reconnect` is enabled.
         """
-        pass
 
     async def _supervise(self) -> None:
         sleep_interval = self.backoff_base
@@ -279,7 +275,6 @@ class SupervisedClientInterface(SubscribableStatusInterface, metaclass=abc.ABCMe
 
             except Exception as e:  # noqa: BLE001
                 exception = e
-                pass
             self._running.clear()
 
             lets_stop = await self.__handle_exception(exception)
