@@ -98,10 +98,7 @@ class AbstractWebTest(unittest.TestCase):
         if (value := os.getenv("SHC_TEST_REUSE_WEB_DRIVER")) is not None:
             return value.strip().lower() in ["1", "true", "yes", "on"]
 
-        if "WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ:
-            return False
-
-        return True
+        return "WSL_DISTRO_NAME" not in os.environ and "WSL_INTEROP" not in os.environ
 
 
 class SimpleWebTest(AbstractWebTest):
@@ -296,12 +293,14 @@ class MonitoringTest(unittest.IsolatedAsyncioTestCase):
         res = subprocess.run(
             [sys.executable, Path(shc.__file__).parent / "util" / "check_shc.py", "-u", "http://localhost:42080"],
             stdout=subprocess.PIPE,
+            check=False,
         )
         self.assertEqual(1, res.returncode)
 
         res = subprocess.run(
             [sys.executable, Path(shc.__file__).parent / "util" / "check_shc.py", "-u", "http://localhost:42081"],
             stdout=subprocess.PIPE,
+            check=False,
         )
         self.assertEqual(3, res.returncode)
         self.assertIn("Failed to connect to SHC", res.stdout.decode())
@@ -316,6 +315,7 @@ class MonitoringTest(unittest.IsolatedAsyncioTestCase):
                 "Iface 1",
             ],
             stdout=subprocess.PIPE,
+            check=False,
         )
         self.assertEqual(2, res.returncode)
         self.assertIn("Something is wrong", res.stdout.decode())
@@ -330,6 +330,7 @@ class MonitoringTest(unittest.IsolatedAsyncioTestCase):
                 "Iface NotExist",
             ],
             stdout=subprocess.PIPE,
+            check=False,
         )
         self.assertEqual(3, res.returncode)
         self.assertIn("is not present", res.stdout.decode())
@@ -959,14 +960,16 @@ class TestAPI(unittest.TestCase):
         self.server_runner.start()
 
         # POST to non-existing object
-        with unittest.mock.patch.object(api_object, "_publish") as publish_mock:
-            with self.assertRaises(urllib.error.HTTPError) as cm:
-                request = urllib.request.Request(
-                    "http://localhost:42080/api/v1/object/non_existing_object",
-                    data=json.dumps(56).encode(),
-                    method="POST",
-                )
-                urllib.request.urlopen(request)
+        with (
+            unittest.mock.patch.object(api_object, "_publish") as publish_mock,
+            self.assertRaises(urllib.error.HTTPError) as cm,
+        ):
+            request = urllib.request.Request(
+                "http://localhost:42080/api/v1/object/non_existing_object",
+                data=json.dumps(56).encode(),
+                method="POST",
+            )
+            urllib.request.urlopen(request)
         self.assertEqual(404, cm.exception.code)
         publish_mock.assert_not_called()
 
@@ -981,7 +984,7 @@ class TestAPI(unittest.TestCase):
         # POST with invalid JSON data → HTTP 400 InvalidRequest
         with self.assertRaises(urllib.error.HTTPError) as cm:
             request = urllib.request.Request(
-                "http://localhost:42080/api/v1/object/the_api_object", data="56,".encode(), method="POST"
+                "http://localhost:42080/api/v1/object/the_api_object", data=b"56,", method="POST"
             )
             urllib.request.urlopen(request)
         self.assertEqual(400, cm.exception.code)
@@ -1014,7 +1017,7 @@ class WebSocketAPITest(unittest.IsolatedAsyncioTestCase):
                     else:
                         raise AssertionError("Websocket closed by server.")
                 elif msg.type == aiohttp.WSMsgType.ERROR:
-                    raise AssertionError("Websocket error: {}".format(msg.data))
+                    raise AssertionError(f"Websocket error: {msg.data}")
 
         self.client_session = aiohttp.ClientSession()
         self.ws = await self.client_session.ws_connect("http://localhost:42080/api/v1/ws")

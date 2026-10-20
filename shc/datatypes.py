@@ -26,13 +26,13 @@ class RangeFloat1(float):
         # noinspection PyArgumentList
         res = float.__new__(cls, *args, **kwargs)
         if not 0.0 <= res <= 1.0:
-            raise ValueError("{} is out of the allowed range for type {}".format(res, cls.__name__))
+            raise ValueError(f"{res} is out of the allowed range for type {cls.__name__}")
         return res
 
     @overload
     def __mul__(self, other: "RangeFloat1") -> "RangeFloat1": ...
     @overload
-    def __mul__(self, other: Union[int, float]) -> float: ...
+    def __mul__(self, other: float) -> float: ...
 
     def __mul__(self, other):
         if isinstance(other, RangeFloat1):
@@ -43,7 +43,7 @@ class RangeFloat1(float):
     @overload
     def __rmul__(self, other: "RangeFloat1") -> "RangeFloat1": ...
     @overload
-    def __rmul__(self, other: Union[int, float]) -> float: ...
+    def __rmul__(self, other: float) -> float: ...
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -100,8 +100,6 @@ register_converter(bool, RangeInt0To100, lambda v: RangeInt0To100(100 if v else 
 class AngleUInt8(int):
     """An angle, encoded as a 8-bit integer, from 0 (0°) to 255 (360°)."""
 
-    pass
-
 
 class Balance(float):
     """
@@ -113,8 +111,6 @@ class Balance(float):
     - front (surround audio balance)
     - no LFE (surround audio balance)
     """
-
-    pass
 
 
 register_converter(RangeFloat1, Balance, lambda v: Balance(v * 2 - 1))
@@ -132,7 +128,6 @@ class AbstractStep(Generic[T], metaclass=abc.ABCMeta):
         :param value: The old value
         :return: The new value, when this step is applied to the old value
         """
-        pass
 
 
 class FadeStep(float, AbstractStep[RangeFloat1]):
@@ -142,8 +137,6 @@ class FadeStep(float, AbstractStep[RangeFloat1]):
 
     See :class:`shc.misc.FadeStepAdapter` to do this to SHC.
     """
-
-    pass
 
     def apply_to(self, value: RangeFloat1) -> RangeFloat1:
         return RangeFloat1(min(1.0, max(0.0, value + self)))

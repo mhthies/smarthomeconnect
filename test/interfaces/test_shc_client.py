@@ -136,11 +136,11 @@ class SHCWebsocketClientTest(unittest.IsolatedAsyncioTestCase):
         self.server_runner.start()
         self.client_runner.start()
 
-        time.sleep(0.05)
+        time.sleep(0.05)  # noqa: ASYNC251  # This test code is allowed to block the event loop before starting the another_client
         target._write.assert_called_once_with(True, unittest.mock.ANY)
 
         self.client_runner.stop()
-        time.sleep(0.05)
+        time.sleep(0.05)  # noqa: ASYNC251  # This test code is allowed to block the event loop before starting the another_client
         target._write.assert_called_with(False, unittest.mock.ANY)
 
         # Test raising of an error on startup if the object does not exist at the server

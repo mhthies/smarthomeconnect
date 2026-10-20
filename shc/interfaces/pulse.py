@@ -263,10 +263,10 @@ class PulseAudioInterface(SupervisedClientInterface):
         self._pulse_client_name = pulse_client_name
         self._pulse_server_socket = pulse_server_socket
         self.pulse: Optional[PulseAsync] = None
-        self.sink_connectors_by_id: DefaultDict[int, List["SinkConnector"]] = defaultdict(list)
-        self.sink_connectors_by_name: DefaultDict[Optional[str], List["SinkConnector"]] = defaultdict(list)
-        self.source_connectors_by_id: DefaultDict[int, List["SourceConnector"]] = defaultdict(list)
-        self.source_connectors_by_name: DefaultDict[Optional[str], List["SourceConnector"]] = defaultdict(list)
+        self.sink_connectors_by_id: DefaultDict[int, List[SinkConnector]] = defaultdict(list)
+        self.sink_connectors_by_name: DefaultDict[Optional[str], List[SinkConnector]] = defaultdict(list)
+        self.source_connectors_by_id: DefaultDict[int, List[SourceConnector]] = defaultdict(list)
+        self.source_connectors_by_name: DefaultDict[Optional[str], List[SourceConnector]] = defaultdict(list)
 
         self._default_sink_name_connector = DefaultNameConnector(
             self, "default_sink_name", self._register_origin_callback
@@ -306,7 +306,7 @@ class PulseAudioInterface(SupervisedClientInterface):
             if sink_info.name == server_info.default_sink_name:
                 sink_connectors += self.sink_connectors_by_name.get(None, [])
             if sink_connectors:
-                logging.debug(
+                logger.debug(
                     'Pulseaudio sink "%s" is already available. Mapping %s connectors to sink id %s',
                     sink_info.name,
                     len(sink_connectors),
@@ -318,7 +318,7 @@ class PulseAudioInterface(SupervisedClientInterface):
                     self.sink_connectors_by_id[sink_info.index].append(connector)
                     connector.on_change(sink_info, [])
                 except Exception as e:
-                    logging.error(
+                    logger.error(
                         "Error while initializing connector %s with current data of sink", connector, exc_info=e
                     )
         for source_info in await self.pulse.source_list():
@@ -326,7 +326,7 @@ class PulseAudioInterface(SupervisedClientInterface):
             if source_info.name == server_info.default_source_name:
                 source_connectors += self.source_connectors_by_name.get(None, [])
             if source_connectors:
-                logging.debug(
+                logger.debug(
                     'Pulseaudio source "%s" is already available. Mapping %s connectors to source id %s',
                     source_info.name,
                     len(source_connectors),
@@ -338,7 +338,7 @@ class PulseAudioInterface(SupervisedClientInterface):
                     self.source_connectors_by_id[source_info.index].append(source_connector)
                     source_connector.on_change(source_info, [])
                 except Exception as e:
-                    logging.error(
+                    logger.error(
                         "Error while initializing connector %s with current data of source",
                         source_connector,
                         exc_info=e,
@@ -690,7 +690,7 @@ class SinkMuteConnector(SinkAttributeConnector[bool], Writable[bool]):
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
-            raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
+            raise RuntimeError(f"PulseAudio sink id for {self!r} is currently not defined")
         assert self.interface.pulse is not None, (
             "PulseAsync object should have been initialized in interface's start() coroutine"
         )
@@ -708,7 +708,7 @@ class SourceMuteConnector(SourceAttributeConnector[bool], Writable[bool]):
 
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.current_id is None:
-            raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
+            raise RuntimeError(f"PulseAudio source id for {self!r} is currently not defined")
         assert self.interface.pulse is not None, (
             "PulseAsync object should have been initialized in interface's start() coroutine"
         )
@@ -728,7 +728,7 @@ class SinkVolumeConnector(SinkAttributeConnector[PulseVolumeRaw], Writable[Pulse
         from pulsectl import PulseVolumeInfo
 
         if self.current_id is None:
-            raise RuntimeError("PulseAudio sink id for {} is currently not defined".format(repr(self)))
+            raise RuntimeError(f"PulseAudio sink id for {self!r} is currently not defined")
         assert self.interface.pulse is not None, (
             "PulseAsync object should have been initialized in interface's start() coroutine"
         )
@@ -748,7 +748,7 @@ class SourceVolumeConnector(SourceAttributeConnector[PulseVolumeRaw], Writable[P
         from pulsectl import PulseVolumeInfo
 
         if self.current_id is None:
-            raise RuntimeError("PulseAudio source id for {} is currently not defined".format(repr(self)))
+            raise RuntimeError(f"PulseAudio source id for {self!r} is currently not defined")
         assert self.interface.pulse is not None, (
             "PulseAsync object should have been initialized in interface's start() coroutine"
         )

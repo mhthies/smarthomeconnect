@@ -16,22 +16,18 @@ import functools
 import inspect
 import logging
 import random
-from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Self, Set, Tuple, Type, TypeVar, Union
 
 from . import conversion
 
 S = TypeVar("S")
 T = TypeVar("T")
-T_co = TypeVar("T_co")
-T_con = TypeVar("T_con")
 LogicHandler = Callable[[T, List[Any]], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
 magicOriginVar: contextvars.ContextVar[List[Any]] = contextvars.ContextVar("shc_origin")
 MAX_CONCURRENT_UPDATE_DELAY = 0.02
-
-C = TypeVar("C", bound="Connectable")
 
 
 class ResetOriginSentinel:
@@ -47,14 +43,14 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
     type: Type[T]
 
     def connect(
-        self: C,
+        self,
         other: "Connectable[S]",
         send: Optional[bool] = None,
         receive: Optional[bool] = None,
         read: Optional[bool] = None,
         provide: Optional[bool] = None,
         convert: Union[bool, Tuple[Callable[[T], S], Callable[[S], T]]] = False,
-    ) -> C:
+    ) -> Self:
         """
         Subscribe self to other and set as default_provider and vice versa (depending on the two object's capabilities,
         optionalities and given parameters).
@@ -109,9 +105,9 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
         if isinstance(source, Subscribable) and isinstance(target, Writable) and (send or send is None):
             source.subscribe(target, convert=convert)
         elif send and not isinstance(source, Subscribable):
-            raise TypeError("Cannot subscribe {} to {}, since the latter is not Subscribable".format(target, source))
+            raise TypeError(f"Cannot subscribe {target} to {source}, since the latter is not Subscribable")
         elif send and not isinstance(target, Writable):
-            raise TypeError("Cannot subscribe {} to {}, since the former is not Writable".format(target, source))
+            raise TypeError(f"Cannot subscribe {target} to {source}, since the former is not Writable")
         if (
             isinstance(source, Readable)
             and isinstance(target, Reading)
@@ -119,13 +115,9 @@ class Connectable(Generic[T], metaclass=abc.ABCMeta):
         ):
             target.set_provider(source, convert=convert)
         elif provide and not isinstance(source, Readable):
-            raise TypeError(
-                "Cannot use {} as read provider for {}, since the former is not Readable".format(source, target)
-            )
+            raise TypeError(f"Cannot use {source} as read provider for {target}, since the former is not Readable")
         elif provide and not isinstance(target, Reading):
-            raise TypeError(
-                "Cannot use {} as read provider for {}, since the latter is not Reading".format(source, target)
-            )
+            raise TypeError(f"Cannot use {source} as read provider for {target}, since the latter is not Reading")
 
 
 class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
@@ -133,19 +125,19 @@ class ConnectableWrapper(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def connect(
-        self: C,
+        self,
         other: "Connectable",
         send: Optional[bool] = None,
         receive: Optional[bool] = None,
         read: Optional[bool] = None,
         provide: Optional[bool] = None,
         convert: Union[bool, Tuple[Callable[[T], Any], Callable[[Any], T]]] = False,
-    ) -> C:
+    ) -> Self:
         pass
 
 
-class Writable(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
-    async def write(self, value: T_con, origin: Optional[List[Any]] = None) -> None:
+class Writable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
+    async def write(self, value: T, origin: Optional[List[Any]] = None) -> None:
         """
         Asynchronous coroutine to update the object with a new value.
 
@@ -170,12 +162,12 @@ class Writable(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
             except LookupError as e:
                 raise ValueError("No origin attribute provided or set via execution context") from e
         if not isinstance(value, self.type):
-            raise TypeError("Invalid type for {}: {} is not a {}".format(self, value, self.type.__name__))
+            raise TypeError(f"Invalid type for {self}: {value} is not a {self.type.__name__}")
         logger.debug("New value %s for %s via %s", value, self, origin)
         await self._write(value, origin)
 
     @abc.abstractmethod
-    async def _write(self, value: T_con, origin: List[Any]) -> None:
+    async def _write(self, value: T, origin: List[Any]) -> None:
         """
         Abstract internal method containing the actual implementation-specific write-logic.
 
@@ -198,28 +190,26 @@ class Writable(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
         :param origin: The origin / trace of the value update event. Should be passed to :meth:`Subscribable._publish`
             if the implementing class is *Subscribable* and re-publishes new values.
         """
-        pass
 
 
-class Readable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
+class Readable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def read(self) -> T_co:
+    async def read(self) -> T:
         """
         Get the current value of this Connectable object.
 
         :raises UninitializedError: If the value is not (yet) specified
         """
-        pass
 
 
 class UninitializedError(RuntimeError):
     pass
 
 
-SubscriberListType = Tuple[Writable[S], Optional[Callable[[T_co], S]]]
+SubscriberListType = Tuple[Writable[S], Optional[Callable[[T], S]]]
 
 
-class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
+class Subscribable(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     _stateful_publishing: bool = False
 
     def __init__(self, *args, **kwargs):
@@ -233,8 +223,8 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
     async def __publish_write(
         self,
         subscriber: Writable[S],
-        converter: Optional[Callable[[T_co], S]],
-        value: T_co,
+        converter: Optional[Callable[[T], S]],
+        value: T,
         origin: List[Any],
         use_pending: bool,
         wait_and_check: Optional[int] = None,
@@ -254,7 +244,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
     async def __publish_trigger(
         self,
         target: LogicHandler,
-        value: T_co,
+        value: T,
         origin: List[Any],
         use_pending: bool,
         wait_and_check: Optional[int] = None,
@@ -271,7 +261,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             if use_pending:
                 del self._pending_updates[id(target)][asyncio.current_task()]  # type: ignore
 
-    def _publish(self, value: T_co, origin: List[Any]):
+    def _publish(self, value: T, origin: List[Any]):
         """
         Method to publish a new value to all subscribers and trigger all registered logic handlers.
 
@@ -359,7 +349,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
                     self.__running_publish_tasks.add(task)
                     task.add_done_callback(self.__running_publish_tasks.discard)
 
-    async def _publish_and_wait(self, value: T_co, origin: List[Any]):
+    async def _publish_and_wait(self, value: T, origin: List[Any]):
         """
         A coroutine to publish a new value to all subscribers and trigger all registered logic handlers and wait for
         this publishing to finish.
@@ -392,7 +382,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         elif sync_jobs:
             await asyncio.gather(*sync_jobs)
 
-    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T_co], S], bool] = False) -> None:
+    def subscribe(self, subscriber: Writable[S], convert: Union[Callable[[T], S], bool] = False) -> None:
         """
         Subscribe a writable object to this object to be updated, when this object publishes a new value.
 
@@ -408,7 +398,7 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             *or* if ``convert`` is True but no type conversion is known to convert this object's type into the
             subscriber's type.
         """
-        converter: Optional[Callable[[T_co], S]]
+        converter: Optional[Callable[[T], S]]
         if callable(convert):
             converter = convert
         elif issubclass(self.type, subscriber.type):
@@ -417,9 +407,8 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
             converter = conversion.get_converter(self.type, subscriber.type)
         else:
             raise TypeError(
-                "Type mismatch of subscriber {} ({}) for {} ({})".format(
-                    repr(subscriber), subscriber.type.__name__, repr(self), self.type.__name__
-                )
+                f"Type mismatch of subscriber {subscriber!r} ({subscriber.type.__name__}) "
+                f"for {self!r} ({self.type.__name__})"
             )
         self._subscribers.append((subscriber, converter))
         if self._stateful_publishing:
@@ -473,18 +462,18 @@ class Subscribable(Connectable[T_co], Generic[T_co], metaclass=abc.ABCMeta):
         return target
 
 
-DefaultProviderType = Tuple[Readable[S], Optional[Callable[[S], T_con]]]
+DefaultProviderType = Tuple[Readable[S], Optional[Callable[[S], T]]]
 
 
-class Reading(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
+class Reading(Connectable[T], Generic[T], metaclass=abc.ABCMeta):
     is_reading_optional: bool = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._default_provider: Optional[DefaultProviderType] = None
 
-    def set_provider(self, provider: Readable[S], convert: Union[Callable[[S], T_con], bool] = False):
-        converter: Optional[Callable[[S], T_con]]
+    def set_provider(self, provider: Readable[S], convert: Union[Callable[[S], T], bool] = False):
+        converter: Optional[Callable[[S], T]]
         if callable(convert):
             converter = convert
         elif issubclass(provider.type, self.type):
@@ -493,13 +482,12 @@ class Reading(Connectable[T_con], Generic[T_con], metaclass=abc.ABCMeta):
             converter = conversion.get_converter(provider.type, self.type)
         else:
             raise TypeError(
-                "Type mismatch of Readable {} ({}) as provider for {} ({})".format(
-                    repr(provider), provider.type.__name__, repr(self), self.type.__name__
-                )
+                f"Type mismatch of Readable {provider!r} ({provider.type.__name__}) as provider "
+                f"for {self!r} ({self.type.__name__})"
             )
         self._default_provider = (provider, converter)
 
-    async def _from_provider(self) -> Optional[T_con]:
+    async def _from_provider(self) -> Optional[T]:
         """
         Private method to be used by inheriting classes to read the current value from this object's default provider
         (via its :meth:`Readable.read` method) and convert it to this object's type, if necessary, using the registered

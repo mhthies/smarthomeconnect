@@ -83,7 +83,6 @@ class AbstractDMXConnector(AbstractInterface, metaclass=abc.ABCMeta):
         Concrete implementations of this method should make sure to await the successful transmission of the current
         universe state to the hardware interface. This might include waiting for the flushing of the serial buffer.
         """
-        pass
 
 
 class DMXAddress(Writable[RangeUInt8]):
@@ -181,7 +180,7 @@ class EnttecDMXUSBProConnector(AbstractDMXConnector):
         await self._writer.drain()
 
     def __repr__(self) -> str:
-        return "{}(serial_url={})".format(self.__class__.__name__, self.serial_url)
+        return f"{self.__class__.__name__}(serial_url={self.serial_url})"
 
 
 class EntTecMessageLabel(enum.Enum):

@@ -41,9 +41,7 @@ def get_converter(from_type: Type[S], to_type: Type[T]) -> Callable[[S], T]:
     try:
         return _TYPE_CONVERSIONS[(from_type, to_type)]
     except KeyError as e:
-        raise TypeError(
-            "No converter available to convert {} into {}".format(from_type.__name__, to_type.__name__)
-        ) from e
+        raise TypeError(f"No converter available to convert {from_type.__name__} into {to_type.__name__}") from e
 
 
 class SHCJsonEncoder(json.JSONEncoder):
@@ -69,7 +67,7 @@ def from_json(type_: Type[T], value: Any) -> T:
     try:
         return _JSON_CONVERSIONS[type_][1](value)
     except KeyError as e:
-        raise TypeError("No JSON converter available for {}".format(type_.__name__)) from e
+        raise TypeError(f"No JSON converter available for {type_.__name__}") from e
 
 
 register_converter(int, float, lambda v: float(v))

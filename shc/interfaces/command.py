@@ -55,10 +55,9 @@ class Command(Readable[str]):
             )
 
         std_out, _std_err = await command_process.communicate()
-        if self.check:
-            if command_process.returncode != 0:
-                logger.warning("Subprocess %s returned non-zero exit code %s", self.command, command_process.returncode)
-                raise UninitializedError()
+        if self.check and command_process.returncode != 0:
+            logger.warning("Subprocess %s returned non-zero exit code %s", self.command, command_process.returncode)
+            raise UninitializedError()
 
         std_out_str = std_out.decode().strip()
         logger.debug("Command output: %s", std_out)

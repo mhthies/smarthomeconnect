@@ -204,7 +204,7 @@ class SinkConnectorTests(unittest.IsolatedAsyncioTestCase):
 
         # start noise playback
         proc = await asyncio.create_subprocess_exec(
-            "paplay", "-s", self.pulse_url, "--raw", "/dev/urandom", env=dict(PATH=os.environ["PATH"])
+            "paplay", "-s", self.pulse_url, "--raw", "/dev/urandom", env={"PATH": os.environ["PATH"]}
         )
 
         # Check sink state and sink monitor
@@ -336,7 +336,7 @@ class SinkConnectorTests(unittest.IsolatedAsyncioTestCase):
 
         # start noise playback to get some readings on the peak monitoring of the monitor source
         proc = await asyncio.create_subprocess_exec(
-            "paplay", "-s", self.pulse_url, "--raw", "/dev/urandom", env=dict(PATH=os.environ["PATH"])
+            "paplay", "-s", self.pulse_url, "--raw", "/dev/urandom", env={"PATH": os.environ["PATH"]}
         )
         await asyncio.sleep(0.1)
         self.assertGreater(peak_target._write.call_count, 2)
@@ -361,7 +361,7 @@ class SinkConnectorTests(unittest.IsolatedAsyncioTestCase):
 
         # start recording from monitor source (to /dev/null)
         proc = await asyncio.create_subprocess_exec(
-            "paplay", "-s", self.pulse_url, "-r", "/dev/null", env=dict(PATH=os.environ["PATH"])
+            "paplay", "-s", self.pulse_url, "-r", "/dev/null", env={"PATH": os.environ["PATH"]}
         )
 
         # Check source state and source monitor
@@ -428,7 +428,7 @@ class SinkConnectorTests(unittest.IsolatedAsyncioTestCase):
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=dict(LC_MESSAGES="C", PATH=os.environ["PATH"]),
+            env={"LC_MESSAGES": "C", "PATH": os.environ["PATH"]},
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode:
@@ -462,7 +462,7 @@ class SinkConnectorTests(unittest.IsolatedAsyncioTestCase):
 
 def create_dummy_instance() -> Tuple[Path, subprocess.Popen]:
     pulse_dir = tempfile.mkdtemp(prefix="shc-pulse-tests.")
-    env = dict(PATH=os.environ["PATH"], XDG_RUNTIME_DIR=pulse_dir, PULSE_STATE_PATH=pulse_dir)
+    env = {"PATH": os.environ["PATH"], "XDG_RUNTIME_DIR": pulse_dir, "PULSE_STATE_PATH": pulse_dir}
     proc = subprocess.Popen(
         ["pulseaudio", "--daemonize=no", "--fail", "-nF", "/dev/stdin", "--exit-idle-time=-1", "--log-level=error"],
         env=env,
@@ -470,7 +470,7 @@ def create_dummy_instance() -> Tuple[Path, subprocess.Popen]:
     )
     assert proc.stdin is not None
     proc.stdin.write(
-        """
+        b"""
 load-module module-suspend-on-idle
 load-module module-filter-heuristics
 load-module module-filter-apply
@@ -480,7 +480,7 @@ load-module module-null-sink sink_name=testsink1
 load-module module-null-sink sink_name=testsink2 channels=6 channel_map=front-left,front-right,rear-left,rear-right,front-center,lfe
 load-module module-null-source source_name=testsource1
 load-module module-null-source source_name=testsource2
-""".encode()  # noqa: E501
+"""  # noqa: E501
     )
     proc.stdin.close()
     return Path(pulse_dir), proc

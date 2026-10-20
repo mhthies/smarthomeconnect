@@ -151,7 +151,7 @@ class FilePersistenceStore(AbstractInterface):
         assert self._file_ready is not None and self._file_mutex is not None, "FilePersistenceStore is not started"
         await self._file_ready.wait()
         data = json.dumps(value, separators=(",", ":")).encode("utf-8")
-        logger.debug("Writing to file persistence store %s: %s = %s ...", name, data)
+        logger.debug("Writing to file persistence store %s: %s = %s ...", self.file, name, data)
         length = len(data)
         await self._file_ready.wait()
         async with self._file_mutex:

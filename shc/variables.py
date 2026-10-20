@@ -48,7 +48,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
         super().__init__()
         self.name = name
         self._value: Optional[T] = initial_value
-        self._variable_fields: Dict[str, "VariableField"] = {}
+        self._variable_fields: Dict[str, VariableField] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
         if (
@@ -56,9 +56,9 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
             and hasattr(type_, "__annotations__")
             and type_.__annotations__
         ):
-            for name, field_type in type_.__annotations__.items():
-                variable_field = VariableField(self, name, field_type)
-                self._variable_fields[name] = variable_field
+            for field_name, field_type in type_.__annotations__.items():
+                variable_field = VariableField(self, field_name, field_type)
+                self._variable_fields[field_name] = variable_field
 
         _ALL_VARIABLES.append(self)
 
@@ -101,7 +101,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     async def read(self) -> T:
         if self._value is None:
-            raise UninitializedError("Variable {} is not initialized yet.".format(repr(self)))
+            raise UninitializedError(f"Variable {self!r} is not initialized yet.")
         return self._value
 
     async def _init_from_provider(self) -> None:
@@ -116,7 +116,7 @@ class Variable(Writable[T], Readable[T], Subscribable[T], Reading[T], Generic[T]
 
     def __repr__(self) -> str:
         if self.name:
-            return '<{} "{}">'.format(self.__class__.__name__, self.name)
+            return f'<{self.__class__.__name__} "{self.name}">'
         else:
             return super().__repr__()
 
@@ -130,7 +130,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
         self.parent = parent
         self.variable: Variable = parent.variable if hasattr(parent, "variable") else parent  # type: ignore
         self.field_name: str = field_name
-        self._variable_fields: Dict[str, "VariableField"] = {}
+        self._variable_fields: Dict[str, VariableField] = {}
 
         # Create VariableFields for each type-annotated field of the type if it is typing.NamedTuple-based.
         if (
@@ -178,9 +178,7 @@ class VariableField(Writable[T], Readable[T], Subscribable[T], Generic[T]):
     async def _write(self, value: T, origin: List[Any]) -> None:
         if self.parent._value is None:
             raise UninitializedError(
-                "Cannot set field {} within Variable {}, since it is uninitialized".format(
-                    self.field_name, self.variable
-                )
+                f"Cannot set field {self.field_name} within Variable {self.variable}, since it is uninitialized"
             )
         if dataclasses.is_dataclass(self.parent._value):
             new_parent_value = dataclasses.replace(self.parent._value, **{self.field_name: value})  # type: ignore

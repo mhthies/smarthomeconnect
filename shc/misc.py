@@ -101,7 +101,7 @@ class _PipeEnd(Subscribable[T], Writable[T], Generic[T]):
     def __init__(self, type_: Type[T]):
         self.type = type_
         super().__init__()
-        self.other_end: "_PipeEnd" = None  # type: ignore
+        self.other_end: _PipeEnd = None  # type: ignore
 
     async def _write(self, value: T, origin: List[Any]):
         await self.other_end._publish_and_wait(value, origin)
@@ -198,9 +198,8 @@ class Hysteresis(Subscribable[bool], Readable[bool]):
         self._value = initial_value  #: Current output value (uninverted)
         if not isinstance(lower, wrapped.type) or not isinstance(upper, wrapped.type):
             raise TypeError(
-                "'lower' and 'upper' must be instances of the wrapped Subscribable's type, which is {}".format(
-                    wrapped.type.__name__
-                )
+                f"'lower' and 'upper' must be instances of the wrapped Subscribable's type, "
+                f"which is {wrapped.type.__name__}"
             )
         self.lower = lower
         self.upper = upper
@@ -313,7 +312,7 @@ class UpdateExchange(Subscribable[T], Writable[T], Generic[T]):
         self.type = type_
         super().__init__()
 
-        self._fields: Dict[str, "_UpdateExchangeField"] = {}
+        self._fields: Dict[str, _UpdateExchangeField] = {}
 
         # Create UpdateExchangeFields for each type-annotated field of the type if it is typing.NamedTuple-based.
         if (issubclass(type_, tuple) or dataclasses.is_dataclass(type_)) and hasattr(type_, "__annotations__"):
@@ -342,7 +341,7 @@ class _UpdateExchangeField(Subscribable[T], Generic[T]):
         super().__init__()
 
         self.field_name = field_name
-        self._fields: Dict[str, "_UpdateExchangeField"] = {}
+        self._fields: Dict[str, _UpdateExchangeField] = {}
 
         # Create recursive UpdateExchangeFields for each type-annotated field if the sub-type of this field is also
         # typing.NamedTuple-based.

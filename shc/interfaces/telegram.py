@@ -53,7 +53,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         self.bot = aiogram.Bot(token=api_token, session=session)
         self.dp: Optional[aiogram.Dispatcher] = None
 
-        self.connectors: Dict[str, "TelegramConnector"] = {}
+        self.connectors: Dict[str, TelegramConnector] = {}
         self.poll_task: Optional[asyncio.Task] = None
         #: Current state/context of each chat. Either None (init state selected) or
         self.chat_state: Dict[int, TelegramConnector] = {}
@@ -490,7 +490,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
 
         def parse_value(x: str) -> None:
             if x == "do":
-                return None
+                return
             else:
                 raise ValueError("Invalid value. Must be 'do'. Otherwise, use /cancel to cancel triggering.")
 
@@ -532,7 +532,7 @@ class TelegramBot(AbstractInterface, Generic[UserT, RoleT]):
         await asyncio.gather(*(self.bot.send_message(chat_id, text) for chat_id in chat_ids | user_chats))
 
 
-class TelegramConnector(Generic[T, RoleT], Reading[T], Subscribable[T], Writable[T]):
+class TelegramConnector(Reading[T], Subscribable[T], Writable[T], Generic[T, RoleT]):
     is_reading_optional = False
 
     def __init__(

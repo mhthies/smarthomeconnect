@@ -408,7 +408,7 @@ class ButtonGroup(WebPageItem):
         super().__init__()
         self.label = label
         if all(isinstance(item, Iterable) for item in buttons):
-            self.buttons: Iterable["AbstractButton"] = list(itertools.chain(*buttons))
+            self.buttons: Iterable[AbstractButton] = list(itertools.chain(*buttons))
             self.button_groups = cast(Iterable[Iterable["AbstractButton"]], buttons)
         else:
             self.buttons = cast(Iterable["AbstractButton"], buttons)

@@ -15,7 +15,7 @@ import heapq
 import threading
 import time
 import unittest.mock
-from typing import Any, Coroutine, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Any, Coroutine, Generic, List, Optional, Self, Set, Tuple, Type, TypeVar, Union
 
 from shc import base
 
@@ -157,7 +157,7 @@ class ClockMock:
     def today(self) -> datetime.date:
         return self.current_time.date()
 
-    def __enter__(self) -> "ClockMock":
+    def __enter__(self) -> Self:
         import datetime
 
         datetime.date = self.NewDate  # type: ignore
@@ -283,7 +283,7 @@ class InterfaceThreadRunner(Generic[IT]):
         try:
             self.interface = interface_class(*args, **kwargs)
             self._server_constructed_future.set_result(None)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._server_constructed_future.set_exception(e)
             return
         asyncio.set_event_loop(self.loop)

@@ -63,7 +63,6 @@ class AbstractInterface(metaclass=abc.ABCMeta):
         functional. In case of an error, this method may raise and exception or call :func:`interface_failure` to
         terminate the SHC application.
         """
-        pass
 
     @abc.abstractmethod
     async def stop(self) -> None:
@@ -78,7 +77,6 @@ class AbstractInterface(metaclass=abc.ABCMeta):
         In any case, the `stop` method shall cause the termination of all pending background task of the interface
         within a few seconds and only return when all tasks have terminated.
         """
-        pass
 
     def monitoring_connector(self) -> Readable["InterfaceStatus"]:
         """
@@ -172,7 +170,6 @@ def interface_failure_occurred(interface_name: str = "n/a") -> None:
 
     :param interface_name: String identifying the interface which caused the shutdown.
     """
-    global _SUPERVISOR
     if _SUPERVISOR is None:
         logger.error(
             f"Tried to shutdown SHC supervisor due to failure in interface {interface_name}, but SHC supervisor is not "
@@ -189,7 +186,6 @@ async def stop():
     When shutting down due to a critical error in an interface, use interface_failure() instead, which will set the
     program's exit code to 1.
     """
-    global _SUPERVISOR
     if _SUPERVISOR is not None:
         await _SUPERVISOR.stop()
 
@@ -264,7 +260,7 @@ class _Supervisor:
         self._shc_stopped.set()
 
     def _handle_signal(self, sig: int):
-        logger.info("Got signal {}. Initiating shutdown ...".format(sig))
+        logger.info(f"Got signal {sig}. Initiating shutdown ...")
         self._loop.create_task(self.stop())
 
 

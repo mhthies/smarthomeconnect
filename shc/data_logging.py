@@ -47,8 +47,6 @@ class DataLogNotSubscribable(RuntimeError):
     subscription.
     """
 
-    pass
-
 
 class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
     """
@@ -100,7 +98,6 @@ class DataLogVariable(Generic[T], metaclass=abc.ABCMeta):
         :param end_time: End of the time range (exclusive)
         :param include_previous: If True (the default), the last value *before* `start_time`
         """
-        pass
 
     async def retrieve_aggregated_log(
         self,
@@ -194,7 +191,7 @@ class WritableDataLogVariable(DataLogVariable[T], Writable[T], Generic[T], metac
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._data_log_subscribers: List["LiveDataLogView"] = []
+        self._data_log_subscribers: List[LiveDataLogView] = []
         self._pending_values: List[Tuple[datetime.datetime, T]] = []
         self._mutex = asyncio.Lock()
         #: event to track running queue flushes: If the event is present, a concurrent task is waiting to do a
@@ -527,7 +524,7 @@ def aggregate(
             raise TypeError("min/max/avg. aggregation is only applicable to int and float type log variables.")
 
     elif aggregation_method not in (AggregationMethod.ON_TIME, AggregationMethod.ON_TIME_RATIO):
-        raise ValueError("Unsupported aggregation method {}".format(aggregation_method))
+        raise ValueError(f"Unsupported aggregation method {aggregation_method}")
 
     aggregator_t = {
         AggregationMethod.MINIMUM: MinAggregator,
@@ -666,7 +663,7 @@ class AverageAggregator(AbstractAggregator[Union[float, int], float]):
     def get(self) -> float:
         return self.value_sum / self.time_sum
 
-    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[float, int]) -> None:
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: float) -> None:
         delta_seconds = (end - start).total_seconds()
         self.time_sum += delta_seconds
         self.value_sum += value * delta_seconds
@@ -687,7 +684,7 @@ class MinAggregator(AbstractAggregator[Union[float, int], float]):
     def get(self) -> float:
         return self.value
 
-    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[int, float]) -> None:
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: float) -> None:
         self.value = min(self.value, value)
 
 
@@ -706,7 +703,7 @@ class MaxAggregator(AbstractAggregator[Union[float, int], float]):
     def get(self) -> float:
         return self.value
 
-    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: Union[int, float]) -> None:
+    def aggregate(self, start: datetime.datetime, end: datetime.datetime, value: float) -> None:
         self.value = max(self.value, value)
 
 

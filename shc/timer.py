@@ -43,7 +43,7 @@ class _TimerSupervisor:
 
     async def start(self) -> None:
         logger.info("Starting TimerSupervisor with %s timers ...", len(self.supervised_timers))
-        self.timer_tasks = list(map(lambda timer: asyncio.create_task(timer.run()), self.supervised_timers))
+        self.timer_tasks = [asyncio.create_task(timer.run()) for timer in self.supervised_timers]
 
     async def wait(self) -> None:
         await asyncio.gather(*self.timer_tasks, return_exceptions=True)
@@ -94,7 +94,7 @@ def _random_time(maximum_offset: Optional[datetime.timedelta], random_function: 
     elif random_function == "gauss":
         random_value = random.gauss(0, 0.5)
     else:
-        raise ValueError("Unsupported random function '{}'".format(random_function))
+        raise ValueError(f"Unsupported random function '{random_function}'")
     return maximum_offset * random_value
 
 
@@ -248,8 +248,6 @@ class EveryNth(int):
     E.g. ``month=EveryNth(2)`` equals ``month=[1,3,5,7,9,11]``, ``hour=EveryNth(6) equals hour=[0,6,12,18]``
     """
 
-    pass
-
 
 ValSpec = Union[int, Iterable[int], EveryNth, None]
 
@@ -398,11 +396,7 @@ class At(_AbstractScheduleTimer):
                 must_increase = True
 
         if self.week_mode:
-            # Unfortunately, the fromisocalendar() function has only been added in Python 3.8:
-            # val_date = datetime.date.fromisocalendar(val[0], val[1], val[2])
-            val_date = datetime.datetime.strptime("{}-W{}-1".format(val[0], val[1]), "%G-W%V-%u") + datetime.timedelta(
-                days=val[2] - 1
-            )
+            val_date = datetime.date.fromisocalendar(val[0], val[1], val[2])
             result = datetime.datetime(
                 val_date.year, val_date.month, val_date.day, val[3], val[4], val[5], val[6] * 1000
             ).astimezone()
@@ -980,7 +974,6 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         :param target: The planned target value of the ramp
         :return: Tuple of (height of the ramp as part of the full range, maximum reasonable number of steps)
         """
-        pass
 
     @abc.abstractmethod
     def _init_ramp(self, begin: T, target: T, num_steps: int) -> None:
@@ -1000,7 +993,6 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         :param num_steps: The number of steps. This number is fixed in advanced; all steps will be performed (unless the
             ramp is interrupted)
         """
-        pass
 
     @abc.abstractmethod
     def _next_step(self, step: int) -> T:
@@ -1017,7 +1009,6 @@ class AbstractRamp(Readable[T], Subscribable[T], Reading[T], Writable[T], Generi
         :param step: Step counter, starting at 1 (!) and running up to (including!) num_steps.
         :return: The calculated value of this step, to be published
         """
-        pass
 
 
 IntRampT = TypeVar("IntRampT", int, RangeUInt8, RangeInt0To100)

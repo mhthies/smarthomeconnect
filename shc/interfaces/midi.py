@@ -226,9 +226,7 @@ class MidiInterface(AbstractInterface):
         if existing_variable and isinstance(existing_variable, NoteOnOffVariable):
             return existing_variable
         elif existing_variable:
-            raise ValueError(
-                "A variable for MIDI note {} is already existing but with a different variable type.".format(note)
-            )
+            raise ValueError(f"A variable for MIDI note {note} is already existing but with a different variable type.")
         variable = NoteOnOffVariable(self, note, emulate_toggle, off_output_velocity, on_output_velocity)
         self._variable_map[("note_on", note)] = variable
         self._variable_map[("note_off", note)] = variable
@@ -276,21 +274,17 @@ class MidiInterface(AbstractInterface):
         if existing_variable and isinstance(existing_variable, NoteVelocityVariable):
             return existing_variable
         elif existing_variable:
-            raise ValueError(
-                "A variable for MIDI note {} is already existing but with a different variable type.".format(note)
-            )
+            raise ValueError(f"A variable for MIDI note {note} is already existing but with a different variable type.")
         variable = NoteVelocityVariable(self, note=note)
         self._variable_map[("note_on", note)] = variable
         self._variable_map[("note_off", note)] = variable
         return variable
 
     def __repr__(self) -> str:
-        return "{}(input_port_name={}, output_port_name={}, send_channel={}, receive_channel={})".format(
-            self.__class__.__name__,
-            self.input_port_name,
-            self.output_port_name,
-            self.send_channel,
-            self.receive_channel,
+        return (
+            f"{self.__class__.__name__}(input_port_name={self.input_port_name}, "
+            f"output_port_name={self.output_port_name}, send_channel={self.send_channel}, "
+            f"receive_channel={self.receive_channel})"
         )
 
 

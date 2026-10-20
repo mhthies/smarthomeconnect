@@ -89,9 +89,8 @@ class MySQLConnector(ReadableStatusInterface):
             return InterfaceStatus(ServiceStatus.CRITICAL, "Interface not started yet")
         assert isinstance(self.pool, aiomysql.Pool)
         try:
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    await cur.execute("SELECT * from `log` WHERE FALSE")
+            async with self.pool.acquire() as conn, conn.cursor() as cur:
+                await cur.execute("SELECT * from `log` WHERE FALSE")
         except pymysql.err.MySQLError as e:
             return InterfaceStatus(ServiceStatus.CRITICAL, str(e))
         return InterfaceStatus(ServiceStatus.OK, "")
@@ -114,9 +113,7 @@ class MySQLConnector(ReadableStatusInterface):
             variable = self.variables[name]
             if variable.type is not type_:
                 raise ValueError(
-                    "MySQL log variable with name {} has already been defined with type {}".format(
-                        name, variable.type.__name__
-                    )
+                    f"MySQL log variable with name {name} has already been defined with type {variable.type.__name__}"
                 )
             return variable
         else:
@@ -141,9 +138,8 @@ class MySQLConnector(ReadableStatusInterface):
             variable = self.persistence_variables[name]
             if variable.type is not type_:
                 raise ValueError(
-                    "MySQL persistence variable with name {} has already been defined with type {}".format(
-                        name, variable.type.__name__
-                    )
+                    f"MySQL persistence variable with name {name} has already been defined "
+                    f"with type {variable.type.__name__}"
                 )
             return variable
         else:
@@ -175,10 +171,9 @@ class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
     async def read(self) -> T:
         await self.interface.pool_ready.wait()
         assert self.interface.pool is not None
-        async with self.interface.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(self._read_query, {"name": self.name})
-                value = await cur.fetchone()
+        async with self.interface.pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(self._read_query, {"name": self.name})
+            value = await cur.fetchone()
         if value is None:
             raise UninitializedError("No value has been persisted in MySQL database yet")
         logger.debug("Retrieved value %s for %s from %s", value, self, self.interface)
@@ -219,7 +214,7 @@ class MySQLPersistenceVariable(Writable[T], Readable[T], Generic[T]):
         return lambda value: from_json(type_, json.loads(value))
 
     def __repr__(self):
-        return "<{} '{}'>".format(self.__class__.__name__, self.name)
+        return f"<{self.__class__.__name__} '{self.name}'>"
 
 
 class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
@@ -241,10 +236,9 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
     async def read(self) -> T:
         await self.interface.pool_ready.wait()
         assert self.interface.pool is not None
-        async with self.interface.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(self._read_query, {"name": self.name})
-                value = await cur.fetchone()
+        async with self.interface.pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(self._read_query, {"name": self.name})
+            value = await cur.fetchone()
         if value is None:
             raise UninitializedError("No value has been persisted in MySQL database yet")
         logger.debug("Retrieved value %s for %s from %s", value, self, self.interface)
@@ -273,31 +267,30 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
     ) -> List[Tuple[datetime.datetime, T]]:
         await self.interface.pool_ready.wait()
         assert self.interface.pool is not None
-        async with self.interface.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                if include_previous:
-                    await cur.execute(
-                        self._retrieve_with_prev_query,
-                        {
-                            "name": self.name,
-                            "start": start_time.astimezone(datetime.timezone.utc),
-                            "end": end_time.astimezone(datetime.timezone.utc),
-                        },
-                    )
-                else:
-                    await cur.execute(
-                        self._retrieve_query,
-                        {
-                            "name": self.name,
-                            "start": start_time.astimezone(datetime.timezone.utc),
-                            "end": end_time.astimezone(datetime.timezone.utc),
-                        },
-                    )
+        async with self.interface.pool.acquire() as conn, conn.cursor() as cur:
+            if include_previous:
+                await cur.execute(
+                    self._retrieve_with_prev_query,
+                    {
+                        "name": self.name,
+                        "start": start_time.astimezone(datetime.timezone.utc),
+                        "end": end_time.astimezone(datetime.timezone.utc),
+                    },
+                )
+            else:
+                await cur.execute(
+                    self._retrieve_query,
+                    {
+                        "name": self.name,
+                        "start": start_time.astimezone(datetime.timezone.utc),
+                        "end": end_time.astimezone(datetime.timezone.utc),
+                    },
+                )
 
-                return [
-                    (row[0].replace(tzinfo=datetime.timezone.utc), self._from_mysql_converter(row[1]))
-                    for row in await cur.fetchall()
-                ]
+            return [
+                (row[0].replace(tzinfo=datetime.timezone.utc), self._from_mysql_converter(row[1]))
+                for row in await cur.fetchall()
+            ]
 
     def _get_insert_query(self) -> str:
         return (
@@ -382,4 +375,4 @@ class MySQLLogVariable(WritableDataLogVariable[T], Readable[T], Generic[T]):
             return lambda value: from_json(type_, json.loads(value))
 
     def __repr__(self):
-        return "<{} '{}'>".format(self.__class__.__name__, self.name)
+        return f"<{self.__class__.__name__} '{self.name}'>"

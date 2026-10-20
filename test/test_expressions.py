@@ -170,7 +170,7 @@ class TestExpressions(unittest.IsolatedAsyncioTestCase):
 
         @expressions.expression
         def test_2(a, b) -> str:
-            ret = "xx-{}".format(a)
+            ret = f"xx-{a}"
             if b:
                 ret += " (foo)"
             return ret
