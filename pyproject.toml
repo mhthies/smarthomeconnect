@@ -79,7 +79,7 @@ target-version = "py39"
 
 [tool.ruff.lint]
 # Enable checks for Pycodestyle, Pyflakes, Bugbear, Docstrings and Import sorting
-select = ["E", "F", "B", "D", "I", "RUF"]
+select = ["E", "F", "B", "D", "I", "RUF", "ASYNC", "C4", "BLE", "PIE", "PYI"]
 ignore = [
     "B024",  # abstract base class, but it has no abstract methods or properties
     "B027",  # empty method in an abstract base class, but has no abstract decorator
